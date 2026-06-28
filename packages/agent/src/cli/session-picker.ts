@@ -4,7 +4,7 @@
  */
 
 import type { SelectItem } from "@dpopsuev/alef-tui";
-import type { SessionPreviewProvider } from "../session-lifecycle/index.js";
+import type { SessionPreviewProvider } from "../session/index.js";
 import { runPicker } from "./run-picker.js";
 
 export async function pickSession(

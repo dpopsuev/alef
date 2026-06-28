@@ -35,8 +35,8 @@ import { handleSelfUpdate, runPmCommand } from "./pm/run-pm-command.js";
 import { createAgentServiceDescriptor } from "./services/agent-service.js";
 import { createSessionServiceDescriptor, type SessionService } from "./services/session-service.js";
 import { createTuiServiceDescriptor } from "./services/tui-service.js";
-import type { SessionHandle } from "./session-lifecycle/index.js";
-import { loadSession } from "./session-lifecycle/index.js";
+import type { SessionHandle } from "./session/index.js";
+import { loadSession } from "./session/index.js";
 
 // ---------------------------------------------------------------------------
 // Phase 1: Pure setup
@@ -158,7 +158,7 @@ if (args.attach !== undefined) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);
 	}
-	const { RemoteSession } = await import("./strategies/remote-session.js");
+	const { RemoteSession } = await import("./session/remote-session.js");
 	const { runAgent } = await import("./modes/run-agent.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();

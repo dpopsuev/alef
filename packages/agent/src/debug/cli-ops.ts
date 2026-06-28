@@ -3,7 +3,7 @@ import { createDefaultDirectives, loadWorkspace } from "@dpopsuev/alef-agent/pro
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Args } from "../boot/args.js";
 import { getConfig } from "../boot/config.js";
-import type { SessionHandle } from "../session-lifecycle/index.js";
+import type { SessionHandle } from "../session/index.js";
 
 interface CliOp {
 	name: string;

@@ -24,7 +24,7 @@ import { buildLlmAdapter } from "../assembly/build-llm-adapter.js";
 import type { Args } from "../boot/args.js";
 import type { AlefConfig } from "../boot/config.js";
 import { makeSink } from "../modes/sink.js";
-import { SessionHandle } from "../session-lifecycle/index.js";
+import { SessionHandle } from "../session/index.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
 

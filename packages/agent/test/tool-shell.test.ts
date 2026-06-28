@@ -235,8 +235,12 @@ describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 50));
 		const after = shell.currentMetaTools();
 
-		expect(after.find((t) => t.name === "fs.read")?.inputSchema).toBe(before.find((t) => t.name === "fs.read")?.inputSchema);
-		expect(after.find((t) => t.name === "shell.exec")?.inputSchema).toBe(before.find((t) => t.name === "shell.exec")?.inputSchema);
+		expect(after.find((t) => t.name === "fs.read")?.inputSchema).toBe(
+			before.find((t) => t.name === "fs.read")?.inputSchema,
+		);
+		expect(after.find((t) => t.name === "shell.exec")?.inputSchema).toBe(
+			before.find((t) => t.name === "shell.exec")?.inputSchema,
+		);
 	});
 
 	it("applyPhase does not inject catalog", () => {

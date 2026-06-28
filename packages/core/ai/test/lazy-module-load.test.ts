@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 const tsxLoader = require.resolve("tsx/esm");
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const aiEntryUrl = new URL("../src/index.ts", import.meta.url).href;
+const aiStreamUrl = new URL("../src/stream.ts", import.meta.url).href;
+const aiRegisterUrl = new URL("../src/providers/register-llm.ts", import.meta.url).href;
+const aiModelsUrl = new URL("../src/models/llm.ts", import.meta.url).href;
 
 const SDK_SPECIFIERS = [
 	"@anthropic-ai/sdk",
@@ -37,7 +39,10 @@ function runProbe(action: string): ProbeResult {
 			},
 		});
 
-		const mod = await import(${JSON.stringify(aiEntryUrl)});
+		const stream = await import(${JSON.stringify(aiStreamUrl)});
+		const reg = await import(${JSON.stringify(aiRegisterUrl)});
+		const models = await import(${JSON.stringify(aiModelsUrl)});
+		const mod = { ...stream, ...reg, ...models };
 		${action}
 		console.log(JSON.stringify({ loadedSpecifiers: [...new Set(loaded)] }));
 	`;

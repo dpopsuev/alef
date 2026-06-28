@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import "../src/providers/register-images.js";
 import { generateImages } from "../src/images.js";
 import type { ImagesContext, ImagesModel } from "../src/types.js";
 

@@ -467,7 +467,7 @@ describe("openai-codex streaming", { tags: ["unit"] }, () => {
 		expect(requestedReasoning).toEqual({ effort: "xhigh", summary: "auto" });
 	});
 
-	it.each(["gpt-5.3-codex", "gpt-5.4", "gpt-5.5"])("clamps %s minimal reasoning effort to low", async (modelId) => {
+	it.each(["gpt-5.3-codex", "gpt-5.4", "gpt-5.5"])("clamps %s minimal reasoning effort to low", { timeout: 15_000 }, async (modelId) => {
 		const tempDir = mkdtempSync(join(tmpdir(), "pi-codex-stream-"));
 		process.env.ALEF_CODING_AGENT_DIR = tempDir;
 

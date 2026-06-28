@@ -1,9 +1,9 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { createRouterAdapter, HTTP, type RouterAdapter } from "@dpopsuev/alef-engine/http";
+import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { Args } from "./args.js";
 import { metricsHandler, setupMetrics } from "./metrics.js";
-import type { AgentEvent, Session } from "./session.js";
 
 export interface HttpSurface {
 	port: number;

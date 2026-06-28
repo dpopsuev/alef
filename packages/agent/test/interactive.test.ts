@@ -1,6 +1,6 @@
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { runInteractive } from "../src/interactive.js";
-import type { Session } from "../src/session.js";
 import { readStdinLines } from "../src/stdin.js";
 
 vi.mock("../src/stdin.js", () => ({

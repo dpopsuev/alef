@@ -1,6 +1,8 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { RouterAdapter } from "@dpopsuev/alef-engine/http";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Logger } from "pino";
@@ -8,8 +10,6 @@ import type { Args } from "./args.js";
 import type { AdapterLoadResult } from "./cli/load-adapters.js";
 import { buildIdentityContext, createLocalSession } from "./cli/local-session.js";
 import type { AlefConfig } from "./config.js";
-import type { Session } from "./session.js";
-import type { SessionStore } from "./session-store.js";
 
 export interface SessionServiceOptions {
 	args: Args;

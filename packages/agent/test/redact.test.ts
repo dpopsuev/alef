@@ -1,5 +1,5 @@
+import { DEFAULT_SENSITIVE_KEYS, REDACTED, redactPayload } from "@dpopsuev/alef-session/redact";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SENSITIVE_KEYS, REDACTED, redactPayload } from "../src/redact.js";
 
 describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => {
 	it("redacts exact sensitive key names", () => {
@@ -68,7 +68,7 @@ describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => 
 
 describe("hashRecord", { tags: ["unit"] }, () => {
 	it("produces a 64-char hex string", async () => {
-		const { hashRecord } = await import("../src/session-store.js");
+		const { hashRecord } = await import("@dpopsuev/alef-session/storage");
 		const hash = hashRecord({
 			bus: "command",
 			type: "fs.read",
@@ -80,7 +80,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	});
 
 	it("same record produces same hash", async () => {
-		const { hashRecord } = await import("../src/session-store.js");
+		const { hashRecord } = await import("@dpopsuev/alef-session/storage");
 		const base = {
 			bus: "command" as const,
 			type: "fs.read",
@@ -92,7 +92,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	});
 
 	it("different payloads produce different hashes", async () => {
-		const { hashRecord } = await import("../src/session-store.js");
+		const { hashRecord } = await import("@dpopsuev/alef-session/storage");
 		const h1 = hashRecord({
 			bus: "command",
 			type: "fs.read",
@@ -111,7 +111,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	});
 
 	it("modifying type changes the hash (tamper detection)", async () => {
-		const { hashRecord } = await import("../src/session-store.js");
+		const { hashRecord } = await import("@dpopsuev/alef-session/storage");
 		const h1 = hashRecord({ bus: "command", type: "fs.read", correlationId: "c-1", payload: {}, timestamp: 0 });
 		const h2 = hashRecord({ bus: "command", type: "fs.WRITE", correlationId: "c-1", payload: {}, timestamp: 0 });
 		expect(h1).not.toBe(h2);
@@ -125,7 +125,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { tmpdir } = await import("node:os");
 		const { InProcessBus } = await import("../../core/kernel/src/bus/in-process-bus.js");
 		const { SessionLog } = await import("../src/event-log-adapter.js");
-		const { JsonlSessionStore } = await import("../src/session-store.js");
+		const { JsonlSessionStore } = await import("@dpopsuev/alef-session/store");
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));
 		try {

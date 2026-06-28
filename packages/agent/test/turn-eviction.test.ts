@@ -22,9 +22,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "@dpopsuev/alef-session/context";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { afterEach, describe, expect, it } from "vitest";
-import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // Constants

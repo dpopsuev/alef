@@ -15,10 +15,10 @@
  *   JsonViewMode      — JSONL event stream on stdout
  */
 
+import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Args } from "./args.js";
 import type { InteractiveOptions } from "./interactive.js";
-import type { AgentEvent, Session } from "./session.js";
 
 // ---------------------------------------------------------------------------
 // Core interface

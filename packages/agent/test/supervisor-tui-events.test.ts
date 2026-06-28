@@ -19,10 +19,10 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import "@dpopsuev/alef-coding-agent";
 
+import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/args.js";
-import type { AgentEvent } from "../src/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "../src/session-service.js";
-import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });

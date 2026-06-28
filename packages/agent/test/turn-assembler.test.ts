@@ -1,6 +1,6 @@
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "@dpopsuev/alef-session/context";
+import type { Turn } from "@dpopsuev/alef-session/storage";
 import { describe, expect, it } from "vitest";
-import type { Turn } from "../src/session-store.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers

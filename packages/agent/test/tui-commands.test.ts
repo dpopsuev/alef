@@ -11,6 +11,7 @@
  */
 
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-reasoner/tool-events";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, ToolCallRow } from "@dpopsuev/alef-tui/views";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +19,6 @@ import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import { getTheme } from "../src/cli/runner-theme.js";
 import type { TuiHandlerContext } from "../src/cli/tui-mode.js";
 import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/cli/tui-mode.js";
-import type { Session } from "../src/session.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory

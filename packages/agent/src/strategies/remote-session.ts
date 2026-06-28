@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { AgentEvent, Session, SessionState } from "../session.js";
+import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 
 export interface DaemonEntry {
 	port: number;

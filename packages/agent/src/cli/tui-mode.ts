@@ -1,10 +1,10 @@
 import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../interactive.js";
-import type { Session } from "../session.js";
 import { checkForUpdate } from "../version-check.js";
 import { getUiSignalHandlers, isCompacted } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";

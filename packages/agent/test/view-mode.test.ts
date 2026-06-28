@@ -13,9 +13,9 @@ import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
+import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { AgentEvent, Session } from "../src/session.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 // ---------------------------------------------------------------------------

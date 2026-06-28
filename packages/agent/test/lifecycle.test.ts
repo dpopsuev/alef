@@ -24,12 +24,12 @@ import { join } from "node:path";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
+import { assembleTurns } from "@dpopsuev/alef-session/context";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-adapter.js";
-import { JsonlSessionStore } from "../src/session-store.js";
-import { assembleTurns } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

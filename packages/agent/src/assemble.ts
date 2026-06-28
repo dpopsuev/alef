@@ -3,7 +3,7 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
-import type { AgentEvent, TokensConsumed } from "./session.js";
+import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
 export type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
 

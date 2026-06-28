@@ -7,8 +7,8 @@
  *   alef debug session --list       — list sessions for current cwd
  */
 
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
-import type { StorageRecord } from "./session-store.js";
 
 export async function runDebugSession(args: string[], cwd: string, sessions: SessionStoreFactory): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {

@@ -8,13 +8,13 @@
  * These tests FAIL before the fix and PASS after.
  */
 
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { ChatLog } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it, vi } from "vitest";
 import { getTheme } from "../src/cli/runner-theme.js";
 import type { TuiHandlerContext } from "../src/cli/tui-mode.js";
 import { handleCtrlC } from "../src/cli/tui-mode.js";
-import type { Session } from "../src/session.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

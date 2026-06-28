@@ -19,10 +19,10 @@ import { join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+import { redactPayload } from "@dpopsuev/alef-session/redact";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import { type BusKind, hashRecord, type StorageActor } from "@dpopsuev/alef-session/storage";
 import type { ActorIdentity } from "./identity/actor.js";
-import { redactPayload } from "./redact.js";
-import { type BusKind, hashRecord, type StorageActor } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;

@@ -24,7 +24,7 @@ import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve as pathResolve } from "node:path";
 import { afterEach, describe, expect, it, onTestFailed } from "vitest";
-import type { StorageRecord } from "../../../agent/src/session-store.js";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import {
 	assertFileReadWorkflow,
 	assertHashesPresent,

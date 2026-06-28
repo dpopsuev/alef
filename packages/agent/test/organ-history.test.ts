@@ -11,9 +11,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { JsonlSessionStore } from "../src/session-store.js";
 
 describe("JsonlSessionStore.adapterHistory(name)", { tags: ["unit"] }, () => {
 	let cwd: string;

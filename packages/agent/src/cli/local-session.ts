@@ -7,6 +7,8 @@ import { buildBootCatalog } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
@@ -20,9 +22,7 @@ import { type ActorIdentity, configureSessionActors } from "../identity/actor.js
 import { ActorRouteTable } from "../identity/routes.js";
 import { buildModel } from "../model/index.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../prompt.js";
-import type { AgentEvent, Session, SessionState } from "../session.js";
 import { SessionHandle } from "../session-lifecycle/index.js";
-import type { SessionStore } from "../session-store.js";
 import { makeSink } from "../sink.js";
 import { buildSubagentFactory } from "../subagent-factory.js";
 import type { AdapterLoadResult } from "./load-adapters.js";

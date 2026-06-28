@@ -1,9 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { buildSessionIndex } from "@dpopsuev/alef-session/tracing";
 import { afterEach, describe, expect, it } from "vitest";
-import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {
@@ -331,7 +332,7 @@ describe("JsonlSessionStore — in-memory cache", { tags: ["unit"] }, () => {
 	});
 
 	it("turnsToMessages finds llm.checkpoint conversationHistory from aborted turn", async () => {
-		const { turnsToMessages } = await import("../src/turn-assembler.js");
+		const { turnsToMessages } = await import("@dpopsuev/alef-session/context");
 		const store = await JsonlSessionStore.create(tmpCwd());
 
 		await store.append(motorRecord("fs.write", "c-1", { path: "CODEBASE.md" }));

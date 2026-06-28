@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMetaAgent } from "../../../agent/src/meta-agent.js";
-import { JsonlSessionStore } from "../../../agent/src/session-store.js";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 
 const SKIP =
 	(!process.env.ANTHROPIC_VERTEX_PROJECT_ID && !process.env.GOOGLE_CLOUD_PROJECT) || !process.env.ALEF_META_TESTS;

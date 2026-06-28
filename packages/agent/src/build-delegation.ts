@@ -2,15 +2,21 @@ import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
-import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
+import { createRouterAdapter, HTTP, type RouterAdapter } from "@dpopsuev/alef-engine/http";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import type { Args } from "./args.js";
+import { metricsHandler, setupMetrics } from "./metrics.js";
 import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
+
+export interface HttpSurface {
+	port: number;
+	router: RouterAdapter;
+}
 
 const MAX_HISTORY_EVENTS = 500;
 
@@ -20,12 +26,13 @@ async function createRouter(
 	session: Session,
 	args: Args,
 	agent: Agent,
-): Promise<number> {
+): Promise<HttpSurface> {
 	const allowedEvents = blueprintSurfaces.flatMap((surface) => surface.events ?? []);
 	const history: Record<string, unknown>[] = [];
 
 	const router = createRouterAdapter({
 		port: servePort,
+		host: args.host,
 		allowedEvents,
 		triggerEvent: "llm.input",
 		onMessage: (text) => session.receive?.(text),
@@ -65,7 +72,15 @@ async function createRouter(
 		getHistory: () => history,
 	});
 
+	router.addRoute("GET", "/metrics", (_req, res) => {
+		metricsHandler()
+			.then((body) => router.sendText(res, HTTP.OK, body, "text/plain; version=0.0.4; charset=utf-8"))
+			.catch((err: unknown) => router.sendJson(res, HTTP.INTERNAL, { error: String(err) }));
+	});
+
 	agent.load(router);
+	setupMetrics(agent.asBus());
+
 	await router.ready();
 	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
 	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
@@ -78,7 +93,7 @@ async function createRouter(
 		});
 	}
 
-	return addr.port;
+	return { port: addr.port, router };
 }
 
 export async function setupHttpSurface(
@@ -86,7 +101,7 @@ export async function setupHttpSurface(
 	agent: Agent,
 	session: Session,
 	blueprintSurfaces: AgentDefinitionSurfaceInput[],
-): Promise<number | undefined> {
+): Promise<HttpSurface | undefined> {
 	const servePort = args.daemon ? 0 : args.serve;
 	if (servePort === undefined) return undefined;
 

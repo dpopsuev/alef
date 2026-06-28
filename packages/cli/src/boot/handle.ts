@@ -18,7 +18,7 @@ import type { Agent } from "@dpopsuev/alef-engine/agent";
 import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import type { Logger } from "pino";
-import type { Args } from "../boot/args.js";
+import type { Args } from "./args.js";
 
 export interface SessionHandleComponents {
 	state: SessionState;

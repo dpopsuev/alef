@@ -22,9 +22,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
+import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
-import { createAgentServiceDescriptor } from "../src/session/agent-service.js";
-import { createSessionServiceDescriptor, type SessionService } from "../src/session/session-service.js";
+import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

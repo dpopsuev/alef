@@ -23,7 +23,7 @@ import type { Args } from "../boot/args.js";
 import { type HttpSurface, setupHttpSurface } from "../boot/build-delegation.js";
 import { buildLlmAdapter } from "../boot/build-llm-adapter.js";
 import type { AlefConfig } from "../boot/config.js";
-import { SessionHandle } from "../session/index.js";
+import { SessionHandle } from "../boot/session.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
 import { makeSink } from "./sink.js";

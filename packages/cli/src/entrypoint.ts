@@ -18,12 +18,17 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import updateNotifier from "update-notifier";
+import { createAgentServiceDescriptor } from "./boot/agent-service.js";
 import { parseArgs } from "./boot/args.js";
 import { BUILD_INFO } from "./boot/build-info.js";
 import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
 import { initYamlBlueprints } from "./boot/init-yaml-blueprints.js";
 import { createRunnerLogger } from "./boot/logger.js";
 import { setupOTel } from "./boot/otel.js";
+import type { SessionHandle } from "./boot/session.js";
+import { loadSession } from "./boot/session.js";
+import { createSessionServiceDescriptor, type SessionService } from "./boot/session-service.js";
+import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { loadAdapters } from "./client/load-adapters.js";
 import { pickSession } from "./client/session-picker.js";
@@ -32,11 +37,6 @@ import { loadTheme } from "./client/theme-loader.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";
 import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
-import { createAgentServiceDescriptor } from "./session/agent-service.js";
-import type { SessionHandle } from "./session/index.js";
-import { loadSession } from "./session/index.js";
-import { createSessionServiceDescriptor, type SessionService } from "./session/session-service.js";
-import { createTuiServiceDescriptor } from "./session/tui-service.js";
 
 // ---------------------------------------------------------------------------
 // Phase 1: Pure setup
@@ -158,7 +158,7 @@ if (args.attach !== undefined) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);
 	}
-	const { RemoteSession } = await import("./session/remote-session.js");
+	const { RemoteSession } = await import("./client/remote.js");
 	const { runAgent } = await import("./client/run-agent.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();

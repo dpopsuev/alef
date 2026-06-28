@@ -3,14 +3,18 @@ import type { AgentEvent, Session, SessionState } from "../session.js";
 
 export interface DaemonEntry {
 	port: number;
+	host: string;
 	pid: number;
 	sessionId: string;
 	cwd: string;
 	startedAt: number;
+	token?: string;
 }
 
 export class RemoteSession implements Session {
+	private readonly host: string;
 	private readonly port: number;
+	private readonly token: string | undefined;
 	private readonly _sessionId: string;
 	private readonly observers = new Set<(event: AgentEvent) => void>();
 	private sseReq: http.ClientRequest | null = null;
@@ -25,7 +29,9 @@ export class RemoteSession implements Session {
 
 	constructor(entry: DaemonEntry) {
 		this._sessionId = entry.sessionId;
+		this.host = entry.host;
 		this.port = entry.port;
+		this.token = entry.token;
 		this._stateReady = this.fetchState();
 		this._historyReady = this.fetchHistory();
 		this.connectSse();
@@ -81,7 +87,7 @@ export class RemoteSession implements Session {
 	private connectSse(): void {
 		if (this.disposed) return;
 		let buf = "";
-		this.sseReq = http.get(`http://127.0.0.1:${this.port}/events`, (res) => {
+		this.sseReq = http.get(`http://${this.host}:${this.port}/events`, (res) => {
 			res.on("data", (chunk: Buffer) => {
 				buf += chunk.toString();
 				const frames = buf.split("\n\n");
@@ -196,16 +202,12 @@ export class RemoteSession implements Session {
 
 	private postJson(path: string, body: Record<string, unknown>): void {
 		const json = JSON.stringify(body);
-		const req = http.request(
-			{
-				hostname: "127.0.0.1",
-				port: this.port,
-				path,
-				method: "POST",
-				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json) },
-			},
-			() => {},
-		);
+		const headers: Record<string, string | number> = {
+			"Content-Type": "application/json",
+			"Content-Length": Buffer.byteLength(json),
+		};
+		if (this.token) headers.Authorization = `Bearer ${this.token}`;
+		const req = http.request({ hostname: this.host, port: this.port, path, method: "POST", headers }, () => {});
 		req.on("error", () => {});
 		req.write(json);
 		req.end();
@@ -214,7 +216,7 @@ export class RemoteSession implements Session {
 	private getJson(path: string): Promise<Record<string, unknown>> {
 		return new Promise((resolve, reject) => {
 			http
-				.get(`http://127.0.0.1:${this.port}${path}`, (res) => {
+				.get(`http://${this.host}:${this.port}${path}`, (res) => {
 					let body = "";
 					res.on("data", (chunk: Buffer) => {
 						body += chunk.toString();

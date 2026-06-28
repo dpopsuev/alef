@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -26,7 +26,8 @@ const DDL_STATEMENTS = [
 		provider TEXT PRIMARY KEY, type TEXT NOT NULL DEFAULT 'api_key', key TEXT NOT NULL)`,
 	`CREATE TABLE IF NOT EXISTS daemon (
 		session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
-		cwd TEXT, started_at INTEGER)`,
+		cwd TEXT, started_at INTEGER, host TEXT DEFAULT '127.0.0.1',
+		last_heartbeat INTEGER, token TEXT)`,
 	`CREATE TABLE IF NOT EXISTS session_summaries (
 		session_id TEXT PRIMARY KEY REFERENCES sessions(id), model TEXT NOT NULL,
 		started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL,
@@ -67,6 +68,11 @@ const MIGRATIONS: Record<number, string[]> = {
 		`CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_spans_parent ON spans(parent_span_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_spans_session ON spans(session_id)`,
+	],
+	6: [
+		`ALTER TABLE daemon ADD COLUMN host TEXT DEFAULT '127.0.0.1'`,
+		`ALTER TABLE daemon ADD COLUMN last_heartbeat INTEGER`,
+		`ALTER TABLE daemon ADD COLUMN token TEXT`,
 	],
 };
 

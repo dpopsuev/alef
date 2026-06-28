@@ -1,0 +1,27 @@
+[Unit]
+Description=Alef Autonomous Agent
+After=network.target
+Documentation=https://github.com/dpopsuev/alef
+
+[Service]
+Type=exec
+User=alef
+Group=alef
+WorkingDirectory=/opt/alef
+EnvironmentFile=-/etc/alef/env
+ExecStart=/usr/bin/alef --daemon
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=on-failure
+RestartSec=5
+WatchdogSec=120
+TimeoutStopSec=35
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/alef /tmp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

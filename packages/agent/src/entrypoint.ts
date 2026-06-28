@@ -24,7 +24,7 @@ import { loadAdapters } from "./cli/load-adapters.js";
 import { pickSession } from "./cli/session-picker.js";
 import { loadTheme } from "./cli/theme-loader.js";
 import { dispatchCliOp } from "./cli-ops.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, resolveDaemonConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { createRunnerLogger } from "./logger.js";
@@ -52,6 +52,17 @@ setupOTel();
 await initYamlBlueprints();
 
 const args = parseArgs(process.argv.slice(2));
+
+if (args.daemon && cfg.daemon) {
+	args.serve ??= cfg.daemon.port ?? 0;
+	args.host ??= cfg.daemon.host;
+}
+
+if (args.host === "0.0.0.0") {
+	process.stderr.write(
+		"[alef] WARNING: binding to 0.0.0.0 exposes the daemon to the network. Consider enabling auth.\n",
+	);
+}
 
 // ---------------------------------------------------------------------------
 // Phase 2: CLI dispatch — early exit (no Supervisor)
@@ -252,7 +263,7 @@ supervisor.register(
 );
 
 // Agent service — manages daemon registration, depends on session
-supervisor.register(createAgentServiceDescriptor({ args, storage }));
+supervisor.register(createAgentServiceDescriptor({ args, cfg, storage }));
 
 // TUI service — depends on session (not agent), runs ViewMode
 supervisor.register(createTuiServiceDescriptor({ args, store: session }));
@@ -280,12 +291,37 @@ if (sessionRaw && "session" in sessionRaw) {
 	dispatchCliOp(args, (sessionRaw as SessionService).session as SessionHandle);
 }
 
-// Signal handlers — Supervisor stops everything
-process.once("SIGTERM", () => {
-	void supervisor.stopAll().then(() => process.exit(0));
+// Signal handlers — consolidated shutdown with drain
+import { shutdownOTel } from "./otel.js";
+
+const daemonCfg = resolveDaemonConfig(cfg);
+let draining = false;
+
+async function gracefulShutdown(signal: string): Promise<void> {
+	if (draining) {
+		process.stderr.write(`[alef] second ${signal} — force exit\n`);
+		process.exit(1);
+	}
+	draining = true;
+	process.stderr.write(`[alef] ${signal} — draining (${daemonCfg.grace_period}s grace)…\n`);
+
+	const graceTimer = setTimeout(() => {
+		process.stderr.write("[alef] grace period expired — force exit\n");
+		process.exit(1);
+	}, daemonCfg.grace_period * 1000);
+	graceTimer.unref();
+
+	await supervisor.stopAll();
+	await Promise.race([shutdownOTel(), new Promise<void>((r) => setTimeout(r, 2000).unref())]);
+	clearTimeout(graceTimer);
+	process.exit(0);
+}
+
+process.on("SIGTERM", () => {
+	gracefulShutdown("SIGTERM").catch(() => process.exit(1));
 });
-process.once("SIGINT", () => {
-	void supervisor.stopAll().then(() => process.exit(0));
+process.on("SIGINT", () => {
+	gracefulShutdown("SIGINT").catch(() => process.exit(1));
 });
 
 // Wait for TUI viewer to finish (user exits, or daemon blocks forever).

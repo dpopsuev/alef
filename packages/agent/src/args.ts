@@ -78,6 +78,8 @@ export interface Args {
 	 * Default: undefined (router disabled).
 	 */
 	serve: number | undefined;
+	/** Host/interface for the HTTP router. Default: 127.0.0.1. */
+	host: string | undefined;
 	/**
 	 * Daemon mode: start headlessly on a random port, write ~/.alef/daemon.json,
 	 * and keep running until killed. Implies --serve 0 --no-tui.
@@ -211,6 +213,7 @@ export function parseArgs(argv: string[]): Args {
 		yolo: false,
 
 		serve: undefined,
+		host: undefined,
 		daemon: false,
 		attach: undefined,
 		listDaemons: false,
@@ -408,6 +411,12 @@ export function parseArgs(argv: string[]): Args {
 		if (arg === "--serve") {
 			const n = Number.parseInt(argv[++i] ?? "3000", 10);
 			args.serve = Number.isNaN(n) ? 3000 : n;
+			i++;
+			continue;
+		}
+
+		if (arg === "--host") {
+			args.host = argv[++i] ?? "127.0.0.1";
 			i++;
 			continue;
 		}

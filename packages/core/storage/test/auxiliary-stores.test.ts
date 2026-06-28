@@ -62,13 +62,14 @@ describe("SqliteDaemonRegistry", { tags: ["unit"] }, () => {
 
 		expect(await daemon.get("abc")).toBeUndefined();
 
-		await daemon.register({ port: 8080, pid: 1234, sessionId: "abc", cwd: "/tmp", startedAt: 1000 });
+		await daemon.register({ port: 8080, host: "127.0.0.1", pid: 1234, sessionId: "abc", cwd: "/tmp", startedAt: 1000 });
 		const entry = await daemon.get("abc");
 		expect(entry?.port).toBe(8080);
+		expect(entry?.host).toBe("127.0.0.1");
 		expect(entry?.pid).toBe(1234);
 		expect(entry?.sessionId).toBe("abc");
 
-		await daemon.register({ port: 9090, pid: 5678, sessionId: "def", cwd: "/tmp2", startedAt: 2000 });
+		await daemon.register({ port: 9090, host: "127.0.0.1", pid: 5678, sessionId: "def", cwd: "/tmp2", startedAt: 2000 });
 		const all = await daemon.list();
 		expect(all).toHaveLength(2);
 		expect(all[0].sessionId).toBe("def");

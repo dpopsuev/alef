@@ -1,4 +1,5 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
+import type { RouterAdapter } from "@dpopsuev/alef-engine/http";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
@@ -25,7 +26,7 @@ export interface SessionService extends ManagedService {
 	readonly resolvedModelDisplay: string;
 	readonly humanAddress: string;
 	readonly agentAddress: string;
-	readonly setupSurface: () => Promise<number | undefined>;
+	readonly setupSurface: () => Promise<{ port: number; router: RouterAdapter } | undefined>;
 }
 
 export function createSessionServiceDescriptor(opts: SessionServiceOptions): ServiceDescriptor {

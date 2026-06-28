@@ -13,7 +13,7 @@ import type { Logger } from "pino";
 import { buildAgent } from "../agent-kernel.js";
 import type { Args } from "../args.js";
 import { connectObservers, type SignalMapper } from "../assemble.js";
-import { setupHttpSurface } from "../build-delegation.js";
+import { type HttpSurface, setupHttpSurface } from "../build-delegation.js";
 import { buildLlmAdapter } from "../build-llm-adapter.js";
 import type { AlefConfig } from "../config.js";
 import { type ActorIdentity, configureSessionActors } from "../identity/actor.js";
@@ -149,7 +149,7 @@ export async function createLocalSession(
 	humanAddress: string;
 	agentAddress: string;
 	actorRoutes: ActorRouteTable;
-	setupSurface: () => Promise<number | undefined>;
+	setupSurface: () => Promise<HttpSurface | undefined>;
 }> {
 	const { adapters, blueprintSurfaces } = loaded;
 	registerContributions(adapters);

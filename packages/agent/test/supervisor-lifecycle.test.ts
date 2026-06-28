@@ -30,6 +30,7 @@ const STUB_STORAGE: StorageFactory = {
 	daemonRegistry: () => ({
 		register: async () => {},
 		unregister: async () => {},
+		heartbeat: async () => {},
 		get: async () => undefined,
 		list: async () => [],
 		findByCwd: async () => undefined,

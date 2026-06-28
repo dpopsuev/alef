@@ -126,9 +126,33 @@ const ConfigSchema = z.object({
 			sync_interval: z.number().optional(),
 		})
 		.optional(),
+
+	daemon: z
+		.object({
+			port: z.number().int().min(0).max(65535).optional(),
+			host: z.string().optional(),
+			log_level: z.enum(["silent", "fatal", "error", "warn", "info", "debug", "trace"]).optional(),
+			grace_period: z.number().int().min(1).optional(),
+			heartbeat: z.number().int().min(10).optional(),
+		})
+		.optional(),
 });
 
 export type AlefConfig = z.infer<typeof ConfigSchema>;
+
+export const DAEMON_DEFAULTS = {
+	port: 0,
+	host: "127.0.0.1",
+	log_level: "info" as const,
+	grace_period: 30,
+	heartbeat: 60,
+} satisfies Required<NonNullable<AlefConfig["daemon"]>>;
+
+export type DaemonConfig = Required<NonNullable<AlefConfig["daemon"]>>;
+
+export function resolveDaemonConfig(cfg: AlefConfig): DaemonConfig {
+	return { ...DAEMON_DEFAULTS, ...cfg.daemon };
+}
 
 // ---------------------------------------------------------------------------
 // XDG path resolution

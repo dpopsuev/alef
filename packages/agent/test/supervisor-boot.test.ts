@@ -32,6 +32,7 @@ const STUB_STORAGE: StorageFactory = {
 	daemonRegistry: () => ({
 		register: async () => {},
 		unregister: async () => {},
+		heartbeat: async () => {},
 		get: async () => undefined,
 		list: async () => [],
 		findByCwd: async () => undefined,
@@ -200,6 +201,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 					registered = true;
 				},
 				unregister: async () => {},
+				heartbeat: async () => {},
 				get: async () => undefined,
 				list: async () => [],
 				findByCwd: async () => undefined,
@@ -211,7 +213,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		const supervisor = trackSupervisor(new Supervisor());
 		supervisor.register(makeStorageDescriptor());
 		supervisor.register(createSessionServiceDescriptor(opts));
-		supervisor.register(createAgentServiceDescriptor({ args: opts.args, storage: daemonStorage }));
+		supervisor.register(createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage }));
 
 		await supervisor.startAll({ cwd });
 

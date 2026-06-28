@@ -2,10 +2,13 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
 export interface DaemonEntry {
 	port: number;
+	host: string;
 	pid: number;
 	sessionId: string;
 	cwd: string;
 	startedAt: number;
+	lastHeartbeat?: number;
+	token?: string;
 }
 
 export interface SessionSummary {
@@ -22,11 +25,12 @@ export interface SessionSummary {
 export interface DaemonRegistry {
 	register(entry: DaemonEntry): Promise<void>;
 	unregister(sessionId: string): Promise<void>;
+	heartbeat(sessionId: string): Promise<void>;
 	get(sessionId: string): Promise<DaemonEntry | undefined>;
 	list(): Promise<DaemonEntry[]>;
 	findByCwd(cwd: string): Promise<DaemonEntry | undefined>;
 	findLatest(): Promise<DaemonEntry | undefined>;
-	prune(): Promise<number>;
+	prune(ttlMs?: number): Promise<number>;
 }
 
 export interface SummaryStore {

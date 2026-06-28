@@ -33,21 +33,6 @@ export interface RunAgentOptions {
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
 	const { args } = opts;
 
-	process.once("SIGINT", () => {
-		process.exit(0);
-	});
-
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
-	process.once("SIGTERM", async () => {
-		process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
-		try {
-			opts.session.dispose();
-			await shutdownOTel();
-		} finally {
-			process.exit(0);
-		}
-	});
-
 	const interactiveOpts = {
 		cwd: args.cwd,
 		modelId: opts.resolvedModelDisplay,

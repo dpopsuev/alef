@@ -87,9 +87,9 @@ if (args.debugSubcmd) {
 	process.exit(0);
 }
 
-if (args.storeSubcmd) {
-	const { runStoreCommand } = await import("./store-cli.js");
-	await runStoreCommand(args.storeSubcmd, args.storeArgs);
+if (args.logSubcmd) {
+	const { runLogCommand } = await import("./log-cli.js");
+	await runLogCommand(args.logSubcmd, args.logArgs);
 	process.exit(0);
 }
 

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-base-to-string -- libsql Value type requires explicit String() casts */
 /**
- * alef store — CLI tool for querying the session store.
+ * alef log — CLI tool for querying the session store.
  *
  * Subcommands:
  *   sessions [--search <q>]                        List sessions
@@ -24,7 +24,7 @@
 
 import type { Client, InValue } from "@libsql/client";
 
-export async function runStoreCommand(subcmd: string, args: string[]): Promise<void> {
+export async function runLogCommand(subcmd: string, args: string[]): Promise<void> {
 	const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
 	const db = await getDatabase();
 
@@ -246,7 +246,7 @@ async function queryEvents(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
 	if (!sessionId || sessionId.startsWith("--")) {
 		console.error(
-			"Usage: alef store events <session-id> [--bus X] [--type X] [--adapter X] [--after HH:MM] [--before HH:MM] [--corr X] [--errors] [--payload X] [--limit N] [--json]",
+			"Usage: alef log events <session-id> [--bus X] [--type X] [--adapter X] [--after HH:MM] [--before HH:MM] [--corr X] [--errors] [--payload X] [--limit N] [--json]",
 		);
 		process.exit(1);
 	}
@@ -291,7 +291,7 @@ async function traceCorrelation(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
 	const correlationId = args[1];
 	if (!sessionId || !correlationId) {
-		console.error("Usage: alef store trace <session-id> <correlationId>");
+		console.error("Usage: alef log trace <session-id> <correlationId>");
 		process.exit(1);
 	}
 
@@ -435,8 +435,8 @@ async function listSpans(db: Client, args: string[]): Promise<void> {
 async function walkCause(db: Client, args: string[]): Promise<void> {
 	const spanId = args[0];
 	if (!spanId) {
-		console.error("Usage: alef store cause <span-id>");
-		console.error("  Find span IDs with: alef store spans <session-id>");
+		console.error("Usage: alef log cause <span-id>");
+		console.error("  Find span IDs with: alef log spans <session-id>");
 		process.exit(1);
 	}
 

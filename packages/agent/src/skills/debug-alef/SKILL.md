@@ -72,59 +72,59 @@ runInTraceContext({ correlationId: "abc-123", turn: 1 }, () => {
 });
 ```
 
-## alef store — session query CLI
+## alef log — session query CLI
 
 Built-in CLI for querying the SQLite session store. No raw SQL needed.
 
 ### Subcommands
 
 ```bash
-alef store sessions                      # list sessions (newest first)
-alef store sessions --search "refactor"  # search by name/ID
-alef store events <id>                   # all events in a session
-alef store trace <id> <correlationId>    # one turn's full trace
-alef store summary <id>                  # token/tool/error summary
-alef store summary                       # latest session summary
-alef store tail                          # latest session events
-alef store spans [session-id]            # list OTel spans with parent IDs
-alef store cause <span-id>              # walk causal chain backwards to root
+alef log sessions                      # list sessions (newest first)
+alef log sessions --search "refactor"  # search by name/ID
+alef log events <id>                   # all events in a session
+alef log trace <id> <correlationId>    # one turn's full trace
+alef log summary <id>                  # token/tool/error summary
+alef log summary                       # latest session summary
+alef log tail                          # latest session events
+alef log spans [session-id]            # list OTel spans with parent IDs
+alef log cause <span-id>              # walk causal chain backwards to root
 ```
 
 ### Composable filters (any combination)
 
 ```bash
-alef store events <id> --bus notification          # filter by bus
-alef store events <id> --type 'llm.%'              # filter by type pattern
-alef store events <id> --adapter fs                # filter by adapter prefix
-alef store events <id> --after 22:30 --before 22:35  # time window
-alef store events <id> --corr e9f1                 # correlationId prefix
-alef store events <id> --errors                    # errors only
-alef store events <id> --payload "Cannot read"     # payload substring
-alef store events <id> --limit 5                   # max results
-alef store events <id> --json                      # JSON output for piping
-alef store tail --adapter llm --limit 10           # filters work on tail too
+alef log events <id> --bus notification          # filter by bus
+alef log events <id> --type 'llm.%'              # filter by type pattern
+alef log events <id> --adapter fs                # filter by adapter prefix
+alef log events <id> --after 22:30 --before 22:35  # time window
+alef log events <id> --corr e9f1                 # correlationId prefix
+alef log events <id> --errors                    # errors only
+alef log events <id> --payload "Cannot read"     # payload substring
+alef log events <id> --limit 5                   # max results
+alef log events <id> --json                      # JSON output for piping
+alef log tail --adapter llm --limit 10           # filters work on tail too
 ```
 
 ### Common debugging workflows
 
 ```bash
 # Find the crash: which session had errors?
-alef store sessions
+alef log sessions
 
 # What errors happened in session bfd457a7?
-alef store events bfd457a7 --errors
+alef log events bfd457a7 --errors
 
 # Trace a specific turn by correlationId
-alef store trace bfd457a7 e9f102f1
+alef log trace bfd457a7 e9f102f1
 
 # Find all tool calls in a session
-alef store events bfd457a7 --type 'llm.tool-%'
+alef log events bfd457a7 --type 'llm.tool-%'
 
 # Find events containing specific text
-alef store events bfd457a7 --payload "Cannot read properties"
+alef log events bfd457a7 --payload "Cannot read properties"
 
 # Get JSON for piping to jq
-alef store tail --json | jq '.type'
+alef log tail --json | jq '.type'
 ```
 
 ## Causal trace DAG — "What caused this?"
@@ -135,10 +135,10 @@ OTel spans are persisted to SQLite with parent-child relationships. Every tool c
 
 ```bash
 # List spans for a session
-alef store spans <session-id>
+alef log spans <session-id>
 
 # Walk backwards from a span to the root cause
-alef store cause <span-id>
+alef log cause <span-id>
 
 # Output:
 # [Causal chain — 4 span(s)]
@@ -165,20 +165,20 @@ The dispatch framework (`kernel/adapter/dispatch.ts`) creates OTel spans for eve
 
 ```bash
 # List sessions
-alef store sessions
+alef log sessions
 
 # Inspect most recent session (tool-call pairing analysis)
 alef debug session
 
 # All errors in a session
-alef store events <id> --errors
+alef log events <id> --errors
 
 # Trace a specific turn
-alef store trace <id> <correlationId>
+alef log trace <id> <correlationId>
 
 # Walk a causal chain from a span
-alef store spans <id>          # find the span ID
-alef store cause <span-id>     # walk to root
+alef log spans <id>          # find the span ID
+alef log cause <span-id>     # walk to root
 ```
 
 ## Message round-trip
@@ -374,7 +374,7 @@ alef --kill-daemon <id>       # Stop a daemon by session ID
 | Scheduler service | `packages/core/supervisor/src/scheduler.ts` |
 | Package Manager service | `packages/core/supervisor/src/package-manager.ts` |
 | Storage service | `packages/core/storage/src/service.ts` |
-| Store CLI | `packages/agent/src/store-cli.ts` |
+| Log CLI | `packages/agent/src/store-cli.ts` |
 | SQLite span exporter | `packages/core/storage/src/sqlite/span-exporter.ts` |
 | Spans table schema | `packages/core/storage/src/sqlite/schema.ts` (migration v5) |
 | OTel setup + upgrade | `packages/agent/src/otel.ts` |
@@ -383,30 +383,30 @@ alef --kill-daemon <id>       # Stop a daemon by session ID
 
 ```bash
 # Sessions
-alef store sessions                          # list all
-alef store sessions --search "refactor"      # search
+alef log sessions                          # list all
+alef log sessions --search "refactor"      # search
 
 # Events (with composable filters)
-alef store events <id>                       # all events
-alef store events <id> --errors              # errors only
-alef store events <id> --adapter llm         # LLM events
-alef store events <id> --bus notification    # notification bus
-alef store events <id> --payload "error"     # payload search
-alef store events <id> --after 22:30         # time filter
-alef store events <id> --json                # pipe to jq
+alef log events <id>                       # all events
+alef log events <id> --errors              # errors only
+alef log events <id> --adapter llm         # LLM events
+alef log events <id> --bus notification    # notification bus
+alef log events <id> --payload "error"     # payload search
+alef log events <id> --after 22:30         # time filter
+alef log events <id> --json                # pipe to jq
 
 # Tracing
-alef store trace <id> <correlationId>        # one turn trace
-alef store tail                              # latest session
-alef store tail --errors                     # latest errors
+alef log trace <id> <correlationId>        # one turn trace
+alef log tail                              # latest session
+alef log tail --errors                     # latest errors
 
 # Causal DAG
-alef store spans <id>                        # list OTel spans
-alef store cause <span-id>                   # walk to root cause
+alef log spans <id>                        # list OTel spans
+alef log cause <span-id>                   # walk to root cause
 
 # Summary
-alef store summary <id>                      # session stats
-alef store summary                           # latest session
+alef log summary <id>                      # session stats
+alef log summary                           # latest session
 
 # Legacy (tool-call pairing analysis)
 alef debug session

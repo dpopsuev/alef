@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Directives } from "@dpopsuev/alef-agent/directives";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { afterEach, describe, expect, it } from "vitest";
-import { Directives } from "../src/directives.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../src/prompt.js";
 
 const tempDirs: string[] = [];

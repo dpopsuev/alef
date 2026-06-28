@@ -7,8 +7,8 @@
  * Conversation history accumulates across turns.
  */
 
-import { formatError } from "./errors.js";
-import type { Session } from "./session.js";
+import { formatError } from "@dpopsuev/alef-agent/errors";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";

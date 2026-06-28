@@ -1,11 +1,10 @@
+import { ScriptedLlmAdapter } from "@dpopsuev/alef-agent/scripted-llm";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import type { AlefConfig } from "./config.js";
-import { ScriptedLlmAdapter } from "./scripted-llm.js";
 
 export interface LlmAdapterOptions {
 	model: Model<Api>;

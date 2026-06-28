@@ -7,8 +7,8 @@
  *   3. Thinking text not visible (regression)
  */
 
+import { EventPressure, pressureToInterval, timeBasedHue } from "@dpopsuev/alef-agent/event-pressure";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventPressure, pressureToInterval, timeBasedHue } from "../src/event-pressure.js";
 
 // ---------------------------------------------------------------------------
 // 1. Pressure-sensitive spinner

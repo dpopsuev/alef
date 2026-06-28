@@ -1,5 +1,5 @@
+import { formatError } from "@dpopsuev/alef-agent/errors";
 import { describe, expect, it } from "vitest";
-import { formatError } from "../src/errors.js";
 
 // formatError returns the human-readable message only.
 // Call sites are responsible for adding any [error] prefix — see tui-mode.ts.

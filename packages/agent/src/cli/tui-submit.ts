@@ -1,7 +1,7 @@
+import { InputPatternRegistry } from "@dpopsuev/alef-agent/input-patterns";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { parseAtAddress } from "../identity/routes.js";
-import { InputPatternRegistry } from "../input-patterns.js";
 import type { InteractiveOptions } from "../interactive.js";
-import type { Session } from "../session.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import { handleColonCommand, handleSlashCommand } from "./tui-commands.js";
 import type { TuiEvent } from "./tui-dispatch.js";

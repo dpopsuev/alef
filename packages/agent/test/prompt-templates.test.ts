@@ -1,5 +1,5 @@
+import { listPromptTemplates, loadPrompt } from "@dpopsuev/alef-agent/prompt-templates";
 import { describe, expect, it } from "vitest";
-import { listPromptTemplates, loadPrompt } from "../src/prompt-templates.js";
 
 describe("prompt templates", { tags: ["unit"] }, () => {
 	it("loads identity template", () => {

@@ -11,14 +11,14 @@
  * Created by the assembly factory (local-session.ts) after all adapters are loaded.
  */
 
+import type { Directives } from "@dpopsuev/alef-agent/directives";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import type { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { AgentEvent, DirectiveView, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import type { Logger } from "pino";
 import type { Args } from "../args.js";
-import type { Directives } from "../directives.js";
-import type { AgentEvent, DirectiveView, Session, SessionState } from "../session.js";
 
 export interface SessionHandleComponents {
 	state: SessionState;

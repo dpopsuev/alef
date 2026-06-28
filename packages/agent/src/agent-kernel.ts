@@ -1,10 +1,10 @@
+import { LoopGuard } from "@dpopsuev/alef-agent/loop-detector";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
-import { LoopGuard } from "./loop-detector.js";
-import type { SessionStore } from "./session-store.js";
 
 export interface AgentKernelOptions {
 	llm: Adapter;

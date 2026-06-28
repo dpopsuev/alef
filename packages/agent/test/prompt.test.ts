@@ -1,5 +1,5 @@
+import { Directives } from "@dpopsuev/alef-agent/directives";
 import { describe, expect, it } from "vitest";
-import { Directives } from "../src/directives.js";
 import {
 	appendEnvironment,
 	BLOCK_CORE,

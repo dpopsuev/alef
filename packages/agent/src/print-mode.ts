@@ -8,8 +8,8 @@
  *   echo "Fix the bug in src/math.ts" | alef
  */
 
-import { formatError } from "./errors.js";
-import type { Session } from "./session.js";
+import { formatError } from "@dpopsuev/alef-agent/errors";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 
 const SEND_TIMEOUT_MS = 120_000;
 

@@ -1,6 +1,6 @@
+import { LoopGuard } from "@dpopsuev/alef-agent/loop-detector";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it, vi } from "vitest";
-import { LoopGuard } from "../src/loop-detector.js";
 
 /** Publish a command event and its matching sense result (full interaction). */
 function interact(

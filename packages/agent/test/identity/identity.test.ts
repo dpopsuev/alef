@@ -94,10 +94,10 @@ describe("resolveAgentActor", { tags: ["unit"] }, () => {
 		expect(colors.size).toBeGreaterThan(1);
 	});
 
-	it("token.truecolor matches the palette hex for the assigned color", () => {
+	it("hex matches the palette hex for the assigned color", () => {
 		const a = resolveAgentActor("test-session", "test-board");
 		const paletteEntry = lookupColor(a.color);
-		expect(a.token.truecolor).toBe(paletteEntry?.hex);
+		expect(a.hex).toBe(paletteEntry?.hex);
 	});
 });
 

@@ -125,8 +125,8 @@ export interface IdentityContext {
 
 export function buildIdentityContext(store: SessionStore): IdentityContext {
 	const boardId = store.id.slice(0, 12);
-	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
-	setTheme({ ...getTheme(), ...theme });
+	const { humanActor, agentActor } = configureSessionActors(store.id, boardId);
+	setTheme({ ...getTheme(), userFg: { truecolor: humanActor.hex }, agentFg: { truecolor: agentActor.hex } });
 
 	const actorRoutes = new ActorRouteTable();
 	actorRoutes.setHumanAddress(humanActor.color);

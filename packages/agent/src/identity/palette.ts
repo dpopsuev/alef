@@ -6,8 +6,6 @@
  * All shade names sourced from real color vocabulary.
  */
 
-import type { ColorToken } from "../cli/theme-types.js";
-
 export interface PaletteColor {
 	name: string;
 	hex: string;
@@ -234,6 +232,6 @@ export function lookupColor(name: string): PaletteColor | undefined {
 }
 
 /** Convert a palette hex string to a ColorToken for the TUI. */
-export function hexToColorToken(hex: string): ColorToken {
+export function hexToColorToken(hex: string): { truecolor: string } {
 	return { truecolor: hex };
 }

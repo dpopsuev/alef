@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { userInfo } from "node:os";
-import type { ColorToken } from "../cli/theme-types.js";
-import { ALL_COLORS, hexToColorToken } from "./palette.js";
+import { ALL_COLORS } from "./palette.js";
 
 export interface ActorIdentity {
 	type: "human" | "agent";
@@ -9,8 +8,8 @@ export interface ActorIdentity {
 	color: string;
 	/** The @ address: "@crimson" or "@dpopsuev". */
 	address: string;
-	/** ColorToken for TUI rendering. Neutral silver for humans. */
-	token: ColorToken;
+	/** Hex color string for rendering (e.g. "#DC143C"). */
+	hex: string;
 }
 
 /** Stable index into the 144-color palette from a string seed. */
@@ -33,7 +32,7 @@ export function resolveHumanActor(): ActorIdentity {
 		type: "human",
 		color: username,
 		address: `@${username}`,
-		token: hexToColorToken(paletteColor.hex),
+		hex: paletteColor.hex,
 	};
 }
 
@@ -49,7 +48,7 @@ export function resolveAgentActor(sessionId: string, _boardId: string): ActorIde
 		type: "agent",
 		color: paletteColor.name,
 		address: `@${paletteColor.name}`,
-		token: hexToColorToken(paletteColor.hex),
+		hex: paletteColor.hex,
 	};
 }
 
@@ -69,10 +68,8 @@ export function configureSessionActors(
 ): {
 	humanActor: ActorIdentity;
 	agentActor: ActorIdentity;
-	theme: { userFg: ColorToken; agentFg: ColorToken };
 } {
 	const humanActor = resolveHumanActor();
 	const agentActor = resolveAgentActor(sessionId, boardId);
-	const theme = { userFg: humanActor.token, agentFg: agentActor.token };
-	return { humanActor, agentActor, theme };
+	return { humanActor, agentActor };
 }

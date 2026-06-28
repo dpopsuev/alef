@@ -44,6 +44,36 @@
 			"@dpopsuev/alef-agent-core/*": [
 				"./packages/agent/src/*"
 			],
+			"@dpopsuev/alef-agent/loop-detector": [
+				"./packages/core/agent/src/loop-detector.ts"
+			],
+			"@dpopsuev/alef-agent/errors": [
+				"./packages/core/agent/src/errors.ts"
+			],
+			"@dpopsuev/alef-agent/resource-meter": [
+				"./packages/core/agent/src/resource-meter.ts"
+			],
+			"@dpopsuev/alef-agent/event-pressure": [
+				"./packages/core/agent/src/event-pressure.ts"
+			],
+			"@dpopsuev/alef-agent/input-patterns": [
+				"./packages/core/agent/src/input-patterns.ts"
+			],
+			"@dpopsuev/alef-agent/directives": [
+				"./packages/core/agent/src/directives.ts"
+			],
+			"@dpopsuev/alef-agent/prompt-templates": [
+				"./packages/core/agent/src/prompt-templates.ts"
+			],
+			"@dpopsuev/alef-agent/runner-logger": [
+				"./packages/core/agent/src/runner-logger.ts"
+			],
+			"@dpopsuev/alef-agent/scripted-llm": [
+				"./packages/core/agent/src/scripted-llm.ts"
+			],
+			"@dpopsuev/alef-agent/*": [
+				"./packages/core/agent/src/*.ts"
+			],
 			"@dpopsuev/alef-blueprint": [
 				"./packages/core/blueprint/src/index.ts"
 			],

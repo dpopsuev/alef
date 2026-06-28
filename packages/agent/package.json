@@ -25,6 +25,7 @@
     "check": "biome check --write --error-on-warnings . && tsc --noEmit"
   },
   "dependencies": {
+    "@dpopsuev/alef-agent": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-coding-agent": "workspace:*",

@@ -91,6 +91,9 @@ importers:
 
   packages/agent:
     dependencies:
+      '@dpopsuev/alef-agent':
+        specifier: workspace:*
+        version: link:../core/agent
       '@dpopsuev/alef-ai':
         specifier: workspace:*
         version: link:../core/ai
@@ -221,6 +224,16 @@ importers:
       vitest:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/core/agent:
+    dependencies:
+      '@dpopsuev/alef-kernel':
+        specifier: workspace:*
+        version: link:../kernel
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
 
   packages/core/ai:
     dependencies:

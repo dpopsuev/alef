@@ -309,100 +309,67 @@ export class RouterAdapter implements Adapter {
 		route.handler(req, res, bus);
 	}
 
+	private readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+		return new Promise((resolve, reject) => {
+			let body = "";
+			req.on("data", (chunk: Buffer) => { body += chunk.toString("utf-8"); });
+			req.on("end", () => {
+				try {
+					const parsed: unknown = JSON.parse(body);
+					if (typeof parsed !== "object" || parsed === null) {
+						reject(new Error("invalid JSON"));
+						return;
+					}
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null check above
+					resolve(parsed as Record<string, unknown>);
+				} catch {
+					reject(new Error("invalid JSON"));
+				}
+			});
+		});
+	}
+
 	private handleMessage(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
-		let body = "";
-		req.on("data", (chunk: Buffer) => {
-			body += chunk.toString("utf-8");
-		});
-		req.on("end", () => {
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(body);
-			} catch {
-				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
-				return;
-			}
-
-			if (
-				typeof parsed !== "object" ||
-				parsed === null ||
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing parsed object shape
-				typeof (parsed as Record<string, unknown>).text !== "string"
-			) {
-				this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "text": string }' });
-				return;
-			}
-
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof check above
-			const text = (parsed as { text: string }).text;
-			const correlationId = randomUUID();
-
-			if (this.options.onMessage) {
-				this.options.onMessage(text);
-			} else {
-				bus.command.publish({
-					type: this.options.triggerEvent,
-					payload: { role: "user", text },
-					correlationId,
-				});
-			}
-
-			this.sendJson(res, HTTP.ACCEPTED, { ok: true, correlationId });
-		});
+		this.readJsonBody(req)
+			.then((parsed) => {
+				if (typeof parsed.text !== "string") {
+					return this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "text": string }' });
+				}
+				const correlationId = randomUUID();
+				if (this.options.onMessage) {
+					this.options.onMessage(parsed.text);
+				} else {
+					bus.command.publish({ type: this.options.triggerEvent, payload: { role: "user", text: parsed.text }, correlationId });
+				}
+				this.sendJson(res, HTTP.ACCEPTED, { ok: true, correlationId });
+			})
+			.catch(() => this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" }));
 	}
 
 	private handleControl(req: IncomingMessage, res: ServerResponse): void {
-		let body = "";
-		req.on("data", (chunk: Buffer) => {
-			body += chunk.toString("utf-8");
-		});
-		req.on("end", () => {
-			let parsed: Record<string, unknown>;
-			try {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
-				parsed = JSON.parse(body) as Record<string, unknown>;
-			} catch {
-				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
-				return;
-			}
-
-			if (typeof parsed.model === "string") this.options.onSetModel?.(parsed.model);
-			if (typeof parsed.thinking === "string") this.options.onSetThinking?.(parsed.thinking);
-
-			this.sendJson(res, HTTP.ACCEPTED, { ok: true });
-		});
+		this.readJsonBody(req)
+			.then((parsed) => {
+				if (typeof parsed.model === "string") this.options.onSetModel?.(parsed.model);
+				if (typeof parsed.thinking === "string") this.options.onSetThinking?.(parsed.thinking);
+				this.sendJson(res, HTTP.ACCEPTED, { ok: true });
+			})
+			.catch(() => this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" }));
 	}
 
 	private handleReload(req: IncomingMessage, res: ServerResponse): void {
-		let body = "";
-		req.on("data", (chunk: Buffer) => {
-			body += chunk.toString("utf-8");
-		});
-		req.on("end", () => {
-			let parsed: Record<string, unknown>;
-			try {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
-				parsed = JSON.parse(body) as Record<string, unknown>;
-			} catch {
-				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
-				return;
-			}
-
-			if (typeof parsed.name !== "string" || typeof parsed.path !== "string") {
-				this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "name": string, "path": string }' });
-				return;
-			}
-
-			if (!this.options.onReloadAdapter) {
-				this.sendJson(res, HTTP.NOT_IMPLEMENTED, { error: "reload not supported" });
-				return;
-			}
-
-			this.options
-				.onReloadAdapter(parsed.name, parsed.path)
-				.then(() => this.sendJson(res, HTTP.ACCEPTED, { ok: true }))
-				.catch((err: unknown) => this.sendJson(res, HTTP.INTERNAL, { error: String(err) }));
-		});
+		this.readJsonBody(req)
+			.then((parsed) => {
+				if (typeof parsed.name !== "string" || typeof parsed.path !== "string") {
+					return this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "name": string, "path": string }' });
+				}
+				if (!this.options.onReloadAdapter) {
+					return this.sendJson(res, HTTP.NOT_IMPLEMENTED, { error: "reload not supported" });
+				}
+				this.options.onReloadAdapter(parsed.name, parsed.path)
+					.then(() => this.sendJson(res, HTTP.ACCEPTED, { ok: true }))
+					.catch((err: unknown) => this.sendJson(res, HTTP.INTERNAL, { error: String(err) }));
+			})
+			.catch(() => this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" }));
 	}
 
 	sendText(res: ServerResponse, status: HttpStatus, body: string, contentType = "text/plain"): void {

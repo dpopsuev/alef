@@ -107,15 +107,18 @@ export class Agent {
 	private readonly unmounts: Array<() => void> = [];
 	private readonly log: AdapterLogger;
 
+	private _toolsCache: ReadonlyArray<ToolDefinition> | null = null;
 	get tools(): ReadonlyArray<ToolDefinition> {
+		if (this._toolsCache) return this._toolsCache;
 		const seen = new Set<string>();
-		return this._adapters
+		this._toolsCache = this._adapters
 			.flatMap((o) => o.tools)
 			.filter((t) => {
 				if (seen.has(t.name)) return false;
 				seen.add(t.name);
 				return true;
 			});
+		return this._toolsCache;
 	}
 	private readonly _adapters: Adapter[] = [];
 	get adapters(): readonly Adapter[] {
@@ -147,12 +150,14 @@ export class Agent {
 		if (this.disposed) throw new Error("Agent is disposed - cannot load adapters.");
 		// Push to _adapters tentatively; roll back if mount() throws so indices stay aligned.
 		this._adapters.push(adapter);
+		this._toolsCache = null;
 		let unmount: () => void;
 		try {
 			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, this.bus.asBus()) : this.bus.asBus();
 			unmount = adapter.mount(withPayloadValidation(boundBus, adapter));
 		} catch (err) {
 			this._adapters.pop();
+			this._toolsCache = null;
 			throw err;
 		}
 		this.unmounts.push(unmount);
@@ -229,11 +234,6 @@ export class Agent {
 	publishEvent(event: EventInput): void {
 		this.bus.publish("event", event);
 	}
-	/** @deprecated Use publishEvent */
-	publishSense(event: EventInput): void {
-		this.publishEvent(event);
-	}
-
 	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (adapter-llm). */
 	publishSignal(event: NotificationInput): void {
 		this.bus.publish("notification", event);
@@ -250,11 +250,6 @@ export class Agent {
 	subscribeCommand(type: string, callback: (event: CommandMessage) => void): () => void {
 		return this.bus.asBus().command.subscribe(type, callback);
 	}
-	/** @deprecated Use subscribeCommand */
-	subscribeMotor(type: string, callback: (event: CommandMessage) => void): () => void {
-		return this.subscribeCommand(type, callback);
-	}
-
 	/**
 	 * Attach a BusObserver for full read access to all bus events.
 	 * Used by BusEventRecorder in testkit. Returns unobserve function.
@@ -322,6 +317,7 @@ export class Agent {
 		void adapter.close?.();
 		this._adapters.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
+		this._toolsCache = null;
 
 		this.bus.publish("event", {
 			type: "adapter.unloaded",

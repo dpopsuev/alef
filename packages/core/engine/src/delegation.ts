@@ -10,6 +10,7 @@ import {
 	materializeDefaultAdapters,
 } from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAdapterDirectives, createToolShellAdapter } from "./tool-catalog.js";
 import { InProcessStrategy } from "./in-process.js";
@@ -36,10 +37,10 @@ const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
 export interface DelegationAdapters {
 	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
 	strategyRegistry?: { register(name: string, strategy: unknown): void };
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	createCompactionStage: Function;
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	createSessionContextStage: Function;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP); file is @deprecated
+	createCompactionStage: (opts?: any) => ContextAssemblyHandler;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP); file is @deprecated
+	createSessionContextStage: (opts: any) => ContextAssemblyHandler;
 }
 
 export interface DelegationStackOptions {
@@ -100,7 +101,6 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	if (opts.sessionStore) {
 		const store = opts.sessionStore;
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call
 		pipeline.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
 	}
 
@@ -135,7 +135,6 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	let lastTotalTokens = 0;
 	pipeline.addStage(
 		"compactor",
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call
 		injected.createCompactionStage({
 			contextWindow,
 			summarize: opts.summarize,

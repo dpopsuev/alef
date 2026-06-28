@@ -76,8 +76,6 @@ export interface ToolShellOptions {
 	 * Default: 3. Set to Infinity to disable eviction.
 	 */
 	evictAfterTurn?: number;
-	/** Filter which tools appear in the catalog. Unmatched tools are hidden until explicitly described. */
-	toolFilter?: (tool: ToolDefinition) => boolean;
 	/**
 	 * Tool schema disclosure strategy. Default: "full".
 	 *
@@ -242,8 +240,9 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		}
 		const tools = resolveTools();
 		const stripped = getStripped(tools);
+		const strippedByName = new Map(stripped.map((s) => [s.name, s]));
 		const promoted = tools.map((t) =>
-			tracker.isPromoted(t.name) ? t : (stripped.find((s) => s.name === t.name) ?? t),
+			tracker.isPromoted(t.name) ? t : (strippedByName.get(t.name) ?? t),
 		);
 		return [...promoted, DESCRIBE_TOOL];
 	}

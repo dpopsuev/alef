@@ -1,5 +1,5 @@
+import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { describe, expect, it } from "vitest";
-import { createSessionContextStage } from "../src/adapter-memory.js";
 
 describe("Session context stage", { tags: ["unit"] }, () => {
 	it("returns empty result when sessionStore returns undefined", async () => {

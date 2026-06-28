@@ -414,6 +414,8 @@ export function resolveAdapterPath(name: string): string | undefined {
 	const candidates = [
 		join(PM_ROOT, "node_modules", name, "src", "adapter.ts"),
 		join(PM_ROOT, "node_modules", name, "src", "index.ts"),
+		join(PM_ROOT, "node_modules", "@dpopsuev", name, "src", "adapter.ts"),
+		join(PM_ROOT, "node_modules", "@dpopsuev", name, "src", "index.ts"),
 	];
 	for (const p of candidates) {
 		if (existsSync(p)) return p;

@@ -9,13 +9,19 @@ const PACKAGES_DIR = join(REPO_ROOT, "packages");
 
 function findBlueprintYamls(): Array<{ name: string; path: string }> {
 	const results: Array<{ name: string; path: string }> = [];
-	for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
-		if (!entry.isDirectory() || !entry.name.startsWith("alef-")) continue;
-		const yamlPath = join(PACKAGES_DIR, entry.name, "blueprint.yaml");
-		if (existsSync(yamlPath)) {
-			results.push({ name: entry.name, path: yamlPath });
+	function scan(dir: string): void {
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			if (!entry.isDirectory() || entry.name === "node_modules") continue;
+			const full = join(dir, entry.name);
+			const yamlPath = join(full, "blueprint.yaml");
+			if (existsSync(yamlPath)) {
+				results.push({ name: entry.name, path: yamlPath });
+			} else {
+				scan(full);
+			}
 		}
 	}
+	scan(PACKAGES_DIR);
 	return results;
 }
 

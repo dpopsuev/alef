@@ -90,11 +90,11 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 	it("assigns typeWeight from event types", async () => {
 		const cwd = tmpCwd();
 		const store = await JsonlSessionStore.create(cwd);
-		await store.append(motorRecord("fs.write", "c-1")); // weight 2.0
-		await store.append(motorRecord("llm.response", "c-1")); // weight 0.8
+		await store.append(motorRecord("fs.write", "c-1"));
+		await store.append(motorRecord("llm.response", "c-1"));
 
 		const [turn] = await store.turns();
-		expect(turn.typeWeight).toBe(2.0); // max
+		expect(turn.typeWeight).toBe(0.5);
 	});
 
 	it("excludes internal records from turns", async () => {

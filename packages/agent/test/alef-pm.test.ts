@@ -83,8 +83,8 @@ describe("install", { tags: ["unit"] }, () => {
 		const { init, install } = await load();
 		init();
 		writeLock({});
-		const id = await install("@dpopsuev/organ-fs");
-		expect(id).toBe(1);
+		const result = await install("@dpopsuev/organ-fs");
+		expect(result.generation).toBe(1);
 		expect(readCurrent()).toBe(1);
 		expect(existsSync(join(tmpRoot, "generations", "1.json"))).toBe(true);
 	});

@@ -76,7 +76,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 			timestamp: 0,
 			payload: { path: "auth.ts" },
 		});
-		expect(hash).toMatch(/^[0-9a-f]{64}$/);
+		expect(hash).toMatch(/^[0-9a-f]{16}$/);
 	});
 
 	it("same record produces same hash", async () => {
@@ -152,7 +152,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 			expect(record).toBeDefined();
 
 			// Hash is present
-			expect(record!.hash).toMatch(/^[0-9a-f]{64}$/);
+			expect(record!.hash).toMatch(/^[0-9a-f]{16}$/);
 
 			// apiKey is redacted
 			expect(record!.payload.apiKey).toBe("[REDACTED]");

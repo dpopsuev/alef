@@ -78,6 +78,8 @@ export class DashboardFooter implements Component {
 	private readonly inputSlot: SlotMachine<number>;
 	private readonly outputSlot: SlotMachine<number>;
 	private readonly costSlot: SlotMachine<number>;
+	private readonly ctxUsedSlot: SlotMachine<number>;
+	private readonly ctxTotalSlot: SlotMachine<number>;
 
 	constructor(opts: DashboardFooterOptions) {
 		this.opts = opts;
@@ -87,6 +89,8 @@ export class DashboardFooter implements Component {
 			this.inputSlot.set(s.inputTokens);
 			this.outputSlot.set(s.outputTokens);
 			this.costSlot.set(s.costUsd);
+			this.ctxUsedSlot.set(s.contextUsed);
+			this.ctxTotalSlot.set(s.contextWindow);
 			opts.requestRender();
 		});
 		const tuiHandle = { requestRender: opts.requestRender, terminal: { rows: 24 } };
@@ -104,6 +108,8 @@ export class DashboardFooter implements Component {
 			style: opts.dimStyle,
 			dimStyle: (s: string) => opts.dimStyle(s),
 		});
+		this.ctxUsedSlot = new SlotMachine(tuiHandle, 0, slotOpts);
+		this.ctxTotalSlot = new SlotMachine(tuiHandle, opts.store.get().contextWindow, slotOpts);
 	}
 
 	invalidate(): void {}
@@ -113,6 +119,8 @@ export class DashboardFooter implements Component {
 		this.inputSlot.dispose();
 		this.outputSlot.dispose();
 		this.costSlot.dispose();
+		this.ctxUsedSlot.dispose();
+		this.ctxTotalSlot.dispose();
 	}
 
 	render(width: number): string[] {
@@ -131,10 +139,16 @@ export class DashboardFooter implements Component {
 		if (s.contextWindow > 0) {
 			const barWidth = Math.min(Math.max(Math.floor(width * 0.1), 6), 20);
 			const compactSuffix = s.compacted ? dimStyle(" (auto)") : "";
-			segments.push(
-				renderContextBar(s.contextUsed, s.contextWindow, barWidth, style, warnStyle, errorStyle, dimStyle) +
-					compactSuffix,
-			);
+			const fill = s.contextUsed > 0 ? Math.min(s.contextUsed / s.contextWindow, 1) : 0;
+			const pb = new ProgressBar({ value: s.contextUsed, max: s.contextWindow });
+			const bar = pb.format(barWidth);
+			const colorFn =
+				fill > CONTEXT_FILL_ERROR ? errorStyle
+				: fill > CONTEXT_FILL_WARN ? warnStyle
+				: fill > CONTEXT_FILL_ACCENT ? style
+				: dimStyle;
+			const ctxLabel = `${this.ctxUsedSlot.currentStyled()}/${this.ctxTotalSlot.currentStyled()}`;
+			segments.push(`ctx ${colorFn(bar)} ${ctxLabel}${compactSuffix}`);
 		}
 
 		const thinkingSuffix = s.thinkingLevel && s.thinkingLevel !== "none" ? ` (${s.thinkingLevel})` : "";

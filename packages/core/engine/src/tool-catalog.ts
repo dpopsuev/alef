@@ -358,8 +358,8 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		},
 		phaseStage(): ContextAssemblyHandler {
 			return ({ messages, turn }) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bridge ContextAssemblyHandler message type to internal RawMsg[]
-				const msgs = shell.applyPhase(messages as unknown as RawMsg[], turn) as unknown as typeof messages;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ContextAssemblyInput.messages is readonly unknown[]; applyPhase expects RawMsg[] (Record<string, unknown>[])
+				const msgs = shell.applyPhase(messages as RawMsg[], turn);
 				return Promise.resolve({ messages: msgs, tools: getPromotedTools() });
 			};
 		},

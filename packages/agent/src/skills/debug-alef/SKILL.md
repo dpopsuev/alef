@@ -86,6 +86,8 @@ alef store trace <id> <correlationId>    # one turn's full trace
 alef store summary <id>                  # token/tool/error summary
 alef store summary                       # latest session summary
 alef store tail                          # latest session events
+alef store spans [session-id]            # list OTel spans with parent IDs
+alef store cause <span-id>              # walk causal chain backwards to root
 ```
 
 ### Composable filters (any combination)
@@ -125,6 +127,40 @@ alef store events bfd457a7 --payload "Cannot read properties"
 alef store tail --json | jq '.type'
 ```
 
+## Causal trace DAG — "What caused this?"
+
+OTel spans are persisted to SQLite with parent-child relationships. Every tool call and LLM call is a span. Walk backwards from any effect to the prime cause.
+
+### Walk a causal chain
+
+```bash
+# List spans for a session
+alef store spans <session-id>
+
+# Walk backwards from a span to the root cause
+alef store cause <span-id>
+
+# Output:
+# [Causal chain — 4 span(s)]
+# → alef.command/fs.write (abc123, 23ms) corr:e9f102f1
+#   ← chat claude-sonnet-4-5 (def456, 3800ms) model:claude-sonnet-4-5
+#     ← alef.command/agent.run (ghi789, 5200ms) corr:b4bbb29b
+#       ← chat claude-sonnet-4-5 (jkl012, 2100ms) = ROOT
+```
+
+### How it works
+
+The dispatch framework (`kernel/adapter/dispatch.ts`) creates OTel spans for every tool call. The reasoner (`reasoner/stream-turn.ts`) creates spans for every LLM call. Tool dispatch runs inside the LLM span's OTel context, so parent-child is automatic. The `SqliteSpanExporter` persists spans with `parent_span_id` to the `spans` table.
+
+### Span types
+
+| Span name pattern | What it is | Created by |
+|---|---|---|
+| `alef.command/{type}` | Tool call (fs.read, shell.exec, etc.) | dispatch.ts |
+| `alef.event/{type}` | Event-side handler | dispatch.ts |
+| `chat {model}` | LLM HTTP call | stream-turn.ts |
+| `eval.run` | Evaluation harness | harness.ts |
+
 ## Start here
 
 ```bash
@@ -139,6 +175,10 @@ alef store events <id> --errors
 
 # Trace a specific turn
 alef store trace <id> <correlationId>
+
+# Walk a causal chain from a span
+alef store spans <id>          # find the span ID
+alef store cause <span-id>     # walk to root
 ```
 
 ## Message round-trip
@@ -335,6 +375,9 @@ alef --kill-daemon <id>       # Stop a daemon by session ID
 | Package Manager service | `packages/core/supervisor/src/package-manager.ts` |
 | Storage service | `packages/core/storage/src/service.ts` |
 | Store CLI | `packages/agent/src/store-cli.ts` |
+| SQLite span exporter | `packages/core/storage/src/sqlite/span-exporter.ts` |
+| Spans table schema | `packages/core/storage/src/sqlite/schema.ts` (migration v5) |
+| OTel setup + upgrade | `packages/agent/src/otel.ts` |
 
 ## Quick reference
 
@@ -356,6 +399,10 @@ alef store events <id> --json                # pipe to jq
 alef store trace <id> <correlationId>        # one turn trace
 alef store tail                              # latest session
 alef store tail --errors                     # latest errors
+
+# Causal DAG
+alef store spans <id>                        # list OTel spans
+alef store cause <span-id>                   # walk to root cause
 
 # Summary
 alef store summary <id>                      # session stats

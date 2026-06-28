@@ -32,7 +32,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 /** Safely extract payload from a bus event (BusMessage base type has no payload; concrete subtypes do). */
 function busPayload(event: BusMessage): Record<string, unknown> {
 	if ("payload" in event) {
-		const raw: unknown = (event as Record<string, unknown>)["payload"]; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
+		const raw: unknown = (event as Record<string, unknown>).payload; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
 		if (typeof raw === "object" && raw !== null) return raw as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null check
 	}
 	return {};

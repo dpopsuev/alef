@@ -6,7 +6,7 @@ export default mergeConfig(
 	defineProject({
 		test: {
 			name: "runner",
-			testTimeout: 30_000,
+			testTimeout: 5_000,
 			server: {
 				deps: {
 					inline: ["@dpopsuev/alef-tui"],

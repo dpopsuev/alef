@@ -20,9 +20,6 @@ describe("Typewriter timer", { tags: ["unit"] }, () => {
 		// Wait for ticks (16ms each, 1-8 chars per tick)
 		await new Promise((r) => setTimeout(r, 200));
 
-		console.log("received:", received);
-		console.log("renderCalled:", renderCalled);
-		console.log("joined:", received.join(""));
 
 		expect(received.length).toBeGreaterThan(0);
 		expect(received.join("")).toBe("hello world");

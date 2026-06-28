@@ -7,7 +7,7 @@ export default mergeConfig(
 		test: {
 			name: "llm",
 			environment: "node",
-			testTimeout: 30000,
+			testTimeout: 5000,
 		},
 	}),
 );

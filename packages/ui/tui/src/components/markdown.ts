@@ -404,7 +404,7 @@ export class Markdown implements Component {
 					const quoteToken = quoteTokens[i];
 					const nextQuoteToken = quoteTokens[i + 1];
 					renderedQuoteLines.push(
-						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken.type, quoteInlineStyleContext),
+						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
 					);
 				}
 

@@ -249,11 +249,11 @@ describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
 
 	it("applyPhase does not evict (no catalog to evict)", () => {
 		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "full", evictAfterTurn: 1 });
-		let m = [{ role: "user", content: "hello" }];
-		m = shell.applyPhase(m, 1);
-		m = shell.applyPhase(m, 5);
-		expect(m).toHaveLength(1);
-		expect(m[0].content).toBe("hello");
+		const input = [{ role: "user", content: "hello" }];
+		const after1 = shell.applyPhase(input, 1);
+		const after5 = shell.applyPhase(after1, 5);
+		expect(after5).toHaveLength(1);
+		expect(after5[0].content).toBe("hello");
 	});
 });
 

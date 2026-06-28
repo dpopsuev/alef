@@ -483,7 +483,7 @@ export class Input implements Component, Focusable {
 		const cursorGrapheme = graphemes[0];
 
 		const beforeCursor = visibleText.slice(0, cursorDisplay);
-		const atCursor = cursorGrapheme.segment; // Character at cursor, or space if at end
+		const atCursor = cursorGrapheme?.segment ?? " ";
 		const afterCursor = visibleText.slice(cursorDisplay + atCursor.length);
 
 		// Hardware cursor marker (zero-width, emitted before fake cursor for IME positioning)

@@ -40,10 +40,10 @@ export class GrowSpacer implements Component {
 
 	render(_width: number): string[] {
 		if (!this._enabled) return [];
-		const rows = process.stdout.rows;
+		const rows = process.stdout.rows ?? 24;
 		const used = this.siblingLines + this._contentLines;
 		if (used >= rows) return [];
-		const blank = Math.max(0, rows - used);
+		const blank = rows - used;
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Array.fill("") produces string[] but TS infers any[]
 		return Array(blank).fill("") as string[];
 	}

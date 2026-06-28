@@ -213,6 +213,51 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
+// Full disclosure — all schemas always present, no stripping
+// ---------------------------------------------------------------------------
+
+describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
+	it("all tools have full schemas from the start", () => {
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "full" });
+		const current = shell.currentMetaTools();
+		expect(current.find((t) => t.name === "fs.read")?.inputSchema).toBe(FS_READ.inputSchema);
+		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).toBe(SHELL_EXEC.inputSchema);
+		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).toBe(WEB_FETCH.inputSchema);
+	});
+
+	it("describe is a no-op — schemas unchanged", async () => {
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "full" });
+		const harness = makeHarness(shell);
+		harnesses.push(harness);
+
+		const before = shell.currentMetaTools();
+		harness.publish("tools.describe", { names: ["fs.read"] });
+		await new Promise((r) => setTimeout(r, 50));
+		const after = shell.currentMetaTools();
+
+		expect(after.find((t) => t.name === "fs.read")?.inputSchema).toBe(before.find((t) => t.name === "fs.read")?.inputSchema);
+		expect(after.find((t) => t.name === "shell.exec")?.inputSchema).toBe(before.find((t) => t.name === "shell.exec")?.inputSchema);
+	});
+
+	it("applyPhase does not inject catalog", () => {
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "full" });
+		const input = [{ role: "user", content: "hello" }];
+		const result = shell.applyPhase(input, 1);
+		expect(result).toHaveLength(1);
+		expect(result[0].content).toBe("hello");
+	});
+
+	it("applyPhase does not evict (no catalog to evict)", () => {
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "full", evictAfterTurn: 1 });
+		let m = [{ role: "user", content: "hello" }];
+		m = shell.applyPhase(m, 1);
+		m = shell.applyPhase(m, 5);
+		expect(m).toHaveLength(1);
+		expect(m[0].content).toBe("hello");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // internal search (not exposed as command handler)
 // ---------------------------------------------------------------------------
 

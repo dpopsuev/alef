@@ -23,8 +23,8 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { createAgentServiceDescriptor } from "../src/services/agent-service.js";
-import { createSessionServiceDescriptor, type SessionService } from "../src/services/session-service.js";
+import { createAgentServiceDescriptor } from "../src/session/agent-service.js";
+import { createSessionServiceDescriptor, type SessionService } from "../src/session/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

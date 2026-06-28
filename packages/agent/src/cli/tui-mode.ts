@@ -5,7 +5,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import { checkForUpdate } from "../boot/version-check.js";
-import type { InteractiveOptions } from "../modes/interactive.js";
+import type { InteractiveOptions } from "./interactive.js";
 import { getUiSignalHandlers, isCompacted } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { bold, boldColor, color, getTheme } from "./runner-theme.js";

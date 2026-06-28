@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 async function load() {
-	return import("../src/pm/alef-pm.js");
+	return import("../src/pkg/alef-pm.js");
 }
 
 // ---------------------------------------------------------------------------

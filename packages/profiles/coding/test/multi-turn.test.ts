@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
-import { buildLlmAdapter } from "../../../agent/src/assembly/build-llm-adapter.js";
+import { buildLlmAdapter } from "../../../agent/src/boot/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/boot/args.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EvalHarness } from "../../../core/eval/src/harness.js";

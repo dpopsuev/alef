@@ -19,14 +19,14 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
-import { type HttpSurface, setupHttpSurface } from "../assembly/build-delegation.js";
-import { buildLlmAdapter } from "../assembly/build-llm-adapter.js";
 import type { Args } from "../boot/args.js";
+import { type HttpSurface, setupHttpSurface } from "../boot/build-delegation.js";
+import { buildLlmAdapter } from "../boot/build-llm-adapter.js";
 import type { AlefConfig } from "../boot/config.js";
-import { makeSink } from "../modes/sink.js";
 import { SessionHandle } from "../session/index.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
+import { makeSink } from "./sink.js";
 
 const DIRECTIVE_BUDGET_FRACTION = 0.1;
 const CHARS_PER_TOKEN_ESTIMATE = 4;

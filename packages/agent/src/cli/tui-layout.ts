@@ -2,9 +2,9 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions } from "../modes/interactive.js";
 import { AtAddressProvider } from "./history-autocomplete.js";
 import { InputPanel } from "./input-panel.js";
+import type { InteractiveOptions } from "./interactive.js";
 import { boldColor, color, type ThemeTokens } from "./runner-theme.js";
 import { renderSplash } from "./splash.js";
 

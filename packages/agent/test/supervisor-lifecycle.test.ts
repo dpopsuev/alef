@@ -21,8 +21,8 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { createSessionServiceDescriptor } from "../src/services/session-service.js";
-import { createTuiServiceDescriptor } from "../src/services/tui-service.js";
+import { createSessionServiceDescriptor } from "../src/session/session-service.js";
+import { createTuiServiceDescriptor } from "../src/session/tui-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

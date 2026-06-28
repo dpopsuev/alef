@@ -31,12 +31,12 @@ import { detectDark, queryPalette, readAlacrittyOpacity } from "./cli/terminal-b
 import { loadTheme } from "./cli/theme-loader.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";
-import { handleSelfUpdate, runPmCommand } from "./pm/run-pm-command.js";
-import { createAgentServiceDescriptor } from "./services/agent-service.js";
-import { createSessionServiceDescriptor, type SessionService } from "./services/session-service.js";
-import { createTuiServiceDescriptor } from "./services/tui-service.js";
+import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
+import { createAgentServiceDescriptor } from "./session/agent-service.js";
 import type { SessionHandle } from "./session/index.js";
 import { loadSession } from "./session/index.js";
+import { createSessionServiceDescriptor, type SessionService } from "./session/session-service.js";
+import { createTuiServiceDescriptor } from "./session/tui-service.js";
 
 // ---------------------------------------------------------------------------
 // Phase 1: Pure setup
@@ -159,7 +159,7 @@ if (args.attach !== undefined) {
 		process.exit(1);
 	}
 	const { RemoteSession } = await import("./session/remote-session.js");
-	const { runAgent } = await import("./modes/run-agent.js");
+	const { runAgent } = await import("./cli/run-agent.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();
 	loadTheme(

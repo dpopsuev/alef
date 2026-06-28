@@ -1,9 +1,9 @@
 import { resolveProfile } from "@dpopsuev/alef-agent/model";
 import { createDefaultDirectives, loadWorkspace } from "@dpopsuev/alef-agent/prompt";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
-import type { Args } from "./args.js";
-import { getConfig } from "./config.js";
-import type { SessionHandle } from "./session-lifecycle/index.js";
+import type { Args } from "../boot/args.js";
+import { getConfig } from "../boot/config.js";
+import type { SessionHandle } from "../session-lifecycle/index.js";
 
 interface CliOp {
 	name: string;

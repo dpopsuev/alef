@@ -6,7 +6,7 @@ import { wrapWithPermissions } from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
-import { parseArgs } from "../src/args.js";
+import { parseArgs } from "../src/boot/args.js";
 
 declare module "@dpopsuev/alef-kernel/bus" {
 	interface CommandMessageRegistry {

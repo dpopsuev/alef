@@ -18,25 +18,25 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import updateNotifier from "update-notifier";
-import { createAgentServiceDescriptor } from "./agent-service.js";
-import { parseArgs } from "./args.js";
-import { BUILD_INFO } from "./build-info.js";
+import { parseArgs } from "./boot/args.js";
+import { BUILD_INFO } from "./boot/build-info.js";
+import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
+import { initYamlBlueprints } from "./boot/init-yaml-blueprints.js";
+import { createRunnerLogger } from "./boot/logger.js";
+import { setupOTel } from "./boot/otel.js";
+import { ensureDirectories } from "./boot/xdg-paths.js";
 import { loadAdapters } from "./cli/load-adapters.js";
 import { pickSession } from "./cli/session-picker.js";
+import { detectDark, queryPalette, readAlacrittyOpacity } from "./cli/terminal-bg.js";
 import { loadTheme } from "./cli/theme-loader.js";
-import { dispatchCliOp } from "./cli-ops.js";
-import { loadConfig, resolveDaemonConfig } from "./config.js";
-import { runDebugSession } from "./debug-session.js";
-import { initYamlBlueprints } from "./init-yaml-blueprints.js";
-import { createRunnerLogger } from "./logger.js";
-import { setupOTel } from "./otel.js";
-import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
+import { dispatchCliOp } from "./debug/cli-ops.js";
+import { runDebugSession } from "./debug/debug-session.js";
+import { handleSelfUpdate, runPmCommand } from "./pm/run-pm-command.js";
+import { createAgentServiceDescriptor } from "./services/agent-service.js";
+import { createSessionServiceDescriptor, type SessionService } from "./services/session-service.js";
+import { createTuiServiceDescriptor } from "./services/tui-service.js";
 import type { SessionHandle } from "./session-lifecycle/index.js";
 import { loadSession } from "./session-lifecycle/index.js";
-import { createSessionServiceDescriptor, type SessionService } from "./session-service.js";
-import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
-import { createTuiServiceDescriptor } from "./tui-service.js";
-import { ensureDirectories } from "./xdg-paths.js";
 
 // ---------------------------------------------------------------------------
 // Phase 1: Pure setup
@@ -99,7 +99,7 @@ if (args.debugSubcmd) {
 }
 
 if (args.logSubcmd) {
-	const { runLogCommand } = await import("./log-cli.js");
+	const { runLogCommand } = await import("./debug/log-cli.js");
 	await runLogCommand(args.logSubcmd, args.logArgs);
 	process.exit(0);
 }
@@ -159,7 +159,7 @@ if (args.attach !== undefined) {
 		process.exit(1);
 	}
 	const { RemoteSession } = await import("./strategies/remote-session.js");
-	const { runAgent } = await import("./run-agent.js");
+	const { runAgent } = await import("./modes/run-agent.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();
 	loadTheme(
@@ -206,11 +206,11 @@ if (willUseTui) {
 const log = createRunnerLogger(willUseTui, args.debug);
 const storage = await getStorage();
 
-import { upgradeToSqliteExporter } from "./otel.js";
+import { upgradeToSqliteExporter } from "./boot/otel.js";
 
 await upgradeToSqliteExporter();
 
-import { setAuthStore, warmAuthCache } from "./auth.js";
+import { setAuthStore, warmAuthCache } from "./boot/auth.js";
 
 setAuthStore(storage.authStore());
 await warmAuthCache();
@@ -292,7 +292,7 @@ if (sessionRaw && "session" in sessionRaw) {
 }
 
 // Signal handlers — consolidated shutdown with drain
-import { shutdownOTel } from "./otel.js";
+import { shutdownOTel } from "./boot/otel.js";
 
 const daemonCfg = resolveDaemonConfig(cfg);
 let draining = false;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseArgs } from "../src/args.js";
+import { parseArgs } from "../src/boot/args.js";
 
 describe("parseArgs", { tags: ["unit"] }, () => {
 	it("defaults to interactive mode with process.cwd()", () => {

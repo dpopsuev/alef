@@ -9,8 +9,8 @@
 import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
-import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
-import { getConfig } from "../config.js";
+import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../boot/auth.js";
+import { getConfig } from "../boot/config.js";
 import { CommandRegistry } from "./command-registry.js";
 import type { TuiHandlerContext } from "./command-types.js";
 import { openConfigPicker, openEnumPicker } from "./config-picker.js";
@@ -346,7 +346,7 @@ const install = {
 		ctx.writer.addNotice(`Installing ${spec}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const pm = await import("../alef-pm.js");
+			const pm = await import("../pm/alef-pm.js");
 			pm.init();
 			const [name, version] = spec.split("@");
 			const { generation } = await pm.install(name, version);
@@ -363,7 +363,7 @@ const upgrade = {
 		ctx.writer.addNotice("Upgrading adapters…");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const pm = await import("../alef-pm.js");
+			const pm = await import("../pm/alef-pm.js");
 			pm.init();
 			const gen = await pm.upgrade();
 			ctx.writer.addNotice(`Adapters upgraded (generation ${gen})`);
@@ -377,7 +377,7 @@ const rollback = {
 	description: "Roll back to a previous adapter generation — :rollback [N]",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		attempt(ctx, async () => {
-			const pm = await import("../alef-pm.js");
+			const pm = await import("../pm/alef-pm.js");
 			pm.init();
 			const entries = pm.history();
 			const n = args[0] ? parseInt(args[0], 10) : (entries[1]?.id ?? 1);
@@ -402,7 +402,7 @@ const meta = {
 		ctx.writer.addNotice("[meta] \u2508");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const m = await import("../meta-agent.js");
+			const m = await import("../assembly/meta-agent.js");
 			let accumulated = "";
 			const reply = await m.runMetaAgent(
 				prompt,

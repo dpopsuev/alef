@@ -6,9 +6,9 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
-import { parseArgs } from "./args.js";
+import { parseArgs } from "../boot/args.js";
+import type { AlefConfig } from "../boot/config.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
-import type { AlefConfig } from "./config.js";
 
 export interface CreateAgentOptions {
 	cwd: string;

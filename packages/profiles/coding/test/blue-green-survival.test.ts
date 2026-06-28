@@ -24,8 +24,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
-import { parseArgs } from "../../../agent/src/args.js";
+import { buildLlmAdapter } from "../../../agent/src/assembly/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/boot/args.js";
 import { addTypeExport } from "../../../core/eval/src/evaluations/write.js";
 import { EvalHarness, EvaluationRunner } from "../../../core/eval/src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";

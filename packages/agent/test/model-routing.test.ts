@@ -1,6 +1,6 @@
 import { resolveTier } from "@dpopsuev/alef-agent/model";
 import { describe, expect, it } from "vitest";
-import type { AlefConfig } from "../src/config.js";
+import type { AlefConfig } from "../src/boot/config.js";
 
 const WORK_CONFIG: AlefConfig = {
 	profile: "work",

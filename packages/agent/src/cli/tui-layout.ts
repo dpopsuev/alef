@@ -2,7 +2,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions } from "../interactive.js";
+import type { InteractiveOptions } from "../modes/interactive.js";
 import { AtAddressProvider } from "./history-autocomplete.js";
 import { InputPanel } from "./input-panel.js";
 import { boldColor, color, type ThemeTokens } from "./runner-theme.js";
@@ -40,7 +40,7 @@ export async function buildLayout(
 	tuiStore: TuiStateStore,
 	store?: SessionStore,
 ): Promise<TuiLayout> {
-	const { BUILD_INFO } = await import("../build-info.js");
+	const { BUILD_INFO } = await import("../boot/build-info.js");
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
 		cwd: opts.cwd,

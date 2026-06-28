@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { detectDarkSync, parseOSC11Response, relativeLuminance } from "../src/terminal-bg.js";
+import { detectDarkSync, parseOSC11Response, relativeLuminance } from "../src/cli/terminal-bg.js";
 
 afterEach(() => {
 	delete process.env.COLORFGBG;

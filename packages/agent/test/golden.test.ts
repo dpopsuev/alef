@@ -9,8 +9,8 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
 import { getTheme } from "../src/cli/runner-theme.js";
+import { rasterise, rasterToBlocks } from "../src/cli/splash-render.js";
 import { renderToolLine } from "../src/cli/tui-mode.js";
-import { rasterise, rasterToBlocks } from "../src/splash-render.js";
 import { goldenPath, requireGolden, stripANSI } from "./golden.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));

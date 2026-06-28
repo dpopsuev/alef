@@ -21,9 +21,9 @@ import "@dpopsuev/alef-coding-agent";
 
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
-import { parseArgs } from "../src/args.js";
-import { createSessionServiceDescriptor, type SessionService } from "../src/session-service.js";
-import { HeadlessViewMode } from "../src/view-mode.js";
+import { parseArgs } from "../src/boot/args.js";
+import { HeadlessViewMode } from "../src/modes/view-mode.js";
+import { createSessionServiceDescriptor, type SessionService } from "../src/services/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

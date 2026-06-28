@@ -1,4 +1,4 @@
-import type { Args } from "./args.js";
+import type { Args } from "../boot/args.js";
 
 export async function handleSelfUpdate(args: Args): Promise<void> {
 	if (!args.pmSelfUpdate) return;

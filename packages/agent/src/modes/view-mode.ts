@@ -17,7 +17,7 @@
 
 import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import type { Args } from "./args.js";
+import type { Args } from "../boot/args.js";
 import type { InteractiveOptions } from "./interactive.js";
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ export class TuiViewMode implements ViewMode {
 	) {}
 
 	async run(session: Session): Promise<void> {
-		const { runTuiMode } = await import("./cli/tui-mode.js");
+		const { runTuiMode } = await import("../cli/tui-mode.js");
 		await runTuiMode(session, this.opts, this.store);
 	}
 }

@@ -21,7 +21,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runMetaAgent } from "../../../agent/src/meta-agent.js";
+import { runMetaAgent } from "../../../agent/src/assembly/meta-agent.js";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 
 const SKIP =

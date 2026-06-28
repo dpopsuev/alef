@@ -2,7 +2,7 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions } from "../interactive.js";
+import type { InteractiveOptions } from "../modes/interactive.js";
 import type { ThemeTokens } from "./runner-theme.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import type { TuiEvent } from "./tui-dispatch.js";

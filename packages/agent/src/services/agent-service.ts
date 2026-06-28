@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import type { Args } from "./args.js";
-import { type AlefConfig, resolveDaemonConfig } from "./config.js";
+import type { Args } from "../boot/args.js";
+import { type AlefConfig, resolveDaemonConfig } from "../boot/config.js";
 import type { SessionService } from "./session-service.js";
 
 export interface AgentServiceOptions {

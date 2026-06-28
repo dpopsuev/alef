@@ -7,7 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createLogger } from "../src/logger.js";
+import { createLogger } from "../src/boot/logger.js";
 
 describe("logger: warn level does not emit debug lines to stderr", { tags: ["unit"] }, () => {
 	let stderrWrites: string[] = [];

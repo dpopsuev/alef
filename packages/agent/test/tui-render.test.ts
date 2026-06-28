@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
-import { parseArgs } from "../src/args.js";
+import { parseArgs } from "../src/boot/args.js";
 import { buildIdentityContext, createLocalSession } from "../src/cli/local-session.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });

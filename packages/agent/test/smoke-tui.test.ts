@@ -6,8 +6,14 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve as pathResolve } from "node:path";
-import { spawn as ptySpawn } from "node-pty";
 import { afterEach, describe, expect, it } from "vitest";
+
+let ptySpawn: typeof import("node-pty").spawn | undefined;
+try {
+	ptySpawn = (await import("node-pty")).spawn;
+} catch {
+	// native module not built — tests will be skipped
+}
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -61,7 +67,7 @@ function runInPty(
 			reject(new Error(`PTY timed out after ${timeoutMs}ms.\nOutput:\n${out}`));
 		}, timeoutMs);
 
-		const pty = ptySpawn(process.execPath, [TSX, RUNNER_MAIN], {
+		const pty = ptySpawn!(process.execPath, [TSX, RUNNER_MAIN], {
 			name: "xterm-256color",
 			cols: 80,
 			rows: 24,
@@ -117,7 +123,8 @@ function runInPty(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("TUI process-exit smoke (node-pty)", { tags: ["integration"] }, () => {
+const suite = ptySpawn ? describe : describe.skip;
+suite("TUI process-exit smoke (node-pty)", { tags: ["integration"] }, () => {
 	it("/exit terminates the process with exit code 0", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {

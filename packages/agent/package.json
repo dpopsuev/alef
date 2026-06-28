@@ -57,6 +57,9 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@dpopsuev/alef-testkit": "workspace:*",
+    "@dpopsuev/alef-tool-eval": "workspace:*",
+    "@dpopsuev/alef-tool-plan": "workspace:*",
     "@libsql/client": "^0.17.4",
     "@napi-rs/canvas": "^1.0.0",
     "@types/node": "^24.3.0",

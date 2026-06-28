@@ -1,29 +1,23 @@
 /**
  * OpenAI Codex (ChatGPT OAuth) flow
  *
- * NOTE: This module uses Node.js crypto and http for the OAuth callback.
+ * NOTE: This module uses Node.js crypto for state generation.
  * It is only intended for CLI use, not browser environments.
  */
 
 // NEVER convert to top-level imports - breaks browser/Vite builds (web-ui)
 let _randomBytes: typeof import("node:crypto").randomBytes | null = null;
-let _http: typeof import("node:http") | null = null;
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
 if (typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun)) {
 	void import("node:crypto").then((m) => {
 		_randomBytes = m.randomBytes;
 	});
-	void import("node:http").then((m) => {
-		_http = m;
-	});
 }
 
-import { oauthErrorHtml, oauthSuccessHtml } from "./oauth-page.js";
+import { startCallbackServer } from "./callback-server.js";
+import { parseAuthorizationInput } from "./parse-input.js";
 import { generatePKCE } from "./pkce.js";
 import type { OAuthCredentials, OAuthLoginCallbacks, OAuthPrompt, OAuthProviderInterface } from "./types.js";
-
-// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through to default
-const CALLBACK_HOST = process.env.ALEF_OAUTH_CALLBACK_HOST || "127.0.0.1";
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
 const TOKEN_URL = "https://auth.openai.com/oauth/token";
@@ -47,36 +41,6 @@ function createState(): string {
 		throw new Error("OpenAI Codex OAuth is only available in Node.js environments");
 	}
 	return _randomBytes(16).toString("hex");
-}
-
-function parseAuthorizationInput(input: string): { code?: string; state?: string } {
-	const value = input.trim();
-	if (!value) return {};
-
-	try {
-		const url = new URL(value);
-		return {
-			code: url.searchParams.get("code") ?? undefined,
-			state: url.searchParams.get("state") ?? undefined,
-		};
-	} catch {
-		// not a URL
-	}
-
-	if (value.includes("#")) {
-		const [code, state] = value.split("#", 2);
-		return { code, state };
-	}
-
-	if (value.includes("code=")) {
-		const params = new URLSearchParams(value);
-		return {
-			code: params.get("code") ?? undefined,
-			state: params.get("state") ?? undefined,
-		};
-	}
-
-	return { code: value };
 }
 
 function decodeJwt(token: string): JwtPayload | null {
@@ -210,88 +174,6 @@ async function createAuthorizationFlow(
 	return { verifier, state, url: url.toString() };
 }
 
-type OAuthServerInfo = {
-	close: () => void;
-	cancelWait: () => void;
-	waitForCode: () => Promise<{ code: string } | null>;
-};
-
-function startLocalOAuthServer(state: string): Promise<OAuthServerInfo> {
-	if (!_http) {
-		throw new Error("OpenAI Codex OAuth is only available in Node.js environments");
-	}
-
-	let settleWait: ((value: { code: string } | null) => void) | undefined;
-	const waitForCodePromise = new Promise<{ code: string } | null>((resolve) => {
-		let settled = false;
-		settleWait = (value) => {
-			if (settled) return;
-			settled = true;
-			resolve(value);
-		};
-	});
-
-	const server = _http.createServer((req, res) => {
-		try {
-			const url = new URL(req.url ?? "", "http://localhost");
-			if (url.pathname !== "/auth/callback") {
-				res.statusCode = 404;
-				res.setHeader("Content-Type", "text/html; charset=utf-8");
-				res.end(oauthErrorHtml("Callback route not found."));
-				return;
-			}
-			if (url.searchParams.get("state") !== state) {
-				res.statusCode = 400;
-				res.setHeader("Content-Type", "text/html; charset=utf-8");
-				res.end(oauthErrorHtml("State mismatch."));
-				return;
-			}
-			const code = url.searchParams.get("code");
-			if (!code) {
-				res.statusCode = 400;
-				res.setHeader("Content-Type", "text/html; charset=utf-8");
-				res.end(oauthErrorHtml("Missing authorization code."));
-				return;
-			}
-			res.statusCode = 200;
-			res.setHeader("Content-Type", "text/html; charset=utf-8");
-			res.end(oauthSuccessHtml("OpenAI authentication completed. You can close this window."));
-			settleWait?.({ code });
-		} catch {
-			res.statusCode = 500;
-			res.setHeader("Content-Type", "text/html; charset=utf-8");
-			res.end(oauthErrorHtml("Internal error while processing OAuth callback."));
-		}
-	});
-
-	return new Promise((resolve) => {
-		server
-			.listen(1455, CALLBACK_HOST, () => {
-				resolve({
-					close: () => server.close(),
-					cancelWait: () => {
-						settleWait?.(null);
-					},
-					waitForCode: () => waitForCodePromise,
-				});
-			})
-			.on("error", (_err: NodeJS.ErrnoException) => {
-				settleWait?.(null);
-				resolve({
-					close: () => {
-						try {
-							server.close();
-						} catch {
-							// ignore
-						}
-					},
-					cancelWait: () => {},
-					waitForCode: async () => null,
-				});
-			});
-	});
-}
-
 function getAccountId(accessToken: string): string | null {
 	const payload = decodeJwt(accessToken);
 	const auth = payload?.[JWT_CLAIM_PATH];
@@ -318,7 +200,12 @@ export async function loginOpenAICodex(options: {
 	originator?: string;
 }): Promise<OAuthCredentials> {
 	const { verifier, state, url } = await createAuthorizationFlow(options.originator);
-	const server = await startLocalOAuthServer(state);
+	const server = await startCallbackServer({
+		port: 1455,
+		path: "/auth/callback",
+		expectedState: state,
+		successMessage: "OpenAI authentication completed. You can close this window.",
+	});
 
 	options.onAuth({ url, instructions: "A browser window should open. Complete login to finish." });
 

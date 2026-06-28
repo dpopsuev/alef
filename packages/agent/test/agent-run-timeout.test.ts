@@ -11,6 +11,7 @@
  * can read the schema default even when the ToolShell has stripped the schema.
  */
 
+import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
@@ -20,7 +21,6 @@ import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { Agent } from "../../core/engine/src/agent.js";
-import { buildSubagentFactory } from "../src/subagent-factory.js";
 
 const HTTP_TIMEOUT_MS = 200;
 const INNER_DELAY_MS = 500;

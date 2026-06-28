@@ -9,8 +9,8 @@
  * Apply: replaces the current line with the full history entry.
  */
 
+import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@dpopsuev/alef-tui";
-import type { ActorRouteTable } from "../identity/routes.js";
 
 export class HistoryAutocompleteProvider implements AutocompleteProvider {
 	/**

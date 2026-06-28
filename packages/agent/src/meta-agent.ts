@@ -1,9 +1,9 @@
+import { autoDetectModel, buildModel } from "@dpopsuev/alef-agent/model";
+import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { DirectiveView } from "@dpopsuev/alef-session/contracts";
 import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-tool-meta";
-import { autoDetectModel, buildModel } from "./model/index.js";
-import { buildSubagentFactory } from "./subagent-factory.js";
 
 const META_SYSTEM_PROMPT =
 	"You are the :meta command inside Alef, a coding agent. " +

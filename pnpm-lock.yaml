@@ -227,12 +227,21 @@ importers:
 
   packages/core/agent:
     dependencies:
+      '@dpopsuev/alef-ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@dpopsuev/alef-blueprint':
+        specifier: workspace:*
+        version: link:../blueprint
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../engine
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@dpopsuev/alef-reasoner':
+        specifier: workspace:*
+        version: link:../reasoner
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session

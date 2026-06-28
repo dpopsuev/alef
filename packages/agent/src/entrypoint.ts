@@ -12,6 +12,7 @@ import "@dpopsuev/alef-coding-agent";
 import "@dpopsuev/alef-factory-agent";
 
 import { dirname } from "node:path";
+import { resolveStartupModel, setModelConfigProvider } from "@dpopsuev/alef-agent/model";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-storage/service";
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
@@ -28,7 +29,6 @@ import { loadConfig, resolveDaemonConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { createRunnerLogger } from "./logger.js";
-import { resolveStartupModel, setModelConfigProvider } from "./model/index.js";
 import { setupOTel } from "./otel.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import type { SessionHandle } from "./session-lifecycle/index.js";

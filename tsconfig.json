@@ -77,6 +77,27 @@
 			"@dpopsuev/alef-agent/assemble": [
 				"./packages/core/agent/src/assemble.ts"
 			],
+			"@dpopsuev/alef-agent/identity/actor": [
+				"./packages/core/agent/src/identity/actor.ts"
+			],
+			"@dpopsuev/alef-agent/identity/palette": [
+				"./packages/core/agent/src/identity/palette.ts"
+			],
+			"@dpopsuev/alef-agent/identity/routes": [
+				"./packages/core/agent/src/identity/routes.ts"
+			],
+			"@dpopsuev/alef-agent/model": [
+				"./packages/core/agent/src/model/index.ts"
+			],
+			"@dpopsuev/alef-agent/event-log": [
+				"./packages/core/agent/src/event-log-adapter.ts"
+			],
+			"@dpopsuev/alef-agent/kernel": [
+				"./packages/core/agent/src/agent-kernel.ts"
+			],
+			"@dpopsuev/alef-agent/subagent-factory": [
+				"./packages/core/agent/src/subagent-factory.ts"
+			],
 			"@dpopsuev/alef-agent/*": [
 				"./packages/core/agent/src/*.ts"
 			],

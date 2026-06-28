@@ -1,3 +1,4 @@
+import { buildAgent } from "@dpopsuev/alef-agent/kernel";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
@@ -5,7 +6,6 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
-import { buildAgent } from "./agent-kernel.js";
 import { parseArgs } from "./args.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
 import type { AlefConfig } from "./config.js";

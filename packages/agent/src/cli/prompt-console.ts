@@ -53,7 +53,7 @@ const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
 const MIN_WIDGET_LINES = 3;
 
 import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
-import { lookupColor } from "../identity/palette.js";
+import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./runner-theme.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 

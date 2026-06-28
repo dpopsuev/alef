@@ -14,15 +14,25 @@
     "./runner-logger": "./src/runner-logger.ts",
     "./scripted-llm": "./src/scripted-llm.ts",
     "./prompt": "./src/prompt.ts",
-    "./assemble": "./src/assemble.ts"
+    "./assemble": "./src/assemble.ts",
+    "./identity/actor": "./src/identity/actor.ts",
+    "./identity/palette": "./src/identity/palette.ts",
+    "./identity/routes": "./src/identity/routes.ts",
+    "./model": "./src/model/index.ts",
+    "./event-log": "./src/event-log-adapter.ts",
+    "./kernel": "./src/agent-kernel.ts",
+    "./subagent-factory": "./src/subagent-factory.ts"
   },
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@dpopsuev/alef-ai": "workspace:*",
+    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*"
   },
   "devDependencies": {

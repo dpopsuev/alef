@@ -20,6 +20,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { autoDetectModel, buildModel } from "@dpopsuev/alef-agent/model";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import { assembleTurns } from "@dpopsuev/alef-session/context";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
@@ -28,7 +29,6 @@ import { z } from "zod";
 import { BlueprintHarness } from "../../core/testkit/src/blueprint-harness.js";
 import { step } from "../../core/testkit/src/script.js";
 import { getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
-import { autoDetectModel, buildModel } from "../src/model/index.js";
 
 const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));

@@ -124,7 +124,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
 		const { InProcessBus } = await import("../../core/kernel/src/bus/in-process-bus.js");
-		const { SessionLog } = await import("../src/event-log-adapter.js");
+		const { SessionLog } = await import("@dpopsuev/alef-agent/event-log");
 		const { JsonlSessionStore } = await import("@dpopsuev/alef-session/store");
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));

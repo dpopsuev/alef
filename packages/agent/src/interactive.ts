@@ -13,7 +13,7 @@ import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";
 
-import type { ActorRouteTable } from "./identity/routes.js";
+import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 
 export interface InteractiveOptions {
 	cwd: string;

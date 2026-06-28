@@ -7,6 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { SessionLog } from "@dpopsuev/alef-agent/event-log";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
@@ -15,7 +16,6 @@ import { makeTestDatabase } from "@dpopsuev/alef-storage/sqlite/database";
 import { SqliteSessionStore } from "@dpopsuev/alef-storage/sqlite/session";
 import { SqliteSummaryStore } from "@dpopsuev/alef-storage/sqlite/summary";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionLog } from "../src/event-log-adapter.js";
 
 describe("SessionSummary", { tags: ["unit"] }, () => {
 	const cleanups: Array<() => void> = [];

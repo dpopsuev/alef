@@ -4,10 +4,10 @@
  * Given/When/Then per describe block.
  */
 
+import { resolveAgentActor, resolveHumanActor } from "@dpopsuev/alef-agent/identity/actor";
+import { ALL_COLORS, hexToColorToken, lookupColor } from "@dpopsuev/alef-agent/identity/palette";
+import { ActorRouteTable, parseAtAddress } from "@dpopsuev/alef-agent/identity/routes";
 import { describe, expect, it } from "vitest";
-import { resolveAgentActor, resolveHumanActor } from "../../src/identity/actor.js";
-import { ALL_COLORS, hexToColorToken, lookupColor } from "../../src/identity/palette.js";
-import { ActorRouteTable, parseAtAddress } from "../../src/identity/routes.js";
 
 // ---------------------------------------------------------------------------
 // Palette

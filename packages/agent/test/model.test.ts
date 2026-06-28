@@ -1,5 +1,5 @@
+import { buildModel, hasCredentials } from "@dpopsuev/alef-agent/model";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildModel, hasCredentials } from "../src/model/index.js";
 
 describe("buildModel", { tags: ["unit"] }, () => {
 	it("returns a Model with the given id", () => {

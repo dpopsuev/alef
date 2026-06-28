@@ -21,6 +21,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SessionLog } from "@dpopsuev/alef-agent/event-log";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
@@ -29,7 +30,6 @@ import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { describe, expect, it } from "vitest";
-import { SessionLog } from "../src/event-log-adapter.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

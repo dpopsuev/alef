@@ -6,11 +6,11 @@
  * Any other invoker (MCP, HTTP) can dispatch through registry.find(name).
  */
 
+import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { getConfig } from "../config.js";
-import { buildModel, resolveProfile } from "../model/index.js";
 import { CommandRegistry } from "./command-registry.js";
 import type { TuiHandlerContext } from "./command-types.js";
 import { openConfigPicker, openEnumPicker } from "./config-picker.js";

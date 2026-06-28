@@ -14,11 +14,11 @@ import { readdirSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createDefaultDirectives } from "@dpopsuev/alef-agent/prompt";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDefaultDirectives } from "../src/prompt.js";
 
 const HAVE_LLM = process.env.ALEF_TEST_LLM === "1";
 

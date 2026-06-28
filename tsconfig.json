@@ -71,6 +71,12 @@
 			"@dpopsuev/alef-agent/scripted-llm": [
 				"./packages/core/agent/src/scripted-llm.ts"
 			],
+			"@dpopsuev/alef-agent/prompt": [
+				"./packages/core/agent/src/prompt.ts"
+			],
+			"@dpopsuev/alef-agent/assemble": [
+				"./packages/core/agent/src/assemble.ts"
+			],
 			"@dpopsuev/alef-agent/*": [
 				"./packages/core/agent/src/*.ts"
 			],

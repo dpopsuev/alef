@@ -1,5 +1,4 @@
 import { Directives } from "@dpopsuev/alef-agent/directives";
-import { describe, expect, it } from "vitest";
 import {
 	appendEnvironment,
 	BLOCK_CORE,
@@ -7,7 +6,8 @@ import {
 	buildSystemPrompt,
 	createDefaultDirectives,
 	registerAdapters,
-} from "../src/prompt.js";
+} from "@dpopsuev/alef-agent/prompt";
+import { describe, expect, it } from "vitest";
 
 const FS_TOOLS = [
 	{ name: "fs.read", description: "Read a file.", inputSchema: {} as never },

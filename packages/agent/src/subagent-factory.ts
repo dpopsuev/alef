@@ -1,10 +1,10 @@
+import { assembleAgentServer } from "@dpopsuev/alef-agent/assemble";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentSession } from "@dpopsuev/alef-session/agent";
-import { assembleAgentServer } from "./assemble.js";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model/index.js";

@@ -12,14 +12,18 @@
     "./directives": "./src/directives.ts",
     "./prompt-templates": "./src/prompt-templates.ts",
     "./runner-logger": "./src/runner-logger.ts",
-    "./scripted-llm": "./src/scripted-llm.ts"
+    "./scripted-llm": "./src/scripted-llm.ts",
+    "./prompt": "./src/prompt.ts",
+    "./assemble": "./src/assemble.ts"
   },
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@dpopsuev/alef-kernel": "workspace:*"
+    "@dpopsuev/alef-engine": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-session": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

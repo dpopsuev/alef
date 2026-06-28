@@ -1,3 +1,4 @@
+import { createDefaultDirectives, loadWorkspace, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
@@ -8,7 +9,6 @@ import { buildAgent } from "./agent-kernel.js";
 import { parseArgs } from "./args.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
 import type { AlefConfig } from "./config.js";
-import { createDefaultDirectives, loadWorkspace, registerAdapters } from "./prompt.js";
 
 export interface CreateAgentOptions {
 	cwd: string;

@@ -227,9 +227,15 @@ importers:
 
   packages/core/agent:
     dependencies:
+      '@dpopsuev/alef-engine':
+        specifier: workspace:*
+        version: link:../engine
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@dpopsuev/alef-session':
+        specifier: workspace:*
+        version: link:../session
     devDependencies:
       typescript:
         specifier: ^5.9.2

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import { TUI } from "@dpopsuev/alef-tui";
 import { MockTerminal } from "@dpopsuev/alef-tui/mock-terminal";
 import pino from "pino";
@@ -23,21 +24,7 @@ import { buildIdentityContext, createLocalSession } from "../src/client/local-se
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
-const STUB_STORAGE: StorageFactory = {
-	daemonRegistry: () => ({
-		register: async () => {},
-		unregister: async () => {},
-		heartbeat: async () => {},
-		get: async () => undefined,
-		list: async () => [],
-		findByCwd: async () => undefined,
-		findLatest: async () => undefined,
-		prune: async () => 0,
-	}),
-	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
-	authStore: () => ({}) as never,
-	sessions: {} as never,
-};
+const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 const EMPTY_LOADED = {
 	adapters: [],
 	blueprintModelId: undefined,

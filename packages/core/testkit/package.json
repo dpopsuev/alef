@@ -20,11 +20,13 @@
     "./bus-recorder": "./src/bus-event-recorder.ts",
     "./e2e": "./src/e2e-session.ts",
     "./memory-store": "./src/in-memory-session-store.ts",
+    "./memory-storage": "./src/in-memory-storage.ts",
     "./mock-reasoner": "./src/mock-reasoner.ts",
     "./organ": "./src/organ.ts",
     "./script": "./src/script.ts",
     "./scripted-reasoner": "./src/scripted-reasoner.ts",
     "./stub-adapter": "./src/stub-adapter.ts",
+    "./remote-harness": "./src/remote-session-harness.ts",
     "./turn-driver": "./src/turn-driver.ts",
     "./vitest-config": "./src/vitest-config.ts"
   },
@@ -57,12 +59,14 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@dpopsuev/alef-agent": "workspace:*",
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-storage": "workspace:*",
     "vite-tsconfig-paths": "*"
   },
   "devDependencies": {

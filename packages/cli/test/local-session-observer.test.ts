@@ -24,18 +24,14 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import { parseArgs } from "../src/boot/args.js";
 import { buildIdentityContext, createLocalSession } from "../src/client/local-session.js";
 import { HeadlessViewMode } from "../src/client/view-mode.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
-const STUB_STORAGE: StorageFactory = {
-	daemonRegistry: () => ({}) as never,
-	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
-	authStore: () => ({}) as never,
-	sessions: {} as never,
-};
+const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 const EMPTY_LOADED = {
 	adapters: [],
 	blueprintModelId: undefined,

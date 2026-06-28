@@ -16,6 +16,7 @@ import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/fa
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -28,21 +29,7 @@ import { createSessionServiceDescriptor, type SessionService } from "../src/boot
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
-const STUB_STORAGE: StorageFactory = {
-	daemonRegistry: () => ({
-		register: async () => {},
-		unregister: async () => {},
-		heartbeat: async () => {},
-		get: async () => undefined,
-		list: async () => [],
-		findByCwd: async () => undefined,
-		findLatest: async () => undefined,
-		prune: async () => 0,
-	}),
-	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
-	authStore: () => ({}) as never,
-	sessions: {} as never,
-};
+const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 const EMPTY_LOADED = {
 	adapters: [],
 	blueprintModelId: undefined,

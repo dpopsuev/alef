@@ -28,6 +28,26 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { EventStream } from "./sse.js";
 
+export const HTTP = {
+	OK: 200,
+	ACCEPTED: 202,
+	NO_CONTENT: 204,
+	BAD_REQUEST: 400,
+	UNAUTHORIZED: 401,
+	NOT_FOUND: 404,
+	INTERNAL: 500,
+	NOT_IMPLEMENTED: 501,
+	UNAVAILABLE: 503,
+} as const;
+
+export type HttpStatus = (typeof HTTP)[keyof typeof HTTP];
+
+export type RouteHandler = (req: IncomingMessage, res: ServerResponse, bus: Bus) => void;
+
+export interface RouteOptions {
+	protected?: boolean;
+}
+
 export interface RouterOptions {
 	/** TCP port to listen on. Default: 3000. */
 	port?: number;
@@ -92,6 +112,10 @@ export class RouterAdapter implements Adapter {
 
 	private server: Server | null = null;
 	private readonly sse = new EventStream();
+	private readonly routes = new Map<string, { handler: RouteHandler; protected: boolean }>();
+	private _serviceReady = false;
+	private _draining = false;
+	private _authToken: string | undefined;
 	private readonly options: {
 		port: number;
 		host: string;
@@ -121,6 +145,38 @@ export class RouterAdapter implements Adapter {
 			onReloadAdapter: options.onReloadAdapter,
 			getHistory: options.getHistory,
 		};
+
+		this.addRoute("GET", "/events", (_req, res) => this.sse.add(res));
+		this.addRoute("POST", "/message", (req, res, bus) => this.handleMessage(req, res, bus), { protected: true });
+		this.addRoute("GET", "/health", (_req, res) => this.sendJson(res, HTTP.OK, { ok: true, clients: this.sse.size }));
+		this.addRoute("GET", "/ready", (_req, res) => {
+			const status = this._serviceReady ? HTTP.OK : HTTP.UNAVAILABLE;
+			this.sendJson(res, status, { ready: this._serviceReady });
+		});
+		this.addRoute("GET", "/state", (_req, res) => this.sendJson(res, HTTP.OK, this.options.getState?.() ?? {}));
+		this.addRoute("GET", "/history", (_req, res) => this.sendJson(res, HTTP.OK, this.options.getHistory?.() ?? []));
+		this.addRoute("POST", "/control", (req, res) => this.handleControl(req, res), { protected: true });
+		this.addRoute("POST", "/cancel", (_req, res) => {
+			this.options.onCancel?.();
+			this.sendJson(res, HTTP.ACCEPTED, { ok: true });
+		}, { protected: true });
+		this.addRoute("POST", "/reload", (req, res) => this.handleReload(req, res), { protected: true });
+	}
+
+	addRoute(method: string, path: string, handler: RouteHandler, opts?: RouteOptions): void {
+		this.routes.set(`${method} ${path}`, { handler, protected: opts?.protected ?? false });
+	}
+
+	setReady(ready = true): void {
+		this._serviceReady = ready;
+	}
+
+	setDraining(draining = true): void {
+		this._draining = draining;
+	}
+
+	setAuthToken(token: string): void {
+		this._authToken = token;
 	}
 
 	/**
@@ -231,61 +287,26 @@ export class RouterAdapter implements Adapter {
 	// -------------------------------------------------------------------------
 
 	private handle(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
-		// CORS pre-flight.
 		res.setHeader("Access-Control-Allow-Origin", "*");
 		res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 		res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
 		if (req.method === "OPTIONS") {
-			res.writeHead(204);
+			res.writeHead(HTTP.NO_CONTENT);
 			res.end();
 			return;
 		}
 
-		const url = req.url ?? "/";
-
-		if (req.method === "GET" && url === "/events") {
-			this.sse.add(res);
-			return;
+		if (this._draining && req.method === "POST") {
+			return this.sendJson(res, HTTP.UNAVAILABLE, { error: "service draining" });
 		}
 
-		if (req.method === "POST" && url === "/message") {
-			this.handleMessage(req, res, bus);
-			return;
+		const route = this.routes.get(`${req.method} ${req.url ?? "/"}`);
+		if (!route) return this.sendJson(res, HTTP.NOT_FOUND, { error: "not found" });
+		if (route.protected && this._authToken && req.headers.authorization !== `Bearer ${this._authToken}`) {
+			return this.sendJson(res, HTTP.UNAUTHORIZED, { error: "unauthorized" });
 		}
-
-		if (req.method === "GET" && url === "/health") {
-			this.sendJson(res, 200, { ok: true, clients: this.sse.size });
-			return;
-		}
-
-		if (req.method === "GET" && url === "/state") {
-			this.sendJson(res, 200, this.options.getState?.() ?? {});
-			return;
-		}
-
-		if (req.method === "GET" && url === "/history") {
-			this.sendJson(res, 200, this.options.getHistory?.() ?? []);
-			return;
-		}
-
-		if (req.method === "POST" && url === "/control") {
-			this.handleControl(req, res);
-			return;
-		}
-
-		if (req.method === "POST" && url === "/cancel") {
-			this.options.onCancel?.();
-			this.sendJson(res, 202, { ok: true });
-			return;
-		}
-
-		if (req.method === "POST" && url === "/reload") {
-			this.handleReload(req, res);
-			return;
-		}
-
-		this.sendJson(res, 404, { error: "not found" });
+		route.handler(req, res, bus);
 	}
 
 	private handleMessage(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
@@ -298,7 +319,7 @@ export class RouterAdapter implements Adapter {
 			try {
 				parsed = JSON.parse(body);
 			} catch {
-				this.sendJson(res, 400, { error: "invalid JSON" });
+				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
 				return;
 			}
 
@@ -308,7 +329,7 @@ export class RouterAdapter implements Adapter {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing parsed object shape
 				typeof (parsed as Record<string, unknown>).text !== "string"
 			) {
-				this.sendJson(res, 400, { error: 'body must be { "text": string }' });
+				this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "text": string }' });
 				return;
 			}
 
@@ -317,8 +338,6 @@ export class RouterAdapter implements Adapter {
 			const correlationId = randomUUID();
 
 			if (this.options.onMessage) {
-				// Route through the AgentController so history is tracked and
-				// the message arrives on the event bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
 				bus.command.publish({
@@ -328,7 +347,7 @@ export class RouterAdapter implements Adapter {
 				});
 			}
 
-			this.sendJson(res, 202, { ok: true, correlationId });
+			this.sendJson(res, HTTP.ACCEPTED, { ok: true, correlationId });
 		});
 	}
 
@@ -343,14 +362,14 @@ export class RouterAdapter implements Adapter {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
 				parsed = JSON.parse(body) as Record<string, unknown>;
 			} catch {
-				this.sendJson(res, 400, { error: "invalid JSON" });
+				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
 				return;
 			}
 
 			if (typeof parsed.model === "string") this.options.onSetModel?.(parsed.model);
 			if (typeof parsed.thinking === "string") this.options.onSetThinking?.(parsed.thinking);
 
-			this.sendJson(res, 202, { ok: true });
+			this.sendJson(res, HTTP.ACCEPTED, { ok: true });
 		});
 	}
 
@@ -365,28 +384,33 @@ export class RouterAdapter implements Adapter {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
 				parsed = JSON.parse(body) as Record<string, unknown>;
 			} catch {
-				this.sendJson(res, 400, { error: "invalid JSON" });
+				this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" });
 				return;
 			}
 
 			if (typeof parsed.name !== "string" || typeof parsed.path !== "string") {
-				this.sendJson(res, 400, { error: 'body must be { "name": string, "path": string }' });
+				this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "name": string, "path": string }' });
 				return;
 			}
 
 			if (!this.options.onReloadAdapter) {
-				this.sendJson(res, 501, { error: "reload not supported" });
+				this.sendJson(res, HTTP.NOT_IMPLEMENTED, { error: "reload not supported" });
 				return;
 			}
 
 			this.options
 				.onReloadAdapter(parsed.name, parsed.path)
-				.then(() => this.sendJson(res, 202, { ok: true }))
-				.catch((err: unknown) => this.sendJson(res, 500, { error: String(err) }));
+				.then(() => this.sendJson(res, HTTP.ACCEPTED, { ok: true }))
+				.catch((err: unknown) => this.sendJson(res, HTTP.INTERNAL, { error: String(err) }));
 		});
 	}
 
-	private sendJson(res: ServerResponse, status: number, body: unknown): void {
+	sendText(res: ServerResponse, status: HttpStatus, body: string, contentType = "text/plain"): void {
+		res.writeHead(status, { "Content-Type": contentType });
+		res.end(body);
+	}
+
+	sendJson(res: ServerResponse, status: HttpStatus, body: unknown): void {
 		const json = JSON.stringify(body);
 		res.writeHead(status, { "Content-Type": "application/json" });
 		res.end(json);

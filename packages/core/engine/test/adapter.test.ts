@@ -21,6 +21,7 @@ adapterComplianceSuite(() => createRouterAdapter({ port: 0, host: "127.0.0.1", t
 /** Mount a RouterAdapter on a fresh BusFixture. Returns { adapter, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
 	const organ = createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
+	organ.setReady();
 	const fixture = new BusFixture();
 	const unmount = fixture.mount(organ);
 	await organ.ready();
@@ -212,10 +213,10 @@ describe("RouterAdapter — GET /events (SSE)", { tags: ["compliance"] }, () => 
 	it("streams command events as SSE frames", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
-			// Start collecting before we publish.
-			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
+			// Prevent dead-letter echo (unhandled commands publish as events)
+			nerve.asBus().command.subscribe("test.ping", () => {});
 
-			// Give the SSE connection time to establish.
+			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
 
 			nerve.asBus().command.publish({
@@ -313,17 +314,17 @@ describe("RouterAdapter — POST /message", { tags: ["compliance"] }, () => {
 		}
 	});
 
-	it("publishes dialog.message on command bus", async () => {
+	it("publishes triggerEvent on command bus", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
 			const publishedPromise = new Promise<unknown>((resolve) => {
-				nerve.asBus().command.subscribe("llm.response", (e) => resolve(e));
+				nerve.asBus().command.subscribe("llm.input", (e) => resolve(e));
 			});
 
 			await post(`${baseUrl}/message`, { text: "do something" });
 
 			const event = (await publishedPromise) as Record<string, unknown>;
-			expect(event.type).toBe("llm.response");
+			expect(event.type).toBe("llm.input");
 			const payload = event.payload as Record<string, unknown>;
 			expect(payload.role).toBe("user");
 			expect(payload.text).toBe("do something");
@@ -450,11 +451,16 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
 		const adapter = createRouterAdapter({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
+		adapter.setReady();
 		const fixture = new BusFixture();
 		const unmount = fixture.mount(adapter);
 		await adapter.ready();
 		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
 		try {
+			// Subscribe no-ops to prevent dead-letter echo doubling frames
+			fixture.bus.asBus().command.subscribe("fs.read", () => {});
+			fixture.bus.asBus().command.subscribe("fs.write", () => {});
+
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
 			fixture.bus.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
@@ -802,6 +808,229 @@ describe("RouterAdapter — notifyStateChange", { tags: ["unit"] }, () => {
 			expect(evt.kind).toBe("state");
 			expect(evt.modelId).toBe("new-model");
 			expect(evt.thinking).toBe("off");
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// addRoute() — extensibility
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — addRoute()", { tags: ["unit"] }, () => {
+	it("serves a custom GET route", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.addRoute("GET", "/custom", (_req, res) => {
+			res.writeHead(200, { "Content-Type": "text/plain" });
+			res.end("hello from custom");
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/custom`);
+			expect(status).toBe(200);
+			expect(body).toBe("hello from custom");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("overrides a built-in route", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.addRoute("GET", "/health", (_req, res) => {
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ ok: true, custom: true }));
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/health`);
+			expect(status).toBe(200);
+			expect(JSON.parse(body).custom).toBe(true);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// GET /ready — readiness probe
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — GET /ready", { tags: ["unit"] }, () => {
+	it("returns 503 before setReady()", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/ready`);
+			expect(status).toBe(503);
+			expect(JSON.parse(body).ready).toBe(false);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 200 after setReady()", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/ready`);
+			expect(status).toBe(200);
+			expect(JSON.parse(body).ready).toBe(true);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 503 after setReady(false)", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		adapter.setReady(false);
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await get(`${baseUrl}/ready`);
+			expect(status).toBe(503);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("rejects POST during drain", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		adapter.setDraining();
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await post(`${baseUrl}/message`, { text: "hello" });
+			expect(status).toBe(503);
+			expect(JSON.parse(body).error).toBe("service draining");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("allows GET /health during drain", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setDraining();
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await get(`${baseUrl}/health`);
+			expect(status).toBe(200);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// setAuthToken() — bearer token auth
+// ---------------------------------------------------------------------------
+
+function postWithHeaders(url: string, payload: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
+	return new Promise((resolve, reject) => {
+		const json = JSON.stringify(payload);
+		const parsed = new URL(url);
+		const req = http.request(
+			{
+				hostname: parsed.hostname,
+				port: Number(parsed.port),
+				path: parsed.pathname,
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json), ...headers },
+			},
+			(res) => {
+				let body = "";
+				res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+				res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+			},
+		);
+		req.on("error", reject);
+		req.write(json);
+		req.end();
+	});
+}
+
+describe("RouterAdapter — auth", { tags: ["unit"] }, () => {
+	it("rejects POST /message without token when auth is set", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		adapter.setAuthToken("secret-token");
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await postWithHeaders(`${baseUrl}/message`, { text: "hi" });
+			expect(status).toBe(401);
+			expect(JSON.parse(body).error).toBe("unauthorized");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("accepts POST /message with correct token", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		adapter.setAuthToken("secret-token");
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await postWithHeaders(`${baseUrl}/message`, { text: "hi" }, { Authorization: "Bearer secret-token" });
+			expect(status).toBe(202);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("allows GET /health without token when auth is set", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		adapter.setAuthToken("secret-token");
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await get(`${baseUrl}/health`);
+			expect(status).toBe(200);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("allows all POST when no auth token set", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		adapter.setReady();
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/message`, { text: "hi" });
+			expect(status).toBe(202);
 		} finally {
 			unmount();
 		}

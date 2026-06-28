@@ -239,6 +239,10 @@ export class Agent {
 		this.bus.publish("notification", event);
 	}
 
+	asBus(): Bus {
+		return this.bus.asBus();
+	}
+
 	/**
 	 * Subscribe to a command event published by the agent.
 	 * Returns an unsubscribe function.

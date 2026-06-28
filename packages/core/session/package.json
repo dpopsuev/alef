@@ -15,7 +15,8 @@
     "./summarizer": "./src/context/summarizer.ts",
     "./scoring": "./src/context/scoring.ts",
     "./tracing": "./src/tracing/index.ts",
-    "./replay": "./src/tracing/replayer.ts"
+    "./replay": "./src/tracing/replayer.ts",
+    "./redact": "./src/redact.ts"
   },
   "files": [
     "dist"

@@ -1,8 +1,7 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { runPicker } from "../client/runs.js";
+import { listInstalled } from "../pkg/alef-pm.js";
 
 export interface BlueprintChoice {
 	name: string;
@@ -10,78 +9,25 @@ export interface BlueprintChoice {
 	path: string;
 }
 
-export function discoverBlueprints(cwd: string): BlueprintChoice[] {
+export function discoverBlueprints(): BlueprintChoice[] {
 	const choices: BlueprintChoice[] = [];
-	const seen = new Set<string>();
-
-	const localDirs = [join(cwd, ".alef/blueprints"), join(cwd, "blueprints")];
-	const globalDir = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "alef", "blueprints");
-
-	for (const dir of [...localDirs, globalDir]) {
-		if (!existsSync(dir)) continue;
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			if (!entry.isFile() || !entry.name.endsWith(".yaml")) continue;
-			const path = resolve(dir, entry.name);
-			const meta = readBlueprintMeta(path);
-			if (meta && !seen.has(meta.name)) {
-				seen.add(meta.name);
-				choices.push({ name: meta.name, description: meta.description, path });
-			}
+	for (const pkg of listInstalled()) {
+		if (pkg.manifest?.type === "blueprint") {
+			choices.push({ name: pkg.name, description: pkg.description, path: pkg.entry });
 		}
 	}
-
-	const monorepoBlueprintsDir = findMonorepoBlueprintPackages(cwd);
-	for (const bp of monorepoBlueprintsDir) {
-		if (!seen.has(bp.name)) {
-			seen.add(bp.name);
-			choices.push(bp);
-		}
-	}
-
 	return choices;
 }
 
-function findMonorepoBlueprintPackages(cwd: string): BlueprintChoice[] {
-	const packagesDir = findPackagesDir(cwd);
-	if (!packagesDir) return [];
-
-	const results: BlueprintChoice[] = [];
-	for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-		if (!entry.isDirectory() || !entry.name.startsWith("alef-")) continue;
-		const blueprintPath = join(packagesDir, entry.name, "blueprint.yaml");
-		if (existsSync(blueprintPath)) {
-			const meta = readBlueprintMeta(blueprintPath);
-			if (meta) results.push({ name: meta.name, description: meta.description, path: blueprintPath });
-		}
+export function resolveBlueprint(nameOrPath: string, _cwd?: string): string | undefined {
+	const registeredNames = blueprintRegistry.list();
+	if (registeredNames.includes(nameOrPath)) {
+		return nameOrPath;
 	}
-	return results;
-}
-
-function findPackagesDir(from: string): string | undefined {
-	let dir = from;
-	for (let i = 0; i < 5; i++) {
-		const candidate = join(dir, "packages");
-		if (existsSync(candidate)) return candidate;
-		const parent = resolve(dir, "..");
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return undefined;
-}
-
-function readBlueprintMeta(path: string): { name: string; description: string } | undefined {
-	try {
-		const raw = readFileSync(path, "utf-8");
-		const nameMatch = raw.match(/^name:\s*(.+)$/m);
-		const descMatch = raw.match(/^description:\s*>?\s*\n?\s*(.+)$/m);
-		if (!nameMatch) return undefined;
-		return {
-			name: nameMatch[1].trim(),
-			description: descMatch?.[1]?.trim() ?? "",
-		};
-	} catch {
-		return undefined;
-	}
+	if (existsSync(nameOrPath)) return nameOrPath;
+	const discovered = discoverBlueprints();
+	const match = discovered.find((bp) => bp.name === nameOrPath);
+	return match?.path;
 }
 
 function readBlueprintPreview(path: string): string[] {
@@ -135,17 +81,6 @@ function readBlueprintPreview(path: string): string[] {
 	} catch {
 		return ["  (unable to read blueprint)"];
 	}
-}
-
-export function resolveBlueprint(nameOrPath: string, cwd: string): string | undefined {
-	const registeredNames = blueprintRegistry.list();
-	if (registeredNames.includes(nameOrPath)) {
-		return nameOrPath;
-	}
-	if (existsSync(nameOrPath)) return resolve(nameOrPath);
-	const discovered = discoverBlueprints(cwd);
-	const match = discovered.find((bp) => bp.name === nameOrPath);
-	return match?.path;
 }
 
 export async function pickBlueprint(choices: BlueprintChoice[]): Promise<BlueprintChoice | undefined> {

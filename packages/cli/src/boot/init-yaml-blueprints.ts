@@ -17,6 +17,7 @@ import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { resolveAdapterPath } from "../pkg/alef-pm.js";
 
 /**
  * Scan directories for YAML blueprint files
@@ -101,6 +102,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 				loggerFor: () => noopLogger,
 				allowedTools: ["*"],
 				writableRoots: opts.writableRoots,
+				resolveExternalPath: resolveAdapterPath,
 			});
 
 			// Create the context assembly contextAssembly

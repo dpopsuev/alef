@@ -13,6 +13,7 @@ import {
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
+import { resolveAdapterPath } from "../pkg/alef-pm.js";
 import type { Args } from "./args.js";
 import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprints.js";
 import type { AlefConfig } from "./config.js";
@@ -68,7 +69,7 @@ export async function loadAdapters(
 		blueprintPath = resolveBlueprint(args.blueprint, args.cwd) ?? args.blueprint;
 		blueprintName = args.blueprint;
 	} else if (!args.print && !args.json && process.stdin.isTTY) {
-		const discovered = discoverBlueprints(args.cwd);
+		const discovered = discoverBlueprints();
 		if (discovered.length > 1) {
 			const chosen = await pickBlueprint(discovered);
 			if (chosen) {
@@ -125,6 +126,7 @@ export async function loadAdapters(
 			loggerFor: (name) => log.child({ adapter: name }),
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 			writableRoots: resolveWritableRoots(args.cwd, cfg),
+			resolveExternalPath: resolveAdapterPath,
 		});
 
 		return {
@@ -149,6 +151,7 @@ export async function loadAdapters(
 		loggerFor: (name) => log.child({ adapter: name }),
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 		writableRoots: resolveWritableRoots(args.cwd, cfg),
+		resolveExternalPath: resolveAdapterPath,
 	});
 
 	return {

@@ -401,6 +401,59 @@ export function sbom(): object {
 	};
 }
 
+export interface InstalledPackage {
+	name: string;
+	version: string;
+	description: string;
+	manifest?: AlefManifest;
+	entry: string;
+}
+
+export function listInstalled(): InstalledPackage[] {
+	const nmDir = join(PM_ROOT, "node_modules");
+	if (!existsSync(nmDir)) return [];
+
+	const results: InstalledPackage[] = [];
+	for (const entry of readdirSync(nmDir, { withFileTypes: true })) {
+		if (entry.name.startsWith(".")) continue;
+
+		if (entry.name.startsWith("@")) {
+			const scopeDir = join(nmDir, entry.name);
+			for (const scoped of readdirSync(scopeDir, { withFileTypes: true })) {
+				if (!scoped.isDirectory()) continue;
+				const pkg = readInstalledPkg(join(scopeDir, scoped.name), `${entry.name}/${scoped.name}`);
+				if (pkg) results.push(pkg);
+			}
+		} else if (entry.isDirectory()) {
+			const pkg = readInstalledPkg(join(nmDir, entry.name), entry.name);
+			if (pkg) results.push(pkg);
+		}
+	}
+	return results;
+}
+
+function readInstalledPkg(dir: string, name: string): InstalledPackage | undefined {
+	const pkgPath = join(dir, "package.json");
+	if (!existsSync(pkgPath)) return undefined;
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json shape is well-known
+		const raw = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+			version?: string;
+			description?: string;
+			alef?: AlefManifest;
+		};
+		return {
+			name,
+			version: raw.version ?? "0.0.0",
+			description: raw.description ?? "",
+			manifest: raw.alef,
+			entry: raw.alef?.entry ? join(dir, raw.alef.entry) : join(dir, "src", "index.ts"),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
 /**
  * Resolve the node_modules path for a named adapter installed via alef-pm.
  * Returns undefined if the adapter is not installed in the PM_ROOT.

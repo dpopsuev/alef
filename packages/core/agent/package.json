@@ -24,7 +24,8 @@
     "./subagent-factory": "./src/subagent-factory.ts",
     "./build-llm": "./src/build-llm.ts",
     "./create-agent": "./src/create-agent.ts",
-    "./meta-agent": "./src/meta-agent.ts"
+    "./meta-agent": "./src/meta-agent.ts",
+    "./workflow": "./src/workflow/index.ts"
   },
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",

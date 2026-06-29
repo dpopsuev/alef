@@ -1,9 +1,7 @@
+import { ImplStationRunner, runPipeline } from "@dpopsuev/alef-agent/workflow";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import type { WorkflowDef } from "@dpopsuev/alef-tool-workflow";
-
 import { describe, expect, it } from "vitest";
-import { runPipeline } from "../../src/workflow/pipeline.js";
-import { ImplStationRunner } from "../../src/workflow/station-strategy.js";
 
 const DEF: WorkflowDef = {
 	name: "planning",

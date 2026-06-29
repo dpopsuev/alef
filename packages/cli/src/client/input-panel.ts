@@ -10,7 +10,7 @@ import { registry } from "./commands.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import { InputApplicationRegistry } from "./input-application.js";
 import { PromptConsole } from "./prompt-console.js";
-import type { ThemeTokens } from "./theme-types.js";
+import type { ThemeTokens } from "./runner-theme.js";
 
 export interface InputPanelOptions {
 	tui: TUI;

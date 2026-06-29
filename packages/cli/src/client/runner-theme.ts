@@ -1,6 +1,7 @@
 // Pure ANSI primitives are defined in ansi.ts and re-exported here for
 // backward-compat. theme.ts owns the theme singleton; types live in theme-types.ts.
 
+export type { ColorDepth, ColorToken, ThemeTokens } from "@dpopsuev/alef-tui";
 export {
 	bg,
 	bold,
@@ -16,11 +17,10 @@ export {
 	statusGlyph,
 	statusStyle,
 } from "./ansi.js";
-export type { ColorDepth, ColorToken, ThemeTokens } from "./theme-types.js";
 
+import type { ColorToken, ThemeTokens } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { colorDepth, FG_RESET, fgCode, hexToRgb } from "./ansi.js";
-import type { ColorToken, ThemeTokens } from "./theme-types.js";
 
 /**
  * Return a chalk instance pre-configured for a theme token's color.

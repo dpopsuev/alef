@@ -1,6 +1,21 @@
 import { findEnvKeys, getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
+
+export interface ModelLogger {
+	warn(msg: string): void;
+	error(msg: string): void;
+}
+
+let _logger: ModelLogger = {
+	warn: (msg) => process.stderr.write(`[model] warning: ${msg}\n`),
+	error: (msg) => process.stderr.write(`[model] error: ${msg}\n`),
+};
+
+export function setModelLogger(l: ModelLogger): void {
+	_logger = l;
+}
+
 export interface ModelResolutionInput {
 	modelId: string | undefined;
 	debug: boolean;
@@ -101,11 +116,11 @@ export function buildModel(id: string): Model<Api> {
 
 		const knownProviders: readonly string[] = getProviders();
 		if (!knownProviders.includes(provider)) {
-			process.stderr.write(`[model] warning: unknown provider "${provider}" — using synthetic model for ${id}\n`);
+			_logger.warn(`unknown provider "${provider}" — using synthetic model for ${id}`);
 		}
 		const baseUrl = inferBaseUrl(provider);
 		if (!baseUrl && provider !== "google" && provider !== "google-vertex" && provider !== "amazon-bedrock") {
-			process.stderr.write(`[model] warning: no base URL for provider "${provider}" — API calls may fail\n`);
+			_logger.warn(`no base URL for provider "${provider}" — API calls may fail`);
 		}
 		return syntheticModel(provider, modelId, inferApi(provider), baseUrl);
 	}
@@ -120,16 +135,12 @@ export function buildModel(id: string): Model<Api> {
 
 	if (matches.length > 1) {
 		const names = matches.map((m) => m.provider).join(", ");
-		process.stderr.write(
-			`[model] warning: "${id}" found in multiple providers: ${names} — using ${matches[0].provider}\n`,
-		);
+		_logger.warn(`"${id}" found in multiple providers: ${names} — using ${matches[0].provider}`);
 	}
 
 	if (matches.length > 0) return matches[0].model;
 
-	process.stderr.write(
-		`[model] warning: "${id}" not found in any provider catalog — creating synthetic model (typo?)\n`,
-	);
+	_logger.warn(`"${id}" not found in any provider catalog — creating synthetic model (typo?)`);
 	return syntheticModel("anthropic", id, "anthropic-messages", "https://api.anthropic.com");
 }
 
@@ -221,7 +232,7 @@ function validateApiKey(model: Model<Api>): void {
 	if (!apiKey) {
 		const envVars = findEnvKeys(provider);
 		const hint = envVars?.length ? envVars.join(" or ") : `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
-		process.stderr.write(`[model] warning: no API key for provider "${provider}" — set ${hint}\n`);
+		_logger.warn(`no API key for provider "${provider}" — set ${hint}`);
 	}
 }
 
@@ -231,12 +242,12 @@ export function resolveStartupModel(
 	cfg: ModelConfig,
 ): Model<Api> {
 	if (!hasCredentials()) {
-		console.warn(
-			"Warning: no LLM credentials detected.\n" +
-				"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).\n",
+		_logger.warn(
+			"no LLM credentials detected. " +
+				"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).",
 		);
 	} else if (args.debug) {
-		process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
+		_logger.warn(`detected providers: ${detectedProviders().join(", ")}`);
 	}
 	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model;
 	if (resolvedId) {
@@ -246,9 +257,9 @@ export function resolveStartupModel(
 	}
 	const detected = autoDetectModel();
 	if (detected) return detected;
-	console.error(
-		"Error: no model configured.\n" +
-			"Set one of: --model <id>, ALEF_MODEL env var, model: in config.yaml,\n" +
+	_logger.error(
+		"no model configured. " +
+			"Set one of: --model <id>, ALEF_MODEL env var, model: in config.yaml, " +
 			"or configure a provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.).",
 	);
 	process.exit(1);

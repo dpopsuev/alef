@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createSubmitHandler } from "../src/client/tui-submit.js";
+import { createSubmitHandler } from "../src/client/submit.js";
 
 function makeStubConfig() {
 	const sent: string[] = [];

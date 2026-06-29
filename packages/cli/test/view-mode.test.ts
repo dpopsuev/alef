@@ -16,7 +16,7 @@ import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { HeadlessViewMode } from "../src/client/view-mode.js";
+import { HeadlessViewMode } from "../src/client/views.js";
 
 // ---------------------------------------------------------------------------
 // MockSession — typed so _emit is accessible without casting

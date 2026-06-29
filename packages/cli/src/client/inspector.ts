@@ -1,4 +1,4 @@
-import type { TuiState, TuiUi } from "./tui-state.js";
+import type { TuiState, TuiUi } from "./state.js";
 
 const INSPECTOR_LINES = 12;
 const INSPECTOR_SCROLL_STEP = 3;

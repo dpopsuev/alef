@@ -25,9 +25,9 @@ import { buildLlmAdapter } from "../boot/build-llm-adapter.js";
 import type { AlefConfig } from "../boot/config.js";
 import { SessionHandle } from "../boot/session.js";
 import { loadWorkspace } from "../boot/workspace.js";
-import type { AdapterLoadResult } from "./load-adapters.js";
-import { getTheme, setTheme } from "./runner-theme.js";
-import { makeSink } from "./sink.js";
+import type { AdapterLoadResult } from "./adapters.js";
+import { makeSink } from "./output.js";
+import { getTheme, setTheme } from "./theme.js";
 
 const DIRECTIVE_BUDGET_FRACTION = 0.1;
 const CHARS_PER_TOKEN_ESTIMATE = 4;

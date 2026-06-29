@@ -11,7 +11,7 @@ import {
 	renderChunkWindow,
 	updateInspectorView,
 } from "./inspector.js";
-import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tui-state.js";
+import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 
 // ---------------------------------------------------------------------------
 // TuiInputEvent — typed events from the Input layer (keyboard, editor, modal)

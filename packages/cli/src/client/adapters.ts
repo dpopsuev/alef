@@ -15,7 +15,7 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
 import type { Args } from "../boot/args.js";
 import type { AlefConfig } from "../boot/config.js";
-import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprint-picker.js";
+import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprints.js";
 
 /**
  * Resolve writable_roots from config (or inherited env var), substituting placeholders.

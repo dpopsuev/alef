@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import { runPicker } from "./run-picker.js";
+import { runPicker } from "./runs.js";
 
 export interface BlueprintChoice {
 	name: string;

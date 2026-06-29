@@ -26,8 +26,8 @@ import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import { parseArgs } from "../src/boot/args.js";
-import { buildIdentityContext, createLocalSession } from "../src/client/local-session.js";
-import { HeadlessViewMode } from "../src/client/view-mode.js";
+import { buildIdentityContext, createLocalSession } from "../src/client/session.js";
+import { HeadlessViewMode } from "../src/client/views.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

@@ -6,11 +6,11 @@ import {
 	type SlashCommand,
 	type TUI,
 } from "@dpopsuev/alef-tui";
+import { InputApplicationRegistry } from "./application.js";
+import { HistoryAutocompleteProvider } from "./autocomplete.js";
 import { registry } from "./commands.js";
-import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
-import { InputApplicationRegistry } from "./input-application.js";
-import { PromptConsole } from "./prompt-console.js";
-import type { ThemeTokens } from "./runner-theme.js";
+import { PromptConsole } from "./console.js";
+import type { ThemeTokens } from "./theme.js";
 
 export interface InputPanelOptions {
 	tui: TUI;

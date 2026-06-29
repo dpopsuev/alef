@@ -9,7 +9,7 @@
 
 import { formatError } from "@dpopsuev/alef-agent/errors";
 import type { Session } from "@dpopsuev/alef-session/contracts";
-import { readStdinLines } from "./stdin.js";
+import { readStdinLines } from "./readline.js";
 
 const EXIT_COMMAND = "/exit";
 

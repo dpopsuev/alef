@@ -5,7 +5,7 @@
 
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import type { SessionPreviewProvider } from "../boot/session.js";
-import { runPicker } from "./run-picker.js";
+import { runPicker } from "./runs.js";
 
 export async function pickSession(
 	sessions: Array<{ id: string; path: string; mtime: Date }>,

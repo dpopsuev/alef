@@ -11,12 +11,12 @@ import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../boot/auth.js";
 import { getConfig } from "../boot/config.js";
-import { CommandRegistry } from "./command-registry.js";
-import type { TuiHandlerContext } from "./command-types.js";
-import { openConfigPicker, openEnumPicker } from "./config-picker.js";
+import { getProviderColor } from "./colors.js";
+import { openConfigPicker, openEnumPicker } from "./configs.js";
 import { buildPickerTheme, openPicker } from "./picker.js";
-import { getProviderColor } from "./provider-colors.js";
-import { color, setThemeByName, statusGlyph } from "./runner-theme.js";
+import { CommandRegistry } from "./registry.js";
+import { color, setThemeByName, statusGlyph } from "./theme.js";
+import type { TuiHandlerContext } from "./types.js";
 
 function isAnthropicViaVertex(): boolean {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from trim() must fall through */

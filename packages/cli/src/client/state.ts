@@ -1,6 +1,6 @@
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { Component, TUI } from "@dpopsuev/alef-tui";
-import type { ColorToken, ThemeTokens } from "./runner-theme.js";
+import type { ColorToken, ThemeTokens } from "./theme.js";
 
 export interface ActiveCall {
 	name: string;

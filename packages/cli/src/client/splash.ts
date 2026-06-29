@@ -2,8 +2,8 @@
 
 import { execSync } from "node:child_process";
 import { getConfig } from "../boot/config.js";
-import { chalkForToken, getTheme, systemLang } from "./runner-theme.js";
-import { rasterise, rasterToBlocks } from "./splash-render.js";
+import { rasterise, rasterToBlocks } from "./raster.js";
+import { chalkForToken, getTheme, systemLang } from "./theme.js";
 
 interface ScriptBlock {
 	lang: string;

@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AlefConfig } from "../src/boot/config.js";
-import { resolveWritableRoots } from "../src/client/load-adapters.js";
+import { resolveWritableRoots } from "../src/client/adapters.js";
 
 describe("resolveWritableRoots", { tags: ["unit"] }, () => {
 	afterEach(() => {

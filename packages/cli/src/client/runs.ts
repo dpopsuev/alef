@@ -9,7 +9,7 @@ import {
 	Text,
 	TUI,
 } from "@dpopsuev/alef-tui";
-import { bold, color, getTheme } from "./runner-theme.js";
+import { bold, color, getTheme } from "./theme.js";
 
 export interface PickerOptions {
 	title: string;

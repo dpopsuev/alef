@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { detectDarkSync, parseOSC11Response, relativeLuminance } from "../src/client/terminal-bg.js";
+import { detectDarkSync, parseOSC11Response, relativeLuminance } from "../src/client/terminal.js";
 
 afterEach(() => {
 	delete process.env.COLORFGBG;
@@ -82,7 +82,7 @@ describe("detectDarkSync", { tags: ["unit"] }, () => {
 // buildTerminalTheme + queryPalette parsing
 // ---------------------------------------------------------------------------
 
-import { buildTerminalTheme } from "../src/client/runner-theme.js";
+import { buildTerminalTheme } from "../src/client/theme.js";
 
 describe("buildTerminalTheme", { tags: ["unit"] }, () => {
 	it("populates truecolor from palette when slot is present", () => {

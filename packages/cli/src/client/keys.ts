@@ -1,9 +1,9 @@
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { matchesKey } from "@dpopsuev/alef-tui";
-import type { TuiHandlerContext } from "./tui-commands.js";
-import { handleCtrlC } from "./tui-commands.js";
-import type { TuiEvent } from "./tui-dispatch.js";
-import type { OverlayDescriptor, TuiState } from "./tui-state.js";
+import type { TuiHandlerContext } from "./dispatch.js";
+import { handleCtrlC } from "./dispatch.js";
+import type { TuiEvent } from "./events.js";
+import type { OverlayDescriptor, TuiState } from "./state.js";
 
 /**
  * Handle raw keyboard input events in the TUI.

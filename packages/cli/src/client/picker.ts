@@ -1,6 +1,6 @@
 import { type SelectItem, SelectList, type SelectListTheme } from "@dpopsuev/alef-tui";
-import { color, type ThemeTokens } from "./runner-theme.js";
-import type { TuiEvent } from "./tui-dispatch.js";
+import type { TuiEvent } from "./events.js";
+import { color, type ThemeTokens } from "./theme.js";
 
 export interface PickerOptions {
 	id: string;

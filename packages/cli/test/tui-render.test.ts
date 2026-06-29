@@ -20,7 +20,7 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { buildIdentityContext, createLocalSession } from "../src/client/local-session.js";
+import { buildIdentityContext, createLocalSession } from "../src/client/session.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
@@ -104,7 +104,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 
 		const terminal = new MockTerminal(120, 40);
 
-		const { runTuiMode } = await import("../src/client/tui-mode.js");
+		const { runTuiMode } = await import("../src/client/mode.js");
 		const tuiDone = runTuiMode(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",

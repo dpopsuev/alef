@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { ColorToken, ThemeTokens } from "./runner-theme.js";
-import { BUILT_IN_THEMES, buildTerminalTheme, setTheme, setThemeByName } from "./runner-theme.js";
+import type { ColorToken, ThemeTokens } from "./theme.js";
+import { BUILT_IN_THEMES, buildTerminalTheme, setTheme, setThemeByName } from "./theme.js";
 
 interface ThemeManifest {
 	theme?: string;

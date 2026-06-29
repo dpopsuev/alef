@@ -123,7 +123,7 @@ export class TuiViewMode implements ViewMode {
 	) {}
 
 	async run(session: Session): Promise<void> {
-		const { runTuiMode } = await import("./tui-mode.js");
+		const { runTuiMode } = await import("./mode.js");
 		await runTuiMode(session, this.opts, this.store);
 	}
 }
@@ -136,7 +136,7 @@ export class PrintViewMode implements ViewMode {
 	constructor(private readonly prompt: string) {}
 
 	async run(session: Session): Promise<void> {
-		const { runPrintMode } = await import("./print-mode.js");
+		const { runPrintMode } = await import("./print.js");
 		await runPrintMode(this.prompt, session);
 	}
 }

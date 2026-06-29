@@ -5,8 +5,8 @@
 
 import type { Component } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
-import type { OverlayDescriptor } from "../src/client/tui-state.js";
-import { syncOverlays } from "../src/client/tui-state.js";
+import type { OverlayDescriptor } from "../src/client/state.js";
+import { syncOverlays } from "../src/client/state.js";
 
 function makeComponent(id: string): Component {
 	return { id } as unknown as Component;

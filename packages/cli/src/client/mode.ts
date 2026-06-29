@@ -5,18 +5,18 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import { checkForUpdate } from "../boot/version-check.js";
+import { createContextFactory } from "./context.js";
+import { handleColonCommand } from "./dispatch.js";
+import { dispatchTuiEvent, type TuiEvent } from "./events.js";
+import { createHistoryPickerTheme, openHistoryPicker } from "./history.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { getUiSignalHandlers, isCompacted } from "./local-session.js";
-import { ModalInputHandler } from "./modal-input.js";
-import { bold, boldColor, color, getTheme } from "./runner-theme.js";
-import { handleColonCommand } from "./tui-commands.js";
-import { createContextFactory } from "./tui-context.js";
-import { dispatchTuiEvent, type TuiEvent } from "./tui-dispatch.js";
-import { createHistoryPickerTheme, openHistoryPicker } from "./tui-history.js";
-import { handleRawInput } from "./tui-input.js";
-import { buildLayout } from "./tui-layout.js";
-import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
-import { createSubmitHandler } from "./tui-submit.js";
+import { handleRawInput } from "./keys.js";
+import { buildLayout } from "./layout.js";
+import { ModalInputHandler } from "./modal.js";
+import { getUiSignalHandlers, isCompacted } from "./session.js";
+import { initialTuiState, syncOverlays, type TuiUi } from "./state.js";
+import { createSubmitHandler } from "./submit.js";
+import { bold, boldColor, color, getTheme } from "./theme.js";
 
 export {
 	makeMarkdownTheme,
@@ -25,8 +25,8 @@ export {
 	renderToolLine,
 	truncateToolOutput,
 } from "@dpopsuev/alef-tui/views";
-export type { TuiHandlerContext } from "./tui-commands.js";
-export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./tui-commands.js";
+export type { TuiHandlerContext } from "./dispatch.js";
+export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./dispatch.js";
 
 export async function runTuiMode(
 	session: Session,

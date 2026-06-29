@@ -4,7 +4,7 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Args } from "../boot/args.js";
 import { shutdownOTel } from "../boot/otel.js";
-import { selectViewMode } from "./view-mode.js";
+import { selectViewMode } from "./views.js";
 
 export interface RunAgentOptions {
 	args: Args;

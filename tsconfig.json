@@ -183,7 +183,7 @@
 				"./packages/core/eval/src/*.ts"
 			],
 			"@dpopsuev/alef/ui-port": [
-				"./packages/cli/src/client/presentation.ts"
+				"./packages/cli/src/client/views.ts"
 			],
 			"@dpopsuev/alef": [
 				"./packages/cli/src/main.ts"

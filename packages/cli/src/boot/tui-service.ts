@@ -1,6 +1,6 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { selectViewMode } from "../client/view-mode.js";
+import { selectViewMode } from "../client/views.js";
 import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
 

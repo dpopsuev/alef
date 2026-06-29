@@ -6,10 +6,10 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Logger } from "pino";
-import type { AdapterLoadResult } from "../client/adapters.js";
-import { buildIdentityContext, createLocalSession } from "../client/session.js";
+import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";
+import { buildIdentityContext, createLocalSession } from "./session.js";
 
 export interface SessionServiceOptions {
 	args: Args;

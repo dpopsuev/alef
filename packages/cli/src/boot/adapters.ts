@@ -13,9 +13,9 @@ import {
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
-import type { Args } from "../boot/args.js";
-import type { AlefConfig } from "../boot/config.js";
-import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprints.js";
+import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "../client/blueprints.js";
+import type { Args } from "./args.js";
+import type { AlefConfig } from "./config.js";
 
 /**
  * Resolve writable_roots from config (or inherited env var), substituting placeholders.

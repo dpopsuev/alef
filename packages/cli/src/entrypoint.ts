@@ -18,6 +18,7 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import updateNotifier from "update-notifier";
+import { loadAdapters } from "./boot/adapters.js";
 import { createAgentServiceDescriptor } from "./boot/agent-service.js";
 import { parseArgs } from "./boot/args.js";
 import { BUILD_INFO } from "./boot/build-info.js";
@@ -30,7 +31,6 @@ import { loadSession } from "./boot/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "./boot/session-service.js";
 import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
-import { loadAdapters } from "./client/adapters.js";
 import { pickSession } from "./client/sessions.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./client/terminal.js";
 import { loadTheme } from "./client/themes.js";

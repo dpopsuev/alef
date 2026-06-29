@@ -20,7 +20,7 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { buildIdentityContext, createLocalSession } from "../src/client/session.js";
+import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 

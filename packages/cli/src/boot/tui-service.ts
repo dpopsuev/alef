@@ -1,8 +1,8 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { selectViewMode } from "../client/views.js";
 import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
+import { selectViewMode } from "./views.js";
 
 export interface TuiService extends ManagedService {
 	readonly done: Promise<void>;

@@ -1,8 +1,8 @@
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { resolveWritableRoots } from "../src/boot/adapters.js";
 import type { AlefConfig } from "../src/boot/config.js";
-import { resolveWritableRoots } from "../src/client/adapters.js";
 
 describe("resolveWritableRoots", { tags: ["unit"] }, () => {
 	afterEach(() => {

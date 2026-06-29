@@ -19,8 +19,8 @@ import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import { parseArgs } from "../src/boot/args.js";
-import { buildIdentityContext, createLocalSession } from "../src/client/session.js";
-import { HeadlessViewMode } from "../src/client/views.js";
+import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
+import { HeadlessViewMode } from "../src/boot/views.js";
 
 const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 

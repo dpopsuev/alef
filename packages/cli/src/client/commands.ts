@@ -402,7 +402,7 @@ const meta = {
 		ctx.writer.addNotice("[meta] \u2508");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const m = await import("../boot/meta-agent.js");
+			const m = await import("@dpopsuev/alef-agent/meta-agent");
 			let accumulated = "";
 			const reply = await m.runMetaAgent(
 				prompt,

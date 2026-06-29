@@ -18,7 +18,7 @@ import * as toolUseEvals from "../../../core/eval/src/evaluations/tool-use-regre
 import * as writeEvals from "../../../core/eval/src/evaluations/write.js";
 import { defineEvalSuite, stubSessionFactory } from "../../../core/eval/src/index.js";
 import { getEvalModel } from "../../../core/eval/src/model.js";
-import { createAgent } from "../../../cli/src/boot/create-agent.js";
+import { createAgent } from "@dpopsuev/alef-agent/create-agent";
 import { createCodingAgentStack } from "../src/index.js";
 
 defineEvalSuite({

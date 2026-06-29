@@ -1,24 +1,25 @@
-import { buildAgent } from "@dpopsuev/alef-agent/kernel";
-import { createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
-import { parseArgs } from "../boot/args.js";
-import type { AlefConfig } from "../boot/config.js";
-import { buildLlmAdapter } from "./build-llm-adapter.js";
-import { loadWorkspace } from "./workspace.js";
+import { buildAgent } from "./agent-kernel.js";
+import { buildLlm, type LlmBuildOptions } from "./build-llm.js";
+import type { Directives } from "./directives.js";
+import { createDefaultDirectives, registerAdapters } from "./prompt.js";
 
 export interface CreateAgentOptions {
 	cwd: string;
 	model: Model<Api>;
 	adapters: Adapter[];
-	cfg?: AlefConfig;
 	thinking?: ThinkingLevel;
 	getSignal?: () => AbortSignal | undefined;
+	getApiKey?: (provider: string) => string | undefined;
 	schemaResolver?: (name: string) => ToolDefinition | undefined;
+	directives?: Directives;
+	llm?: LlmBuildOptions["llm"];
+	trackConcurrentOps?: boolean;
 }
 
 export interface AgentInstance {
@@ -28,18 +29,12 @@ export interface AgentInstance {
 }
 
 export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstance> {
-	const args = { ...parseArgs([]), cwd: opts.cwd, noTui: true };
-	const cfg = opts.cfg ?? {};
 	const thinkingState = {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- args/cfg provide validated ThinkingLevel strings
-		level: (opts.thinking ?? cfg.thinking ?? (opts.model.reasoning ? "medium" : undefined)) as
-			| ThinkingLevel
-			| undefined,
+		level: (opts.thinking ?? (opts.model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};
 
-	const directives = createDefaultDirectives({ tools: opts.adapters.flatMap((o) => o.tools), cwd: opts.cwd });
-	await loadWorkspace(directives, opts.cwd);
-	registerAdapters(directives, opts.adapters);
+	const directives = opts.directives ?? createDefaultDirectives({ tools: opts.adapters.flatMap((o) => o.tools), cwd: opts.cwd });
+	if (!opts.directives) registerAdapters(directives, opts.adapters);
 
 	const budgetChars = Math.floor(opts.model.contextWindow * 0.1 * 4);
 	const systemPrompt = directives.build(budgetChars);
@@ -52,15 +47,16 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 
 	const contextAssembly = createContextAssembler();
 
-	const llm = buildLlmAdapter({
+	const llm = buildLlm({
 		model: opts.model,
-		cfg,
-		args,
 		thinkingState,
 		getModel: () => opts.model,
 		getSignal: opts.getSignal ?? (() => undefined),
+		getApiKey: opts.getApiKey,
 		schemaResolver: opts.schemaResolver ?? ((name) => contextAssembly.getSchemaResolver()?.(name)),
 		systemPrompt,
+		llm: opts.llm,
+		trackConcurrentOps: opts.trackConcurrentOps,
 	});
 
 	const agent = buildAgent({ llm, loopThreshold: 10 });

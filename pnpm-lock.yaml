@@ -109,6 +109,9 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session
+      '@dpopsuev/alef-tool-meta':
+        specifier: workspace:*
+        version: link:../../tools/meta
     devDependencies:
       typescript:
         specifier: ^5.9.2

@@ -21,7 +21,10 @@
     "./model": "./src/model/index.ts",
     "./event-log": "./src/event-log-adapter.ts",
     "./kernel": "./src/agent-kernel.ts",
-    "./subagent-factory": "./src/subagent-factory.ts"
+    "./subagent-factory": "./src/subagent-factory.ts",
+    "./build-llm": "./src/build-llm.ts",
+    "./create-agent": "./src/create-agent.ts",
+    "./meta-agent": "./src/meta-agent.ts"
   },
   "scripts": {
     "build": "npx tsc -p tsconfig.build.json",
@@ -33,7 +36,8 @@
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
-    "@dpopsuev/alef-session": "workspace:*"
+    "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-tool-meta": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

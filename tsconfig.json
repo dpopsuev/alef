@@ -98,6 +98,15 @@
 			"@dpopsuev/alef-agent/subagent-factory": [
 				"./packages/core/agent/src/subagent-factory.ts"
 			],
+			"@dpopsuev/alef-agent/build-llm": [
+				"./packages/core/agent/src/build-llm.ts"
+			],
+			"@dpopsuev/alef-agent/create-agent": [
+				"./packages/core/agent/src/create-agent.ts"
+			],
+			"@dpopsuev/alef-agent/meta-agent": [
+				"./packages/core/agent/src/meta-agent.ts"
+			],
 			"@dpopsuev/alef-agent/*": [
 				"./packages/core/agent/src/*.ts"
 			],

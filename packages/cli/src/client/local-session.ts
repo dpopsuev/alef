@@ -5,7 +5,7 @@ import { type ActorIdentity, configureSessionActors } from "@dpopsuev/alef-agent
 import { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 import { buildAgent } from "@dpopsuev/alef-agent/kernel";
 import { buildModel } from "@dpopsuev/alef-agent/model";
-import { createDefaultDirectives, loadWorkspace, registerAdapters } from "@dpopsuev/alef-agent/prompt";
+import { createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
@@ -24,6 +24,7 @@ import { type HttpSurface, setupHttpSurface } from "../boot/build-delegation.js"
 import { buildLlmAdapter } from "../boot/build-llm-adapter.js";
 import type { AlefConfig } from "../boot/config.js";
 import { SessionHandle } from "../boot/session.js";
+import { loadWorkspace } from "../boot/workspace.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
 import { makeSink } from "./sink.js";

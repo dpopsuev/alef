@@ -2,9 +2,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Directives } from "@dpopsuev/alef-agent/directives";
-import { createDefaultDirectives, loadWorkspace, registerAdapters } from "@dpopsuev/alef-agent/prompt";
+import { createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { afterEach, describe, expect, it } from "vitest";
+import { loadWorkspace } from "../src/boot/workspace.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {

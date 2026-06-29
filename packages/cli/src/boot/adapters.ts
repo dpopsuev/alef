@@ -13,8 +13,8 @@ import {
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
-import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "../client/blueprints.js";
 import type { Args } from "./args.js";
+import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprints.js";
 import type { AlefConfig } from "./config.js";
 
 /**

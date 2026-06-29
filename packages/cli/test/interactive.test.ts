@@ -1,9 +1,9 @@
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { runInteractive } from "../src/client/interactive.js";
-import { readStdinLines } from "../src/client/readline.js";
+import { runInteractive } from "../src/boot/interactive.js";
+import { readStdinLines } from "../src/boot/readline.js";
 
-vi.mock("../src/client/readline.js", () => ({
+vi.mock("../src/boot/readline.js", () => ({
 	readStdinLines: vi.fn(),
 }));
 

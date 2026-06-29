@@ -1,10 +1,10 @@
 import { parseAtAddress } from "@dpopsuev/alef-agent/identity/routes";
 import { InputPatternRegistry } from "@dpopsuev/alef-agent/input-patterns";
 import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { InteractiveOptions } from "../boot/interactive.js";
 import type { TuiHandlerContext } from "./dispatch.js";
 import { handleColonCommand, handleSlashCommand } from "./dispatch.js";
 import type { TuiEvent } from "./events.js";
-import type { InteractiveOptions } from "./interactive.js";
 import type { TokenFooterHandle, TuiWriter } from "./state.js";
 
 /**

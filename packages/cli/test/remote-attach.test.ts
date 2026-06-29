@@ -4,7 +4,7 @@ import { createRemoteHarness } from "@dpopsuev/alef-testkit";
 import { step } from "@dpopsuev/alef-testkit/script";
 import { ScriptedReasoner } from "@dpopsuev/alef-testkit/scripted-reasoner";
 import { afterEach, describe, expect, it } from "vitest";
-import { type DaemonEntry, RemoteSession } from "../src/client/remote.js";
+import { type DaemonEntry, RemoteSession } from "../src/boot/remote.js";
 
 function makeEntry(host: string, port: number): DaemonEntry {
 	return { host, port, pid: process.pid, sessionId: "test", cwd: process.cwd(), startedAt: Date.now() };

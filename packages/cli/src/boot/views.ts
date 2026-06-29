@@ -18,7 +18,7 @@
 import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Args } from "../boot/args.js";
-import type { InteractiveOptions } from "../client/interactive.js";
+import type { InteractiveOptions } from "./interactive.js";
 
 // ---------------------------------------------------------------------------
 // Core interface
@@ -136,7 +136,7 @@ export class PrintViewMode implements ViewMode {
 	constructor(private readonly prompt: string) {}
 
 	async run(session: Session): Promise<void> {
-		const { runPrintMode } = await import("../client/print.js");
+		const { runPrintMode } = await import("./print.js");
 		await runPrintMode(this.prompt, session);
 	}
 }
@@ -149,7 +149,7 @@ export class JsonViewMode implements ViewMode {
 	constructor(private readonly opts: InteractiveOptions) {}
 
 	async run(session: Session): Promise<void> {
-		const { runInteractive } = await import("../client/interactive.js");
+		const { runInteractive } = await import("./interactive.js");
 		await runInteractive(session, this.opts);
 	}
 }

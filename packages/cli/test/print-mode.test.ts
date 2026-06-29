@@ -1,6 +1,6 @@
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { runPrintMode } from "../src/client/print.js";
+import { runPrintMode } from "../src/boot/print.js";
 
 function makeSession(reply = "mock reply"): Session {
 	return {

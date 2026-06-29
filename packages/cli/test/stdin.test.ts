@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { readStdinLines } from "../src/client/readline.js";
+import { readStdinLines } from "../src/boot/readline.js";
 
 function makeReadable(lines: string[]): Readable {
 	return Readable.from(lines.map((l) => `${l}\n`).join(""));

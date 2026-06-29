@@ -105,7 +105,7 @@ if (args.logSubcmd) {
 }
 
 if (args.replay !== undefined) {
-	const { runReplay } = await import("./client/replay.js");
+	const { runReplay } = await import("./boot/replay.js");
 	await runReplay(args.cwd, args.replay);
 	process.exit(0);
 }
@@ -158,8 +158,8 @@ if (args.attach !== undefined) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);
 	}
-	const { RemoteSession } = await import("./client/remote.js");
-	const { runAgent } = await import("./client/runner.js");
+	const { RemoteSession } = await import("./boot/remote.js");
+	const { runAgent } = await import("./boot/runner.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();
 	loadTheme(

@@ -19,7 +19,6 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
-import { makeSink } from "../client/output.js";
 import { getTheme, setTheme } from "../client/theme.js";
 import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";
@@ -27,6 +26,7 @@ import { type HttpSurface, setupHttpSurface } from "./build-delegation.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
 import type { AlefConfig } from "./config.js";
 import { SessionHandle } from "./handle.js";
+import { makeSink } from "./output.js";
 import { loadWorkspace } from "./workspace.js";
 
 const DIRECTIVE_BUDGET_FRACTION = 0.1;

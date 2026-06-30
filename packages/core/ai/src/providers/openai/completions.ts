@@ -103,38 +103,49 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			const toolCallBlocksById = new Map<string, StreamingToolCallBlock>();
 			const blocks = output.content as StreamingBlock[];
 			const getContentIndex = (block: StreamingBlock) => blocks.indexOf(block);
+			const finishTextBlock = (block: TextContent, contentIndex: number) => {
+				stream.push({
+					type: "text_end",
+					contentIndex,
+					content: block.text,
+					partial: output,
+				});
+			};
+			const finishThinkingBlock = (block: ThinkingContent, contentIndex: number) => {
+				stream.push({
+					type: "thinking_end",
+					contentIndex,
+					content: block.thinking,
+					partial: output,
+				});
+			};
+			const finishToolCallBlock = (block: StreamingToolCallBlock, contentIndex: number) => {
+				block.arguments = parseStreamingJson(block.partialArgs);
+				// Finalize in-place and strip the scratch buffers so replay only
+				// carries parsed arguments.
+				delete block.partialArgs;
+				delete block.streamIndex;
+				stream.push({
+					type: "toolcall_end",
+					contentIndex,
+					toolCall: block,
+					partial: output,
+				});
+			};
+			const blockFinishers: Record<string, (block: StreamingBlock, contentIndex: number) => void> = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch narrows StreamingBlock to TextContent
+				text: (block, ci) => finishTextBlock(block as TextContent, ci),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch narrows StreamingBlock to ThinkingContent
+				thinking: (block, ci) => finishThinkingBlock(block as ThinkingContent, ci),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch narrows StreamingBlock to StreamingToolCallBlock
+				toolCall: (block, ci) => finishToolCallBlock(block as StreamingToolCallBlock, ci),
+			};
 			const finishBlock = (block: StreamingBlock) => {
 				const contentIndex = getContentIndex(block);
 				if (contentIndex === -1) {
 					return;
 				}
-				if (block.type === "text") {
-					stream.push({
-						type: "text_end",
-						contentIndex,
-						content: block.text,
-						partial: output,
-					});
-				} else if (block.type === "thinking") {
-					stream.push({
-						type: "thinking_end",
-						contentIndex,
-						content: block.thinking,
-						partial: output,
-					});
-				} else {
-					block.arguments = parseStreamingJson(block.partialArgs);
-					// Finalize in-place and strip the scratch buffers so replay only
-					// carries parsed arguments.
-					delete block.partialArgs;
-					delete block.streamIndex;
-					stream.push({
-						type: "toolcall_end",
-						contentIndex,
-						toolCall: block,
-						partial: output,
-					});
-				}
+				blockFinishers[block.type](block, contentIndex);
 			};
 			const ensureTextBlock = () => {
 				if (!textBlock) {
@@ -429,6 +440,96 @@ function createClient(
 	});
 }
 
+type ThinkingFormatHandler = (
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	options: OpenAICompletionsOptions | undefined,
+	compat: ResolvedOpenAICompletionsCompat,
+) => void;
+
+/** Apply Z.ai thinking format — sets enable_thinking flag. */
+function applyZaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+	(params as any).enable_thinking = !!options?.reasoningEffort;
+}
+
+/** Apply Qwen thinking format — sets enable_thinking flag. */
+function applyQwenThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+	(params as any).enable_thinking = !!options?.reasoningEffort;
+}
+
+/** Apply Qwen chat-template thinking format — sets chat_template_kwargs with enable_thinking and preserve_thinking. */
+function applyQwenChatTemplateThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+	(params as any).chat_template_kwargs = {
+		enable_thinking: !!options?.reasoningEffort,
+		preserve_thinking: true,
+	};
+}
+
+/** Apply DeepSeek thinking format — sets thinking object and optional reasoning_effort. */
+function applyDeepseekThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+	(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
+	if (options?.reasoningEffort) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+		(params as any).reasoning_effort =
+			model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
+	}
+}
+
+/** Apply OpenRouter thinking format — sets nested reasoning object with effort level. */
+function applyOpenrouterThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
+	// OpenRouter normalizes reasoning across providers via a nested reasoning object.
+	const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
+	if (options?.reasoningEffort) {
+		openRouterParams.reasoning = {
+			effort: model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort,
+		};
+	} else if (model.thinkingLevelMap?.off !== null) {
+		openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
+	}
+}
+
+/** Apply Together thinking format — sets reasoning enabled flag and optional reasoning_effort. */
+function applyTogetherThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined, compat: ResolvedOpenAICompletionsCompat) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific params extension
+	const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
+		reasoning?: { enabled: boolean };
+		reasoning_effort?: string;
+	};
+	togetherParams.reasoning = { enabled: !!options?.reasoningEffort };
+	if (options?.reasoningEffort && compat.supportsReasoningEffort) {
+		togetherParams.reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
+	}
+}
+
+/** Apply OpenAI-style thinking — sets reasoning_effort when supported, including off-value fallback. */
+function applyOpenaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined, compat: ResolvedOpenAICompletionsCompat) {
+	if (options?.reasoningEffort && compat.supportsReasoningEffort) {
+		// OpenAI-style reasoning_effort
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
+	} else if (!options?.reasoningEffort && compat.supportsReasoningEffort) {
+		const offValue = model.thinkingLevelMap?.off;
+		if (typeof offValue === "string") {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+			(params as any).reasoning_effort = offValue;
+		}
+	}
+}
+
+const thinkingFormatHandlers: Record<string, ThinkingFormatHandler> = {
+	zai: applyZaiThinking,
+	qwen: applyQwenThinking,
+	"qwen-chat-template": applyQwenChatTemplateThinking,
+	deepseek: applyDeepseekThinking,
+	openrouter: applyOpenrouterThinking,
+	together: applyTogetherThinking,
+	openai: applyOpenaiThinking,
+};
+
 function buildParams(
 	model: Model<"openai-completions">,
 	context: Context,
@@ -492,56 +593,8 @@ function buildParams(
 		params.tool_choice = options.toolChoice;
 	}
 
-	if (compat.thinkingFormat === "zai" && model.reasoning) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		(params as any).enable_thinking = !!options?.reasoningEffort;
-	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		(params as any).enable_thinking = !!options?.reasoningEffort;
-	} else if (compat.thinkingFormat === "qwen-chat-template" && model.reasoning) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		(params as any).chat_template_kwargs = {
-			enable_thinking: !!options?.reasoningEffort,
-			preserve_thinking: true,
-		};
-	} else if (compat.thinkingFormat === "deepseek" && model.reasoning) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
-		if (options?.reasoningEffort) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-			(params as any).reasoning_effort =
-				model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-		}
-	} else if (compat.thinkingFormat === "openrouter" && model.reasoning) {
-		// OpenRouter normalizes reasoning across providers via a nested reasoning object.
-		const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
-		if (options?.reasoningEffort) {
-			openRouterParams.reasoning = {
-				effort: model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort,
-			};
-		} else if (model.thinkingLevelMap?.off !== null) {
-			openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
-		}
-	} else if (compat.thinkingFormat === "together" && model.reasoning) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific params extension
-		const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
-			reasoning?: { enabled: boolean };
-			reasoning_effort?: string;
-		};
-		togetherParams.reasoning = { enabled: !!options?.reasoningEffort };
-		if (options?.reasoningEffort && compat.supportsReasoningEffort) {
-			togetherParams.reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-		}
-	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-	} else if (!options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		const offValue = model.thinkingLevelMap?.off;
-		if (typeof offValue === "string") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-			(params as any).reasoning_effort = offValue;
-		}
+	if (model.reasoning) {
+		thinkingFormatHandlers[compat.thinkingFormat](params, model, options, compat);
 	}
 
 	// OpenRouter provider routing preferences

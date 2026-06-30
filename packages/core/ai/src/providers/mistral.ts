@@ -300,6 +300,107 @@ async function consumeChatStream(
 		});
 	};
 
+	const emitTextDelta = (textDelta: string) => {
+		if (!currentBlock || currentBlock.type !== "text") {
+			finishCurrentBlock(currentBlock);
+			currentBlock = { type: "text", text: "" };
+			output.content.push(currentBlock);
+			stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
+		}
+		currentBlock.text += textDelta;
+		stream.push({
+			type: "text_delta",
+			contentIndex: blockIndex(),
+			delta: textDelta,
+			partial: output,
+		});
+	};
+
+	const handleStringContentItem = (item: string) => {
+		emitTextDelta(sanitizeSurrogates(item));
+	};
+
+	const contentItemHandlers: Partial<Record<string, (item: Exclude<ContentChunk, string>) => void>> = {
+		thinking: (item) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Mistral SDK thinking chunk shape
+			const thinkingItem = item as { thinking: Array<{ text?: string }> };
+			const deltaText = thinkingItem.thinking
+				.map((part) => ("text" in part ? part.text : ""))
+				.filter((text) => text!.length > 0)
+				.join("");
+			const thinkingDelta = sanitizeSurrogates(deltaText);
+			if (!thinkingDelta) return;
+			if (!currentBlock || currentBlock.type !== "thinking") {
+				finishCurrentBlock(currentBlock);
+				currentBlock = { type: "thinking", thinking: "" };
+				output.content.push(currentBlock);
+				stream.push({ type: "thinking_start", contentIndex: blockIndex(), partial: output });
+			}
+			currentBlock.thinking += thinkingDelta;
+			stream.push({
+				type: "thinking_delta",
+				contentIndex: blockIndex(),
+				delta: thinkingDelta,
+				partial: output,
+			});
+		},
+		text: (item) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Mistral SDK text chunk shape
+			emitTextDelta(sanitizeSurrogates((item as { text: string }).text));
+		},
+	};
+
+	const handleToolCall = (toolCall: {
+		id?: string | null;
+		index?: number | null;
+		function: { name: string; arguments: string | Record<string, unknown> };
+	}) => {
+		if (currentBlock) {
+			finishCurrentBlock(currentBlock);
+			currentBlock = null;
+		}
+		const callId =
+			toolCall.id && toolCall.id !== "null"
+				? toolCall.id
+				: deriveMistralToolCallId(`toolcall:${toolCall.index ?? 0}`, 0);
+		const key = `${callId}:${toolCall.index ?? 0}`;
+		const existingIndex = toolBlocksByKey.get(key);
+		let block: (ToolCall & { partialArgs?: string }) | undefined;
+
+		if (existingIndex !== undefined) {
+			const existing = output.content[existingIndex];
+			if (existing.type === "toolCall") {
+				block = existing as ToolCall & { partialArgs?: string };
+			}
+		}
+
+		if (!block) {
+			block = {
+				type: "toolCall",
+				id: callId,
+				name: toolCall.function.name,
+				arguments: {},
+				partialArgs: "",
+			};
+			output.content.push(block);
+			toolBlocksByKey.set(key, output.content.length - 1);
+			stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
+		}
+
+		const argsDelta =
+			typeof toolCall.function.arguments === "string"
+				? toolCall.function.arguments
+				: JSON.stringify(toolCall.function.arguments);
+		block.partialArgs = (block.partialArgs ?? "") + argsDelta;
+		block.arguments = parseStreamingJson<Record<string, unknown>>(block.partialArgs);
+		stream.push({
+			type: "toolcall_delta",
+			contentIndex: toolBlocksByKey.get(key)!,
+			delta: argsDelta,
+			partial: output,
+		});
+	};
+
 	for await (const event of mistralStream) {
 		const chunk = event.data;
 		// Mistral's streamed CompletionChunk carries an id field. Keep the first non-empty one,
@@ -326,111 +427,17 @@ async function consumeChatStream(
 			const contentItems = typeof delta.content === "string" ? [delta.content] : delta.content;
 			for (const item of contentItems) {
 				if (typeof item === "string") {
-					const textDelta = sanitizeSurrogates(item);
-					if (!currentBlock || currentBlock.type !== "text") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "text", text: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.text += textDelta;
-					stream.push({
-						type: "text_delta",
-						contentIndex: blockIndex(),
-						delta: textDelta,
-						partial: output,
-					});
+					handleStringContentItem(item);
 					continue;
 				}
 
-				if (item.type === "thinking") {
-					const deltaText = item.thinking
-						.map((part) => ("text" in part ? part.text : ""))
-						.filter((text) => text.length > 0)
-						.join("");
-					const thinkingDelta = sanitizeSurrogates(deltaText);
-					if (!thinkingDelta) continue;
-					if (!currentBlock || currentBlock.type !== "thinking") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "thinking", thinking: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "thinking_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.thinking += thinkingDelta;
-					stream.push({
-						type: "thinking_delta",
-						contentIndex: blockIndex(),
-						delta: thinkingDelta,
-						partial: output,
-					});
-					continue;
-				}
-
-				if (item.type === "text") {
-					const textDelta = sanitizeSurrogates(item.text);
-					if (!currentBlock || currentBlock.type !== "text") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "text", text: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.text += textDelta;
-					stream.push({
-						type: "text_delta",
-						contentIndex: blockIndex(),
-						delta: textDelta,
-						partial: output,
-					});
-				}
+				contentItemHandlers[(item as { type: string }).type]?.(item);
 			}
 		}
 
 		const toolCalls = delta.toolCalls ?? [];
 		for (const toolCall of toolCalls) {
-			if (currentBlock) {
-				finishCurrentBlock(currentBlock);
-				currentBlock = null;
-			}
-			const callId =
-				toolCall.id && toolCall.id !== "null"
-					? toolCall.id
-					: deriveMistralToolCallId(`toolcall:${toolCall.index ?? 0}`, 0);
-			const key = `${callId}:${toolCall.index ?? 0}`;
-			const existingIndex = toolBlocksByKey.get(key);
-			let block: (ToolCall & { partialArgs?: string }) | undefined;
-
-			if (existingIndex !== undefined) {
-				const existing = output.content[existingIndex];
-				if (existing.type === "toolCall") {
-					block = existing as ToolCall & { partialArgs?: string };
-				}
-			}
-
-			if (!block) {
-				block = {
-					type: "toolCall",
-					id: callId,
-					name: toolCall.function.name,
-					arguments: {},
-					partialArgs: "",
-				};
-				output.content.push(block);
-				toolBlocksByKey.set(key, output.content.length - 1);
-				stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
-			}
-
-			const argsDelta =
-				typeof toolCall.function.arguments === "string"
-					? toolCall.function.arguments
-					: JSON.stringify(toolCall.function.arguments);
-			block.partialArgs = (block.partialArgs ?? "") + argsDelta;
-			block.arguments = parseStreamingJson<Record<string, unknown>>(block.partialArgs);
-			stream.push({
-				type: "toolcall_delta",
-				contentIndex: toolBlocksByKey.get(key)!,
-				delta: argsDelta,
-				partial: output,
-			});
+			handleToolCall(toolCall);
 		}
 	}
 
@@ -484,63 +491,80 @@ function stripSymbolKeys(value: unknown): unknown {
 function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompletionStreamRequestMessage[] {
 	const result: ChatCompletionStreamRequestMessage[] = [];
 
-	for (const msg of messages) {
-		if (msg.role === "user") {
-			if (typeof msg.content === "string") {
-				result.push({ role: "user", content: sanitizeSurrogates(msg.content) });
-				continue;
-			}
-			const hadImages = msg.content.some((item) => item.type === "image");
-			const content: ContentChunk[] = msg.content
-				.filter((item) => item.type === "text" || supportsImages)
-				.map((item) => {
-					if (item.type === "text") return { type: "text", text: sanitizeSurrogates(item.text) };
-					return { type: "image_url", imageUrl: `data:${item.mimeType};base64,${item.data}` };
-				});
-			if (content.length > 0) {
-				result.push({ role: "user", content });
-				continue;
-			}
-			if (hadImages && !supportsImages) {
-				result.push({ role: "user", content: "(image omitted: model does not support images)" });
-			}
-			continue;
+	const convertUserMessage = (msg: Extract<Message, { role: "user" }>) => {
+		if (typeof msg.content === "string") {
+			result.push({ role: "user", content: sanitizeSurrogates(msg.content) });
+			return;
 		}
+		const hadImages = msg.content.some((item) => item.type === "image");
+		const content: ContentChunk[] = msg.content
+			.filter((item) => item.type === "text" || supportsImages)
+			.map((item) => {
+				if (item.type === "text") return { type: "text", text: sanitizeSurrogates(item.text) };
+				return { type: "image_url", imageUrl: `data:${item.mimeType};base64,${item.data}` };
+			});
+		if (content.length > 0) {
+			result.push({ role: "user", content });
+			return;
+		}
+		if (hadImages && !supportsImages) {
+			result.push({ role: "user", content: "(image omitted: model does not support images)" });
+		}
+	};
 
-		if (msg.role === "assistant") {
-			const contentParts: ContentChunk[] = [];
-			const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
-
-			for (const block of msg.content) {
-				if (block.type === "text") {
-					if (block.text.trim().length > 0) {
-						contentParts.push({ type: "text", text: sanitizeSurrogates(block.text) });
-					}
-					continue;
-				}
-				if (block.type === "thinking") {
-					if (block.thinking.trim().length > 0) {
-						contentParts.push({
-							type: "thinking",
-							thinking: [{ type: "text", text: sanitizeSurrogates(block.thinking) }],
-						});
-					}
-					continue;
-				}
-				toolCalls.push({
-					id: block.id,
-					type: "function",
-					function: { name: block.name, arguments: JSON.stringify(block.arguments) },
+	const assistantBlockHandlers: Partial<
+		Record<
+			string,
+			(
+				block: AssistantMessage["content"][number],
+				contentParts: ContentChunk[],
+				toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>,
+			) => void
+		>
+	> = {
+		text: (block, contentParts) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed block
+			const textBlock = block as TextContent;
+			if (textBlock.text.trim().length > 0) {
+				contentParts.push({ type: "text", text: sanitizeSurrogates(textBlock.text) });
+			}
+		},
+		thinking: (block, contentParts) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed block
+			const thinkingBlock = block as ThinkingContent;
+			if (thinkingBlock.thinking.trim().length > 0) {
+				contentParts.push({
+					type: "thinking",
+					thinking: [{ type: "text", text: sanitizeSurrogates(thinkingBlock.thinking) }],
 				});
 			}
+		},
+		toolCall: (block, _contentParts, toolCalls) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed block
+			const toolBlock = block as ToolCall;
+			toolCalls.push({
+				id: toolBlock.id,
+				type: "function",
+				function: { name: toolBlock.name, arguments: JSON.stringify(toolBlock.arguments) },
+			});
+		},
+	};
 
-			const assistantMessage: ChatCompletionStreamRequestMessage = { role: "assistant" };
-			if (contentParts.length > 0) assistantMessage.content = contentParts;
-			if (toolCalls.length > 0) assistantMessage.toolCalls = toolCalls;
-			if (contentParts.length > 0 || toolCalls.length > 0) result.push(assistantMessage);
-			continue;
+	const convertAssistantMessage = (msg: Extract<Message, { role: "assistant" }>) => {
+		const contentParts: ContentChunk[] = [];
+		const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+
+		for (const block of msg.content) {
+			assistantBlockHandlers[block.type]?.(block, contentParts, toolCalls);
 		}
 
+		const assistantMessage: ChatCompletionStreamRequestMessage = { role: "assistant" };
+		if (contentParts.length > 0) assistantMessage.content = contentParts;
+		if (toolCalls.length > 0) assistantMessage.toolCalls = toolCalls;
+		if (contentParts.length > 0 || toolCalls.length > 0) result.push(assistantMessage);
+	};
+
+	const convertToolMessage = (msg: Extract<Message, { role: "toolResult" }>) => {
 		const toolContent: ContentChunk[] = [];
 		const textResult = msg.content
 			.filter((part) => part.type === "text")
@@ -563,6 +587,19 @@ function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompl
 			name: msg.toolName,
 			content: toolContent,
 		});
+	};
+
+	const messageRoleHandlers: Partial<Record<string, (msg: Message) => void>> = {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed message
+		user: (msg) => convertUserMessage(msg as Extract<Message, { role: "user" }>),
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed message
+		assistant: (msg) => convertAssistantMessage(msg as Extract<Message, { role: "assistant" }>),
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: discriminant-narrowed message
+		toolResult: (msg) => convertToolMessage(msg as Extract<Message, { role: "toolResult" }>),
+	};
+
+	for (const msg of messages) {
+		messageRoleHandlers[msg.role]?.(msg);
 	}
 
 	return result;
@@ -619,19 +656,15 @@ function mapToolChoice(
 	};
 }
 
+const stopReasonMap: Record<string, StopReason> = {
+	stop: "stop",
+	length: "length",
+	model_length: "length",
+	tool_calls: "toolUse",
+	error: "error",
+};
+
 function mapChatStopReason(reason: string | null): StopReason {
 	if (reason === null) return "stop";
-	switch (reason) {
-		case "stop":
-			return "stop";
-		case "length":
-		case "model_length":
-			return "length";
-		case "tool_calls":
-			return "toolUse";
-		case "error":
-			return "error";
-		default:
-			return "stop";
-	}
+	return stopReasonMap[reason] ?? "stop";
 }

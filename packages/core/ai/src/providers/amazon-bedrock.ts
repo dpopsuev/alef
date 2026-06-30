@@ -226,32 +226,55 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 				await options.onResponse?.({ status: response.$metadata.httpStatusCode, headers: responseHeaders }, model);
 			}
 
-			for await (const item of response.stream!) {
-				if (item.messageStart) {
-					if (item.messageStart.role !== ConversationRole.ASSISTANT) {
+			/** Stream event dispatch table keyed by ConverseStreamOutput discriminant. */
+			type StreamItem = NonNullable<typeof response.stream> extends AsyncIterable<infer T> ? T : never;
+			const streamHandlers: Record<string, (item: StreamItem) => void> = {
+				messageStart(ev) {
+					if (ev.messageStart!.role !== ConversationRole.ASSISTANT) {
 						throw new Error("Unexpected assistant message start but got user message start instead");
 					}
 					stream.push({ type: "start", partial: output });
-				} else if (item.contentBlockStart) {
-					handleContentBlockStart(item.contentBlockStart, blocks, output, stream);
-				} else if (item.contentBlockDelta) {
-					handleContentBlockDelta(item.contentBlockDelta, blocks, output, stream);
-				} else if (item.contentBlockStop) {
-					handleContentBlockStop(item.contentBlockStop, blocks, output, stream);
-				} else if (item.messageStop) {
-					output.stopReason = mapStopReason(item.messageStop.stopReason);
-				} else if (item.metadata) {
-					handleMetadata(item.metadata, model, output);
-				} else if (item.internalServerException) {
-					throw item.internalServerException;
-				} else if (item.modelStreamErrorException) {
-					throw item.modelStreamErrorException;
-				} else if (item.validationException) {
-					throw item.validationException;
-				} else if (item.throttlingException) {
-					throw item.throttlingException;
-				} else if (item.serviceUnavailableException) {
-					throw item.serviceUnavailableException;
+				},
+				contentBlockStart(ev) {
+					handleContentBlockStart(ev.contentBlockStart!, blocks, output, stream);
+				},
+				contentBlockDelta(ev) {
+					handleContentBlockDelta(ev.contentBlockDelta!, blocks, output, stream);
+				},
+				contentBlockStop(ev) {
+					handleContentBlockStop(ev.contentBlockStop!, blocks, output, stream);
+				},
+				messageStop(ev) {
+					output.stopReason = mapStopReason(ev.messageStop!.stopReason);
+				},
+				metadata(ev) {
+					handleMetadata(ev.metadata!, model, output);
+				},
+				/* eslint-disable @typescript-eslint/only-throw-error -- SDK exceptions extend Error but the union with undefined confuses the lint */
+				internalServerException(ev) {
+					throw ev.internalServerException;
+				},
+				modelStreamErrorException(ev) {
+					throw ev.modelStreamErrorException;
+				},
+				validationException(ev) {
+					throw ev.validationException;
+				},
+				throttlingException(ev) {
+					throw ev.throttlingException;
+				},
+				serviceUnavailableException(ev) {
+					throw ev.serviceUnavailableException;
+				},
+				/* eslint-enable @typescript-eslint/only-throw-error */
+			};
+			const streamHandlerKeys = Object.keys(streamHandlers);
+
+			for await (const item of response.stream!) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key is one of the known discriminant names
+				const key = streamHandlerKeys.find((k) => item[k as keyof StreamItem]);
+				if (key) {
+					streamHandlers[key](item);
 				}
 			}
 

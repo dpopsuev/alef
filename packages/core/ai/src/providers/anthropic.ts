@@ -517,180 +517,267 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- internal streaming block type
 			const blocks = output.content as Block[];
 
-			for await (const event of iterateAnthropicEvents(response, options?.signal)) {
-				if (event.type === "message_start") {
-					output.responseId = event.message.id;
-					// Capture initial token usage from message_start event
-					// This ensures we have input token counts even if the stream is aborted early
-					output.usage.input = event.message.usage.input_tokens;
-					output.usage.output = event.message.usage.output_tokens;
-					output.usage.cacheRead = event.message.usage.cache_read_input_tokens ?? 0;
-					output.usage.cacheWrite = event.message.usage.cache_creation_input_tokens ?? 0;
-					// Anthropic doesn't provide total_tokens, compute from components
-					output.usage.totalTokens =
-						output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
-					calculateCost(model, output.usage);
-				} else if (event.type === "content_block_start") {
-					if (event.content_block.type === "text") {
-						const block: Block = {
-							type: "text",
-							text: "",
-							index: event.index,
-						};
-						output.content.push(block);
-						stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
-					} else if (event.content_block.type === "thinking") {
-						const block: Block = {
-							type: "thinking",
-							thinking: "",
-							thinkingSignature: "",
-							index: event.index,
-						};
-						output.content.push(block);
-						stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
-					} else if (event.content_block.type === "redacted_thinking") {
-						const block: Block = {
-							type: "thinking",
-							thinking: "[Reasoning redacted]",
-							thinkingSignature: event.content_block.data,
-							redacted: true,
-							index: event.index,
-						};
-						output.content.push(block);
-						stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
-					} else if (event.content_block.type === "tool_use") {
-						// Parse input if it's a JSON string (happens when eager streaming is disabled)
-						let parsedInput: Record<string, any>;
-						if (typeof event.content_block.input === "string") {
-							try {
-								parsedInput = JSON.parse(event.content_block.input);
-							} catch {
-								parsedInput = {};
-							}
-						} else {
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- API response boundary
-							parsedInput = event.content_block.input as Record<string, any>;
-						}
+			// --- Content block start handlers (keyed by content_block.type) ---
 
-						const block: Block = {
-							type: "toolCall",
-							id: event.content_block.id,
-							name: isOAuth
-								? fromClaudeCodeName(event.content_block.name, context.tools)
-								: isVertex
-									? unsanitizeToolName(event.content_block.name, context.tools)
-									: event.content_block.name,
-							arguments: parsedInput,
-							partialJson: "",
-							index: event.index,
-						};
-						output.content.push(block);
-						stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
+			function handleTextBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
+				const block: Block = {
+					type: "text",
+					text: "",
+					index: event.index,
+				};
+				output.content.push(block);
+				stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
+			}
+
+			function handleThinkingBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
+				const block: Block = {
+					type: "thinking",
+					thinking: "",
+					thinkingSignature: "",
+					index: event.index,
+				};
+				output.content.push(block);
+				stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
+			}
+
+			function handleRedactedThinkingBlockStart(
+				event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>,
+			) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const contentBlock = event.content_block as { type: "redacted_thinking"; data: string };
+				const block: Block = {
+					type: "thinking",
+					thinking: "[Reasoning redacted]",
+					thinkingSignature: contentBlock.data,
+					redacted: true,
+					index: event.index,
+				};
+				output.content.push(block);
+				stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
+			}
+
+			function handleToolUseBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const contentBlock = event.content_block as { type: "tool_use"; id: string; name: string; input: unknown };
+				// Parse input if it's a JSON string (happens when eager streaming is disabled)
+				let parsedInput: Record<string, any>;
+				if (typeof contentBlock.input === "string") {
+					try {
+						parsedInput = JSON.parse(contentBlock.input);
+					} catch {
+						parsedInput = {};
 					}
-				} else if (event.type === "content_block_delta") {
-					if (event.delta.type === "text_delta") {
-						const index = blocks.findIndex((b) => b.index === event.index);
-						const block = blocks[index];
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-						if (block && block.type === "text") {
-							block.text += event.delta.text;
-							stream.push({
-								type: "text_delta",
-								contentIndex: index,
-								delta: event.delta.text,
-								partial: output,
-							});
-						}
-					} else if (event.delta.type === "thinking_delta") {
-						const index = blocks.findIndex((b) => b.index === event.index);
-						const block = blocks[index];
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-						if (block && block.type === "thinking") {
-							block.thinking += event.delta.thinking;
-							stream.push({
-								type: "thinking_delta",
-								contentIndex: index,
-								delta: event.delta.thinking,
-								partial: output,
-							});
-						}
-					} else if (event.delta.type === "input_json_delta") {
-						const index = blocks.findIndex((b) => b.index === event.index);
-						const block = blocks[index];
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-						if (block && block.type === "toolCall") {
-							block.partialJson += event.delta.partial_json;
-							block.arguments = parseStreamingJson(block.partialJson);
-							stream.push({
-								type: "toolcall_delta",
-								contentIndex: index,
-								delta: event.delta.partial_json,
-								partial: output,
-							});
-						}
-					} else if (event.delta.type === "signature_delta") {
-						const index = blocks.findIndex((b) => b.index === event.index);
-						const block = blocks[index];
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-						if (block && block.type === "thinking") {
-							block.thinkingSignature = block.thinkingSignature ?? "";
-							block.thinkingSignature += event.delta.signature;
-						}
-					}
-				} else if (event.type === "content_block_stop") {
-					const index = blocks.findIndex((b) => b.index === event.index);
-					const block = blocks[index];
-					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-					if (block) {
-						delete (block as { index?: number }).index;
-						if (block.type === "text") {
-							stream.push({
-								type: "text_end",
-								contentIndex: index,
-								content: block.text,
-								partial: output,
-							});
-						} else if (block.type === "thinking") {
-							stream.push({
-								type: "thinking_end",
-								contentIndex: index,
-								content: block.thinking,
-								partial: output,
-							});
-						} else {
-							block.arguments = parseStreamingJson(block.partialJson);
-							// Finalize in-place and strip the scratch buffer so replay only
-							// carries parsed arguments.
-							delete (block as { partialJson?: string }).partialJson;
-							stream.push({
-								type: "toolcall_end",
-								contentIndex: index,
-								toolCall: block,
-								partial: output,
-							});
-						}
-					}
-				} else if (event.type === "message_delta") {
-					if (event.delta.stop_reason) {
-						output.stopReason = mapStopReason(event.delta.stop_reason);
-					}
-					// Only update usage fields if present (not null).
-					// Preserves input_tokens from message_start when proxies omit it in message_delta.
-					if (event.usage.input_tokens != null) {
-						output.usage.input = event.usage.input_tokens;
-					}
-					output.usage.output = event.usage.output_tokens;
-					if (event.usage.cache_read_input_tokens != null) {
-						output.usage.cacheRead = event.usage.cache_read_input_tokens;
-					}
-					if (event.usage.cache_creation_input_tokens != null) {
-						output.usage.cacheWrite = event.usage.cache_creation_input_tokens;
-					}
-					// Anthropic doesn't provide total_tokens, compute from components
-					output.usage.totalTokens =
-						output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
-					calculateCost(model, output.usage);
+				} else {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- API response boundary
+					parsedInput = contentBlock.input as Record<string, any>;
 				}
+
+				const block: Block = {
+					type: "toolCall",
+					id: contentBlock.id,
+					name: isOAuth
+						? fromClaudeCodeName(contentBlock.name, context.tools)
+						: isVertex
+							? unsanitizeToolName(contentBlock.name, context.tools)
+							: contentBlock.name,
+					arguments: parsedInput,
+					partialJson: "",
+					index: event.index,
+				};
+				output.content.push(block);
+				stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
+			}
+
+			const contentBlockStartHandlers: Record<
+				string,
+				(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) => void
+			> = {
+				text: handleTextBlockStart,
+				thinking: handleThinkingBlockStart,
+				redacted_thinking: handleRedactedThinkingBlockStart,
+				tool_use: handleToolUseBlockStart,
+			};
+
+			// --- Content block delta handlers (keyed by delta.type) ---
+
+			function handleTextDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
+				const index = blocks.findIndex((b) => b.index === event.index);
+				const block = blocks[index];
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				if (block && block.type === "text") {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+					const delta = event.delta as { type: "text_delta"; text: string };
+					block.text += delta.text;
+					stream.push({
+						type: "text_delta",
+						contentIndex: index,
+						delta: delta.text,
+						partial: output,
+					});
+				}
+			}
+
+			function handleThinkingDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
+				const index = blocks.findIndex((b) => b.index === event.index);
+				const block = blocks[index];
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				if (block && block.type === "thinking") {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+					const delta = event.delta as { type: "thinking_delta"; thinking: string };
+					block.thinking += delta.thinking;
+					stream.push({
+						type: "thinking_delta",
+						contentIndex: index,
+						delta: delta.thinking,
+						partial: output,
+					});
+				}
+			}
+
+			function handleInputJsonDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
+				const index = blocks.findIndex((b) => b.index === event.index);
+				const block = blocks[index];
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				if (block && block.type === "toolCall") {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+					const delta = event.delta as { type: "input_json_delta"; partial_json: string };
+					block.partialJson += delta.partial_json;
+					block.arguments = parseStreamingJson(block.partialJson);
+					stream.push({
+						type: "toolcall_delta",
+						contentIndex: index,
+						delta: delta.partial_json,
+						partial: output,
+					});
+				}
+			}
+
+			function handleSignatureDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
+				const index = blocks.findIndex((b) => b.index === event.index);
+				const block = blocks[index];
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				if (block && block.type === "thinking") {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+					const delta = event.delta as { type: "signature_delta"; signature: string };
+					block.thinkingSignature = block.thinkingSignature ?? "";
+					block.thinkingSignature += delta.signature;
+				}
+			}
+
+			const contentBlockDeltaHandlers: Record<
+				string,
+				(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) => void
+			> = {
+				text_delta: handleTextDelta,
+				thinking_delta: handleThinkingDelta,
+				input_json_delta: handleInputJsonDelta,
+				signature_delta: handleSignatureDelta,
+			};
+
+			// --- Top-level event handlers (keyed by event.type) ---
+
+			function handleMessageStart(event: RawMessageStreamEvent) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const e = event as Extract<RawMessageStreamEvent, { type: "message_start" }>;
+				output.responseId = e.message.id;
+				// Capture initial token usage from message_start event
+				// This ensures we have input token counts even if the stream is aborted early
+				output.usage.input = e.message.usage.input_tokens;
+				output.usage.output = e.message.usage.output_tokens;
+				output.usage.cacheRead = e.message.usage.cache_read_input_tokens ?? 0;
+				output.usage.cacheWrite = e.message.usage.cache_creation_input_tokens ?? 0;
+				// Anthropic doesn't provide total_tokens, compute from components
+				output.usage.totalTokens =
+					output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
+				calculateCost(model, output.usage);
+			}
+
+			function handleContentBlockStart(event: RawMessageStreamEvent) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_start" }>;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API types
+				contentBlockStartHandlers[e.content_block.type]?.(e);
+			}
+
+			function handleContentBlockDelta(event: RawMessageStreamEvent) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_delta" }>;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API types
+				contentBlockDeltaHandlers[e.delta.type]?.(e);
+			}
+
+			function handleContentBlockStop(event: RawMessageStreamEvent) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_stop" }>;
+				const index = blocks.findIndex((b) => b.index === e.index);
+				const block = blocks[index];
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				if (block) {
+					delete (block as { index?: number }).index;
+					if (block.type === "text") {
+						stream.push({
+							type: "text_end",
+							contentIndex: index,
+							content: block.text,
+							partial: output,
+						});
+					} else if (block.type === "thinking") {
+						stream.push({
+							type: "thinking_end",
+							contentIndex: index,
+							content: block.thinking,
+							partial: output,
+						});
+					} else {
+						block.arguments = parseStreamingJson(block.partialJson);
+						// Finalize in-place and strip the scratch buffer so replay only
+						// carries parsed arguments.
+						delete (block as { partialJson?: string }).partialJson;
+						stream.push({
+							type: "toolcall_end",
+							contentIndex: index,
+							toolCall: block,
+							partial: output,
+						});
+					}
+				}
+			}
+
+			function handleMessageDelta(event: RawMessageStreamEvent) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const e = event as Extract<RawMessageStreamEvent, { type: "message_delta" }>;
+				if (e.delta.stop_reason) {
+					output.stopReason = mapStopReason(e.delta.stop_reason);
+				}
+				// Only update usage fields if present (not null).
+				// Preserves input_tokens from message_start when proxies omit it in message_delta.
+				if (e.usage.input_tokens != null) {
+					output.usage.input = e.usage.input_tokens;
+				}
+				output.usage.output = e.usage.output_tokens;
+				if (e.usage.cache_read_input_tokens != null) {
+					output.usage.cacheRead = e.usage.cache_read_input_tokens;
+				}
+				if (e.usage.cache_creation_input_tokens != null) {
+					output.usage.cacheWrite = e.usage.cache_creation_input_tokens;
+				}
+				// Anthropic doesn't provide total_tokens, compute from components
+				output.usage.totalTokens =
+					output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
+				calculateCost(model, output.usage);
+			}
+
+			const eventHandlers: Record<string, (event: RawMessageStreamEvent) => void> = {
+				message_start: handleMessageStart,
+				content_block_start: handleContentBlockStart,
+				content_block_delta: handleContentBlockDelta,
+				content_block_stop: handleContentBlockStop,
+				message_delta: handleMessageDelta,
+			};
+
+			for await (const event of iterateAnthropicEvents(response, options?.signal)) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API event types
+				eventHandlers[event.type]?.(event);
 			}
 
 			if (options?.signal?.aborted) {

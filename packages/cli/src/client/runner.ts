@@ -213,6 +213,7 @@ const KEY_MAP: Record<string, string> = {
 	down: KEY.DOWN,
 };
 
+/** Test whether a raw terminal data string matches a named key combo. */
 function matchesKey(data: string, combo: string): boolean {
 	return data === (KEY_MAP[combo] ?? combo);
 }

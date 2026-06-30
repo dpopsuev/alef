@@ -75,6 +75,7 @@ const supervisor = new Supervisor();
 supervisor.register(createStorageDescriptor(cfg.storage));
 supervisor.register(createSchedulerDescriptor());
 
+/** Start the supervisor and return the initialized storage factory. */
 async function getStorage(): Promise<StorageFactory> {
 	await supervisor.startAll({ cwd: args.cwd });
 	const svc = supervisor.get("storage");
@@ -297,6 +298,7 @@ import { shutdownOTel } from "./boot/otel.js";
 const daemonCfg = resolveDaemonConfig(cfg);
 let draining = false;
 
+/** Drain active work and stop all supervisor services on process signal. */
 async function gracefulShutdown(signal: string): Promise<void> {
 	if (draining) {
 		process.stderr.write(`[alef] second ${signal} — force exit\n`);

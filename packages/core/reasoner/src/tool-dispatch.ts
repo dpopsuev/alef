@@ -14,6 +14,7 @@ export function payloadToText(payload: Record<string, unknown>, isError: boolean
 	return JSON.stringify(llm);
 }
 
+/** Extract the optional display block (text and MIME type) from a tool-result payload. */
 function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime-guarded access to untyped display block
@@ -32,6 +33,7 @@ const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
 const TIMEOUT_BUFFER_MS = 10_000;
 const LONG_RUNNING_PREFIXES = ["agent.", "orchestration."];
 
+/** Compute the outer wait timeout for a tool call, extending for long-running or explicitly-timed tools. */
 function toOuterTimeoutMs(
 	toolName: string,
 	args: Record<string, unknown>,
@@ -55,6 +57,7 @@ function toOuterTimeoutMs(
 	return inner !== undefined ? inner + TIMEOUT_BUFFER_MS : defaultMs;
 }
 
+/** Extract a validation error descriptor from a tool-result payload, if present. */
 function extractValidationError(payload: Record<string, unknown>): { field: string; message: string } | undefined {
 	const v = payload._validationError;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- shape validated by typeof+in guard
@@ -62,6 +65,7 @@ function extractValidationError(payload: Record<string, unknown>): { field: stri
 	return undefined;
 }
 
+/** Construct an error EventMessage for a failed tool call with elapsed timing. */
 function buildErrorSenseEvent(
 	motorType: string,
 	correlationId: string,

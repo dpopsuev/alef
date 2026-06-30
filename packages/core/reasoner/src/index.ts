@@ -147,14 +147,17 @@ interface InflightEntry {
 
 // Event types excluded from in-flight concurrent-turn tracking.
 // The reply event signals turn completion, not an in-flight op.
+/** Build the set of event types that should not be tracked as in-flight operations. */
 function makeInflightExcluded(replyType: string): Set<string> {
 	return new Set([replyType, "context.assemble", "llm.result"]);
 }
 
+/** Compose a unique map key from event type, correlation ID, and optional tool-call ID. */
 function inflightKey(type: string, correlationId: string, toolCallId: string | undefined): string {
 	return `${type}::${correlationId}::${toolCallId ?? ""}`;
 }
 
+/** Extract the first non-empty human-readable argument from a tool-call payload for display. */
 function pickKeyArg(payload: Record<string, unknown>): string {
 	for (const k of KEY_ARG_FIELDS) {
 		const v = payload[k];
@@ -183,6 +186,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 	let lastErrorTensor: ErrorTensor | null = null;
 	let desiredState: DesiredStateSpec | null = null;
 
+	/** Store observed domain conditions from an adapter for reconciliation error computation. */
 	function collectConditions(adapterId: string, conditions: readonly DomainCondition[]): void {
 		adapterConditions.set(adapterId, {
 			adapterId,
@@ -192,10 +196,12 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		});
 	}
 
+	/** Return a snapshot of all collected adapter conditions for reconciliation. */
 	function getActualConditions(): readonly ActualConditions[] {
 		return [...adapterConditions.values()];
 	}
 
+	/** Append a summary of in-flight tool calls to the system message for concurrent-ops awareness. */
 	function _applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
 		if (inflight.size === 0) return messages;
 		const now = Date.now();

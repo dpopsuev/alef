@@ -187,10 +187,12 @@ function extractContentText(response: unknown): string | undefined {
 	return typeof first.text === "string" ? first.text : undefined;
 }
 
+/** Retrieve the scoped tool-result cache from the runtime, if available. */
 function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
+/** Resolve a relative file path against cwd and enforce allowed-roots access control. */
 function resolveFilePath(cwd: string, filePath: string, allowedRoots?: readonly string[]): string {
 	const abs = nodeResolve(cwd, filePath);
 	if (allowedRoots) {
@@ -206,8 +208,7 @@ function resolveFilePath(cwd: string, filePath: string, allowedRoots?: readonly 
 	return abs;
 }
 
-// Detect image/binary files by magic bytes. Returns the MIME type string or
-// null when the file appears to be text.
+/** Detect binary or image files by magic bytes, returning the MIME type or null for text. */
 function detectBinaryMime(buf: Buffer): string | null {
 	if (buf.length < 4) return null;
 	const b = buf;
@@ -225,6 +226,7 @@ function detectBinaryMime(buf: Buffer): string | null {
 	return null;
 }
 
+/** Read a file from disk with optional offset/limit, binary detection, and hashline formatting. */
 async function handleRead(
 	ctx: { payload: { path: string; offset?: number; limit?: number; format?: string } },
 	opts: FsAdapterOptions,
@@ -278,6 +280,7 @@ async function handleRead(
 	};
 }
 
+/** Write full content to a file, creating parent directories and running the formatter. */
 async function handleWrite(
 	ctx: { payload: { path: string; content: string } },
 	opts: FsAdapterOptions,
@@ -365,6 +368,7 @@ type EditPayload =
 	| { path: string; edits: Array<{ oldText: string; newText: string }> }
 	| { path: string; oldText: string; newText: string };
 
+/** Apply one or more exact-text replacements to a file with read-before-edit and staleness guards. */
 async function handleEdit(
 	ctx: { payload: EditPayload },
 	opts: FsAdapterOptions,
@@ -466,6 +470,7 @@ async function handleEdit(
 	return { path: filePath, applied: true, editCount, diff };
 }
 
+/** Execute a ripgrep content search and return matches with optional caching. */
 async function handleGrep(
 	ctx: {
 		payload: {
@@ -501,6 +506,7 @@ async function handleGrep(
 	return response as unknown as Record<string, unknown>;
 }
 
+/** Execute a file-find query via fd and return matching paths with optional caching. */
 async function handleFind(
 	ctx: {
 		payload: {
@@ -530,6 +536,7 @@ async function handleFind(
 	return response as unknown as Record<string, unknown>;
 }
 
+/** Parse, validate, and atomically apply a multi-file patch block to the filesystem. */
 async function handlePatch(
 	ctx: { payload: { patch: string } },
 	opts: FsAdapterOptions,

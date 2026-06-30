@@ -20,6 +20,7 @@ export interface ShellAdapter {
 	execute(context: ShellAdapterContext): Promise<{ exitCode: number | null }>;
 }
 
+/** Spawn a shell command with optional detached mode, timeout, and abort signal support. */
 async function executeWithDetachedMode(
 	context: ShellAdapterContext,
 	detached: boolean,

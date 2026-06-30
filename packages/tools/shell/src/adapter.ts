@@ -92,6 +92,7 @@ export interface ShellAdapterOptions {
 // Async push queue — converts Node.js event callbacks into an async iterable.
 // ---------------------------------------------------------------------------
 
+/** Convert Node.js event callbacks into an async iterable via a push-based queue. */
 async function* pushQueue<T>(register: (push: (item: T) => void, done: () => void) => void): AsyncIterable<T> {
 	const queue: T[] = [];
 	let notify: (() => void) | null = null;
@@ -183,6 +184,7 @@ export function guardCommand(command: string, rules: readonly GuardRule[] = DEFA
 // Streaming handler
 // ---------------------------------------------------------------------------
 
+/** Stream a shell command's stdout/stderr via spawn, with timeout and stall detection. */
 async function* streamExec(
 	ctx: { payload: { command: string; timeout?: number } },
 	opts: ShellAdapterOptions,
@@ -308,6 +310,7 @@ async function* streamExec(
 // PTY pool — persistent terminal sessions keyed by cwd
 // ---------------------------------------------------------------------------
 
+/** Pool of persistent PTY sessions keyed by working directory for reuse across calls. */
 class PtyPool {
 	private readonly manager = new PTYManager();
 	private readonly sessions = new Map<string, string>();
@@ -342,6 +345,7 @@ class PtyPool {
 // PTY-based streaming handler
 // ---------------------------------------------------------------------------
 
+/** Stream a shell command through a persistent PTY session with timeout enforcement. */
 async function* streamExecPty(
 	ctx: { payload: { command: string; timeout?: number } },
 	opts: ShellAdapterOptions,

@@ -88,6 +88,7 @@ export function parsePatch(text: string): PatchOp[] {
 // Patch applier — line-level diff for Update
 // ---------------------------------------------------------------------------
 
+/** Apply a set of diff lines (context, additions, removals) to original file content. */
 function applyUpdateLines(original: string, diffLines: string[]): string {
 	const fileLines = original.split("\n");
 	const hunks = splitIntoHunks(diffLines);
@@ -99,6 +100,7 @@ function applyUpdateLines(original: string, diffLines: string[]): string {
 	return result.join("\n");
 }
 
+/** Split diff lines into before/after hunk pairs, separating context from additions and removals. */
 function splitIntoHunks(lines: string[]): Array<{ before: string[]; after: string[] }> {
 	// Collect all lines into a single before/after sequence.
 	const before: string[] = [];
@@ -118,6 +120,7 @@ function splitIntoHunks(lines: string[]): Array<{ before: string[]; after: strin
 	return [{ before, after }];
 }
 
+/** Locate a hunk's before-context in the file and replace it with the after-content. */
 function applyHunk(fileLines: string[], hunk: { before: string[]; after: string[] }): string[] {
 	if (hunk.before.length === 0) {
 		return [...fileLines, ...hunk.after];

@@ -66,6 +66,7 @@ export class CommandRegistry {
 const PICKER_MAX_VISIBLE = 12;
 const SETTINGS_MAX_VISIBLE = 10;
 
+/** Detect whether Anthropic API calls are routed through Google Vertex AI. */
 function isAnthropicViaVertex(): boolean {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from trim() must fall through */
 	const projectId =
@@ -77,6 +78,7 @@ function isAnthropicViaVertex(): boolean {
 	return Boolean(projectId && region);
 }
 
+/** Build the list of selectable model items from the active profile or all providers. */
 function buildModelItems(): SelectItem[] {
 	const cfg = getConfig();
 	const profile = resolveProfile(cfg);
@@ -116,6 +118,7 @@ function buildModelItems(): SelectItem[] {
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 
+/** Create a searchable SelectList submenu for browsing and selecting an LLM model. */
 function buildModelSubmenu(currentValue: string, done: (value?: string) => void, ctx: TuiHandlerContext) {
 	const items = buildModelItems().map((item) => ({
 		...item,
@@ -136,6 +139,7 @@ function buildModelSubmenu(currentValue: string, done: (value?: string) => void,
 	return list;
 }
 
+/** Open the combined model + thinking settings overlay. */
 function openModelPicker(ctx: TuiHandlerContext): void {
 	const settingsItems: SettingItem[] = [
 		{
@@ -195,6 +199,7 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 // Helper — fire-and-forget async with notice on error
 // ---------------------------------------------------------------------------
 
+/** Fire-and-forget an async operation, displaying a notice on error. */
 function attempt(ctx: TuiHandlerContext, work: () => Promise<void>): void {
 	work().catch((e: unknown) => {
 		ctx.writer.addNotice(`Error: ${e instanceof Error ? e.message : String(e)}`);

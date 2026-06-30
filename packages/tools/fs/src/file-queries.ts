@@ -61,6 +61,7 @@ export interface LsQueryOptions {
 	signal?: AbortSignal;
 }
 
+/** Build a deterministic cache key for an ls query from its directory and limit. */
 function makeLsCacheKey(input: { dirPath: string; limit: number }): string {
 	return JSON.stringify({
 		v: 1,
@@ -70,6 +71,7 @@ function makeLsCacheKey(input: { dirPath: string; limit: number }): string {
 	});
 }
 
+/** Unwrap an ls cache hit into a typed LsToolResponse, or return undefined on miss. */
 function withLsCacheHit(cacheHit: ToolResultCacheHit | undefined): LsToolResponse | undefined {
 	return withCacheHit<LsToolDetails>(cacheHit);
 }

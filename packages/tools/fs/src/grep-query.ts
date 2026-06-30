@@ -71,6 +71,7 @@ interface RgMatchEvent {
 	};
 }
 
+/** Parse a single JSON line from ripgrep's --json output into a structured match, or undefined. */
 function parseGrepMatch(line: string): ParsedGrepMatch | undefined {
 	let parsed: unknown;
 	try {
@@ -92,6 +93,7 @@ function parseGrepMatch(line: string): ParsedGrepMatch | undefined {
 	return { filePath, lineNumber, lineText };
 }
 
+/** Build a deterministic cache key for a grep query from its parameters. */
 function makeGrepCacheKey(input: {
 	pattern: string;
 	searchPath: string;
@@ -120,6 +122,7 @@ function makeGrepCacheKey(input: {
 	});
 }
 
+/** Unwrap a grep cache hit into a typed GrepToolResponse, or return undefined on miss. */
 function withGrepCacheHit(cacheHit: ToolResultCacheHit | undefined): GrepToolResponse | undefined {
 	return withCacheHit<GrepToolDetails>(cacheHit);
 }

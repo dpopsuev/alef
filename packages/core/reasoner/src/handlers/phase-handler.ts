@@ -15,6 +15,7 @@ type MotorBus = EventHandlerCtx["bus"]["command"];
 
 const PHASE_PIPELINE_QUIESCENCE_MS = 30;
 
+/** Parse a raw event payload into a typed PhaseResult (continue, skip, or abort). */
 function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
 	const p = payload as {
 		abort?: boolean;
@@ -37,6 +38,7 @@ function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
 	};
 }
 
+/** Merge multiple phase results by priority (abort > skip > continue), taking the last override. */
 function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	if (stages.length === 0) return undefined;
 
@@ -73,6 +75,7 @@ function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	return { kind: "continue", messages, tools };
 }
 
+/** Wait for context.assemble event responses within a timeout, merging results after a quiescence window. */
 function waitForPhaseResult(
 	event: SenseBus,
 	correlationId: string,

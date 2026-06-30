@@ -1,5 +1,6 @@
 import type { AssistantMessage, Message } from "@dpopsuev/alef-ai/types";
 
+/** Return true if the error message indicates a transient failure eligible for retry. */
 function isRetryableError(msg: string | undefined): boolean {
 	if (!msg) return false;
 	// Anthropic SDK APIConnectionTimeoutError.message = "Request timed out."

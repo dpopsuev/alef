@@ -22,6 +22,7 @@ export function toPosixPath(value: string): string {
 	return value.split(path.sep).join("/");
 }
 
+/** Clone a response and remove cache metadata so stored values are origin-neutral. */
 function stripCacheMeta<D extends BaseToolDetails>(response: ToolQueryResponse<D>): ToolQueryResponse<D> {
 	const storable = structuredClone(response);
 	if (storable.details?.cache) {

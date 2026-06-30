@@ -41,12 +41,14 @@ const CONTEXT_CRITICAL_THRESHOLD = 0.9;
 // Helper functions
 // ---------------------------------------------------------------------------
 
+/** Flush pending text writers and reset the reply block between turn outputs. */
 function resetUIComponents(ui: TuiUi): void {
 	ui.replyTW.flush();
 	ui.thinkingTW.flush();
 	ui.replyBlock.reset();
 }
 
+/** Process a tool-end event: remove the in-flight card, display output, and update batch state. */
 function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool-end" }>, ui: TuiUi): TuiState {
 	const { callId, elapsedMs, ok, display, displayKind } = event;
 	const { writer, promptConsole } = ui;
@@ -144,6 +146,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	};
 }
 
+/** Handle a turn error by stopping spinners, clearing in-flight calls, and showing the error. */
 function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: "turn.error" }>, ui: TuiUi): TuiState {
 	const { promptConsole, replyTW, thinkingTW, replyBlock, writer } = ui;
 

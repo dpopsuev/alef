@@ -161,6 +161,7 @@ export function randomCodePoint(block: ScriptBlock): string {
 	return String.fromCodePoint(cp);
 }
 
+/** Query fc-list to discover which language scripts have installed fonts. */
 function installedLangs(): Set<string> {
 	const langs = new Set<string>();
 	try {
@@ -181,6 +182,7 @@ function installedLangs(): Set<string> {
 	return langs;
 }
 
+/** Find the best .ttf/.otf font file path for a given language via fc-list. */
 function fontPathForLang(lang: string): string | null {
 	try {
 		const out = execSync(`fc-list :lang=${lang} --format='%{file}\\n'`, {

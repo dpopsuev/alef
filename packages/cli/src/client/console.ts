@@ -21,6 +21,7 @@ export type { Component };
 import { registry } from "./commands/commands.js";
 import { CommandHintGrid } from "./hints.js";
 
+/** Wraps the Editor component with top and bottom separator borders. */
 class EditorWrapper implements Component {
 	private readonly topBorder = new SeparatorLine();
 	private readonly bottomBorder = new SeparatorLine();

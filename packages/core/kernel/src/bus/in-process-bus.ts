@@ -14,6 +14,7 @@ import { Watchdog } from "./watchdog.js";
 import { traceEvent } from "../trace.js";
 
 const FIRST_SEEN_MAX = 500;
+/** Low-level pub-sub channel with wildcard support, dead-letter routing, and correlation tracking. */
 class InternalBus {
 	private readonly handlers = new Map<string, Set<(event: BusMessage) => void | Promise<void>>>();
 	readonly firstSeen = new Map<string, number>();

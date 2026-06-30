@@ -7,6 +7,7 @@ type MotorBus = EventHandlerCtx["bus"]["command"];
 
 const LLM_RESPONSE = "llm.response";
 
+/** Concatenate all text content blocks from an assistant message into a single string. */
 function extractText(message: AssistantMessage): string {
 	return message.content
 		.filter((c): c is { type: "text"; text: string } => c.type === "text")

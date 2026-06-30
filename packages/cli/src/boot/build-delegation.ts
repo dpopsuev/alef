@@ -13,6 +13,7 @@ export interface HttpSurface {
 
 const MAX_HISTORY_EVENTS = 500;
 
+/** Wire up the HTTP/SSE router with agent event forwarding, metrics, and state endpoints. */
 async function createRouter(
 	servePort: number,
 	blueprintSurfaces: AgentDefinitionSurfaceInput[],

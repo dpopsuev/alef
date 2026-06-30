@@ -39,12 +39,14 @@ import { z } from "zod";
 // (same pattern as web-spider's pi-extension format.ts)
 // ---------------------------------------------------------------------------
 
+/** Remove entries with undefined, empty string, or empty array values from an object. */
 function omitEmpty(obj: Record<string, unknown>): Record<string, unknown> {
 	return Object.fromEntries(
 		Object.entries(obj).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)),
 	);
 }
 
+/** Transform a spidered page into a lean outline with headings and body links only. */
 function _leanOutput(page: SpideredPage): Record<string, unknown> {
 	return omitEmpty({
 		url: page.url,
@@ -159,7 +161,7 @@ export function createWebAdapter(options: WebAdapterOptions = {}): Adapter {
 	// Session-scoped LRU cache — pages fetched during this session are reused.
 	const cache = new SpiderCache({ maxSize: 50, ttlMs: 30 * 60 * 1000 });
 
-	// Build the search engine fallback chain from available API keys.
+	/** Build the search engine fallback chain from available API keys, or use the named engine. */
 	function buildSearchEngine(engineName?: string): ISearchEngine {
 		if (engineName) {
 			const key: Record<string, string | undefined> = {

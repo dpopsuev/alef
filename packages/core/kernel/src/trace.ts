@@ -55,6 +55,7 @@ export function getTraceContext(): TraceContext | undefined {
 // Sinks
 // ---------------------------------------------------------------------------
 
+/** Drain all buffered trace events into the registered logger and session sinks. */
 function flushPending(): void {
 	if (pendingEvents.length === 0) return;
 	const events = pendingEvents.splice(0);

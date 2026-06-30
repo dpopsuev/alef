@@ -162,6 +162,7 @@ export function resolveDaemonConfig(cfg: AlefConfig): DaemonConfig {
 // XDG path resolution
 // ---------------------------------------------------------------------------
 
+/** Resolve the XDG-compliant path to the user's config.yaml file. */
 function configPath(): string {
 	const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
 	return join(base, "alef", "config.yaml");

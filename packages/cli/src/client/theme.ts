@@ -259,6 +259,7 @@ interface ThemeManifest {
 	colors?: Partial<Record<keyof ThemeTokens, string>>;
 }
 
+/** Parse a YAML theme manifest file, returning null on read or parse failure. */
 function loadManifest(path: string): ThemeManifest | null {
 	try {
 		const raw = readFileSync(path, "utf-8");
@@ -269,6 +270,7 @@ function loadManifest(path: string): ThemeManifest | null {
 	}
 }
 
+/** Create a truecolor-only ColorToken from a hex color string. */
 function hexToken(hex: string): ColorToken {
 	return { truecolor: hex };
 }

@@ -21,6 +21,7 @@ export async function runDebugSession(args: string[], cwd: string, sessions: Ses
 	await inspectSession(cwd, sessions, idPrefix);
 }
 
+/** Print all session IDs and modification times for the given working directory. */
 async function listSessions(cwd: string, sessions: SessionStoreFactory): Promise<void> {
 	const list = await sessions.list(cwd);
 	if (list.length === 0) {
@@ -32,6 +33,7 @@ async function listSessions(cwd: string, sessions: SessionStoreFactory): Promise
 	}
 }
 
+/** Load a session by ID prefix and report command/event pairing issues. */
 async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPrefix?: string): Promise<void> {
 	const list = await sessions.list(cwd);
 	if (list.length === 0) {

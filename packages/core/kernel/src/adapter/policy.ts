@@ -58,6 +58,7 @@ const SSRF_URL_PATTERNS: RegExp[] = [
 
 const PATH_FIELDS = ["path", "glob", "pattern", "oldPath", "newPath"];
 
+/** Extract file path strings from well-known payload fields (path, glob, oldPath, etc.). */
 function extractPaths(payload: Record<string, unknown>): string[] {
 	const paths: string[] = [];
 	for (const field of PATH_FIELDS) {
@@ -67,10 +68,12 @@ function extractPaths(payload: Record<string, unknown>): string[] {
 	return paths;
 }
 
+/** Return the first regex pattern that matches the given value, if any. */
 function matchesAny(value: string, patterns: readonly RegExp[]): RegExp | undefined {
 	return patterns.find((p) => p.test(value));
 }
 
+/** Return true if the absolute path falls within any of the allowed root directories. */
 function isWithinRoots(absPath: string, roots: readonly string[]): boolean {
 	const norm = resolve(absPath);
 	return roots.some((root) => {

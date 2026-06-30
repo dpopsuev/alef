@@ -5,6 +5,7 @@ import { extname, join } from "node:path";
 
 const TIMEOUT_MS = 10_000;
 
+/** Check whether a dependency exists in the nearest package.json (devDependencies or dependencies). */
 async function hasDepInPackageJson(cwd: string, dep: string): Promise<boolean> {
 	const pkgPath = join(cwd, "package.json");
 	if (!existsSync(pkgPath)) return false;
@@ -20,10 +21,12 @@ async function hasDepInPackageJson(cwd: string, dep: string): Promise<boolean> {
 	}
 }
 
+/** Return true if any of the named marker files exist in the given directory. */
 function markerExists(cwd: string, ...names: string[]): boolean {
 	return names.some((n) => existsSync(join(cwd, n)));
 }
 
+/** Detect the appropriate formatter command for a file based on project config and extension. */
 async function detectCommand(cwd: string, filePath: string): Promise<string[] | null> {
 	const ext = extname(filePath).toLowerCase();
 
@@ -52,6 +55,7 @@ async function detectCommand(cwd: string, filePath: string): Promise<string[] | 
 	return null;
 }
 
+/** Spawn a formatter command with a hard timeout and swallow failures silently. */
 function run(cmd: string[], cwd: string): Promise<void> {
 	return new Promise((resolve) => {
 		const [bin, ...args] = cmd;

@@ -47,6 +47,7 @@ export function formatSize(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+/** Build a TruncationResult indicating no truncation was needed. */
 function noTruncResult(
 	content: string,
 	totalLines: number,

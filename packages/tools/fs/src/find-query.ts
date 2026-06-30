@@ -63,6 +63,7 @@ export interface FindQueryOptions {
 	subprocessTimeoutMs?: number;
 }
 
+/** Build a deterministic cache key for a find query from its parameters. */
 function makeFindCacheKey(input: {
 	pattern: string;
 	searchPath: string;
@@ -85,6 +86,7 @@ function makeFindCacheKey(input: {
 	});
 }
 
+/** Unwrap a find cache hit into a typed FindToolResponse, or return undefined on miss. */
 function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolResponse | undefined {
 	return withCacheHit<FindToolDetails>(cacheHit);
 }

@@ -162,6 +162,7 @@ interface ExecuteMessageConfig {
 	onThinkingStop: () => void;
 }
 
+/** Send a message through the executor, managing turn lifecycle and abort handling. */
 async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
 	const { text, executor, session, writer, addToHistory, addHistoryEntry, clearEditor, dispatch, onThinkingStop } =
 		config;

@@ -8,6 +8,7 @@ export interface ShellConfig {
 	args: string[];
 }
 
+/** Search PATH for a bash executable, returning its absolute path or null if not found. */
 function findBashOnPath(): string | null {
 	if (process.platform === "win32") {
 		try {

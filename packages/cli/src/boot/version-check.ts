@@ -2,10 +2,12 @@ const REPO = "dpopsuev/alef";
 const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const CHECK_TIMEOUT_MS = 5_000;
 
+/** Return the running CLI version from the npm_package_version env var. */
 function currentVersion(): string {
 	return process.env.npm_package_version ?? "0.0.0";
 }
 
+/** Compare two semver strings and return true if latest is strictly newer than current. */
 function isNewer(latest: string, current: string): boolean {
 	const parse = (v: string) => v.replace(/^v/, "").split(".").map(Number);
 	const [lMaj = 0, lMin = 0, lPat = 0] = parse(latest);
@@ -15,6 +17,7 @@ function isNewer(latest: string, current: string): boolean {
 	return lPat > cPat;
 }
 
+/** Fetch the latest release tag from GitHub with a short timeout. */
 async function fetchLatestVersion(): Promise<string | null> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);

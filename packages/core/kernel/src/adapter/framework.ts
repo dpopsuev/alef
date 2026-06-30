@@ -29,6 +29,7 @@ const noopLogger: AdapterLogger = {
 
 export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
 
+/** Filter an action map to include only the event types present in the allowlist. */
 function filterActions(actions: ActionMap, allowlist: readonly string[]): ActionMap {
 	const allowed = new Set(allowlist);
 	const filtered: ActionMap = {};
@@ -49,6 +50,7 @@ function filterActions(actions: ActionMap, allowlist: readonly string[]): Action
 	return filtered;
 }
 
+/** Extract tool definitions and subscription lists from an adapter's action map. */
 function extractToolsAndSubscriptions(actions: ActionMap): {
 	tools: ToolDefinition[];
 	command: string[];
@@ -64,6 +66,7 @@ function extractToolsAndSubscriptions(actions: ActionMap): {
 	};
 }
 
+/** Collect Zod input schemas from command actions, merging any caller-provided overrides. */
 function buildCommandSchemas(actions: ActionMap, overrides?: Record<string, ZodTypeAny>): Record<string, ZodTypeAny> {
 	const auto: Record<string, ZodTypeAny> = {};
 	for (const [eventType, action] of Object.entries(actions.command ?? {})) {
@@ -73,6 +76,7 @@ function buildCommandSchemas(actions: ActionMap, overrides?: Record<string, ZodT
 	return { ...auto, ...overrides };
 }
 
+/** Throw if an adapter exposes tools but is missing a description or directives. */
 function validateAdapterMetadata(name: string, tools: ToolDefinition[], opts: AdapterOptions): void {
 	if (tools.length === 0) return;
 	if (!opts.description || opts.description.trim().length === 0)

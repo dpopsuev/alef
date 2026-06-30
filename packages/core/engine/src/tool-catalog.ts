@@ -98,16 +98,19 @@ const CATALOG_MARKER = "\x00TOOL-CATALOG-v1\x00";
 
 type RawMsg = Record<string, unknown>;
 
+/** Build a name-keyed lookup map from a list of tool definitions. */
 function getByNameMap(tools: readonly ToolDefinition[]): Map<string, ToolDefinition> {
 	const map = new Map<string, ToolDefinition>();
 	for (const t of tools) map.set(t.name, t);
 	return map;
 }
 
+/** Return tool definitions with their input schemas replaced by empty passthrough schemas. */
 function getStripped(tools: readonly ToolDefinition[]): ToolDefinition[] {
 	return tools.map((t) => ({ name: t.name, description: t.description, inputSchema: z.object({}).passthrough() }));
 }
 
+/** Rank tools by keyword relevance against a search query, returning the top matches. */
 function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ name: string; description: string }> {
 	const words = query
 		.toLowerCase()
@@ -130,6 +133,7 @@ function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ n
 		.map((s) => ({ name: s.tool.name, description: s.tool.description }));
 }
 
+/** Build a synthetic user message listing all available tools for boot-time catalog injection. */
 function buildCatalogContent(tools: readonly ToolDefinition[]): RawMsg {
 	const lines = [...tools]
 		.sort((a, b) => a.name.localeCompare(b.name))
@@ -145,6 +149,7 @@ function buildCatalogContent(tools: readonly ToolDefinition[]): RawMsg {
 	return msg;
 }
 
+/** Build a compacted catalog message summarizing described and remaining tools after eviction. */
 function buildEvictionContent(described: Set<string>, tools: readonly ToolDefinition[]): RawMsg {
 	const used = [...described].sort().join(", ") || "none";
 	const remaining = tools
@@ -159,15 +164,18 @@ function buildEvictionContent(described: Set<string>, tools: readonly ToolDefini
 	return msg;
 }
 
+/** Prepend the boot catalog message to the conversation history. */
 function injectCatalogMsg(messages: RawMsg[], tools: readonly ToolDefinition[]): RawMsg[] {
 	return [buildCatalogContent(tools), ...messages];
 }
 
+/** Replace the boot catalog message in history with a compact eviction summary. */
 function evictCatalogMsg(messages: RawMsg[], described: Set<string>, tools: readonly ToolDefinition[]): RawMsg[] {
 	const eviction = buildEvictionContent(described, tools);
 	return messages.map((m) => (typeof m.content === "string" && m.content.startsWith(CATALOG_MARKER) ? eviction : m));
 }
 
+/** Extract the namespace prefix before the first dot in a tool name. */
 function namespaceOf(name: string): string {
 	return name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
 }
@@ -178,6 +186,7 @@ interface PromotionTracker {
 	described: Set<string>;
 }
 
+/** Create a tracker that records which tool namespaces have been promoted to full-schema exposure. */
 function createPromotionTracker(): PromotionTracker {
 	const promotedPrefixes = new Set<string>();
 	const described = new Set<string>();
@@ -207,6 +216,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	const inflightCalls = new Map<string, { name: string; startedAt: number; callId: string }>();
 	let cancelCall: ((callId: string) => void) | null = null;
 
+	/** Resolve tool names to full schemas and mark their namespaces as promoted. */
 	function handleDescribe(
 		names: string[],
 		log: AdapterLogger,
@@ -237,6 +247,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		return results;
 	}
 
+	/** Return the current tool list with promoted namespaces using full schemas and others stripped. */
 	function getPromotedTools(): ToolDefinition[] {
 		if (disclosure === "full") {
 			return [...resolveTools(), DESCRIBE_TOOL];
@@ -310,6 +321,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		},
 	);
 
+	/** Mount the adapter on a bus and track tool-call events for namespace promotion and cancellation. */
 	function mountWithPromotion(bus: Bus): () => void {
 		const unmount = adapter.mount(bus);
 		const offEvent = bus.event.subscribe("*", (event) => {

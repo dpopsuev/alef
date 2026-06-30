@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+/** Run a shell command synchronously and return its trimmed stdout, or "unknown" on failure. */
 function exec(cmd: string): string {
 	try {
 		return execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
@@ -10,6 +11,7 @@ function exec(cmd: string): string {
 	}
 }
 
+/** Read the package version from the nearest package.json, defaulting to "dev". */
 function readVersion(): string {
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json shape is well-known

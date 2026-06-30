@@ -21,6 +21,7 @@ export function resolveBlueprint(nameOrPath: string, _cwd?: string): string | un
 	return undefined;
 }
 
+/** Read a blueprint file and extract a human-readable preview of its metadata. */
 function readBlueprintPreview(path: string): string[] {
 	try {
 		const raw = readFileSync(path, "utf-8");

@@ -6,6 +6,7 @@ export interface CacheStrategy {
 	clear(): void;
 }
 
+/** Compute a deterministic JSON string from a payload, ignoring the toolCallId field. */
 function stableHash(payload: Record<string, unknown>): string {
 	const keys = Object.keys(payload)
 		.filter((k) => k !== "toolCallId")

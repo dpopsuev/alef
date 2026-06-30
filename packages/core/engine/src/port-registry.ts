@@ -61,6 +61,7 @@ export interface AdapterPortInfo {
 // Seam matching
 // ---------------------------------------------------------------------------
 
+/** Return whether an adapter's subscriptions match the event pattern of a port seam. */
 function adapterCoversPort(info: AdapterPortInfo, seam: PortDefinition): boolean {
 	const pattern = seam.eventPattern;
 

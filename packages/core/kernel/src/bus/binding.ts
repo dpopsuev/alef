@@ -68,6 +68,7 @@ interface ChainResult {
 
 const DEFAULT_STAGE_TIMEOUT_MS = 30_000;
 
+/** Publish a validation request command for a binding stage and return a promise for its result. */
 function publishValidateRequest(
 	bus: Bus,
 	stage: BindingStage,
@@ -90,6 +91,7 @@ function publishValidateRequest(
 	return { stageId, result };
 }
 
+/** Subscribe to the event channel and resolve when a matching validation result arrives or timeout elapses. */
 function waitForValidateResult(eventChannel: Bus["event"], id: string, timeoutMs: number): Promise<ChainResult> {
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {

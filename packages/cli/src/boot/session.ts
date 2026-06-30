@@ -34,6 +34,7 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
 
 const adapterSignalMaps = new Map<string, SignalMapper>();
 
+/** Collect signal-type-to-mapper entries from adapter contributions into the global map. */
 function registerAdapterSignalMaps(
 	adapters: readonly { contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>> } }[],
 ): void {
@@ -50,6 +51,7 @@ import type { UiContribution, UiSignalHandler } from "@dpopsuev/alef-kernel/adap
 
 const uiSignalHandlers = new Map<string, UiSignalHandler>();
 
+/** Collect UI signal handlers from adapter contributions into the global handler map. */
 function registerUiSignals(adapters: readonly { contributions?: { ui?: UiContribution } }[]): void {
 	for (const adapter of adapters) {
 		const signals = adapter.contributions?.ui?.signals;
@@ -78,6 +80,7 @@ export function markCompacted(): void {
 	_compacted = true;
 }
 
+/** Register all adapter contributions (signal maps, UI handlers) and add the compaction handler. */
 function registerContributions(
 	adapters: readonly {
 		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; ui?: UiContribution };
@@ -97,6 +100,7 @@ function registerContributions(
 	});
 }
 
+/** Assemble the system-prompt directive set from workspace files and adapter registrations. */
 async function buildDirectiveSet(args: Args, adapters: readonly Adapter[]) {
 	const directives = createDefaultDirectives({ tools: adapters.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);

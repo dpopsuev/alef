@@ -36,6 +36,7 @@ export interface DispatchOptions {
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
+/** Validate a command's payload against its Zod schema, publishing an error event on failure. */
 function validateCommandPayload(
 	command: CommandMessage,
 	schema: ZodTypeAny | undefined,
@@ -66,6 +67,7 @@ function validateCommandPayload(
 	return result.data as Record<string, unknown>;
 }
 
+/** Construct a CommandHandlerCtx from a command message, validated payload, and logger. */
 function buildHandlerCtx(
 	command: CommandMessage,
 	payload: Record<string, unknown>,

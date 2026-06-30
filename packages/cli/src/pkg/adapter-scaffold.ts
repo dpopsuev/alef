@@ -12,6 +12,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+/** Generate the TypeScript source for a defineAdapter() factory with a hello tool. */
 function writeAdapterSource(name: string): string {
 	return `import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
@@ -49,6 +50,7 @@ export function createAdapter() {
 `;
 }
 
+/** Generate the package.json content for a scaffolded adapter package. */
 function writePackageJson(name: string, version: string): string {
 	return JSON.stringify(
 		{
@@ -76,6 +78,7 @@ function writePackageJson(name: string, version: string): string {
 	);
 }
 
+/** Generate the tsconfig.json content for a scaffolded adapter package. */
 function writeTsConfig(): string {
 	return JSON.stringify(
 		{
@@ -92,6 +95,7 @@ function writeTsConfig(): string {
 	);
 }
 
+/** Generate the README.md content for a scaffolded adapter package. */
 function writeReadme(name: string): string {
 	return `# alef-adapter-${name}
 

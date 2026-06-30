@@ -14,6 +14,7 @@ interface CliOp {
 
 const ops: CliOp[] = [];
 
+/** Add a CLI introspection operation to the dispatch table. */
 function register(op: CliOp): void {
 	ops.push(op);
 }

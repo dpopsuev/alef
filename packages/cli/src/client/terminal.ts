@@ -39,12 +39,11 @@ export function parseOSC11Response(response: string): BgColor | null {
 
 /** Compute the WCAG relative luminance of an RGB color. */
 export function relativeLuminance(c: Pick<BgColor, "r" | "g" | "b">): number {
-	function linear(x: number): number {
-		return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-	}
+	const linear = (x: number): number => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
 	return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
 }
 
+/** Send an OSC 11 escape sequence and parse the terminal's background color response. */
 async function queryOSC11(timeoutMs = OSC_QUERY_TIMEOUT_MS): Promise<BgColor | null> {
 	if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
 
@@ -94,6 +93,7 @@ async function queryOSC11(timeoutMs = OSC_QUERY_TIMEOUT_MS): Promise<BgColor | n
 // COLORFGBG heuristic (rxvt, konsole, some others)
 // ---------------------------------------------------------------------------
 
+/** Infer dark background from the COLORFGBG env var (rxvt/konsole convention). */
 function detectFromColorfgbg(): boolean | null {
 	const val = process.env.COLORFGBG ?? "";
 	if (!val) return null;

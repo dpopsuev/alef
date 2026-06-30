@@ -85,20 +85,24 @@ export function init(): void {
 // Generation management
 // ---------------------------------------------------------------------------
 
+/** Read the current generation number from the "current" file, defaulting to 0. */
 function currentGenId(): number {
 	if (!existsSync(CURRENT_FILE)) return 0;
 	return parseInt(readFileSync(CURRENT_FILE, "utf-8").trim(), 10) || 0;
 }
 
+/** Return the next sequential generation ID. */
 function nextGenId(): number {
 	return currentGenId() + 1;
 }
 
+/** Read and parse a generation snapshot file by its ID. */
 function readGen(id: number): Generation {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown; shape validated by generation contract
 	return JSON.parse(readFileSync(join(GEN_DIR, `${id}.json`), "utf-8")) as Generation;
 }
 
+/** Snapshot the current lockfile state as a new immutable generation and return its ID. */
 function snapshotGeneration(): number {
 	const lockContent = existsSync(LOCK_FILE) ? readFileSync(LOCK_FILE, "utf-8") : "{}";
 	const lockHash = createHash("sha256").update(lockContent).digest("hex");
@@ -119,6 +123,7 @@ function snapshotGeneration(): number {
 	return id;
 }
 
+/** Extract adapter package names and versions from a package-lock.json string. */
 function parseLockAdapters(lockContent: string): Record<string, string> {
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- npm lockfile structure is well-known
@@ -442,6 +447,7 @@ export function listInstalled(): InstalledPackage[] {
 	return results;
 }
 
+/** Read package.json from a node_modules directory and return its metadata. */
 function readInstalledPkg(dir: string, name: string): InstalledPackage | undefined {
 	const pkgPath = join(dir, "package.json");
 	if (!existsSync(pkgPath)) return undefined;

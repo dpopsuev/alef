@@ -6,6 +6,7 @@ import {
 	type SendRequest,
 } from "@dpopsuev/alef-kernel/execution";
 
+/** Send a JSON text payload to a remote agent's /message HTTP endpoint. */
 function postMessage(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const body = JSON.stringify({ text });
@@ -37,6 +38,7 @@ interface SSEEvent {
 	payload?: Record<string, unknown>;
 }
 
+/** Listen on the /events SSE stream and resolve with the first matching reply event's text. */
 function collectReply(
 	endpoint: string,
 	timeoutMs: number,

@@ -22,6 +22,7 @@ export interface PickerOptions {
 	terminal?: Terminal;
 }
 
+/** Route raw key input to the preview list, search input, or close action. */
 function handlePickerInput(
 	data: string,
 	list: PreviewSelectList,

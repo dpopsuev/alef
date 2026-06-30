@@ -75,6 +75,7 @@ interface EventFilters {
 	json: boolean;
 }
 
+/** Parse composable CLI filter flags into an EventFilters struct. */
 function parseFilters(args: string[]): EventFilters {
 	const filters: EventFilters = { errorsOnly: false, limit: 100, json: false };
 
@@ -118,6 +119,7 @@ function parseFilters(args: string[]): EventFilters {
 	return filters;
 }
 
+/** Parse a time string (HH:MM:SS or ISO) into a Unix timestamp in milliseconds. */
 function parseTime(s: string): number {
 	if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) {
 		const today = new Date();
@@ -129,6 +131,7 @@ function parseTime(s: string): number {
 	return Number.isNaN(ts) ? 0 : ts;
 }
 
+/** Build a SQL WHERE clause and parameter array from session ID and event filters. */
 function buildWhere(sessionId: string, filters: EventFilters): { where: string; args: InValue[] } {
 	const conditions = ["session_id LIKE ?"];
 	const sqlArgs: InValue[] = [`${sessionId}%`];
@@ -172,15 +175,18 @@ function buildWhere(sessionId: string, filters: EventFilters): { where: string; 
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
+/** Format a Unix timestamp as a human-readable ISO datetime string. */
 function fmtTime(ts: number): string {
 	return new Date(ts).toISOString().replace("T", " ").slice(0, 19);
 }
 
+/** Truncate a string to max characters, appending "..." if trimmed. */
 function truncate(s: string, max: number): string {
 	if (s.length <= max) return s;
 	return `${s.slice(0, max - 3)}...`;
 }
 
+/** Right-pad a string with spaces to a fixed column width. */
 function pad(s: string, width: number): string {
 	return s.padEnd(width);
 }
@@ -189,6 +195,7 @@ function pad(s: string, width: number): string {
 // Subcommands
 // ---------------------------------------------------------------------------
 
+/** List recent sessions with their summary stats in a formatted table. */
 async function listSessions(db: Client, args: string[]): Promise<void> {
 	const searchIdx = args.indexOf("--search");
 	const search = searchIdx >= 0 ? args[searchIdx + 1] : undefined;
@@ -243,6 +250,7 @@ async function listSessions(db: Client, args: string[]): Promise<void> {
 	}
 }
 
+/** Query and display filtered events for a session in tabular or JSON format. */
 async function queryEvents(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
 	if (!sessionId || sessionId.startsWith("--")) {
@@ -288,6 +296,7 @@ async function queryEvents(db: Client, args: string[]): Promise<void> {
 	console.log(`\n${result.rows.length} event(s)`);
 }
 
+/** Display all events sharing a correlation ID to trace a single turn's lifecycle. */
 async function traceCorrelation(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
 	const correlationId = args[1];
@@ -337,6 +346,7 @@ async function traceCorrelation(db: Client, args: string[]): Promise<void> {
 	}
 }
 
+/** Print token usage, turn count, and tool call stats for a session. */
 async function showSummary(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0] ?? "latest";
 
@@ -382,6 +392,7 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 	}
 }
 
+/** Show recent events from the most recent session. */
 async function tailLatest(db: Client, args: string[]): Promise<void> {
 	const session = await db.execute({
 		sql: "SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1",
@@ -399,6 +410,7 @@ async function tailLatest(db: Client, args: string[]): Promise<void> {
 	await queryEvents(db, [sessionId, ...args]);
 }
 
+/** List OpenTelemetry spans for a session in a formatted table. */
 async function listSpans(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
 	const limit = 50;
@@ -433,6 +445,7 @@ async function listSpans(db: Client, args: string[]): Promise<void> {
 	console.log(`\n${result.rows.length} span(s)`);
 }
 
+/** Walk the parent-span chain from a given span ID to reconstruct the causal path. */
 async function walkCause(db: Client, args: string[]): Promise<void> {
 	const spanId = args[0];
 	if (!spanId) {

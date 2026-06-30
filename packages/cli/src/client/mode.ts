@@ -2,21 +2,19 @@ import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
-import { TuiStateStore } from "@dpopsuev/alef-tui/views";
+import { ProcessTerminal, type SelectItem, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
+import { type ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
-import { createContextFactory } from "./context.js";
-import { handleColonCommand } from "./dispatch.js";
+import type { TuiHandlerContext } from "./commands/commands.js";
+import { handleColonCommand, handleCtrlC } from "./dispatch.js";
 import { dispatchTuiEvent, type TuiEvent } from "./events.js";
-import { createHistoryPickerTheme, openHistoryPicker } from "./history.js";
-import { handleRawInput } from "./keys.js";
 import { buildLayout } from "./layout.js";
 import { ModalInputHandler } from "./modal.js";
-import { initialTuiState, syncOverlays, type TuiUi } from "./state.js";
+import { initialTuiState, type OverlayDescriptor, syncOverlays, type TuiState, type TuiUi } from "./state.js";
 import { createSubmitHandler } from "./submit.js";
-import { bold, boldColor, color, getTheme } from "./theme.js";
+import { bold, boldColor, color, getTheme, type ThemeTokens } from "./theme.js";
 
 export {
 	makeMarkdownTheme,
@@ -161,4 +159,211 @@ export async function runTuiMode(
 	});
 	if (promptConsole.isThinking) promptConsole.stopThinking();
 	traceEvent("tui:stopped");
+}
+
+export function createContextFactory(
+	t: ThemeTokens,
+	writer: ChatLog,
+	tui: TUI,
+	opts: InteractiveOptions,
+	session: Session,
+	getState: () => TuiState,
+	dispatch: (event: TuiEvent) => void,
+	store?: SessionStore,
+	tuiStore?: TuiStateStore,
+): () => TuiHandlerContext {
+	return () => ({
+		t,
+		writer,
+		tui,
+		opts,
+		session,
+		store,
+		tuiStore,
+		dispatch,
+		abortCurrentTurn: getState().abortCurrentTurn,
+		setAbortCurrentTurn: (fn: (() => void) | undefined) =>
+			fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" }),
+	});
+}
+
+function matchesKey(data: string, combo: string): boolean {
+	const KEY_MAP: Record<string, string> = {
+		"ctrl+c": "\x03",
+		"ctrl+r": "\x12",
+		"ctrl+t": "\x14",
+		tab: "\t",
+		escape: "\x1b",
+		"shift+tab": "\x1b[Z",
+		up: "\x1b[A",
+		down: "\x1b[B",
+	};
+	return data === (KEY_MAP[combo] ?? combo);
+}
+
+export function handleRawInput(
+	data: string,
+	tuiState: TuiState,
+	dispatch: (event: TuiEvent) => void,
+	ctx: () => TuiHandlerContext,
+	historyPickerToggle: () => boolean,
+): boolean {
+	// Ctrl+R: Toggle history picker
+	if (matchesKey(data, "ctrl+r")) {
+		const picker = tuiState.overlays.find((o) => o.id === "history-picker");
+		if (picker) picker.handleInput?.(data);
+		else historyPickerToggle();
+		return true;
+	}
+
+	// Check if any overlay wants to handle the input
+	const overlay = tuiState.overlays.find((o) => o.handleInput);
+	if (overlay?.handleInput) {
+		overlay.handleInput(data);
+		return true;
+	}
+
+	// Ctrl+C: Interrupt or quit
+	if (matchesKey(data, "ctrl+c")) {
+		traceEvent("raw:ctrl+c");
+		handleCtrlC(ctx());
+		return true;
+	}
+
+	// Ctrl+T: Toggle thinking visibility
+	if (matchesKey(data, "ctrl+t")) {
+		dispatch({ type: "thinking.toggle" });
+		return true;
+	}
+
+	// Tab: Cycle through tool inspector when tools are active
+	if (matchesKey(data, "tab") && tuiState.activeCalls.size > 0) {
+		dispatch({ type: "inspector.cycle" });
+		return true;
+	}
+
+	// Escape: Close tool inspector
+	if (matchesKey(data, "escape") && tuiState.focusedCallId) {
+		dispatch({ type: "inspector.close" });
+		return true;
+	}
+
+	// Tool inspector navigation and control
+	if (tuiState.focusedCallId) {
+		// Ctrl+X: Cancel focused tool call
+		if (matchesKey(data, "ctrl+x")) {
+			dispatch({ type: "inspector.cancel" });
+			return true;
+		}
+		// K or Up: Scroll up
+		if (matchesKey(data, "k") || matchesKey(data, "up")) {
+			dispatch({ type: "inspector.scroll", direction: 1 });
+			return true;
+		}
+		// J or Down: Scroll down
+		if (matchesKey(data, "j") || matchesKey(data, "down")) {
+			dispatch({ type: "inspector.scroll", direction: -1 });
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Create an overlay descriptor for a component.
+ */
+export function createOverlay(
+	id: string,
+	component: OverlayDescriptor["component"],
+	handleInput?: (data: string) => void,
+): OverlayDescriptor {
+	return { id, component, handleInput };
+}
+
+export const HISTORY_PICKER_ID = "history-picker";
+
+/**
+ * History provider interface - abstracts access to command history.
+ */
+export interface HistoryProvider {
+	getEntries(): readonly string[];
+	addEntry(text: string): void;
+}
+
+/**
+ * Theme for the history picker select list.
+ */
+export interface HistoryPickerTheme {
+	selectedPrefix: (s: string) => string;
+	selectedText: (s: string) => string;
+	description: (s: string) => string;
+	scrollInfo: (s: string) => string;
+	noMatch: (s: string) => string;
+}
+
+/**
+ * Create a history picker theme from the TUI theme.
+ */
+export function createHistoryPickerTheme(
+	t: ThemeTokens,
+	colorFn: typeof color,
+	boldColorFn: typeof boldColor,
+): HistoryPickerTheme {
+	return {
+		selectedPrefix: (s: string) => colorFn(s, t.accentFg),
+		selectedText: (s: string) => boldColorFn(s, t.accentFg),
+		description: (s: string) => colorFn(s, t.mutedFg),
+		scrollInfo: (s: string) => colorFn(s, t.mutedFg),
+		noMatch: (s: string) => colorFn(s, t.mutedFg),
+	};
+}
+
+/**
+ * Create a history picker overlay.
+ */
+export function createHistoryPicker(
+	historyProvider: HistoryProvider,
+	theme: HistoryPickerTheme,
+	onSelect: (text: string) => void,
+	onClose: () => void,
+	SelectListConstructor: new (items: SelectItem[], maxVisible: number, theme: HistoryPickerTheme) => SelectList,
+): OverlayDescriptor | null {
+	const entries = [...historyProvider.getEntries()];
+	if (entries.length === 0) return null;
+
+	const items: SelectItem[] = entries.map((e) => ({
+		value: e,
+		label: e.length > 60 ? `${e.slice(0, 60)}…` : e,
+	}));
+
+	const list = new SelectListConstructor(items, 6, theme);
+	list.onSelect = (item: SelectItem) => {
+		onSelect(item.value);
+		onClose();
+	};
+	list.onCancel = () => onClose();
+
+	return {
+		id: HISTORY_PICKER_ID,
+		component: list,
+		handleInput: (d) => list.handleInput(d),
+	};
+}
+
+/**
+ * Open the history picker.
+ */
+export function openHistoryPicker(
+	historyProvider: HistoryProvider,
+	theme: HistoryPickerTheme,
+	onSelect: (text: string) => void,
+	dispatch: (event: TuiEvent) => void,
+	SelectListConstructor: new (items: SelectItem[], maxVisible: number, theme: HistoryPickerTheme) => SelectList,
+): boolean {
+	const closeHistoryPicker = () => dispatch({ type: "overlay.hide", id: HISTORY_PICKER_ID });
+	const descriptor = createHistoryPicker(historyProvider, theme, onSelect, closeHistoryPicker, SelectListConstructor);
+	if (!descriptor) return false;
+	dispatch({ type: "overlay.show", descriptor });
+	return true;
 }

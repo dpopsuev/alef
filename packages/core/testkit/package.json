@@ -13,7 +13,6 @@
     },
     "./adapter-contract": "./src/adapter-contract.ts",
     "./adapter-harness": "./src/adapter-harness.ts",
-    "./bdd": "./src/cucumber.ts",
     "./blueprint-gauntlet": "./src/blueprint-gauntlet.ts",
     "./blueprint-harness": "./src/blueprint-harness.ts",
     "./bus-fixture": "./src/bus-fixture.ts",
@@ -70,7 +69,6 @@
     "vite-tsconfig-paths": "*"
   },
   "devDependencies": {
-    "@amiceli/vitest-cucumber": "^6.5.0",
     "@types/node": "^24.3.0",
     "shx": "^0.4.0",
     "typescript": "^5.9.2",

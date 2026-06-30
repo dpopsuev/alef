@@ -1,6 +1,3 @@
-// defineFeature is in a separate subpath export: @dpopsuev/alef-testkit/bdd
-// It is not in the main index because @amiceli/vitest-cucumber is a devDependency
-// and would break production installs that import from this package.
 
 export {
 	type AdapterComplianceOptions,

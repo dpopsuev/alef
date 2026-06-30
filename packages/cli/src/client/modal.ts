@@ -50,6 +50,24 @@ const allCommandNames = registry
 	.map((c) => `:${c.name}`)
 	.sort();
 
+// ---------------------------------------------------------------------------
+// Dispatch table types
+// ---------------------------------------------------------------------------
+
+/** Key identifier type accepted by matchesKey (e.g. "escape", "ctrl+r"). */
+type KeyIdParam = Parameters<typeof matchesKey>[1];
+
+/** Keybinding action type accepted by KeyMap.matches (e.g. "app.mode.insert"). */
+type KbActionParam = Parameters<KeyMap["matches"]>[1];
+
+/** A dispatch entry: literal key matched via matchesKey, plus handler. */
+type DispatchEntry = [key: KeyIdParam, handler: (data: string) => { consume: boolean }];
+
+/** A keybinding-action dispatch entry: action matched via kb.matches. */
+type KbDispatchEntry = [action: KbActionParam, handler: (data: string) => { consume: boolean }];
+
+const CONSUMED: { consume: boolean } = { consume: true };
+
 /** Neovim-style modal input handler with normal, insert, command, and search modes. */
 export class ModalInputHandler {
 	private outerMode: ModalMode = "insert";
@@ -73,6 +91,25 @@ export class ModalInputHandler {
 	private readonly onHint: (text: string) => void;
 	private readonly onColonCommand: (cmd: string) => void;
 
+	// ── Dispatch tables ──────────────────────────────────────────────────────
+	// Each entry is [keybinding-action | literal-key, handler].
+	// Tables are evaluated in order; first match wins.
+
+	/** Search-mode key dispatch (active when '/' is entered in Normal). */
+	private readonly searchModeBindings: DispatchEntry[];
+
+	/** Command-mode key dispatch (active when ':' is entered in Normal). */
+	private readonly cmdModeBindings: DispatchEntry[];
+
+	/** d<motion> chord — second keypress after 'd'. */
+	private readonly dChordBindings: DispatchEntry[];
+
+	/** Normal-mode bindings — keybinding-action entries matched via kb.matches. */
+	private readonly normalModeKbBindings: KbDispatchEntry[];
+
+	/** Normal-mode bindings — literal-key entries matched via matchesKey. */
+	private readonly normalModeLiteralBindings: DispatchEntry[];
+
 	constructor(
 		private readonly editor: Editor,
 		onModeChange: (mode: ModalMode) => void,
@@ -85,6 +122,13 @@ export class ModalInputHandler {
 		this.onColonCommand = onColonCommand;
 		// Use provided manager or create a default one with APP_KEYBINDINGS.
 		this.kb = kb ?? new KeyMap(APP_KEYBINDINGS);
+
+		// ── Build dispatch tables ────────────────────────────────────────────
+		this.searchModeBindings = this.buildSearchModeBindings();
+		this.cmdModeBindings = this.buildCmdModeBindings();
+		this.dChordBindings = this.buildDChordBindings();
+		this.normalModeKbBindings = this.buildNormalModeKbBindings();
+		this.normalModeLiteralBindings = this.buildNormalModeLiteralBindings();
 	}
 
 	getMode(): ModalMode {
@@ -184,43 +228,382 @@ export class ModalInputHandler {
 		this.setOuterMode("insert");
 	}
 
-	private handleCmdModeKey(data: string): { consume: boolean } {
-		if (matchesKey(data, "escape")) {
-			this.exitCmdMode();
-			return { consume: true };
+	// ---------------------------------------------------------------------------
+	// Dispatch table builders
+	// ---------------------------------------------------------------------------
+
+	private buildSearchModeBindings(): DispatchEntry[] {
+		return [
+			[
+				"enter",
+				() => {
+					this._lastSearch = this._searchBuffer;
+					this._searchBuffer = "";
+					this._searchMode = false;
+					this.onHint("");
+					return CONSUMED;
+				},
+			],
+			[
+				"escape",
+				() => {
+					this._searchBuffer = "";
+					this._searchMode = false;
+					this.onHint("");
+					return CONSUMED;
+				},
+			],
+			[
+				"backspace",
+				() => {
+					this._searchBuffer = this._searchBuffer.slice(0, -1);
+					this.onHint(`/${this._searchBuffer}`);
+					return CONSUMED;
+				},
+			],
+		];
+	}
+
+	private buildCmdModeBindings(): DispatchEntry[] {
+		return [
+			[
+				"escape",
+				() => {
+					this.exitCmdMode();
+					return CONSUMED;
+				},
+			],
+			[
+				"enter",
+				() => {
+					this.dispatchColonCommand();
+					return CONSUMED;
+				},
+			],
+			[
+				"tab",
+				() => {
+					this.tabComplete();
+					return CONSUMED;
+				},
+			],
+			[
+				"backspace",
+				() => {
+					if (this.cmdBuffer.length > 0) {
+						this.cmdBuffer = this.cmdBuffer.slice(0, -1);
+						this.cmdTabIndex = -1;
+						this.updateCmdPrompt();
+					} else {
+						// Empty buffer + backspace = cancel command mode.
+						this.exitCmdMode();
+					}
+					return CONSUMED;
+				},
+			],
+		];
+	}
+
+	private buildDChordBindings(): DispatchEntry[] {
+		return [
+			[
+				"d",
+				() => {
+					// dd — delete line
+					this.editor.handleInput(SEQ.lineStart);
+					this.editor.handleInput(SEQ.deleteToLineEnd);
+					this.editor.handleInput(SEQ.deleteCharForward);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"w",
+				() => {
+					// dw — delete word forward
+					this.editor.handleInput(SEQ.deleteWordForward);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+		];
+	}
+
+	private buildNormalModeKbBindings(): KbDispatchEntry[] {
+		const SCROLL_HINT = "Use shift+pageup / mouse wheel to scroll history";
+
+		return [
+			// d — arm the d-chord (pendingD handled before this table is consulted)
+			[
+				"app.delete.line",
+				() => {
+					this.pendingD = true;
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+
+			// Scroll — terminal owns scrollback; show hint, consume key.
+			[
+				"app.scroll.down",
+				() => {
+					this.onHint(SCROLL_HINT);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.scroll.up",
+				() => {
+					this.onHint(SCROLL_HINT);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.scroll.halfPageDown",
+				() => {
+					this.onHint(SCROLL_HINT);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.scroll.halfPageUp",
+				() => {
+					this.onHint(SCROLL_HINT);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.scroll.bottom",
+				() => {
+					this.onHint(SCROLL_HINT);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+
+			// Cursor motions → forwarded to editor
+			[
+				"app.cursor.left",
+				() => {
+					this.editor.handleInput(SEQ.left);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.cursor.right",
+				() => {
+					this.editor.handleInput(SEQ.right);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.cursor.wordLeft",
+				() => {
+					this.editor.handleInput(SEQ.wordLeft);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.cursor.wordRight",
+				() => {
+					this.editor.handleInput(SEQ.wordRight);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.cursor.lineStart",
+				() => {
+					this.editor.handleInput(SEQ.lineStart);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.cursor.lineEnd",
+				() => {
+					this.editor.handleInput(SEQ.lineEnd);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+
+			// Editing
+			[
+				"app.delete.char",
+				() => {
+					this.editor.handleInput(SEQ.deleteCharForward);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"app.delete.toLineEnd",
+				() => {
+					this.editor.handleInput(SEQ.deleteToLineEnd);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+
+			// Quit
+			[
+				"app.quit",
+				() => {
+					this.onColonCommand(":q");
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+
+			// Enter Insert mode
+			[
+				"app.mode.insert",
+				() => {
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			[
+				"app.mode.insert.append",
+				() => {
+					this.editor.handleInput(SEQ.right);
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			[
+				"app.mode.insert.appendLineEnd",
+				() => {
+					this.editor.handleInput(SEQ.lineEnd);
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			[
+				"app.mode.insert.lineStart",
+				() => {
+					this.editor.handleInput(SEQ.lineStart);
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			[
+				"app.mode.insert.openBelow",
+				() => {
+					this.editor.handleInput(SEQ.lineEnd);
+					this.editor.handleInput("\n");
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			[
+				"app.mode.insert.openAbove",
+				() => {
+					this.editor.handleInput(SEQ.lineStart);
+					this.editor.handleInput("\n");
+					this.editor.handleInput(SEQ.up);
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+		];
+	}
+
+	private buildNormalModeLiteralBindings(): DispatchEntry[] {
+		return [
+			// Undo: u or ctrl+-
+			[
+				"u",
+				() => {
+					this.editor.handleInput("\x1f");
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			[
+				"ctrl+-",
+				() => {
+					this.editor.handleInput("\x1f");
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			// Redo: ctrl+r
+			[
+				"ctrl+r",
+				() => {
+					this.editor.handleInput(SEQ.redo);
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			// C: change to line end (D + enter insert)
+			[
+				"shift+c",
+				() => {
+					this.editor.handleInput(SEQ.deleteToLineEnd);
+					this.setOuterMode("insert");
+					return CONSUMED;
+				},
+			],
+			// p: paste after cursor from kill ring (ctrl+y)
+			[
+				"p",
+				() => {
+					this.editor.handleInput(SEQ.right);
+					this.editor.handleInput("\x19");
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			// P: paste before cursor from kill ring (ctrl+y)
+			[
+				"shift+p",
+				() => {
+					this.editor.handleInput("\x19");
+					this.armHint();
+					return CONSUMED;
+				},
+			],
+			// / — enter search mode
+			[
+				"/",
+				() => {
+					this._searchMode = true;
+					this._searchBuffer = "";
+					this.onHint("/");
+					return CONSUMED;
+				},
+			],
+		];
+	}
+
+	// ---------------------------------------------------------------------------
+	// Table-driven dispatch helpers
+	// ---------------------------------------------------------------------------
+
+	/** Walk a literal-key dispatch table; return first match or undefined. */
+	private dispatchLiteral(data: string, table: DispatchEntry[]): { consume: boolean } | undefined {
+		for (const [key, handler] of table) {
+			if (matchesKey(data, key)) return handler(data);
 		}
-		if (matchesKey(data, "enter")) {
-			this.dispatchColonCommand();
-			return { consume: true };
+		return undefined;
+	}
+
+	/** Walk a keybinding-action dispatch table; return first match or undefined. */
+	private dispatchKb(data: string, table: KbDispatchEntry[]): { consume: boolean } | undefined {
+		for (const [action, handler] of table) {
+			if (this.kb.matches(data, action)) return handler(data);
 		}
-		if (matchesKey(data, "tab")) {
-			this.tabComplete();
-			return { consume: true };
-		}
-		if (matchesKey(data, "backspace")) {
-			if (this.cmdBuffer.length > 0) {
-				this.cmdBuffer = this.cmdBuffer.slice(0, -1);
-				this.cmdTabIndex = -1;
-				this.updateCmdPrompt();
-			} else {
-				// Empty buffer + backspace = cancel command mode.
-				this.exitCmdMode();
-			}
-			return { consume: true };
-		}
-		// Printable ASCII — accumulate.
-		if (
-			data.length === 1 &&
-			data.charCodeAt(0) >= ASCII_PRINTABLE_START &&
-			data.charCodeAt(0) < ASCII_PRINTABLE_END
-		) {
-			this.cmdBuffer += data;
-			this.cmdTabIndex = -1;
-			this.updateCmdPrompt();
-			return { consume: true };
-		}
-		// Anything else (arrow keys etc.) — consume silently in cmd mode.
-		return { consume: true };
+		return undefined;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -235,23 +618,7 @@ export class ModalInputHandler {
 
 		// ── Search mode — '/' in Normal activates, Enter/Esc confirms/cancels ─
 		if (this._searchMode) {
-			if (matchesKey(data, "enter")) {
-				this._lastSearch = this._searchBuffer;
-				this._searchBuffer = "";
-				this._searchMode = false;
-				this.onHint("");
-			} else if (matchesKey(data, "escape")) {
-				this._searchBuffer = "";
-				this._searchMode = false;
-				this.onHint("");
-			} else if (matchesKey(data, "backspace")) {
-				this._searchBuffer = this._searchBuffer.slice(0, -1);
-				this.onHint(`/${this._searchBuffer}`);
-			} else if (data.length === 1 && data >= " ") {
-				this._searchBuffer += data;
-				this.onHint(`/${this._searchBuffer}`);
-			}
-			return { consume: true };
+			return this.handleSearchModeKey(data);
 		}
 
 		// ── Escape → Normal mode ───────────────────────────────────────────────
@@ -264,7 +631,7 @@ export class ModalInputHandler {
 				this.clearHint();
 				this.armHint();
 			}
-			return { consume: true };
+			return CONSUMED;
 		}
 
 		if (this.outerMode === "insert") {
@@ -274,7 +641,7 @@ export class ModalInputHandler {
 		// ':' — enters command line from Normal mode only.
 		if (this.kb.matches(data, "app.mode.command")) {
 			this.enterCmdMode();
-			return { consume: true };
+			return CONSUMED;
 		}
 
 		// ── NORMAL MODE ────────────────────────────────────────────────────────
@@ -283,216 +650,90 @@ export class ModalInputHandler {
 		// ── Double-press chord: d<motion> ────────────────────────────────────
 		if (this.pendingD) {
 			this.pendingD = false;
-			if (this.kb.matches(data, "app.delete.line")) {
-				// dd — delete line
-				this.editor.handleInput(SEQ.lineStart);
-				this.editor.handleInput(SEQ.deleteToLineEnd);
-				this.editor.handleInput(SEQ.deleteCharForward);
-				this.armHint();
-				return { consume: true };
-			}
-			if (data === "w") {
-				// dw — delete word forward
-				this.editor.handleInput(SEQ.deleteWordForward);
-				this.armHint();
-				return { consume: true };
-			}
+			const dResult = this.dispatchLiteral(data, this.dChordBindings);
+			if (dResult) return dResult;
 			// unknown d<key> — cancel silently
 			this.armHint();
-			return { consume: true };
+			return CONSUMED;
 		}
 
-		// ── Dispatch table (Djinn normalCmds pattern) ─────────────────────────
-		if (this.kb.matches(data, "app.delete.line")) {
-			this.pendingD = true;
-			this.armHint();
-			return { consume: true };
-		}
-
-		// Scroll — the terminal owns scrollback; use shift+pageup or mouse wheel.
-		// Show a one-shot hint and consume the key so it doesn't reach the editor.
-		const SCROLL_HINT = "Use shift+pageup / mouse wheel to scroll history";
-		if (
-			this.kb.matches(data, "app.scroll.down") ||
-			this.kb.matches(data, "app.scroll.up") ||
-			this.kb.matches(data, "app.scroll.halfPageDown") ||
-			this.kb.matches(data, "app.scroll.halfPageUp") ||
-			this.kb.matches(data, "app.scroll.bottom")
-		) {
-			this.onHint(SCROLL_HINT);
-			this.armHint();
-			return { consume: true };
-		}
-
-		// Cursor motions → forwarded to editor
-		if (this.kb.matches(data, "app.cursor.left")) {
-			this.editor.handleInput(SEQ.left);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.cursor.right")) {
-			this.editor.handleInput(SEQ.right);
-			this.armHint();
-			return { consume: true };
-		}
-		if (data === "j") {
-			this.editor.handleInput(SEQ.down);
-			this.armHint();
-			return { consume: true };
-		}
-		if (data === "k") {
-			this.editor.handleInput(SEQ.up);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.cursor.wordLeft")) {
-			this.editor.handleInput(SEQ.wordLeft);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.cursor.wordRight")) {
-			this.editor.handleInput(SEQ.wordRight);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.cursor.lineStart")) {
-			this.editor.handleInput(SEQ.lineStart);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.cursor.lineEnd")) {
-			this.editor.handleInput(SEQ.lineEnd);
-			this.armHint();
-			return { consume: true };
-		}
-
-		// Editing
-		if (this.kb.matches(data, "app.delete.char")) {
-			this.editor.handleInput(SEQ.deleteCharForward);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.delete.toLineEnd")) {
-			this.editor.handleInput(SEQ.deleteToLineEnd);
-			this.armHint();
-			return { consume: true };
-		}
-
-		if (matchesKey(data, "u") || matchesKey(data, "ctrl+-")) {
-			this.editor.handleInput("\x1f");
-			this.armHint();
-			return { consume: true };
-		}
-		if (matchesKey(data, "ctrl+r")) {
-			this.editor.handleInput(SEQ.redo);
-			this.armHint();
-			return { consume: true };
-		}
-
-		// C: change to line end (D + enter insert)
-		if (data === "C") {
-			this.editor.handleInput(SEQ.deleteToLineEnd);
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-
-		// yy: yank line into kill ring (ctrl+a to start, ctrl+k to kill, ctrl+y to restore)
-		if (data === "y" && !this._pendingY) {
-			this._pendingY = true;
-			this.armHint();
-			return { consume: true };
-		}
+		// ── Double-press chord: y<motion> ────────────────────────────────────
 		if (this._pendingY) {
 			this._pendingY = false;
-			if (data === "y") {
+			if (matchesKey(data, "y")) {
 				// yank current line: go to start, kill to end (stores in kill ring), then yank back
 				this.editor.handleInput(SEQ.lineStart);
 				this.editor.handleInput(SEQ.deleteToLineEnd);
 				this.editor.handleInput("\x19"); // ctrl+y — restore; kill ring now holds the line
 			}
 			this.armHint();
-			return { consume: true };
-		}
-		// p: paste after cursor from kill ring (ctrl+y)
-		if (data === "p") {
-			this.editor.handleInput(SEQ.right);
-			this.editor.handleInput("\x19");
-			this.armHint();
-			return { consume: true };
-		}
-		if (data === "P") {
-			this.editor.handleInput("\x19");
-			this.armHint();
-			return { consume: true };
+			return CONSUMED;
 		}
 
-		// / — enter search mode
-		if (data === "/") {
-			this._searchMode = true;
-			this._searchBuffer = "";
-			this.onHint("/");
-			return { consume: true };
+		// ── Keybinding-action dispatch (Djinn normalCmds pattern) ────────────
+		const kbResult = this.dispatchKb(data, this.normalModeKbBindings);
+		if (kbResult) return kbResult;
+
+		// ── Literal-key dispatch ─────────────────────────────────────────────
+		const litResult = this.dispatchLiteral(data, this.normalModeLiteralBindings);
+		if (litResult) return litResult;
+
+		// ── Stateful literal keys (depend on runtime state) ──────────────────
+		// y — arm the yy chord
+		if (matchesKey(data, "y")) {
+			this._pendingY = true;
+			this.armHint();
+			return CONSUMED;
 		}
-		// n/N — repeat last search (approximate: forward/backward word search)
-		if (data === "n" && this._lastSearch) {
+		// n/N — repeat last search (only when _lastSearch is non-empty)
+		if (matchesKey(data, "n") && this._lastSearch) {
 			this.onHint(`/${this._lastSearch} (n)`);
 			this.armHint();
-			return { consume: true };
+			return CONSUMED;
 		}
-		if (data === "N" && this._lastSearch) {
+		if (matchesKey(data, "shift+n") && this._lastSearch) {
 			this.onHint(`/${this._lastSearch} (N)`);
 			this.armHint();
-			return { consume: true };
-		}
-
-		// Quit in Normal mode
-		if (this.kb.matches(data, "app.quit")) {
-			// Signal handled by caller via onColonCommand(":q")
-			this.onColonCommand(":q");
-			this.armHint();
-			return { consume: true };
-		}
-
-		// Enter Insert mode
-		if (this.kb.matches(data, "app.mode.insert")) {
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.mode.insert.append")) {
-			this.editor.handleInput(SEQ.right);
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.mode.insert.appendLineEnd")) {
-			// A
-			this.editor.handleInput(SEQ.lineEnd);
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.mode.insert.lineStart")) {
-			// I
-			this.editor.handleInput(SEQ.lineStart);
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.mode.insert.openBelow")) {
-			// o
-			this.editor.handleInput(SEQ.lineEnd);
-			this.editor.handleInput("\n");
-			this.setOuterMode("insert");
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.mode.insert.openAbove")) {
-			// O
-			this.editor.handleInput(SEQ.lineStart);
-			this.editor.handleInput("\n");
-			this.editor.handleInput(SEQ.up);
-			this.setOuterMode("insert");
-			return { consume: true };
+			return CONSUMED;
 		}
 
 		// Unknown key in Normal — consume silently (no unintended editor edits).
 		this.armHint();
-		return { consume: true };
+		return CONSUMED;
 	};
+
+	// ---------------------------------------------------------------------------
+	// Table-driven sub-mode handlers
+	// ---------------------------------------------------------------------------
+
+	private handleCmdModeKey(data: string): { consume: boolean } {
+		const result = this.dispatchLiteral(data, this.cmdModeBindings);
+		if (result) return result;
+
+		// Printable ASCII — accumulate.
+		if (
+			data.length === 1 &&
+			data.charCodeAt(0) >= ASCII_PRINTABLE_START &&
+			data.charCodeAt(0) < ASCII_PRINTABLE_END
+		) {
+			this.cmdBuffer += data;
+			this.cmdTabIndex = -1;
+			this.updateCmdPrompt();
+			return CONSUMED;
+		}
+		// Anything else (arrow keys etc.) — consume silently in cmd mode.
+		return CONSUMED;
+	}
+
+	private handleSearchModeKey(data: string): { consume: boolean } {
+		const result = this.dispatchLiteral(data, this.searchModeBindings);
+		if (result) return result;
+
+		// Printable character — accumulate in search buffer.
+		if (data.length === 1 && data >= " ") {
+			this._searchBuffer += data;
+			this.onHint(`/${this._searchBuffer}`);
+		}
+		return CONSUMED;
+	}
 }

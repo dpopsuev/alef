@@ -82,7 +82,7 @@ describe("detectDarkSync", { tags: ["unit"] }, () => {
 // buildTerminalTheme + queryPalette parsing
 // ---------------------------------------------------------------------------
 
-import { buildTerminalTheme } from "../src/client/theme/theme.js";
+import { buildTerminalTheme } from "../src/client/theme.js";
 
 describe("buildTerminalTheme", { tags: ["unit"] }, () => {
 	it("populates truecolor from palette when slot is present", () => {

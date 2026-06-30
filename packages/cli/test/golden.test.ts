@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
 import { renderToolLine } from "../src/client/mode.js";
 import { rasterise, rasterToBlocks } from "../src/client/splash/raster.js";
-import { getTheme } from "../src/client/theme/theme.js";
+import { getTheme } from "../src/client/theme.js";
 import { goldenPath, requireGolden, stripANSI } from "./golden.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));

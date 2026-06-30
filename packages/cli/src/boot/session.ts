@@ -19,7 +19,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
-import { getTheme, setTheme } from "../client/theme/theme.js";
+import { getTheme, setTheme } from "../client/theme.js";
 import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";
 import { type HttpSurface, setupHttpSurface } from "./build-delegation.js";

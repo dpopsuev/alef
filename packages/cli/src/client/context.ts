@@ -6,7 +6,7 @@ import type { InteractiveOptions } from "../boot/interactive.js";
 import type { TuiHandlerContext } from "./dispatch.js";
 import type { TuiEvent } from "./events.js";
 import type { TuiState } from "./state.js";
-import type { ThemeTokens } from "./theme/theme.js";
+import type { ThemeTokens } from "./theme.js";
 
 export function createContextFactory(
 	t: ThemeTokens,

@@ -15,7 +15,7 @@ import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, prependSessionHistory } from "@dpopsuev/alef-tui/views";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getTheme } from "../src/client/theme/theme.js";
+import { getTheme } from "../src/client/theme.js";
 
 describe("prependSessionHistory — eager load prior turns into chat", { tags: ["unit"] }, () => {
 	let cwd: string;

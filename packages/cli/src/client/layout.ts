@@ -6,7 +6,7 @@ import type { InteractiveOptions } from "../boot/interactive.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { InputPanel } from "./panel.js";
 import { renderSplash } from "./splash/splash.js";
-import { boldColor, color, type ThemeTokens } from "./theme/theme.js";
+import { boldColor, color, type ThemeTokens } from "./theme.js";
 
 /**
  * TUI Composition Model:

@@ -2,7 +2,7 @@
 
 import { execSync } from "node:child_process";
 import { getConfig } from "../../boot/config.js";
-import { chalkForToken, getTheme, systemLang } from "../theme/theme.js";
+import { chalkForToken, getTheme, systemLang } from "../theme.js";
 import { rasterise, rasterToBlocks } from "./raster.js";
 
 interface ScriptBlock {

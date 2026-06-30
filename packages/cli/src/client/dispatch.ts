@@ -1,8 +1,8 @@
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import { registry } from "./commands.js";
-import type { TuiHandlerContext } from "./types.js";
+import { registry } from "./commands/commands.js";
+import type { TuiHandlerContext } from "./commands/types.js";
 
-export type { TuiHandlerContext } from "./types.js";
+export type { TuiHandlerContext } from "./commands/types.js";
 
 export function renderHeaderTopBorder(label: string, _width: number): string {
 	return label;

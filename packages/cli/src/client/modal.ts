@@ -40,7 +40,7 @@ const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
 const WHICHKEY_HINT =
 	"h/j/k/l move  w/b word  i/a insert  dd/dw delete  u/ctrl+r undo/redo  yy/p yank/paste  : command";
 
-import { registry } from "./commands.js";
+import { registry } from "./commands/commands.js";
 
 const allCommandNames = registry
 	.list()

@@ -9,13 +9,13 @@
 import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
-import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../boot/auth.js";
-import { getConfig } from "../boot/config.js";
-import { getProviderColor } from "./colors.js";
+import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../../boot/auth.js";
+import { getConfig } from "../../boot/config.js";
+import { getProviderColor } from "../theme/colors.js";
+import { color, setThemeByName, statusGlyph } from "../theme/theme.js";
 import { openConfigPicker, openEnumPicker } from "./configs.js";
 import { buildPickerTheme, openPicker } from "./picker.js";
 import { CommandRegistry } from "./registry.js";
-import { color, setThemeByName, statusGlyph } from "./theme.js";
 import type { TuiHandlerContext } from "./types.js";
 
 function isAnthropicViaVertex(): boolean {
@@ -346,7 +346,7 @@ const install = {
 		ctx.writer.addNotice(`Installing ${spec}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const pm = await import("../pkg/alef-pm.js");
+			const pm = await import("../../pkg/alef-pm.js");
 			pm.init();
 			const [name, version] = spec.split("@");
 			const { generation } = await pm.install(name, version);
@@ -363,7 +363,7 @@ const upgrade = {
 		ctx.writer.addNotice("Upgrading adapters…");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const pm = await import("../pkg/alef-pm.js");
+			const pm = await import("../../pkg/alef-pm.js");
 			pm.init();
 			const gen = await pm.upgrade();
 			ctx.writer.addNotice(`Adapters upgraded (generation ${gen})`);
@@ -377,7 +377,7 @@ const rollback = {
 	description: "Roll back to a previous adapter generation — :rollback [N]",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		attempt(ctx, async () => {
-			const pm = await import("../pkg/alef-pm.js");
+			const pm = await import("../../pkg/alef-pm.js");
 			pm.init();
 			const entries = pm.history();
 			const n = args[0] ? parseInt(args[0], 10) : (entries[1]?.id ?? 1);
@@ -620,7 +620,7 @@ const skills = {
 		}
 		let discovered: Array<{ name: string; description: string; path: string }> = [];
 		try {
-			const discovery = await import("../../../tools/skills/src/discovery.js");
+			const discovery = await import("../../../../tools/skills/src/discovery.js");
 			discovered = discovery.discoverSkills(ctx.opts?.cwd ?? process.cwd());
 		} catch {
 			ctx.writer.addNotice("Skills discovery not available.");

@@ -9,7 +9,7 @@
 
 import chalk from "chalk";
 import { describe, it } from "vitest";
-import { rasterise, rasterToBlocks } from "../src/client/raster.js";
+import { rasterise, rasterToBlocks } from "../src/client/splash/raster.js";
 
 const LATIN_FONT = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf";
 const LATIN_BOLD = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Bold.ttf";

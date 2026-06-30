@@ -1,9 +1,9 @@
 // ALEF_NO_SPLASH=1 disables the splash.
 
 import { execSync } from "node:child_process";
-import { getConfig } from "../boot/config.js";
+import { getConfig } from "../../boot/config.js";
+import { chalkForToken, getTheme, systemLang } from "../theme/theme.js";
 import { rasterise, rasterToBlocks } from "./raster.js";
-import { chalkForToken, getTheme, systemLang } from "./theme.js";
 
 interface ScriptBlock {
 	lang: string;

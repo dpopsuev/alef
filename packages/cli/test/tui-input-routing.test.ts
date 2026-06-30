@@ -14,7 +14,7 @@ import { ChatLog } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it, vi } from "vitest";
 import type { TuiHandlerContext } from "../src/client/mode.js";
 import { handleCtrlC } from "../src/client/mode.js";
-import { getTheme } from "../src/client/theme.js";
+import { getTheme } from "../src/client/theme/theme.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { color, getTheme } from "../src/client/theme.js";
+import { color, getTheme } from "../src/client/theme/theme.js";
 
 // Simulate what PromptConsole.pendingFooter renders based on active state.
 function makePendingFooterRenderer() {

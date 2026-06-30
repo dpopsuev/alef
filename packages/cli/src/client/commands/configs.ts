@@ -1,7 +1,7 @@
 import type { SelectItem } from "@dpopsuev/alef-tui";
-import type { TuiEvent } from "./events.js";
+import type { TuiEvent } from "../events.js";
+import type { ThemeTokens } from "../theme/theme.js";
 import { openPicker } from "./picker.js";
-import type { ThemeTokens } from "./theme.js";
 
 export interface ConfigPickerOptions<T> {
 	id: string;

@@ -8,7 +8,7 @@ import {
 	getTheme,
 	setThemeByName,
 	spinnerFrames,
-} from "../src/client/theme.js";
+} from "../src/client/theme/theme.js";
 
 afterEach(() => {
 	setThemeByName("terminal");
@@ -200,7 +200,7 @@ describe("spinnerFrames — locale-aware", { tags: ["unit"] }, () => {
 // boldColor() raw ANSI, fg-only reset (regression)
 // ---------------------------------------------------------------------------
 
-import { boldColor } from "../src/client/theme.js";
+import { boldColor } from "../src/client/theme/theme.js";
 
 describe("boldColor() — raw ANSI, fg-only reset", { tags: ["unit"] }, () => {
 	beforeEach(() => {

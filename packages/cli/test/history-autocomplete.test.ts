@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HistoryAutocompleteProvider } from "../src/client/autocomplete.js";
+import { HistoryAutocompleteProvider } from "../src/client/commands/autocomplete.js";
 
 const SIGNAL = { aborted: false } as AbortSignal;
 

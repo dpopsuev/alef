@@ -16,7 +16,7 @@ import { buildLayout } from "./layout.js";
 import { ModalInputHandler } from "./modal.js";
 import { initialTuiState, syncOverlays, type TuiUi } from "./state.js";
 import { createSubmitHandler } from "./submit.js";
-import { bold, boldColor, color, getTheme } from "./theme.js";
+import { bold, boldColor, color, getTheme } from "./theme/theme.js";
 
 export {
 	makeMarkdownTheme,

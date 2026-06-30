@@ -18,7 +18,7 @@ import {
 } from "@dpopsuev/alef-tui";
 export type { Component };
 
-import { registry } from "./commands.js";
+import { registry } from "./commands/commands.js";
 import { CommandHintGrid } from "./hints.js";
 
 class EditorWrapper implements Component {
@@ -54,8 +54,8 @@ const MIN_WIDGET_LINES = 3;
 
 import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
-import { buildPool, randomCodePoint } from "./splash.js";
-import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
+import { buildPool, randomCodePoint } from "./splash/splash.js";
+import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme/theme.js";
 
 export class PromptConsole {
 	readonly editor: Editor;

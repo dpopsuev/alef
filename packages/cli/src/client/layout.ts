@@ -3,10 +3,10 @@ import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
-import { AtAddressProvider } from "./autocomplete.js";
+import { AtAddressProvider } from "./commands/autocomplete.js";
 import { InputPanel } from "./panel.js";
-import { renderSplash } from "./splash.js";
-import { boldColor, color, type ThemeTokens } from "./theme.js";
+import { renderSplash } from "./splash/splash.js";
+import { boldColor, color, type ThemeTokens } from "./theme/theme.js";
 
 /**
  * TUI Composition Model:

@@ -7,10 +7,10 @@ import {
 	type TUI,
 } from "@dpopsuev/alef-tui";
 import { InputApplicationRegistry } from "./application.js";
-import { HistoryAutocompleteProvider } from "./autocomplete.js";
-import { registry } from "./commands.js";
+import { HistoryAutocompleteProvider } from "./commands/autocomplete.js";
+import { registry } from "./commands/commands.js";
 import { PromptConsole } from "./console.js";
-import type { ThemeTokens } from "./theme.js";
+import type { ThemeTokens } from "./theme/theme.js";
 
 export interface InputPanelOptions {
 	tui: TUI;

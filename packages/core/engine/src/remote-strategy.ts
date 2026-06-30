@@ -115,6 +115,7 @@ export class RemoteStrategy implements ExecutionStrategy {
 		this.onStall = opts.onStall;
 	}
 
+	/** Send a text prompt to the remote agent and wait for its reply over SSE. */
 	async send({
 		text,
 		timeoutMs = DEFAULT_CONVERSATION_TIMEOUT_MS,

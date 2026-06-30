@@ -11,6 +11,7 @@
  *   alef --help                 — show usage
  */
 
+/** Parsed CLI arguments controlling mode, model, adapters, and subcommands. */
 export interface Args {
 	/** Print mode: send one message and exit. */
 	print: boolean;

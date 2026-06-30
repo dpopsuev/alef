@@ -169,18 +169,22 @@ export class RouterAdapter implements Adapter {
 		this.addRoute("POST", "/reload", (req, res) => this.handleReload(req, res), { protected: true });
 	}
 
+	/** Register a route handler on the given HTTP method and path. */
 	addRoute(method: string, path: string, handler: RouteHandler, opts?: RouteOptions): void {
 		this.routes.set(`${method} ${path}`, { handler, protected: opts?.protected ?? false });
 	}
 
+	/** Mark the service as ready (or not) for the /ready health endpoint. */
 	setReady(ready = true): void {
 		this._serviceReady = ready;
 	}
 
+	/** Enable or disable drain mode, rejecting new POST requests. */
 	setDraining(draining = true): void {
 		this._draining = draining;
 	}
 
+	/** Set the bearer token required by protected routes. */
 	setAuthToken(token: string): void {
 		this._authToken = token;
 	}
@@ -222,10 +226,12 @@ export class RouterAdapter implements Adapter {
 		this.sse.broadcastRaw("agent", { kind: "agent", event });
 	}
 
+	/** Broadcast a state-change event to all connected SSE clients. */
 	notifyStateChange(state: Record<string, unknown>): void {
 		this.sse.broadcastRaw("state", { kind: "state", ...state });
 	}
 
+	/** Return the resolved bind address, or null before mount or after unmount. */
 	address(): RouterAddress | null {
 		if (!this.server) return null;
 		const addr = this.server.address();
@@ -233,6 +239,7 @@ export class RouterAdapter implements Adapter {
 		return { host: addr.address, port: addr.port };
 	}
 
+	/** Subscribe to bus events and start the HTTP server, returning an unmount function. */
 	mount(bus: Bus): () => void {
 		if (this.server) throw new Error("RouterAdapter already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
@@ -378,11 +385,13 @@ export class RouterAdapter implements Adapter {
 			.catch(() => this.sendJson(res, HTTP.BAD_REQUEST, { error: "invalid JSON" }));
 	}
 
+	/** Write a plain-text HTTP response with the given status and content type. */
 	sendText(res: ServerResponse, status: HttpStatus, body: string, contentType = "text/plain"): void {
 		res.writeHead(status, { "Content-Type": contentType });
 		res.end(body);
 	}
 
+	/** Write a JSON HTTP response with the given status code. */
 	sendJson(res: ServerResponse, status: HttpStatus, body: unknown): void {
 		const json = JSON.stringify(body);
 		res.writeHead(status, { "Content-Type": "application/json" });

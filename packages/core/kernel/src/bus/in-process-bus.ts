@@ -102,30 +102,37 @@ export class InProcessBus {
 			} as unknown as Omit<BusMessage, "timestamp" | "elapsed">);
 		};
 	}
+	/** Reset the watchdog stall timer, indicating activity on the bus. */
 	pulse(): void {
 		this._watchdog?.reset();
 	}
+	/** Stop the watchdog and release resources. */
 	dispose(): void {
 		this._watchdog?.stop();
 	}
 
 	// -- Parameterized API (new) ------------------------------------------
 
+	/** Publish a message to the specified channel. */
 	publish<K extends ChannelName>(channel: K, event: ChannelInput<K>): void {
 		if (channel === "event") this._buses.command.evictCorrelation(event.correlationId);
 		this._buses[channel].emit(event);
 	}
+	/** Subscribe to a specific event type on the given channel, returning an unsubscribe function. */
 	subscribe<K extends ChannelName>(channel: K, type: string, handler: ChannelHandler<K>): () => void {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChannelHandler<K> narrows BusMessage; internal bus stores the generic form
 		return this._buses[channel].on(type, handler as (e: BusMessage) => void | Promise<void>);
 	}
+	/** Subscribe to all event types on the given channel via wildcard. */
 	onAny(channel: ChannelName, handler: (event: BusMessage) => void): () => void {
 		return this._buses[channel].on("*", handler);
 	}
+	/** Return the number of listeners registered for the given event type on a channel. */
 	listenerCount(channel: ChannelName, type: string): number {
 		return this._buses[channel].listenerCount(type);
 	}
 
+	/** Create a scoped bus view that isolates traffic by prefixing correlation IDs. */
 	createView(viewId: string): BusView {
 		const buses = this._buses;
 		const pulseFn = () => this.pulse();
@@ -166,6 +173,7 @@ export class InProcessBus {
 
 	// -- Bus view ---------------------------------------------------------
 
+	/** Return an unscoped Bus interface backed by this InProcessBus. */
 	asBus(): Bus {
 		type InternalHandler = (e: BusMessage) => void | Promise<void>;
 		const commandChannel: BusChannel<"command"> = {

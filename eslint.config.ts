@@ -84,7 +84,6 @@ export default tseslint.config(
 					"ExportNamedDeclaration > TSInterfaceDeclaration",
 					"ExportNamedDeclaration > TSTypeAliasDeclaration",
 					"ExportNamedDeclaration > TSEnumDeclaration",
-					"ExportNamedDeclaration > VariableDeclaration",
 				],
 			}],
 		},

@@ -12,8 +12,8 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { ChatLog } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it, vi } from "vitest";
-import type { TuiHandlerContext } from "../src/client/mode.js";
-import { handleCtrlC } from "../src/client/mode.js";
+import type { TuiHandlerContext } from "../src/client/runner.js";
+import { handleCtrlC } from "../src/client/runner.js";
 import { getTheme } from "../src/client/theme.js";
 
 // ---------------------------------------------------------------------------

@@ -16,8 +16,8 @@ import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, ToolCallRow } from "@dpopsuev/alef-tui/views";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/boot/auth.js";
-import type { TuiHandlerContext } from "../src/client/mode.js";
-import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/client/mode.js";
+import type { TuiHandlerContext } from "../src/client/runner.js";
+import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/client/runner.js";
 import { getTheme } from "../src/client/theme.js";
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import { runPicker } from "../client/commands/runs.js";
+import { runPicker } from "../client/commands/picker.js";
 
 export interface BlueprintChoice {
 	name: string;

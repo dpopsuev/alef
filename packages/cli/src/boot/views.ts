@@ -123,7 +123,7 @@ export class TuiViewMode implements ViewMode {
 	) {}
 
 	async run(session: Session): Promise<void> {
-		const { runTuiMode } = await import("../client/mode.js");
+		const { runTuiMode } = await import("../client/runner.js");
 		await runTuiMode(session, this.opts, this.store);
 	}
 }

@@ -9,7 +9,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
 import { rasterise, rasterToBlocks } from "../src/client/greeter.js";
-import { renderToolLine } from "../src/client/mode.js";
+import { renderToolLine } from "../src/client/runner.js";
 import { getTheme } from "../src/client/theme.js";
 import { goldenPath, requireGolden, stripANSI } from "./golden.js";
 

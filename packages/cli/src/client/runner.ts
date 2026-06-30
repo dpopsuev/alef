@@ -8,8 +8,8 @@ import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
-import { handleColonCommand, handleCtrlC } from "./dispatch.js";
 import { dispatchTuiEvent, type TuiEvent } from "./events.js";
+import { handleColonCommand, handleCtrlC } from "./handlers.js";
 import { buildLayout } from "./layout.js";
 import { ModalInputHandler } from "./modal.js";
 import { initialTuiState, type OverlayDescriptor, syncOverlays, type TuiState, type TuiUi } from "./state.js";
@@ -23,8 +23,8 @@ export {
 	renderToolLine,
 	truncateToolOutput,
 } from "@dpopsuev/alef-tui/views";
-export type { TuiHandlerContext } from "./dispatch.js";
-export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./dispatch.js";
+export type { TuiHandlerContext } from "./handlers.js";
+export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./handlers.js";
 
 export async function runTuiMode(
 	session: Session,

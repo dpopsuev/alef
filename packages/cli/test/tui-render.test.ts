@@ -104,7 +104,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 
 		const terminal = new MockTerminal(120, 40);
 
-		const { runTuiMode } = await import("../src/client/mode.js");
+		const { runTuiMode } = await import("../src/client/runner.js");
 		const tuiDone = runTuiMode(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",

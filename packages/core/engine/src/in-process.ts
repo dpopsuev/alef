@@ -11,6 +11,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 export type { SubagentFactory, SubagentFactoryOptions };
 
+/** Runs a subagent in the same process with stall detection and abort support. */
 export class InProcessStrategy implements ExecutionStrategy {
 	constructor(
 		private readonly adapters: Adapter[],

@@ -14,6 +14,7 @@ const MAX_HISTORY_ENTRIES = 500;
 import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@dpopsuev/alef-tui";
 
+/** Surfaces conversation history entries as ghost-text autocomplete suggestions. */
 export class HistoryAutocompleteProvider implements AutocompleteProvider {
 	/**
 	 * History entries, newest first.
@@ -84,6 +85,7 @@ export class HistoryAutocompleteProvider implements AutocompleteProvider {
  * Suggests known actor addresses from the ActorRouteTable.
  * Inserted value includes trailing space so the user types the message immediately.
  */
+/** Autocomplete provider for @actor addresses from the route table. */
 export class AtAddressProvider implements AutocompleteProvider {
 	constructor(private readonly routes: ActorRouteTable) {}
 

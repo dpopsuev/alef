@@ -1,5 +1,6 @@
 import type { Adapter } from "./interface.js";
 
+/** Produce a human-readable summary of an adapter's tools, subscriptions, and contributions. */
 export function explainAdapter(adapter: Adapter): string {
 	const lines: string[] = [];
 	lines.push(`${adapter.name}${adapter.description ? ` — ${adapter.description}` : ""}`);

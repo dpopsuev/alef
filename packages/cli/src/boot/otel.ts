@@ -14,6 +14,7 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 let memoryExporter: InMemorySpanExporter | undefined;
 let provider: NodeTracerProvider | undefined;
 
+/** Register the OTel tracer provider with an in-memory span exporter. */
 export function setupOTel(): void {
 	memoryExporter = new InMemorySpanExporter();
 	provider = new NodeTracerProvider({
@@ -22,6 +23,7 @@ export function setupOTel(): void {
 	provider.register();
 }
 
+/** Replace the in-memory exporter with a SQLite-backed one once the database is available. */
 export async function upgradeToSqliteExporter(): Promise<void> {
 	if (!provider) return;
 	try {
@@ -40,6 +42,7 @@ export async function upgradeToSqliteExporter(): Promise<void> {
 	}
 }
 
+/** Flush pending spans and print a token-usage summary to stderr. */
 export async function shutdownOTel(): Promise<void> {
 	if (!provider) return;
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AdapterContributions } from "./contributions.js";
 import type { Bus, ChannelMap } from "../bus/messages.js";
 
+/** Schema and metadata describing a single tool exposed by an adapter. */
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
@@ -13,12 +14,14 @@ export interface ToolDefinition {
 
 const passthroughRawMap = new WeakMap<ZodTypeAny, Record<string, unknown>>();
 
+/** Wrap a raw JSON Schema object as a Zod type for adapters that bypass Zod parsing. */
 export function passthroughSchema(raw: Record<string, unknown>): ZodTypeAny {
 	const schema = z.unknown();
 	passthroughRawMap.set(schema, raw);
 	return schema;
 }
 
+/** Convert a Zod tool input schema to a plain JSON Schema object. */
 export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
 	const raw = passthroughRawMap.get(schema);
 	if (raw !== undefined) return raw;
@@ -28,6 +31,7 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 	return rest;
 }
 
+/** A mountable unit that exposes tools, subscribes to bus channels, and contributes extension points. */
 export interface Adapter {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
@@ -47,12 +51,14 @@ export interface Adapter {
 	ready?(): Promise<void>;
 }
 
+/** Specialized adapter that drives the LLM loop via a trigger/reply event pair. */
 export interface Reasoner extends Adapter {
 	readonly tools: readonly [];
 	readonly triggerEvent: string;
 	readonly replyEvent: string;
 }
 
+/** Return true if the adapter exposes no tools and no subscriptions. */
 export function isGimped(adapter: Adapter): boolean {
 	return (
 		adapter.tools.length === 0 &&
@@ -62,6 +68,7 @@ export function isGimped(adapter: Adapter): boolean {
 	);
 }
 
+/** Create a no-op adapter stub that does nothing when mounted. */
 export function gimpedAdapter(name: string): Adapter {
 	return {
 		name,

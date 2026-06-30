@@ -11,6 +11,7 @@ import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";
 import { buildIdentityContext, createLocalSession } from "./session.js";
 
+/** Dependencies injected into the session supervisor service. */
 export interface SessionServiceOptions {
 	args: Args;
 	cfg: AlefConfig;
@@ -21,6 +22,7 @@ export interface SessionServiceOptions {
 	storage: StorageFactory;
 }
 
+/** Managed service exposing the assembled session, model display, and HTTP surface setup. */
 export interface SessionService extends ManagedService {
 	readonly session: Session;
 	readonly resolvedModelDisplay: string;
@@ -29,6 +31,7 @@ export interface SessionService extends ManagedService {
 	readonly setupSurface: () => Promise<{ port: number; router: RouterAdapter } | undefined>;
 }
 
+/** Build a ServiceDescriptor that assembles the local session with identity, adapters, and HTTP surface. */
 export function createSessionServiceDescriptor(opts: SessionServiceOptions): ServiceDescriptor {
 	return {
 		name: "session",

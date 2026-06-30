@@ -22,8 +22,10 @@ import { mkdir, readFile, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 import { atomicWrite } from "./fs-utils.js";
 
+/** Discriminator for the four patch operation types. */
 export type PatchOpKind = "add" | "update" | "delete" | "move";
 
+/** A single parsed patch operation with its target path, optional destination, and diff lines. */
 export interface PatchOp {
 	kind: PatchOpKind;
 	path: string;
@@ -31,6 +33,7 @@ export interface PatchOp {
 	lines: string[];
 }
 
+/** Result of applying a single patch operation, with line-change counts and optional error. */
 export interface PatchResult {
 	path: string;
 	operation: PatchOpKind;
@@ -43,6 +46,7 @@ export interface PatchResult {
 // Parser
 // ---------------------------------------------------------------------------
 
+/** Parse a multi-file patch block delimited by Begin/End Patch markers into structured operations. */
 export function parsePatch(text: string): PatchOp[] {
 	const lines = text.split("\n");
 	const start = lines.findIndex((l) => l.trim() === "*** Begin Patch");
@@ -133,6 +137,7 @@ function applyHunk(fileLines: string[], hunk: { before: string[]; after: string[
 // Validate
 // ---------------------------------------------------------------------------
 
+/** Validate patch operations against the filesystem, returning error messages for any conflicts. */
 export async function validateOps(ops: PatchOp[], resolveAbs: (p: string) => string): Promise<string[]> {
 	const errors: string[] = [];
 	for (const op of ops) {
@@ -214,6 +219,7 @@ const APPLIERS: Record<PatchOpKind, Applier> = {
 	},
 };
 
+/** Apply a sequence of patch operations (add, update, delete, move) to the filesystem. */
 export async function applyOps(
 	ops: PatchOp[],
 	resolveAbs: (p: string) => string,

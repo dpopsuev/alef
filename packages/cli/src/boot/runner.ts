@@ -6,6 +6,7 @@ import type { Args } from "../boot/args.js";
 import { shutdownOTel } from "../boot/otel.js";
 import { selectViewMode } from "../boot/views.js";
 
+/** Full set of dependencies needed to drive the agent through a view mode. */
 export interface RunAgentOptions {
 	args: Args;
 	resolvedModelDisplay: string;
@@ -30,6 +31,7 @@ export interface RunAgentOptions {
 	actorRoutes?: ActorRouteTable;
 }
 
+/** Select the appropriate view mode and run the agent until the session ends. */
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
 	const { args } = opts;
 

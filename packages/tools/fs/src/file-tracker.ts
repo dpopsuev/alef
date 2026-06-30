@@ -1,3 +1,4 @@
+/** Tracks file reads and writes within a session to enforce read-before-edit and staleness checks. */
 export class FileTracker {
 	static readonly MAX_SIZE = 1_000;
 

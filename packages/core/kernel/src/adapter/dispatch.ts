@@ -80,6 +80,7 @@ function buildHandlerCtx(
 	};
 }
 
+/** Validate, policy-check, cache-check, and execute a command action, publishing the result event. */
 export async function dispatchCommandAction(
 	command: CommandMessage,
 	action: CommandAction,
@@ -197,6 +198,7 @@ export async function dispatchCommandAction(
 	});
 }
 
+/** Fire-and-forget dispatch of an event action with OpenTelemetry tracing. */
 export function dispatchEventAction(
 	eventType: string,
 	event: EventMessage,

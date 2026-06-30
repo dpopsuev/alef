@@ -5,12 +5,14 @@ import { normalizeMessage } from "../retry.js";
 
 type ToolDef = { name: string; description: string; inputSchema: z.ZodTypeAny };
 
+/** Prepared messages, converted tools, and LLM-name-to-motor-name mapping for a single turn. */
 export interface TurnSetup {
 	messages: Message[];
 	tools: Tool[];
 	nameMap: Map<string, string>;
 }
 
+/** Convert Zod-based tool definitions into LLM-compatible JSON-schema tools, deduplicating by sanitized name. */
 export function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string>): Tool[] {
 	const seen = new Set<string>();
 	const tools: Tool[] = [];
@@ -24,6 +26,7 @@ export function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string
 	return tools;
 }
 
+/** Extract messages and tools from a raw bus payload and normalize them into a TurnSetup. */
 export function prepareTurn(payload: {
 	messages?: readonly unknown[];
 	tools?: readonly { name: string; description: string; inputSchema: unknown }[];
@@ -40,6 +43,7 @@ export function prepareTurn(payload: {
 	return { messages, tools, nameMap };
 }
 
+/** Strip system messages and flatten the conversation history into a plain serializable array. */
 export function serializeConversationHistory(messages: Message[]): unknown[] {
 	return messages
 		.filter((m) => (m as { role?: string }).role !== "system")

@@ -18,6 +18,7 @@ import type { InteractiveOptions } from "../../boot/interactive.js";
 import type { TuiEvent } from "../events.js";
 import { color, getProviderColor, setThemeByName, statusGlyph, type ThemeTokens } from "../theme.js";
 
+/** Shared context passed to every TUI command handler. */
 export interface TuiHandlerContext {
 	tuiStore?: TuiStateStore;
 	t: ThemeTokens;
@@ -36,12 +37,14 @@ export interface TuiHandlerContext {
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 }
 
+/** A named, dispatchable TUI command with a description and run handler. */
 export interface Command {
 	name: string;
 	description: string;
 	run(ctx: TuiHandlerContext, args: string[]): void | Promise<void>;
 }
 
+/** Registry of TUI commands keyed by name and optional aliases. */
 export class CommandRegistry {
 	private readonly _commands = new Map<string, Command>();
 
@@ -749,6 +752,7 @@ const stickies = {
 // Registry — single source of truth; tab-completion and help derive from this
 // ---------------------------------------------------------------------------
 
+/** Single source of truth for all TUI commands — tab-completion and help derive from this. */
 export const registry = new CommandRegistry()
 	.register(exit, "quit", "exit")
 	.register(detach)
@@ -773,6 +777,7 @@ export const registry = new CommandRegistry()
 	.register(sticky, "note", "pin")
 	.register(stickies);
 
+/** Options for a typed overlay picker backed by an arbitrary data source. */
 export interface ConfigPickerOptions<T> {
 	id: string;
 	source: () => readonly T[];
@@ -781,6 +786,7 @@ export interface ConfigPickerOptions<T> {
 	maxVisible?: number;
 }
 
+/** Open a typed overlay picker that maps domain objects to selectable items. */
 export function openConfigPicker<T>(
 	t: ThemeTokens,
 	dispatch: (event: TuiEvent) => void,
@@ -806,6 +812,7 @@ export function openConfigPicker<T>(
 	});
 }
 
+/** Options for an overlay picker over a fixed set of string values. */
 export interface EnumPickerOptions {
 	id: string;
 	values: readonly string[];
@@ -814,6 +821,7 @@ export interface EnumPickerOptions {
 	maxVisible?: number;
 }
 
+/** Open an overlay picker for choosing among a fixed set of string values. */
 export function openEnumPicker(
 	t: ThemeTokens,
 	dispatch: (event: TuiEvent) => void,
@@ -833,6 +841,7 @@ export function openEnumPicker(
 	});
 }
 
+/** Options for a generic overlay picker with pre-built SelectItem entries. */
 export interface PickerOptions {
 	id: string;
 	items: SelectItem[];
@@ -840,6 +849,7 @@ export interface PickerOptions {
 	onSelect: (item: SelectItem) => void;
 }
 
+/** Create a SelectListTheme from the active TUI color tokens. */
 export function buildPickerTheme(t: ThemeTokens): SelectListTheme {
 	return {
 		selectedPrefix: (s) => color(s, t.accentFg),
@@ -850,6 +860,7 @@ export function buildPickerTheme(t: ThemeTokens): SelectListTheme {
 	};
 }
 
+/** Open a searchable overlay picker and dispatch show/hide events on select or cancel. */
 export function openPicker(
 	t: ThemeTokens,
 	dispatch: (event: TuiEvent) => void,

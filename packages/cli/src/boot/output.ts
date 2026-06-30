@@ -14,18 +14,22 @@
  *   { "type": "done" }
  */
 
+/** A function that delivers agent reply text to the user. */
 export type Sink = (text: string) => void;
 
+/** Create a sink that prints plain text to stdout via console.log. */
 export function textSink(): Sink {
 	return (text) => console.log(text);
 }
 
+/** Create a sink that emits JSONL reply events to stdout. */
 export function jsonSink(): Sink {
 	return (text) => {
 		process.stdout.write(`${JSON.stringify({ type: "reply", text, ts: Date.now() })}\n`);
 	};
 }
 
+/** Select a text or JSON sink based on the --json flag. */
 export function makeSink(json: boolean): Sink {
 	return json ? jsonSink() : textSink();
 }

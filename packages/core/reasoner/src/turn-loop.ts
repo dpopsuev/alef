@@ -18,6 +18,7 @@ const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 // Options — structural subset of AgentLoopOptions, avoids circular import
 // ---------------------------------------------------------------------------
 
+/** Options for the multi-turn LLM loop — model, retry policy, phase pipeline, and lifecycle hooks. */
 export interface TurnLoopOptions {
 	model: Model<Api>;
 	getModel?: () => Model<Api>;
@@ -43,6 +44,7 @@ export interface TurnLoopOptions {
 // Main export
 // ---------------------------------------------------------------------------
 
+/** Run the multi-turn LLM loop: call model, dispatch tools, retry on transient errors, publish final reply. */
 export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];

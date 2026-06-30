@@ -4,6 +4,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
 
+/** Extract a human-readable text representation from a tool-result payload. */
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
@@ -80,6 +81,7 @@ function buildErrorSenseEvent(
 	};
 }
 
+/** Configuration for subscribing to a tool-result event with timeout, abort, and stall detection. */
 export interface ToolResultSubscription {
 	event: EventBus;
 	toolName: string;
@@ -92,6 +94,7 @@ export interface ToolResultSubscription {
 	stallIntervalMs?: number;
 }
 
+/** Subscribe to the event bus and resolve when the matching tool-result event arrives or timeout/abort fires. */
 export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMessage> {
 	const {
 		event,
@@ -192,6 +195,7 @@ interface DispatchToolsOptions {
 	callAbortControllers?: Map<string, AbortController>;
 }
 
+/** Publish tool-call commands in parallel and collect all results with timeout and stall detection. */
 export async function dispatchTools(
 	command: CommandBus,
 	signal: NotificationBus,

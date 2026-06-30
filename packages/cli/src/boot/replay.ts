@@ -9,6 +9,7 @@ const REPLY_PREVIEW_MAX_CHARS = 200;
 const TOOL_ARGS_PREVIEW_MAX_CHARS = 80;
 const PROMPT_PREVIEW_MAX_CHARS = 60;
 
+/** Replay a recorded session turn-by-turn with zero tokens, printing tool calls and usage. */
 export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<void> {
 	const store =
 		sessionIdOrLast === "last"

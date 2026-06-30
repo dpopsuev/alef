@@ -22,6 +22,7 @@ import type { PortCardinality, PortDefinition } from "@dpopsuev/alef-kernel/adap
 
 export type { PortCardinality, PortDefinition };
 
+/** A single cardinality constraint violation detected during port validation. */
 export interface PortViolation {
 	seam: PortDefinition;
 	adapterCount: number;
@@ -30,6 +31,7 @@ export interface PortViolation {
 	message: string;
 }
 
+/** Aggregate result of port cardinality validation across all loaded adapters. */
 export interface PortValidationResult {
 	valid: boolean;
 	violations: PortViolation[];
@@ -89,6 +91,7 @@ function adapterCoversPort(info: AdapterPortInfo, seam: PortDefinition): boolean
 // Validation
 // ---------------------------------------------------------------------------
 
+/** Check that every declared port seam is covered by the correct number of adapters. */
 export function validatePorts(adapters: AdapterPortInfo[], seams: PortDefinition[]): PortValidationResult {
 	const violations: PortViolation[] = [];
 
@@ -135,6 +138,7 @@ export function validatePorts(adapters: AdapterPortInfo[], seams: PortDefinition
 	};
 }
 
+/** Thrown when exactly-one port constraints are violated at agent validation time. */
 export class PortValidationError extends Error {
 	constructor(public readonly violations: PortViolation[]) {
 		const errors = violations.filter((v) => v.severity === "error");

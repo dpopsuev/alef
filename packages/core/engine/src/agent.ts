@@ -86,6 +86,7 @@ function withPayloadValidation(bus: Bus, adapter: Adapter): Bus {
 	);
 }
 
+/** Tap interface for passively observing all command, event, and notification traffic. */
 export interface BusObserver {
 	onCommand(event: BusMessage): void;
 	onEvent(event: BusMessage): void;
@@ -102,6 +103,7 @@ const noopLogger: AdapterLogger = {
 	child: () => noopLogger,
 };
 
+/** Composite adapter host — loads adapters, validates port seams, and manages the shared bus. */
 export class Agent {
 	private readonly bus: AgentBus;
 	private readonly unmounts: Array<() => void> = [];

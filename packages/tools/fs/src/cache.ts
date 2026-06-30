@@ -1,15 +1,18 @@
+/** A cache hit containing the stored value and its age/TTL metadata. */
 export interface ToolResultCacheHit {
 	value: unknown;
 	ageMs: number;
 	ttlMs: number;
 }
 
+/** Key-value cache contract for memoizing tool query results. */
 export interface ToolResultCache {
 	get(key: string): ToolResultCacheHit | undefined;
 	set(key: string, value: unknown): void;
 	clear(): void;
 }
 
+/** Options for the in-memory LRU cache with TTL-based expiration. */
 export interface InMemoryToolResultCacheOptions {
 	ttlMs?: number;
 	maxEntries?: number;
@@ -24,6 +27,7 @@ interface CacheEntry {
 const DEFAULT_TTL_MS = 10_000;
 const DEFAULT_MAX_ENTRIES = 256;
 
+/** LRU cache with TTL expiration and configurable max entries for tool results. */
 export class InMemoryToolResultCache implements ToolResultCache {
 	private readonly _ttlMs: number;
 	private readonly _maxEntries: number;
@@ -91,6 +95,7 @@ export class InMemoryToolResultCache implements ToolResultCache {
 	}
 }
 
+/** No-op cache implementation that never stores or returns values. */
 export class NoopToolResultCache implements ToolResultCache {
 	get(_key: string): ToolResultCacheHit | undefined {
 		return undefined;

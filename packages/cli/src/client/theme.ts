@@ -50,6 +50,7 @@ export function chalkForToken(token: ColorToken): typeof chalk {
 const BOLD_ON = "\x1b[1m";
 const BOLD_OFF = "\x1b[22m";
 
+/** Render text with both bold and color applied using raw ANSI escape sequences. */
 export function boldColor(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
 	return c ? `${BOLD_ON}${c}${text}${FG_RESET}${BOLD_OFF}` : `${BOLD_ON}${text}${BOLD_OFF}`;
@@ -119,6 +120,7 @@ const TERMINAL_LIGHT: ThemeTokens = {
 	userBg: { ansi16: 107 }, // bright green bg — visible on white/light terminals
 };
 
+/** Map of built-in theme names to their token palettes. */
 export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 	terminal: TERMINAL,
 	"terminal-light": TERMINAL_LIGHT,
@@ -129,10 +131,12 @@ export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 
 let _active: ThemeTokens = TERMINAL;
 
+/** Return the currently active theme token palette. */
 export function getTheme(): ThemeTokens {
 	return _active;
 }
 
+/** Replace the active theme token palette. */
 export function setTheme(tokens: ThemeTokens): void {
 	_active = tokens;
 }
@@ -239,6 +243,7 @@ export function buildTerminalTheme(palette: Record<number, string>): ThemeTokens
 /** Palette slots queried at startup to build the terminal theme. */
 export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const;
 
+/** Activate a built-in theme by name, falling back to terminal if unknown. */
 export function setThemeByName(name: string): void {
 	const t = BUILT_IN_THEMES[name.toLowerCase()] as ThemeTokens | undefined;
 	if (!t) {
@@ -268,6 +273,7 @@ function hexToken(hex: string): ColorToken {
 	return { truecolor: hex };
 }
 
+/** Load theme from blueprint, user config, or terminal palette and set it as active. */
 export function loadTheme(
 	blueprintDir?: string,
 	cfgThemeName?: string,
@@ -331,13 +337,16 @@ const GLYPHS = {
 	dot: { nerd: "·", ascii: "." },
 } satisfies Record<string, GlyphPair>;
 
+/** Union of all known glyph identifiers (state indicators, separators, bullets). */
 export type GlyphKey = keyof typeof GLYPHS;
 
+/** Return the appropriate glyph string for the given key, preferring Nerd Font variants. */
 export function glyph(key: GlyphKey): string {
 	const pair = GLYPHS[key];
 	return nerdFontsAvailable() ? pair.nerd : pair.ascii;
 }
 
+/** Color token and display label for an LLM provider. */
 export interface ProviderColor {
 	token: ColorToken;
 	label: string;
@@ -362,10 +371,12 @@ const PROVIDER_COLORS: Record<string, ProviderColor> = {
 
 const FALLBACK: ProviderColor = { label: "Unknown", token: { ansi256: 245, ansi16: 37 } };
 
+/** Look up the brand color for an LLM provider, returning a neutral fallback if unknown. */
 export function getProviderColor(provider: string): ProviderColor {
 	return PROVIDER_COLORS[provider] ?? FALLBACK;
 }
 
+/** Return a read-only map of all registered provider names to their brand colors. */
 export function allProviderColors(): ReadonlyMap<string, ProviderColor> {
 	return new Map(Object.entries(PROVIDER_COLORS));
 }

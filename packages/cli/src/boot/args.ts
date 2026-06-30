@@ -191,6 +191,7 @@ Examples:
   alef --json -p "Fix the bug"        # machine-readable output
 `.trim();
 
+/** Parse process.argv into a typed Args struct, exiting on --help or unknown flags. */
 export function parseArgs(argv: string[]): Args {
 	const args: Args = {
 		print: false,

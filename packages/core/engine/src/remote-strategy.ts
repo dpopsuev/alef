@@ -91,6 +91,7 @@ function collectReply(
 	});
 }
 
+/** Configuration for connecting to a remote agent over HTTP/SSE. */
 export interface RemoteStrategyOptions {
 	endpoint: string;
 	replyEvent: string;
@@ -100,6 +101,7 @@ export interface RemoteStrategyOptions {
 	onStall?: () => void;
 }
 
+/** Sends a prompt to a remote agent via HTTP POST and collects the reply over SSE. */
 export class RemoteStrategy implements ExecutionStrategy {
 	private readonly endpoint: string;
 	private readonly replyEvent: string;

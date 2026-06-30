@@ -5,12 +5,14 @@ const EXIT_STDIO_GRACE_MS = 100;
 
 const WINDOWS_SHELL_COMMANDS = new Set(["npm", "npx", "pnpm", "yarn", "yarnpkg", "corepack"]);
 
+/** Return true if the command should be spawned through a Windows shell (cmd/bat scripts). */
 export function shouldUseWindowsShell(command: string): boolean {
 	if (process.platform !== "win32") return false;
 	const commandName = basename(command).toLowerCase();
 	return commandName.endsWith(".cmd") || commandName.endsWith(".bat") || WINDOWS_SHELL_COMMANDS.has(commandName);
 }
 
+/** Wait for a child process to exit, draining stdio before resolving with the exit code. */
 export function waitForChildProcess(child: ChildProcess): Promise<number | null> {
 	return new Promise((resolve, reject) => {
 		let settled = false;

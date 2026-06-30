@@ -1,6 +1,7 @@
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { createFsAdapter } from "./adapter.js";
 
+/** Supervisor service descriptor for the filesystem adapter. */
 export const service: ServiceDescriptor = {
 	name: "fs",
 	restart: "permanent",

@@ -24,6 +24,7 @@
 
 import type { Client, InValue } from "@libsql/client";
 
+/** Dispatch a log-query subcommand (sessions, events, trace, summary, tail, cause, spans). */
 export async function runLogCommand(subcmd: string, args: string[]): Promise<void> {
 	const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
 	const db = await getDatabase();

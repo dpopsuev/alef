@@ -85,6 +85,7 @@ function validateAdapterMetadata(name: string, tools: ToolDefinition[], opts: Ad
 		);
 }
 
+/** Construct an Adapter from a name, action map, and options, wiring subscriptions, caching, and bus dispatch. */
 export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOptions = {}): Adapter {
 	const log = opts.logger ?? noopLogger;
 

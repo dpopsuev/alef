@@ -11,6 +11,7 @@ import {
 } from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "../theme.js";
 
+/** Configuration for a standalone vi-modal picker with preview pane. */
 export interface PickerOptions {
 	title: string;
 	items: SelectItem[];
@@ -48,6 +49,7 @@ function handlePickerInput(
 	return true;
 }
 
+/** Run a standalone vi-modal picker with preview pane and return the selected item. */
 export async function runPicker(opts: PickerOptions): Promise<SelectItem | undefined> {
 	if (opts.items.length === 0) return undefined;
 

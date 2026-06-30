@@ -125,6 +125,7 @@ const WEB_SEARCH_TOOL = {
 // Adapter factory
 // ---------------------------------------------------------------------------
 
+/** Configuration for the web adapter including default timeout and action allowlist. */
 export interface WebAdapterOptions {
 	/** Default request timeout in milliseconds. Default: 30000. */
 	defaultTimeoutMs?: number;
@@ -151,6 +152,7 @@ const WEB_DIRECTIVES = [
 - If a named company or startup search returns no results: try web.fetch('https://{company-name}.com') directly.`,
 ];
 
+/** Build a web adapter with fetch and search actions backed by Readability and a search engine fallback chain. */
 export function createWebAdapter(options: WebAdapterOptions = {}): Adapter {
 	const defaultTimeoutMs = options.defaultTimeoutMs ?? 30_000;
 

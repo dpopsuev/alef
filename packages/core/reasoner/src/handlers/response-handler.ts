@@ -14,6 +14,7 @@ function extractText(message: AssistantMessage): string {
 		.join("");
 }
 
+/** Extract token-usage metrics from a completed assistant message. */
 export function reportUsage(finalMessage: AssistantMessage): TokenUsage {
 	return {
 		input: finalMessage.usage.input,
@@ -23,6 +24,7 @@ export function reportUsage(finalMessage: AssistantMessage): TokenUsage {
 	};
 }
 
+/** Publish the final llm.response command with extracted text and serialized conversation history. */
 export function publishReply(
 	command: MotorBus,
 	correlationId: string,

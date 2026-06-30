@@ -4,15 +4,18 @@ import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
 import { selectViewMode } from "./views.js";
 
+/** Managed service wrapping the TUI view mode with a completion promise. */
 export interface TuiService extends ManagedService {
 	readonly done: Promise<void>;
 }
 
+/** Options for creating the TUI supervisor service. */
 export interface TuiServiceOptions {
 	args: Args;
 	store?: SessionStore;
 }
 
+/** Build a ServiceDescriptor that runs the selected view mode as a managed service. */
 export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDescriptor {
 	return {
 		name: "tui",

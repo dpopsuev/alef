@@ -27,12 +27,14 @@ import { boldColor, color, type ThemeTokens } from "./theme.js";
  *     dashboard       — cwd (branch) │ session │ model │ tokens │ ctx battery bar
  */
 
+/** The three top-level zones of the TUI: output, input, and footer. */
 export interface TuiLayout {
 	output: OutputPanel;
 	input: InputPanel;
 	footer: FooterPanel;
 }
 
+/** Compose the output panel, input panel, and dashboard footer into a ready TUI layout. */
 export async function buildLayout(
 	tui: TUI,
 	t: ThemeTokens,

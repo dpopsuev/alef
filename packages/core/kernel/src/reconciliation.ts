@@ -12,6 +12,7 @@
  *   Plan = sequence of actions to reduce error
  */
 
+/** Single observed fact from an adapter's domain with a confidence score. */
 export interface DomainCondition {
 	readonly domain: string;
 	readonly key: string;
@@ -20,6 +21,7 @@ export interface DomainCondition {
 	readonly observedAt: number;
 }
 
+/** Snapshot of all observed domain conditions from a single adapter. */
 export interface ActualConditions {
 	readonly adapterId: string;
 	readonly conditions: readonly DomainCondition[];
@@ -27,6 +29,7 @@ export interface ActualConditions {
 	readonly observedAt: number;
 }
 
+/** User intent parsed into prioritised target dimensions the agent must satisfy. */
 export interface DesiredStateSpec {
 	readonly intent: string;
 	readonly dimensions: readonly {
@@ -37,6 +40,7 @@ export interface DesiredStateSpec {
 	}[];
 }
 
+/** Single axis of the gap between desired and actual state. */
 export interface ErrorDimension {
 	readonly domain: string;
 	readonly key: string;
@@ -45,6 +49,7 @@ export interface ErrorDimension {
 	readonly magnitude: number;
 }
 
+/** Aggregated error across all dimensions, indicating whether convergence has been reached. */
 export interface ErrorTensor {
 	readonly dimensions: readonly ErrorDimension[];
 	readonly totalMagnitude: number;
@@ -52,6 +57,7 @@ export interface ErrorTensor {
 	readonly computedAt: number;
 }
 
+/** Compute the error tensor by comparing desired state against observed actual conditions. */
 export function computeError(dss: DesiredStateSpec, conditions: readonly ActualConditions[]): ErrorTensor {
 	const allConditions = new Map<string, DomainCondition>();
 	for (const ac of conditions) {
@@ -83,6 +89,7 @@ export function computeError(dss: DesiredStateSpec, conditions: readonly ActualC
 	};
 }
 
+/** Return dimensions that regressed from converged (magnitude 0) to diverged between two snapshots. */
 export function detectDrift(previous: ErrorTensor, current: ErrorTensor): readonly ErrorDimension[] {
 	const prevMap = new Map(previous.dimensions.map((d) => [`${d.domain}:${d.key}`, d]));
 	return current.dimensions.filter((d) => {

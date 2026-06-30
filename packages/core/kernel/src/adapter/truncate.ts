@@ -12,10 +12,14 @@
  * Env overrides: ALEF_TOOL_MAX_LINES, ALEF_TOOL_MAX_BYTES.
  */
 
+/** Maximum lines before truncation (overridable via ALEF_TOOL_MAX_LINES). */
 export const DEFAULT_MAX_LINES = Number(process.env.ALEF_TOOL_MAX_LINES) || 2000;
+/** Maximum bytes before truncation (overridable via ALEF_TOOL_MAX_BYTES). */
 export const DEFAULT_MAX_BYTES = Number(process.env.ALEF_TOOL_MAX_BYTES) || 50 * 1024;
+/** Maximum character length for a single grep match line. */
 export const GREP_MAX_LINE_LENGTH = 500;
 
+/** Detailed outcome of a truncation operation including counts and which limit triggered. */
 export interface TruncationResult {
 	content: string;
 	truncated: boolean;
@@ -30,11 +34,13 @@ export interface TruncationResult {
 	maxBytes: number;
 }
 
+/** Optional line and byte limits for truncation functions. */
 export interface TruncationOptions {
 	maxLines?: number;
 	maxBytes?: number;
 }
 
+/** Format a byte count as a human-readable size string (B, KB, or MB). */
 export function formatSize(bytes: number): string {
 	if (bytes < 1024) return `${bytes}B`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
@@ -63,6 +69,7 @@ function noTruncResult(
 	};
 }
 
+/** Keep the beginning of the content, dropping trailing lines that exceed limits. */
 export function truncateHead(content: string, options: TruncationOptions = {}): TruncationResult {
 	const maxLines = options.maxLines ?? DEFAULT_MAX_LINES;
 	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -121,6 +128,7 @@ export function truncateHead(content: string, options: TruncationOptions = {}): 
 	};
 }
 
+/** Keep the end of the content, dropping leading lines that exceed limits. */
 export function truncateTail(content: string, options: TruncationOptions = {}): TruncationResult {
 	const maxLines = options.maxLines ?? DEFAULT_MAX_LINES;
 	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -174,6 +182,7 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 	};
 }
 
+/** Cap a single line to a maximum character length, appending a truncation marker if needed. */
 export function truncateLine(line: string, maxChars = GREP_MAX_LINE_LENGTH): { text: string; wasTruncated: boolean } {
 	if (line.length <= maxChars) return { text: line, wasTruncated: false };
 	return { text: `${line.slice(0, maxChars)}... [truncated]`, wasTruncated: true };

@@ -2,6 +2,7 @@ import type { Adapter, ToolDefinition } from "./adapter/interface.js";
 import type { ContextAssemblyContributions, ContextAssemblyHandler } from "./adapter/contributions.js";
 import type { Bus, CommandMessage, EventMessage } from "./bus/messages.js";
 
+/** Build the context assembly adapter that pipelines ContextAssemblyHandler stages before each LLM call. */
 export function createContextAssembler(): Adapter & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
 	addStage(name: string, handler: ContextAssemblyHandler): void;

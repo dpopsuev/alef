@@ -10,6 +10,7 @@
 import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
 
+/** Inspect a session for orphaned tool-call commands or list available sessions. */
 export async function runDebugSession(args: string[], cwd: string, sessions: SessionStoreFactory): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {
 		await listSessions(cwd, sessions);

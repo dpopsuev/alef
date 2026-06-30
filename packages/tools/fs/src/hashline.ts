@@ -2,16 +2,19 @@ import { createHash } from "node:crypto";
 
 const HASH_LEN = 4;
 
+/** Compute a 4-character uppercase MD5 hash of a line's trimmed content. */
 export function lineHash(text: string): string {
 	const trimmed = text.replace(/[ \t\r]+$/, "");
 	const hash = createHash("md5").update(trimmed).digest("hex");
 	return hash.slice(0, HASH_LEN).toUpperCase();
 }
 
+/** Compute an 8-character uppercase MD5 fingerprint of entire file content. */
 export function fileHash(content: string): string {
 	return createHash("md5").update(content).digest("hex").slice(0, 8).toUpperCase();
 }
 
+/** Format file content as hashline output with per-line content hashes and a file fingerprint header. */
 export function formatHashline(content: string, offset = 1): string {
 	const lines = content.split("\n");
 	const fHash = fileHash(content);
@@ -24,6 +27,7 @@ export function formatHashline(content: string, offset = 1): string {
 	return `${header}\n${body.join("\n")}`;
 }
 
+/** A single hashline edit operation (swap, delete, insert-before, or insert-after). */
 export interface HashlineEdit {
 	kind: "swap" | "del" | "ins_pre" | "ins_post";
 	startLine: number;
@@ -31,6 +35,7 @@ export interface HashlineEdit {
 	body: string[];
 }
 
+/** Parse a hashline edit script (SWAP/DEL/INS.PRE/INS.POST commands) into structured edits. */
 export function parseHashlineEdits(input: string): HashlineEdit[] {
 	const edits: HashlineEdit[] = [];
 	const lines = input.split("\n");
@@ -98,6 +103,7 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 	return edits;
 }
 
+/** Apply parsed hashline edits to file content, with optional staleness check via file hash. */
 export function applyHashlineEdits(
 	content: string,
 	edits: HashlineEdit[],

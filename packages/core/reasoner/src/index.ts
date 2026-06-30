@@ -51,6 +51,7 @@ export interface LlmCallOptions {
 	getSignal?: () => AbortSignal | undefined;
 }
 
+/** Reserved extension point for LLM observability hooks (tracing, metrics). */
 export interface LlmObservabilityOptions {}
 
 /** Topology and capability options — routing, pipeline, concurrency, context prep. */
@@ -71,7 +72,7 @@ export interface LlmTopologyOptions {
 	systemPrompt?: string;
 }
 
-/** Full options — intersection of all three groups. All existing callers still compile. */
+/** Full LLM loop configuration — union of call, observability, and topology option groups. */
 export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTopologyOptions;
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,7 @@ export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTop
 
 const LLM_INPUT = "llm.input";
 
+/** Build the inner LLM adapter that handles llm.input events with the turn loop. */
 export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 	let turnActive = false;
 
@@ -165,6 +167,7 @@ function pickKeyArg(payload: Record<string, unknown>): string {
  * Create a full LLM adapter with optional concurrent-ops inflight tracking.
  * createAgentLoop is the canonical factory.
  */
+/** Control-theory surface exposing desired/actual state and error tensor for the LLM adapter. */
 export interface ReconciliationSurface {
 	getActualConditions(): readonly ActualConditions[];
 	getErrorTensor(): ErrorTensor | null;
@@ -172,6 +175,7 @@ export interface ReconciliationSurface {
 	recompute(): ErrorTensor | null;
 }
 
+/** Create a full LLM adapter with reconciliation surface and optional concurrent-ops tracking. */
 export function createAgentLoop(options: AgentLoopOptions): Adapter & ReconciliationSurface {
 	const replyType = "llm.response";
 	const inflight = new Map<string, InflightEntry>();

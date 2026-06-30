@@ -1,6 +1,7 @@
 const MIN_GLYPH_INK_PIXELS = 20;
 const FONT_LOAD_TIMEOUT_MS = 2000;
 const GLYPH_PT_SIZE = 20;
+/** Render a single glyph to a 2D pixel-darkness grid using a system font. */
 export async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<number[][] | null> {
 	try {
 		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
@@ -38,6 +39,7 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 	}
 }
 
+/** Trim empty columns from the left and right edges of a pixel grid. */
 export function cropColumns(pixels: readonly (readonly number[])[]): readonly (readonly number[])[] {
 	const H = pixels.length;
 	const W = pixels[0]?.length ?? 0;
@@ -60,6 +62,7 @@ export function cropColumns(pixels: readonly (readonly number[])[]): readonly (r
 //
 //
 
+/** Convert a pixel-darkness grid into styled Unicode block characters for terminal display. */
 export function rasterToBlocks(
 	pixels: readonly (readonly number[])[],
 	dense: (ch: string) => string,
@@ -152,6 +155,7 @@ const BLOCKS: readonly ScriptBlock[] = [
 	{ lang: "kn", name: "Kannada", start: 0x0c85, end: 0x0cb9 },
 ];
 
+/** Pick a random Unicode code point from a script block's range. */
 export function randomCodePoint(block: ScriptBlock): string {
 	const cp = Math.floor(Math.random() * (block.end - block.start + 1)) + block.start;
 	return String.fromCodePoint(cp);
@@ -202,6 +206,7 @@ function fontPathForLang(lang: string): string | null {
 	}
 }
 
+/** Build a prioritized pool of script blocks based on installed system fonts and locale. */
 export function buildPool(): ScriptBlock[] {
 	const langs = installedLangs();
 	const available = BLOCKS.filter((b) => langs.has(b.lang));
@@ -214,6 +219,7 @@ export function buildPool(): ScriptBlock[] {
 
 let _cached: string | null = null;
 
+/** Render a locale-aware Unicode art splash screen for the TUI greeting. */
 export async function renderSplash(): Promise<string> {
 	if (process.env.ALEF_NO_SPLASH === "1") return "";
 	if (_cached !== null) return _cached;

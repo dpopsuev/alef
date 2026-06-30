@@ -2,16 +2,19 @@ import { existsSync, readFileSync } from "node:fs";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { runPicker } from "../client/commands/picker.js";
 
+/** A discovered blueprint entry with its display name and resolved path. */
 export interface BlueprintChoice {
 	name: string;
 	description: string;
 	path: string;
 }
 
+/** List all blueprints registered in the PM blueprint registry. */
 export function discoverBlueprints(): BlueprintChoice[] {
 	return blueprintRegistry.list().map((name) => ({ name, description: "", path: name }));
 }
 
+/** Resolve a blueprint name or file path to a registry entry or existing file path. */
 export function resolveBlueprint(nameOrPath: string, _cwd?: string): string | undefined {
 	if (blueprintRegistry.list().includes(nameOrPath)) return nameOrPath;
 	if (existsSync(nameOrPath)) return nameOrPath;
@@ -59,6 +62,7 @@ function readBlueprintPreview(path: string): string[] {
 	}
 }
 
+/** Present an interactive picker when multiple blueprints are available. */
 export async function pickBlueprint(choices: BlueprintChoice[]): Promise<BlueprintChoice | undefined> {
 	if (choices.length <= 1) return choices[0];
 

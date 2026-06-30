@@ -19,23 +19,28 @@ import { DEFAULT_MAX_BYTES, formatSize, truncateHead } from "./truncate.js";
 // ls query
 // ============================================================================
 
+/** Maximum number of entries returned by ls queries by default. */
 export const DEFAULT_LS_LIMIT = 500;
 
+/** Input parameters for the ls directory listing query. */
 export interface LsToolInput {
 	path?: string;
 	limit?: number;
 }
 
+/** Extended details for ls query responses, including entry limit info. */
 export interface LsToolDetails extends BaseToolDetails {
 	entryLimitReached?: number;
 }
 
+/** Response type for ls directory listing queries. */
 export type LsToolResponse = ToolQueryResponse<LsToolDetails>;
 
 interface LsStatResult {
 	isDirectory: () => boolean;
 }
 
+/** Pluggable filesystem operations for the ls query (enables test injection). */
 export interface LsOperations {
 	exists: (absolutePath: string) => Promise<boolean> | boolean;
 	stat: (absolutePath: string) => Promise<LsStatResult> | LsStatResult;
@@ -48,6 +53,7 @@ const defaultLsOperations: LsOperations = {
 	readdir: readdirSync,
 };
 
+/** Options for executing an ls directory listing query. */
 export interface LsQueryOptions {
 	cwd: string;
 	operations?: LsOperations;
@@ -68,6 +74,7 @@ function withLsCacheHit(cacheHit: ToolResultCacheHit | undefined): LsToolRespons
 	return withCacheHit<LsToolDetails>(cacheHit);
 }
 
+/** List directory entries with sorting, truncation, and optional caching. */
 export async function executeLsQuery(input: LsToolInput, options: LsQueryOptions): Promise<LsToolResponse> {
 	const ops = options.operations ?? defaultLsOperations;
 	const cache = options.cache;

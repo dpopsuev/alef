@@ -1,6 +1,7 @@
 import http from "node:http";
 import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 
+/** Registry entry describing a running daemon's network coordinates and identity. */
 export interface DaemonEntry {
 	port: number;
 	host: string;
@@ -11,6 +12,7 @@ export interface DaemonEntry {
 	token?: string;
 }
 
+/** SSE-backed Session proxy that connects to a running daemon over HTTP. */
 export class RemoteSession implements Session {
 	private readonly host: string;
 	private readonly port: number;

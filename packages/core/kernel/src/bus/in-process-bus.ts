@@ -57,14 +57,17 @@ class InternalBus {
 		return this.handlers.get(type)?.size ?? 0;
 	}
 }
+/** Configuration for the bus stall-detection watchdog timer. */
 export interface WatchdogOptions {
 	stallMs: number;
 	onStall: () => void;
 }
+/** Options for constructing an InProcessBus, including watchdog and debug tracing. */
 export interface BusOptions {
 	watchdog?: WatchdogOptions;
 	trace?: boolean;
 }
+/** Single-process event bus with command/event/notification channels, dead-letter handling, and scoped views. */
 export class InProcessBus {
 	private readonly _buses: Record<ChannelName, InternalBus> = {
 		command: new InternalBus(),

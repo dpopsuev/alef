@@ -1,3 +1,4 @@
+/** Timer that fires a stall callback when not reset within the configured interval. */
 export class Watchdog {
 	private timer: ReturnType<typeof setTimeout> | null = null;
 

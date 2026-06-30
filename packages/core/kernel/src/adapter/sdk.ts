@@ -5,17 +5,20 @@ import { typedAction, typedStreamAction } from "./framework.js";
 import { type SenseDisplayBlock, withDisplay } from "../payload.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
+/** Minimal options shared by all adapter constructors. */
 export interface BaseAdapterOptions {
 	cwd?: string;
 	actions?: readonly string[];
 	logger?: AdapterLogger;
 }
 
+/** Adapter options extended with configurable default and maximum timeout. */
 export interface TimeoutAdapterOptions extends BaseAdapterOptions {
 	defaultTimeoutSeconds?: number;
 	maxTimeoutSeconds?: number;
 }
 
+/** Resolve an effective timeout in milliseconds, clamped to a configured maximum. */
 export function resolveTimeout(
 	opts: Pick<TimeoutAdapterOptions, "defaultTimeoutSeconds" | "maxTimeoutSeconds">,
 	requested: number | undefined,
@@ -25,12 +28,14 @@ export function resolveTimeout(
 	return Math.min(effective, opts.maxTimeoutSeconds ?? defaults.max) * 1000;
 }
 
+/** Extract the subset of BaseAdapterOptions needed by defineAdapter. */
 export function spreadAdapterOptions<T extends BaseAdapterOptions>(
 	opts: T,
 ): Pick<AdapterOptions, "actions" | "logger"> {
 	return { actions: opts.actions, logger: opts.logger };
 }
 
+/** Type-safe tool builder that pairs a ToolDefinition with action/stream wiring. */
 export interface AdapterTool<TSchema extends ZodTypeAny> extends ToolDefinition {
 	readonly inputSchema: TSchema;
 	action(
@@ -41,6 +46,7 @@ export interface AdapterTool<TSchema extends ZodTypeAny> extends ToolDefinition 
 	): Record<string, CommandAction>;
 }
 
+/** Create a typed tool definition with fluent .action() and .stream() helpers. */
 export function tool<TSchema extends ZodTypeAny>(
 	name: string,
 	description: string,
@@ -58,10 +64,12 @@ export function tool<TSchema extends ZodTypeAny>(
 	};
 }
 
+/** Tag an array of strings as adapter directive lines (identity helper for readability). */
 export function directive(...lines: string[]): string[] {
 	return lines;
 }
 
+/** Attach caching and invalidation behaviour to a command action. */
 export function cachePolicy(
 	action: CommandAction,
 	policy: {
@@ -72,6 +80,7 @@ export function cachePolicy(
 	return { ...action, ...policy };
 }
 
+/** Truncate content and attach a TUI display block to the event payload. */
 export function withTruncatedDisplay(
 	data: Record<string, unknown>,
 	content: string,

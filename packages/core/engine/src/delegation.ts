@@ -39,6 +39,7 @@ const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
 	{ name: "web", actions: [], toolNames: [] },
 ];
 
+/** Injected factory functions the delegation stack uses to create cross-cutting adapters. */
 export interface DelegationAdapters {
 	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
 	strategyRegistry?: { register(name: string, strategy: unknown): void };
@@ -48,6 +49,7 @@ export interface DelegationAdapters {
 	createSessionContextStage: (opts: any) => ContextAssemblyHandler;
 }
 
+/** Configuration for building explore/general strategies, context assembly, and domain adapters. */
 export interface DelegationStackOptions {
 	cwd: string;
 	factory: SubagentFactory;
@@ -65,6 +67,7 @@ export interface DelegationStackOptions {
 	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
 }
 
+/** Materialized adapter set with explore/general strategies and context assembly pipeline. */
 export interface DelegationStack {
 	adapters: Adapter[];
 	contextAssembly: ReturnType<typeof createContextAssembler>;
@@ -72,6 +75,7 @@ export interface DelegationStack {
 	generalAdapters: Adapter[];
 }
 
+/** Materialize adapters, wire explore/general strategies, and assemble the context pipeline. */
 export async function buildDelegationStack(opts: DelegationStackOptions): Promise<DelegationStack> {
 	const {
 		cwd,

@@ -59,6 +59,7 @@ const activeToolCalls = new Gauge({
 	help: "Number of currently active tool calls",
 });
 
+/** Subscribe to agent bus events and update Prometheus counters, histograms, and gauges. */
 export function setupMetrics(bus: Bus): void {
 	bus.notification.subscribe("llm.token-usage", (event) => {
 		const p = event.payload;
@@ -113,6 +114,7 @@ export function setupMetrics(bus: Bus): void {
 	});
 }
 
+/** Serialize all registered Prometheus metrics as text for the /metrics endpoint. */
 export async function metricsHandler(): Promise<string> {
 	return register.metrics();
 }

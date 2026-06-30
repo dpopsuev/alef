@@ -10,6 +10,7 @@ import type { SelectItem } from "@dpopsuev/alef-tui";
 import type { SessionPreviewProvider } from "../../boot/session.js";
 import { runPicker } from "./picker.js";
 
+/** Show a vi-modal session picker with preview and return the chosen session ID. */
 export async function pickSession(
 	sessions: Array<{ id: string; path: string; mtime: Date }>,
 	preview?: SessionPreviewProvider,

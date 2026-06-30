@@ -37,6 +37,7 @@ const SHELL_EXEC_TOOL = {
 // Typed error
 // ---------------------------------------------------------------------------
 
+/** Error thrown when a shell command exceeds its configured timeout. */
 export class ShellTimeoutError extends Error {
 	readonly timedOut = true;
 	readonly exitCode: number;
@@ -53,11 +54,12 @@ export class ShellTimeoutError extends Error {
 // Options
 // ---------------------------------------------------------------------------
 
-/** Default timeout when the LLM omits the timeout field. 120 seconds. */
+/** Default timeout in seconds when the LLM omits the timeout field. */
 export const DEFAULT_SHELL_TIMEOUT_S = 300;
-/** Hard cap: the LLM cannot request a timeout longer than this. 600 seconds. */
+/** Hard cap in seconds on LLM-requested timeouts. */
 export const MAX_SHELL_TIMEOUT_S = 600;
 
+/** Configuration for the shell adapter including cwd, timeouts, guards, and PTY mode. */
 export interface ShellAdapterOptions {
 	cwd: string;
 	shellPath?: string;
@@ -124,16 +126,19 @@ async function* pushQueue<T>(register: (push: (item: T) => void, done: () => voi
 // prescriptive: the LLM reads them as tool results and follows the guidance.
 // ---------------------------------------------------------------------------
 
+/** Outcome of a command guard check indicating whether execution is blocked and why. */
 export interface GuardResult {
 	blocked: boolean;
 	reason: string;
 }
 
+/** A single safety rule that tests a command string and provides a rejection reason. */
 export interface GuardRule {
 	test: (cmd: string) => boolean;
 	reason: string;
 }
 
+/** Built-in guard rules that block destructive or unsafe shell commands before execution. */
 export const DEFAULT_GUARD_RULES: readonly GuardRule[] = [
 	{
 		test: (cmd) => /\bgit\b/.test(cmd) && /--no-verify/.test(cmd),
@@ -166,6 +171,7 @@ export const DEFAULT_GUARD_RULES: readonly GuardRule[] = [
 	},
 ];
 
+/** Check a command against guard rules and return whether it should be blocked. */
 export function guardCommand(command: string, rules: readonly GuardRule[] = DEFAULT_GUARD_RULES): GuardResult {
 	for (const rule of rules) {
 		if (rule.test(command)) return { blocked: true, reason: rule.reason };
@@ -413,6 +419,7 @@ async function* streamExecPty(
 // Factory
 // ---------------------------------------------------------------------------
 
+/** Build a shell adapter with streaming exec, command guards, and optional PTY persistence. */
 export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 	const pool = options.usePty ? new PtyPool() : null;
 	const exec = pool

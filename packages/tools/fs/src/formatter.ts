@@ -76,6 +76,7 @@ function run(cmd: string[], cwd: string): Promise<void> {
 	});
 }
 
+/** Auto-detect and run the project's code formatter on a file (biome, prettier, gofmt, etc.). */
 export async function runFormatter(cwd: string, absolutePath: string): Promise<void> {
 	try {
 		const cmd = await detectCommand(cwd, absolutePath);

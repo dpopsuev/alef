@@ -70,16 +70,19 @@ export function withLlmContent(
 	return { ...metadata, content, _display: display };
 }
 
+/** Narrow a payload field to string, returning undefined if absent or wrong type. */
 export function getString(payload: Record<string, unknown>, key: string): string | undefined {
 	const v = payload[key];
 	return typeof v === "string" ? v : undefined;
 }
 
+/** Narrow a payload field to number, returning undefined if absent or wrong type. */
 export function getNumber(payload: Record<string, unknown>, key: string): number | undefined {
 	const v = payload[key];
 	return typeof v === "number" ? v : undefined;
 }
 
+/** Narrow a payload field to boolean, returning undefined if absent or wrong type. */
 export function getBoolean(payload: Record<string, unknown>, key: string): boolean | undefined {
 	const v = payload[key];
 	return typeof v === "boolean" ? v : undefined;

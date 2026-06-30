@@ -15,6 +15,7 @@
 import type { Editor } from "@dpopsuev/alef-tui";
 import { APP_KEYBINDINGS, KeyMap, matchesKey } from "@dpopsuev/alef-tui";
 
+/** The two outer modes of the vi-modal input handler. */
 export type ModalMode = "insert" | "normal";
 
 // Raw sequences forwarded to the editor for Normal-mode motion/editing.
@@ -47,6 +48,7 @@ const allCommandNames = registry
 	.map((c) => `:${c.name}`)
 	.sort();
 
+/** Neovim-style modal input handler with normal, insert, command, and search modes. */
 export class ModalInputHandler {
 	private outerMode: ModalMode = "insert";
 	/** Internal command-line state — active when user presses ':' in Normal. */

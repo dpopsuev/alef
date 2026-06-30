@@ -1,13 +1,16 @@
 import { InMemoryToolResultCache, NoopToolResultCache, type ToolResultCache } from "./cache.js";
 
+/** Cache partition key identifying which file tool a cache instance serves. */
 export type FsCacheScope = "grep" | "find" | "ls";
 
+/** Configuration for filesystem runtime caches (TTL, max entries, enable/disable). */
 export interface FsRuntimeOptions {
 	cacheEnabled?: boolean;
 	cacheTtlMs: number;
 	cacheMaxEntries: number;
 }
 
+/** Manages per-scope tool result caches for grep, find, and ls queries. */
 export class FsRuntime {
 	private readonly _cacheEnabled: boolean;
 	private readonly _caches: Record<FsCacheScope, ToolResultCache>;

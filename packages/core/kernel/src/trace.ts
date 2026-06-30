@@ -33,6 +33,7 @@ const MAX_PENDING = 500;
 // Trace context — AsyncLocalStorage carries correlationId + turn
 // ---------------------------------------------------------------------------
 
+/** Async-local context carrying the active correlation ID and optional turn number. */
 export interface TraceContext {
 	correlationId: string;
 	turn?: number;
@@ -40,10 +41,12 @@ export interface TraceContext {
 
 const traceContextStorage = new AsyncLocalStorage<TraceContext>();
 
+/** Execute a function within an AsyncLocalStorage trace context. */
 export function runInTraceContext<T>(ctx: TraceContext, fn: () => T): T {
 	return traceContextStorage.run(ctx, fn);
 }
 
+/** Retrieve the current trace context from AsyncLocalStorage, if any. */
 export function getTraceContext(): TraceContext | undefined {
 	return traceContextStorage.getStore();
 }
@@ -73,6 +76,7 @@ export function initSessionSink(sink: SessionSink): void {
 	flushPending();
 }
 
+/** Emit a structured trace event, buffering if no sink is registered yet. */
 export function traceEvent(event: string, extra?: Record<string, unknown>): void {
 	const ctx = traceContextStorage.getStore();
 	const enriched = ctx ? { correlationId: ctx.correlationId, ...(ctx.turn !== undefined ? { turn: ctx.turn } : {}), ...(extra ?? {}) } : extra;
@@ -98,6 +102,7 @@ export const debugLog = traceEvent;
  * Naming: snake_case for log fields (pino/OTel convention).
  * Values match the field names in StorageRecord, BusMessage, and Post.
  */
+/** Canonical log field key constants to prevent typo-induced schema drift across packages. */
 export const LogField = {
 	component: "component",
 	adapter: "adapter",

@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { Agent } from "./agent.js";
 
+/** Callback invoked when the agent emits a reply event. */
 export type ReplySink = (text: string, sender: string) => void;
 
+/** Options for configuring how AgentController routes messages and receives replies. */
 export interface AgentControllerOptions {
 	onReply?: ReplySink;
 	triggerEvent?: string;
@@ -16,6 +18,7 @@ type PendingRequest = {
 	timer: ReturnType<typeof setTimeout>;
 };
 
+/** Correlates request/reply pairs over the agent bus with timeout tracking. */
 export class AgentController {
 	private readonly agent: Agent;
 	private readonly triggerEvent: string;

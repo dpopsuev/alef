@@ -45,6 +45,7 @@ const CURRENT_FILE = join(PM_ROOT, "current");
 // Types
 // ---------------------------------------------------------------------------
 
+/** Immutable snapshot of a package-lock state with lineage metadata. */
 export interface Generation {
 	id: number;
 	ts: string;
@@ -54,6 +55,7 @@ export interface Generation {
 	parent: number | null;
 }
 
+/** Human-readable generation summary with resolved adapter versions. */
 export interface HistoryEntry {
 	id: number;
 	ts: string;
@@ -65,6 +67,7 @@ export interface HistoryEntry {
 // Initialisation
 // ---------------------------------------------------------------------------
 
+/** Ensure the PM root directory, generations, and local-store directories exist. */
 export function init(): void {
 	mkdirSync(PM_ROOT, { recursive: true });
 	mkdirSync(GEN_DIR, { recursive: true });
@@ -168,6 +171,7 @@ export function restoreLocalAdapter(hash: string, fileName: string): string {
 // Core operations
 // ---------------------------------------------------------------------------
 
+/** Execute an npm command scoped to the PM root directory. */
 export async function runNpm(...args: string[]): Promise<void> {
 	if (process.env.ALEF_PM_SKIP_NPM === "1") return;
 	const cmd = `npm ${args.join(" ")} --prefix ${PM_ROOT}`;
@@ -176,11 +180,13 @@ export async function runNpm(...args: string[]): Promise<void> {
 	if (stderr) process.stderr.write(stderr);
 }
 
+/** Package.json "alef" field declaring the adapter's type and entry point. */
 export interface AlefManifest {
 	type: "tool" | "provider" | "blueprint" | "core" | "ui" | "cli";
 	entry: string;
 }
 
+/** Read the "alef" manifest field from a package's package.json. */
 export function readManifest(packageName: string): AlefManifest | undefined {
 	const pkgJsonPath = join(PM_ROOT, "node_modules", packageName, "package.json");
 	if (!existsSync(pkgJsonPath)) return undefined;
@@ -306,6 +312,7 @@ export function gc(keep = 10): { removedGenerations: number; removedStoreEntries
 // Discovery
 // ---------------------------------------------------------------------------
 
+/** npm search result for an adapter package. */
 export interface SearchResult {
 	name: string;
 	description: string;
@@ -344,6 +351,7 @@ export async function search(query: string): Promise<SearchResult[]> {
 // SBOM
 // ---------------------------------------------------------------------------
 
+/** SPDX-2.3 package component with checksums and external references. */
 export interface SbomComponent {
 	SPDXID: string;
 	name: string;
@@ -401,6 +409,7 @@ export function sbom(): object {
 	};
 }
 
+/** Metadata for a package installed in the PM node_modules directory. */
 export interface InstalledPackage {
 	name: string;
 	version: string;
@@ -409,6 +418,7 @@ export interface InstalledPackage {
 	entry: string;
 }
 
+/** Enumerate all packages installed in the PM node_modules directory. */
 export function listInstalled(): InstalledPackage[] {
 	const nmDir = join(PM_ROOT, "node_modules");
 	if (!existsSync(nmDir)) return [];
@@ -480,6 +490,7 @@ export function resolveAdapterPath(name: string): string | undefined {
 // Project-level lockfile — commit adapter versions alongside code (like Cargo.lock)
 // ---------------------------------------------------------------------------
 
+/** Portable lockfile capturing adapter versions for reproducible project installs. */
 export interface ProjectLockfile {
 	/** Alef version that wrote this lockfile. */
 	alef: string;

@@ -1,6 +1,7 @@
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { createWebAdapter } from "./adapter.js";
 
+/** Supervisor service descriptor for the web adapter. */
 export const service: ServiceDescriptor = {
 	name: "web",
 	restart: "transient",

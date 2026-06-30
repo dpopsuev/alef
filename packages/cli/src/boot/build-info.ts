@@ -22,6 +22,7 @@ function readVersion(): string {
 	}
 }
 
+/** Compile-time metadata: semver, git hash, branch, and build timestamp. */
 export const BUILD_INFO = {
 	version: readVersion(),
 	gitHash: exec("git rev-parse --short HEAD"),

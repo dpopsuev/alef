@@ -20,6 +20,7 @@ import type { AgentEvent, DirectiveView, Session, SessionState } from "@dpopsuev
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 
+/** Dependencies injected into SessionHandle at construction time. */
 export interface SessionHandleComponents {
 	state: SessionState;
 	model: Model<Api>;
@@ -33,6 +34,7 @@ export interface SessionHandleComponents {
 	modelFactory: (id: string) => Model<Api>;
 }
 
+/** Thin runtime state wrapper that delegates send/receive/subscribe to the assembled agent. */
 export class SessionHandle implements Session {
 	readonly state: SessionState;
 

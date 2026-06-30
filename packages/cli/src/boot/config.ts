@@ -138,8 +138,10 @@ const ConfigSchema = z.object({
 		.optional(),
 });
 
+/** User-level configuration parsed from ~/.config/alef/config.yaml. */
 export type AlefConfig = z.infer<typeof ConfigSchema>;
 
+/** Default values for daemon-mode settings when not specified in config.yaml. */
 export const DAEMON_DEFAULTS = {
 	port: 0,
 	host: "127.0.0.1",
@@ -148,8 +150,10 @@ export const DAEMON_DEFAULTS = {
 	heartbeat: 60,
 } satisfies Required<NonNullable<AlefConfig["daemon"]>>;
 
+/** Fully-resolved daemon configuration with all fields guaranteed present. */
 export type DaemonConfig = Required<NonNullable<AlefConfig["daemon"]>>;
 
+/** Merge user daemon config with defaults to produce a fully-resolved DaemonConfig. */
 export function resolveDaemonConfig(cfg: AlefConfig): DaemonConfig {
 	return { ...DAEMON_DEFAULTS, ...cfg.daemon };
 }
@@ -169,6 +173,7 @@ function configPath(): string {
 
 let _config: AlefConfig | null = null;
 
+/** Load and parse the user config from the XDG config path, caching the result. */
 export function loadConfig(): AlefConfig {
 	if (_config) return _config;
 
@@ -198,6 +203,7 @@ export function loadConfig(): AlefConfig {
 	return _config;
 }
 
+/** Return the cached config or load it on first access. */
 export function getConfig(): AlefConfig {
 	return _config ?? loadConfig();
 }

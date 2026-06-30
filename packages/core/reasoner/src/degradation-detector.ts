@@ -2,6 +2,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 const REREAD_THRESHOLD = 3;
 
+/** Tracks repeated tool calls and file re-reads to detect context degradation mid-session. */
 export class DegradationDetector {
 	private readonly fileReads = new Map<string, number>();
 	private readonly toolRepetitions = new Map<string, number>();

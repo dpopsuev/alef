@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 
+/** Shell binary path and its invocation arguments (e.g. ["-c"]). */
 export interface ShellConfig {
 	shell: string;
 	args: string[];
@@ -37,6 +38,7 @@ function findBashOnPath(): string | null {
 	return null;
 }
 
+/** Resolve the shell binary and args, preferring custom path, then Git Bash (Windows), then /bin/bash. */
 export function getShellConfig(customShellPath?: string): ShellConfig {
 	if (customShellPath) {
 		if (existsSync(customShellPath)) {
@@ -88,6 +90,7 @@ export function getShellConfig(customShellPath?: string): ShellConfig {
 	return { shell: "sh", args: ["-c"] };
 }
 
+/** Return the process environment with an optional binDir prepended to PATH. */
 export function getShellEnv(options: { binDir?: string } = {}): NodeJS.ProcessEnv {
 	const binDir = options.binDir;
 	if (!binDir) {
@@ -105,6 +108,7 @@ export function getShellEnv(options: { binDir?: string } = {}): NodeJS.ProcessEn
 	};
 }
 
+/** Strip non-printable control characters from shell output, keeping tabs and newlines. */
 export function sanitizeBinaryOutput(str: string): string {
 	return Array.from(str)
 		.filter((char) => {

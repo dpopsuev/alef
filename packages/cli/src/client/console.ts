@@ -59,6 +59,7 @@ import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
 import { buildPool, randomCodePoint } from "./greeter.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
 
+/** Manages the input-zone UI: editor, spinner, in-flight tool cards, and status widgets. */
 export class PromptConsole {
 	readonly editor: Editor;
 

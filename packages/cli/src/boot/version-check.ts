@@ -34,6 +34,7 @@ async function fetchLatestVersion(): Promise<string | null> {
 	}
 }
 
+/** Check GitHub for a newer release and return an upgrade notice, or null if current. */
 export async function checkForUpdate(): Promise<string | null> {
 	if (process.env.ALEF_SKIP_UPDATE_CHECK === "1") return null;
 	if (process.env.ALEF_OFFLINE === "1") return null;

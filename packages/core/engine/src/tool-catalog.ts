@@ -56,8 +56,10 @@ const CANCEL_TOOL = {
 	}),
 } satisfies ToolDefinition;
 
+/** Strategy for exposing tool schemas to the LLM — all at once or on demand. */
 export type ToolDisclosure = "full" | "progressive";
 
+/** Configuration for the ToolShell adapter's catalog, disclosure mode, and eviction timing. */
 export interface ToolShellOptions {
 	/** All domain tools available to the agent, captured at construction time. */
 	tools: readonly ToolDefinition[];
@@ -190,6 +192,7 @@ function createPromotionTracker(): PromotionTracker {
 	};
 }
 
+/** Build a ToolShell adapter that manages progressive tool discovery and schema promotion. */
 export function createToolShellAdapter(opts: ToolShellOptions) {
 	const { adapterDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
 	const envDisclosure = process.env.ALEF_TOOL_DISCLOSURE;
@@ -395,6 +398,7 @@ export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 	].join("\n");
 }
 
+/** Collect per-tool directive blocks from all adapters into a name-keyed lookup map. */
 export function buildAdapterDirectives(
 	adapters: readonly { tools: readonly ToolDefinition[]; directives?: readonly string[] }[],
 ): ReadonlyMap<string, readonly string[]> {

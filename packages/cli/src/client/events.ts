@@ -11,6 +11,7 @@ import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./st
 // dots (turn.start). Both inhabit TuiEvent but are visually distinct.
 // ---------------------------------------------------------------------------
 
+/** Typed events from the TUI input layer (keyboard, editor, modal, inspector). */
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
@@ -26,6 +27,7 @@ export type TuiInputEvent =
 	| { type: "inspector.scroll"; direction: -1 | 1 }
 	| { type: "inspector.cancel" };
 
+/** Union of agent-emitted events and TUI input events dispatched through the TUI state machine. */
 export type TuiEvent = AgentEvent | TuiInputEvent;
 
 // ---------------------------------------------------------------------------
@@ -175,6 +177,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 // Built-in cases handle turn lifecycle, tool display, and inspector chrome.
 // ---------------------------------------------------------------------------
 
+/** Route a TuiEvent through adapter signal handlers and built-in state transitions. */
 export function dispatchTuiEvent(
 	state: TuiState,
 	event: TuiEvent,
@@ -469,6 +472,7 @@ const TASK_TOAST_DURATION_MS = 5000;
 const INSPECTOR_LINES = 12;
 const INSPECTOR_SCROLL_STEP = 3;
 
+/** Render a scrollable window of tool output chunks for the inspector detail view. */
 export function renderChunkWindow(chunks: string[], scrollOffset: number): string {
 	const all = chunks.join("").split("\n");
 	const end = Math.max(0, all.length - scrollOffset);
@@ -476,6 +480,7 @@ export function renderChunkWindow(chunks: string[], scrollOffset: number): strin
 	return all.slice(start, end).join("\n");
 }
 
+/** Set the focused call in the inspector and render its chunk window. */
 export function updateInspectorView(state: TuiState, ui: TuiUi, callId: string | null, scrollOffset = 0): void {
 	ui.promptConsole.setFocusedCall(callId);
 	if (callId && state.callChunks.has(callId)) {
@@ -486,6 +491,7 @@ export function updateInspectorView(state: TuiState, ui: TuiUi, callId: string |
 	}
 }
 
+/** Cycle inspector focus to the next active tool call. */
 export function handleInspectorCycle(state: TuiState, ui: TuiUi): TuiState {
 	if (state.activeCalls.size === 0) return state;
 	const ids = [...state.activeCalls.keys()];
@@ -495,11 +501,13 @@ export function handleInspectorCycle(state: TuiState, ui: TuiUi): TuiState {
 	return { ...state, focusedCallId: nextId };
 }
 
+/** Close the inspector and clear focus from all tool calls. */
 export function handleInspectorClose(state: TuiState, ui: TuiUi): TuiState {
 	updateInspectorView(state, ui, null);
 	return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
 }
 
+/** Scroll the inspector chunk detail view up or down by a fixed step. */
 export function handleInspectorScroll(state: TuiState, ui: TuiUi, direction: -1 | 1): TuiState {
 	if (!state.focusedCallId) return state;
 	const chunks = state.callChunks.get(state.focusedCallId) ?? [];
@@ -510,6 +518,7 @@ export function handleInspectorScroll(state: TuiState, ui: TuiUi, direction: -1 
 	return { ...state, inspectorScrollOffset: next };
 }
 
+/** Cancel the currently focused tool call via the session. */
 export function handleInspectorCancel(state: TuiState, ui: TuiUi): TuiState {
 	if (!state.focusedCallId) return state;
 	const entry = state.activeCalls.get(state.focusedCallId);

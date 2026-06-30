@@ -5,6 +5,7 @@ import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { listInstalled, resolveAdapterPath } from "../pkg/alef-pm.js";
 
+/** Scan PM-installed packages for blueprint manifests and register them in the global registry. */
 export function initPmBlueprints(): void {
 	const installed = listInstalled();
 	let count = 0;

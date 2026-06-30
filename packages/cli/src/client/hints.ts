@@ -3,11 +3,13 @@ const HINT_COL_MIN_WIDTH = 20;
 import type { Component } from "@dpopsuev/alef-tui";
 import { fuzzyFilter, truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
 
+/** A command name and description pair for display in the hint grid. */
 export interface CommandHint {
 	name: string;
 	description: string;
 }
 
+/** Configuration for the command hint grid component. */
 export interface CommandHintGridOptions {
 	commands: CommandHint[];
 	columns?: number;
@@ -15,6 +17,7 @@ export interface CommandHintGridOptions {
 	activeStyle?: (text: string) => string;
 }
 
+/** Multi-column grid that displays available :commands, filterable by fuzzy match. */
 export class CommandHintGrid implements Component {
 	private commands: CommandHint[];
 	private filtered: CommandHint[];

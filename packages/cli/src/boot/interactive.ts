@@ -15,6 +15,7 @@ const EXIT_COMMAND = "/exit";
 
 import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 
+/** Configuration for the readline-based interactive dialog loop. */
 export interface InteractiveOptions {
 	cwd: string;
 	modelId: string;
@@ -32,6 +33,7 @@ export interface InteractiveOptions {
 	actorRoutes?: ActorRouteTable;
 }
 
+/** Drive a read-eval-print loop over stdin, sending each line to the session. */
 export async function runInteractive(session: Session, opts: InteractiveOptions): Promise<void> {
 	if (process.stdin.isTTY) {
 		console.log(`Alef agent ready. Working directory: ${opts.cwd}`);

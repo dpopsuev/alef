@@ -1,9 +1,11 @@
+/** Notification payload emitted when a tool call begins execution. */
 export interface ToolCallStart {
 	callId: string;
 	name: string;
 	args: Record<string, unknown>;
 }
 
+/** Notification payload emitted when a tool call completes with its result or error. */
 export interface ToolCallEnd {
 	callId: string;
 	elapsedMs: number;
@@ -13,6 +15,7 @@ export interface ToolCallEnd {
 	displayKind?: string;
 }
 
+/** Aggregated token counts and estimated cost for a single LLM call. */
 export interface TokenUsage {
 	input: number;
 	output: number;
@@ -20,6 +23,7 @@ export interface TokenUsage {
 	costUsd?: number;
 }
 
+/** Discriminated union of all notification-bus events emitted by the LLM reasoning loop. */
 export type LlmEvent =
 	| ({ type: "tool-start" } & ToolCallStart)
 	| ({ type: "tool-end" } & ToolCallEnd)

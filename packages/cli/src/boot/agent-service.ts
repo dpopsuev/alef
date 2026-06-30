@@ -6,12 +6,14 @@ import type { Args } from "./args.js";
 import { type AlefConfig, resolveDaemonConfig } from "./config.js";
 import type { SessionService } from "./session-service.js";
 
+/** Options needed to create the agent supervisor service. */
 export interface AgentServiceOptions {
 	args: Args;
 	cfg: AlefConfig;
 	storage: StorageFactory;
 }
 
+/** Build a ServiceDescriptor that manages daemon registration, heartbeat, and HTTP surface readiness. */
 export function createAgentServiceDescriptor(opts: AgentServiceOptions): ServiceDescriptor {
 	return {
 		name: "agent",

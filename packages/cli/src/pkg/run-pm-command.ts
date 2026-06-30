@@ -1,5 +1,6 @@
 import type { Args } from "../boot/args.js";
 
+/** Run `npm install -g @dpopsuev/alef@latest` if --update was requested and exit. */
 export async function handleSelfUpdate(args: Args): Promise<void> {
 	if (!args.pmSelfUpdate) return;
 	const { execSync } = await import("node:child_process");
@@ -25,6 +26,7 @@ export async function handleSelfUpdate(args: Args): Promise<void> {
 	process.exit(0);
 }
 
+/** Dispatch a package-manager subcommand (install, remove, upgrade, etc.) and exit. */
 export async function runPmCommand(args: Args): Promise<boolean> {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from CLI args must fall through in boolean chain */
 	const hasPmFlag =

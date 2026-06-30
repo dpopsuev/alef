@@ -118,6 +118,7 @@ export class ConfigurationError extends AlefError {
 	}
 }
 
+/** Errors occurring during adapter init, mount, unmount, or execution phases. */
 export class AdapterError extends AlefError {
 	readonly adapterName: string;
 	readonly phase: "init" | "mount" | "unmount" | "execute";

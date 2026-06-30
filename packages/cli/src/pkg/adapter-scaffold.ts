@@ -118,6 +118,7 @@ adapters:
 `;
 }
 
+/** Generate a publishable adapter package skeleton under cwd and return its path. */
 export function scaffoldAdapter(name: string, cwd: string, version = "0.1.0"): string {
 	const dir = join(cwd, `alef-adapter-${name}`);
 	const srcDir = join(dir, "src");

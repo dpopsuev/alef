@@ -12,6 +12,7 @@ import type { TokenFooterHandle, TuiWriter } from "./state.js";
  */
 const SEND_TIMEOUT_MS = 3_600_000;
 
+/** Dependencies and callbacks for the editor's onSubmit handler. */
 export interface SubmitConfig {
 	actorRoutes: InteractiveOptions["actorRoutes"];
 	session: Session;

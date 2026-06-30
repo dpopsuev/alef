@@ -36,6 +36,7 @@ export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtim
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { createFsAdapter } from "./adapter.js";
 
+/** Factory entry point for the materializer's dynamic-load protocol, auto-prefixing action names with "fs.". */
 export function createAdapter(opts: { cwd: string; actions?: string[]; logger?: AdapterLogger }): Adapter {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `fs.${a}`));
 	return createFsAdapter({ ...opts, actions });

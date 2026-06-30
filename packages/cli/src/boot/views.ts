@@ -24,6 +24,7 @@ import type { InteractiveOptions } from "./interactive.js";
 // Core interface
 // ---------------------------------------------------------------------------
 
+/** Strategy interface for UI surfaces that attach to a Session for input/output. */
 export interface ViewMode {
 	run(session: Session): Promise<void>;
 }
@@ -38,6 +39,7 @@ export interface ViewMode {
 // Pattern: Observer (session.subscribe) + typed query methods.
 // ---------------------------------------------------------------------------
 
+/** In-process viewer for tests that records events and exposes typed query methods. */
 export class HeadlessViewMode implements ViewMode {
 	private readonly _events: AgentEvent[] = [];
 	private _session: Session | null = null;
@@ -116,6 +118,7 @@ export class HeadlessViewMode implements ViewMode {
 // TuiViewMode — wraps runTuiMode
 // ---------------------------------------------------------------------------
 
+/** ANSI terminal view mode backed by the full TUI renderer. */
 export class TuiViewMode implements ViewMode {
 	constructor(
 		private readonly opts: Omit<InteractiveOptions, never>,
@@ -132,6 +135,7 @@ export class TuiViewMode implements ViewMode {
 // PrintViewMode — wraps runPrintMode
 // ---------------------------------------------------------------------------
 
+/** Single-prompt view mode that sends one message, prints the reply, and exits. */
 export class PrintViewMode implements ViewMode {
 	constructor(private readonly prompt: string) {}
 
@@ -145,6 +149,7 @@ export class PrintViewMode implements ViewMode {
 // JsonViewMode — wraps runInteractive in json/headless mode
 // ---------------------------------------------------------------------------
 
+/** JSONL event stream view mode for machine-readable stdout output. */
 export class JsonViewMode implements ViewMode {
 	constructor(private readonly opts: InteractiveOptions) {}
 
@@ -158,6 +163,7 @@ export class JsonViewMode implements ViewMode {
 // Factory
 // ---------------------------------------------------------------------------
 
+/** Choose the appropriate view mode based on CLI flags and TTY state. */
 export function selectViewMode(args: Args, interactiveOpts: InteractiveOptions, store?: SessionStore): ViewMode {
 	if (args.print) return new PrintViewMode(args.prompt);
 

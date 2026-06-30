@@ -10,6 +10,7 @@ function resolveLevel(debug: boolean): string {
 	return process.env.ALEF_LOG_LEVEL ?? "warn";
 }
 
+/** Create the main runner logger, silencing output when TUI is active unless debug is on. */
 export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger {
 	const level = willUseTui && !debug ? "silent" : resolveLevel(debug);
 	const logger = createLogger(level);
@@ -17,6 +18,7 @@ export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger 
 	return logger;
 }
 
+/** Create a pino logger writing to stderr with the given level. */
 export function createLogger(level?: string): Logger {
 	return pino({
 		level: level ?? resolveLevel(false),

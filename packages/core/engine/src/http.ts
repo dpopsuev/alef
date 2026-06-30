@@ -28,6 +28,7 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { EventStream } from "./sse.js";
 
+/** Standard HTTP status code constants used by the router. */
 export const HTTP = {
 	OK: 200,
 	ACCEPTED: 202,
@@ -40,14 +41,18 @@ export const HTTP = {
 	UNAVAILABLE: 503,
 } as const;
 
+/** Union of all HTTP status codes defined in the HTTP constant. */
 export type HttpStatus = (typeof HTTP)[keyof typeof HTTP];
 
+/** Request handler registered on a specific method+path route. */
 export type RouteHandler = (req: IncomingMessage, res: ServerResponse, bus: Bus) => void;
 
+/** Per-route configuration flags for the router. */
 export interface RouteOptions {
 	protected?: boolean;
 }
 
+/** Configuration for the HTTP/SSE router adapter. */
 export interface RouterOptions {
 	/** TCP port to listen on. Default: 3000. */
 	port?: number;
@@ -97,6 +102,7 @@ export interface RouterAddress {
 	port: number;
 }
 
+/** HTTP/SSE bridge adapter that streams bus events to clients and accepts inbound messages. */
 export class RouterAdapter implements Adapter {
 	readonly name = "router";
 	readonly description =

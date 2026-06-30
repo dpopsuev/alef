@@ -1,6 +1,7 @@
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { createShellAdapter } from "./adapter.js";
 
+/** Supervisor service descriptor for the shell adapter. */
 export const service: ServiceDescriptor = {
 	name: "shell",
 	restart: "permanent",

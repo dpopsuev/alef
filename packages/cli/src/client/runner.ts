@@ -28,6 +28,7 @@ export {
 export type { TuiHandlerContext } from "./handlers.js";
 export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./handlers.js";
 
+/** Boot the interactive TUI loop — wires layout, event dispatch, modal input, and session I/O. */
 export async function runTuiMode(
 	session: Session,
 	opts: InteractiveOptions & { terminal?: Terminal },
@@ -163,6 +164,7 @@ export async function runTuiMode(
 	traceEvent("tui:stopped");
 }
 
+/** Build a factory that produces a fresh TuiHandlerContext snapshot on each call. */
 export function createContextFactory(
 	t: ThemeTokens,
 	writer: ChatLog,
@@ -215,6 +217,7 @@ function matchesKey(data: string, combo: string): boolean {
 	return data === (KEY_MAP[combo] ?? combo);
 }
 
+/** Route raw terminal input to overlays, inspector, or global shortcuts before the editor sees it. */
 export function handleRawInput(
 	data: string,
 	tuiState: TuiState,
@@ -295,6 +298,7 @@ export function createOverlay(
 	return { id, component, handleInput };
 }
 
+/** Overlay identifier for the command history picker. */
 export const HISTORY_PICKER_ID = "history-picker";
 
 /**

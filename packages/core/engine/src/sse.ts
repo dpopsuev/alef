@@ -14,6 +14,7 @@
 
 import type { ServerResponse } from "node:http";
 
+/** Wire format for a single bus message sent over SSE. */
 export interface BusEvent {
 	bus: "command" | "event" | "notification";
 	type: string;
@@ -22,6 +23,7 @@ export interface BusEvent {
 	timestamp: number;
 }
 
+/** Manages connected SSE clients and broadcasts serialized bus events to them. */
 export class EventStream {
 	private readonly clients = new Set<ServerResponse>();
 

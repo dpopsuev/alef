@@ -22,6 +22,7 @@ function expandPath(filePath: string): string {
 	return normalized;
 }
 
+/** Resolve a file path (with tilde and unicode-space normalization) against a working directory. */
 export function resolveToCwd(filePath: string, cwd: string): string {
 	const expanded = expandPath(filePath);
 	if (isAbsolute(expanded)) {

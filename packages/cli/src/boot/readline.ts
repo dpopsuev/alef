@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 
 const PROMPT_PREFIX = "> ";
 
+/** Yield trimmed non-empty lines from stdin, printing a prompt in interactive mode. */
 export async function* readStdinLines(): AsyncGenerator<string> {
 	const rl = createInterface({
 		input: process.stdin,

@@ -159,6 +159,7 @@ const FS_UNDO_TOOL = {
 // Options
 // ---------------------------------------------------------------------------
 
+/** Configuration for the filesystem adapter including cwd, runtime, and security boundaries. */
 export interface FsAdapterOptions {
 	cwd: string;
 	runtime?: FsRuntime;
@@ -558,6 +559,7 @@ async function handlePatch(
 /** Cache-invalidation prefix list for all write-path actions. */
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
+/** Build a filesystem adapter with read, write, edit, grep, find, patch, and undo actions. */
 export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();

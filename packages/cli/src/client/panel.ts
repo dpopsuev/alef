@@ -12,6 +12,7 @@ import { registry } from "./commands/commands.js";
 import { PromptConsole } from "./console.js";
 import type { ThemeTokens } from "./theme.js";
 
+/** Configuration for constructing the input panel and its autocomplete providers. */
 export interface InputPanelOptions {
 	tui: TUI;
 	t: ThemeTokens;
@@ -20,6 +21,7 @@ export interface InputPanelOptions {
 	atProvider?: AutocompleteProvider;
 }
 
+/** Wires the prompt editor, history autocomplete, and application registry into the input zone. */
 export class InputPanel {
 	readonly promptConsole: PromptConsole;
 	readonly historyProvider: HistoryAutocompleteProvider;
@@ -97,6 +99,7 @@ export class InputPanel {
  *   └──────────────────────────────┘
  */
 
+/** Result returned when an input-zone application is dismissed. */
 export interface InputApplicationResult {
 	/** Value returned to the prompt or action system. */
 	value?: string;
@@ -104,6 +107,7 @@ export interface InputApplicationResult {
 	action?: string;
 }
 
+/** Protocol for applications that take over the input zone with custom rendering and keybindings. */
 export interface InputApplication {
 	/** Unique name for this application. */
 	readonly name: string;
@@ -121,6 +125,7 @@ export interface InputApplication {
 	onDismiss?(): InputApplicationResult | undefined;
 }
 
+/** Factory function that creates an InputApplication from command arguments. */
 export type InputApplicationFactory = (args: string) => InputApplication | undefined;
 
 /**

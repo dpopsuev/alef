@@ -46,6 +46,7 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 	return undefined;
 }
 
+/** Resolved adapters, model, surfaces, and security grants from blueprint materialization. */
 export interface AdapterLoadResult {
 	adapters: Adapter[];
 	blueprintModelId: string | undefined;
@@ -56,6 +57,7 @@ export interface AdapterLoadResult {
 	writableRoots: readonly string[] | undefined;
 }
 
+/** Discover and materialize adapters from a blueprint, CLI args, or user defaults. */
 export async function loadAdapters(
 	args: Args,
 	cfg: AlefConfig,

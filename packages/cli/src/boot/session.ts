@@ -61,6 +61,7 @@ function registerUiSignals(adapters: readonly { contributions?: { ui?: UiContrib
 	}
 }
 
+/** Return the map of registered UI signal handlers contributed by adapters. */
 export function getUiSignalHandlers(): ReadonlyMap<string, UiSignalHandler> {
 	return uiSignalHandlers;
 }
@@ -68,9 +69,11 @@ export function getUiSignalHandlers(): ReadonlyMap<string, UiSignalHandler> {
 const uiSignalHandlerKeys = new Set<string>();
 
 let _compacted = false;
+/** Return whether the context window has been compacted during this session. */
 export function isCompacted(): boolean {
 	return _compacted;
 }
+/** Flag that context compaction has occurred during this session. */
 export function markCompacted(): void {
 	_compacted = true;
 }
@@ -118,12 +121,14 @@ async function buildDirectiveSet(args: Args, adapters: readonly Adapter[]) {
 	return directives;
 }
 
+/** Actor identities and route table for the current session. */
 export interface IdentityContext {
 	humanActor: ActorIdentity;
 	agentActor: ActorIdentity;
 	actorRoutes: ActorRouteTable;
 }
 
+/** Derive human and agent actor identities from the session store and apply theme colors. */
 export function buildIdentityContext(store: SessionStore): IdentityContext {
 	const boardId = store.id.slice(0, 12);
 	const { humanActor, agentActor } = configureSessionActors(store.id, boardId);
@@ -135,6 +140,7 @@ export function buildIdentityContext(store: SessionStore): IdentityContext {
 	return { humanActor, agentActor, actorRoutes };
 }
 
+/** Assemble a fully wired local session with LLM adapter, directives, and agent. */
 export async function createLocalSession(
 	args: Args,
 	cfg: AlefConfig,

@@ -19,6 +19,7 @@ function isRetryableError(msg: string | undefined): boolean {
 	return false;
 }
 
+/** Return true if the assistant error is transient and retries remain. */
 export function shouldRetry(msg: AssistantMessage, retryCount: number, maxRetries: number): boolean {
 	return (
 		msg.stopReason === "error" &&
@@ -28,13 +29,16 @@ export function shouldRetry(msg: AssistantMessage, retryCount: number, maxRetrie
 	);
 }
 
+/** Compute exponential backoff delay in milliseconds, capped at maxDelayMs. */
 export function retryDelayMs(attempt: number, maxDelayMs: number): number {
 	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
 }
 
+/** Promise-based sleep for retry backoff delays. */
 // lint-ignore: RAWTIMER retry backoff sleep, not a deadline or stall detector
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Ensure a raw message has a timestamp and wrap bare-string assistant content in a text block. */
 export function normalizeMessage(m: unknown): Message {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- casting untyped bus payload for field access
 	const raw = m as Record<string, unknown>;

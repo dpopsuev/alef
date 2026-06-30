@@ -7,12 +7,14 @@ import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("alef.adapter-llm");
 
+/** A single tool invocation requested by the LLM — name, arguments, and correlation ID. */
 export interface ToolCall {
 	name: string;
 	args: Record<string, unknown>;
 	id: string;
 }
 
+/** Options for a single streaming LLM call — auth, timeout, thinking level, and bus handles. */
 export interface StreamTurnOptions {
 	timeoutMs?: number;
 	maxRetries?: number;
@@ -28,11 +30,13 @@ export interface StreamTurnOptions {
 	correlationId: string;
 }
 
+/** Result of a single LLM streaming call — the final assistant message and any pending tool calls. */
 export interface LLMCallResult {
 	finalMessage: AssistantMessage | undefined;
 	pendingCalls: ToolCall[];
 }
 
+/** Stream a single LLM request, emitting chunk/thinking notifications and collecting tool calls. */
 export async function callLLM(
 	model: Model<Api>,
 	messages: Message[],

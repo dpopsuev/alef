@@ -1,3 +1,4 @@
+/** Create a per-path write serialization queue that chains concurrent writes on the same file. */
 export function makeWriteQueue() {
 	const queues = new Map<string, Promise<void>>();
 

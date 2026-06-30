@@ -15,8 +15,10 @@ import {
 import { resolveToCwd } from "./path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, truncateHead } from "./truncate.js";
 
+/** Maximum number of results returned by find queries by default. */
 export const DEFAULT_FIND_LIMIT = 1000;
 
+/** Input parameters for the fd-backed file find query. */
 export interface FindToolInput {
 	pattern: string;
 	path?: string;
@@ -31,12 +33,15 @@ export interface FindToolInput {
 	hidden?: boolean;
 }
 
+/** Extended details for find query responses, including result limit info. */
 export interface FindToolDetails extends BaseToolDetails {
 	resultLimitReached?: number;
 }
 
+/** Response type for file find queries. */
 export type FindToolResponse = ToolQueryResponse<FindToolDetails>;
 
+/** Pluggable filesystem operations for the find query (enables test injection). */
 export interface FindOperations {
 	exists: (absolutePath: string) => Promise<boolean> | boolean;
 	glob: (pattern: string, cwd: string, options: { ignore: string[]; limit: number }) => Promise<string[]> | string[];
@@ -47,6 +52,7 @@ const defaultFindOperations: FindOperations = {
 	glob: () => [],
 };
 
+/** Options for executing a file find query via fd or custom operations. */
 export interface FindQueryOptions {
 	cwd: string;
 	operations?: FindOperations;
@@ -83,6 +89,7 @@ function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolRes
 	return withCacheHit<FindToolDetails>(cacheHit);
 }
 
+/** Execute a file-find query using fd with glob matching, caching, and truncation. */
 export async function executeFindQuery(input: FindToolInput, options: FindQueryOptions): Promise<FindToolResponse> {
 	const customOps = options.operations;
 	const cache = options.cache;

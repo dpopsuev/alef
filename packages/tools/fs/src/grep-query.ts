@@ -7,8 +7,10 @@ import { type BaseToolDetails, storeAndResolve, type ToolQueryResponse, withCach
 import { resolveToCwd } from "./path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, GREP_MAX_LINE_LENGTH, truncateHead, truncateLine } from "./truncate.js";
 
+/** Maximum number of matches returned by grep queries by default. */
 export const DEFAULT_GREP_LIMIT = 100;
 
+/** Input parameters for the ripgrep-backed content search query. */
 export interface GrepToolInput {
 	pattern: string;
 	path?: string;
@@ -25,13 +27,16 @@ export interface GrepToolInput {
 	countOnly?: boolean;
 }
 
+/** Extended details for grep query responses, including match limit and truncation info. */
 export interface GrepToolDetails extends BaseToolDetails {
 	matchLimitReached?: number;
 	linesTruncated?: boolean;
 }
 
+/** Response type for grep content search queries. */
 export type GrepToolResponse = ToolQueryResponse<GrepToolDetails>;
 
+/** Pluggable filesystem operations for the grep query (enables test injection). */
 export interface GrepOperations {
 	isDirectory: (absolutePath: string) => Promise<boolean> | boolean;
 	readFile: (absolutePath: string) => Promise<string> | string;
@@ -42,6 +47,7 @@ const defaultGrepOperations: GrepOperations = {
 	readFile: (entryPath) => readFileSync(entryPath, "utf-8"),
 };
 
+/** Options for executing a grep content search query via ripgrep. */
 export interface GrepQueryOptions {
 	cwd: string;
 	operations?: GrepOperations;
@@ -118,6 +124,7 @@ function withGrepCacheHit(cacheHit: ToolResultCacheHit | undefined): GrepToolRes
 	return withCacheHit<GrepToolDetails>(cacheHit);
 }
 
+/** Execute a ripgrep content search with caching, context lines, and truncation. */
 export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryOptions): Promise<GrepToolResponse> {
 	const customOps = options.operations;
 	const cache = options.cache;

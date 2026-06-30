@@ -18,6 +18,7 @@ function register(op: CliOp): void {
 	ops.push(op);
 }
 
+/** Run the first matching CLI introspection command (list-tools, preflight, etc.) and exit. */
 export function dispatchCliOp(args: Args, session: SessionHandle): boolean {
 	for (const op of ops) {
 		if (op.match(args)) {

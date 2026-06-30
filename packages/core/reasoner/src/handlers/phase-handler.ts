@@ -3,6 +3,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Message, Tool } from "@dpopsuev/alef-ai/types";
 import type { z } from "zod";
 
+/** Outcome of a context-assembly phase: continue with optional overrides, skip with a canned reply, or abort. */
 export type PhaseResult =
 	| { kind: "continue"; messages?: Message[]; tools?: ToolDefinition[] }
 	| { kind: "skip"; reply: string }
@@ -99,6 +100,7 @@ function waitForPhaseResult(
 	});
 }
 
+/** Publish a context.assemble command and collect phase results within the given timeout. */
 export async function runPhase(
 	command: MotorBus,
 	event: SenseBus,
@@ -121,6 +123,7 @@ export async function runPhase(
 	return phase;
 }
 
+/** Replace the current messages and tools arrays in-place with phase-provided overrides. */
 export function applyPhaseResult(
 	phase: PhaseResult,
 	messages: Message[],

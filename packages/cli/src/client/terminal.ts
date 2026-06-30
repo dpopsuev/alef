@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 // OSC 11 background color query
 // ---------------------------------------------------------------------------
 
+/** Parsed background color from an OSC 11 terminal response (channels normalized to 0-1). */
 export interface BgColor {
 	r: number; // 0–1
 	g: number;
@@ -19,6 +20,7 @@ export interface BgColor {
 	a: number; // 0–1
 }
 
+/** Parse an OSC 11 terminal response into normalized RGBA components. */
 export function parseOSC11Response(response: string): BgColor | null {
 	// Terminals respond to \x1b]11;?\x07 with:
 	//   \x1b]11;rgb:RRRR/GGGG/BBBB\x07       (16-bit channels)
@@ -35,6 +37,7 @@ export function parseOSC11Response(response: string): BgColor | null {
 	};
 }
 
+/** Compute the WCAG relative luminance of an RGB color. */
 export function relativeLuminance(c: Pick<BgColor, "r" | "g" | "b">): number {
 	function linear(x: number): number {
 		return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
@@ -132,6 +135,7 @@ export async function detectDark(opacity?: number): Promise<boolean> {
 // Sync fallback for contexts where async is unavailable (e.g. tests)
 // ---------------------------------------------------------------------------
 
+/** Synchronous fallback for dark-background detection using env vars only. */
 export function detectDarkSync(opacity?: number): boolean {
 	if (opacity !== undefined && opacity < 0.8) return true;
 	const fromEnv = detectFromColorfgbg();
@@ -221,6 +225,7 @@ export async function queryPalette(
 	});
 }
 
+/** Read the window opacity value from alacritty.toml if present. */
 export function readAlacrittyOpacity(): number | undefined {
 	const candidates = [
 		`${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/alacritty/alacritty.toml`,

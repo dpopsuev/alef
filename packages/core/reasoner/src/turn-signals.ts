@@ -1,11 +1,13 @@
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 
+/** Abort-signal management for a single turn — budget cancellation, per-call abort, and cleanup. */
 export interface TurnSignals {
 	readonly effectiveSignal: AbortSignal;
 	readonly callAbortControllers: Map<string, AbortController>;
 	dispose(): void;
 }
 
+/** Wire budget-cancel and per-tool-call abort controllers into a composite AbortSignal for the turn. */
 export function createTurnSignals(
 	sense: Bus["event"],
 	signal: Bus["notification"],

@@ -4,10 +4,12 @@ import { registry } from "./commands/commands.js";
 
 export type { TuiHandlerContext } from "./commands/commands.js";
 
+/** Render the top border of a chat header with an embedded label. */
 export function renderHeaderTopBorder(label: string, _width: number): string {
 	return label;
 }
 
+/** Handle Ctrl+C — abort the current turn if active, otherwise quit the TUI. */
 export function handleCtrlC(ctx: TuiHandlerContext): void {
 	if (ctx.abortCurrentTurn) {
 		traceEvent("ctrl+c:mid-turn");
@@ -38,6 +40,7 @@ const SLASH_TO_COLON: Record<string, string> = {
 	"/help": "help",
 };
 
+/** Dispatch a /slash command by mapping it to the corresponding colon command. */
 export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
 	const parts = text.trim().split(/\s+/);
 	const slash = parts[0].toLowerCase();
@@ -57,6 +60,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	return true;
 }
 
+/** Dispatch a :colon command by looking it up in the command registry. */
 export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolean {
 	const parts = text.trim().split(/\s+/);
 	const name = (parts[0] ?? "").replace(/^:/, "").toLowerCase();

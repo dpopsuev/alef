@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Directives } from "@dpopsuev/alef-agent/directives";
 
+/** Load AGENTS.md and .alef/directives/*.md from the workspace into the directive set. */
 export async function loadWorkspace(directives: Directives, cwd: string): Promise<void> {
 	for (const name of ["AGENTS.md", "agents.md"]) {
 		try {

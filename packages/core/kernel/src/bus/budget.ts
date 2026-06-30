@@ -1,11 +1,13 @@
 import type { Bus, BusMiddleware } from "./messages.js";
 import { makeBus } from "./messages.js";
 
+/** Resource limits for an adapter session: max tool calls and max elapsed time. */
 export interface Budget {
 	maxToolCalls?: number;
 	maxElapsedMs?: number;
 }
 
+/** Merge two budgets, taking the stricter (lower) value for each field. */
 export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 	const min = (a?: number, b?: number): number | undefined =>
 		a === undefined ? b : b === undefined ? a : Math.min(a, b);
@@ -15,6 +17,7 @@ export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 	};
 }
 
+/** Bus middleware that rejects commands once the tool-call budget is exhausted. */
 export function withLimits(limits: Budget): BusMiddleware {
 	return (bus: Bus): Bus => {
 		let toolCallCount = 0;
@@ -43,6 +46,7 @@ export function withLimits(limits: Budget): BusMiddleware {
 	};
 }
 
+/** Start a timer that publishes a budget.cancel event when maxElapsedMs is exceeded. */
 export function startElapsedTimer(limits: Budget, bus: Bus): (() => void) | undefined {
 	if (limits.maxElapsedMs === undefined) return undefined;
 	const timer = setTimeout(() => {

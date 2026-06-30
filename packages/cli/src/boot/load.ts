@@ -1,17 +1,20 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 
+/** Callback that presents a list of sessions and returns the chosen ID or undefined. */
 export type SessionPicker = (
 	sessions: Array<{ id: string; path: string; mtime: Date }>,
 	preview?: SessionPreviewProvider,
 ) => Promise<string | undefined>;
 
+/** Subset of CLI args relevant to session loading and resumption. */
 export interface LoadSessionArgs {
 	cwd: string;
 	resume: string | undefined;
 	listSessions: boolean;
 }
 
+/** Resume, pick, or create a session store based on CLI args and available sessions. */
 export async function loadSession(
 	args: LoadSessionArgs,
 	sessions: SessionStoreFactory,

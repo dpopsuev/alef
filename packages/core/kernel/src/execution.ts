@@ -5,11 +5,16 @@ function envInt(key: string, fallback: number): number {
 	return Number.isFinite(n) ? n : fallback;
 }
 
+/** Maximum wall-clock time for a full conversation (overridable via ALEF_CONVERSATION_TIMEOUT_MS). */
 export const DEFAULT_CONVERSATION_TIMEOUT_MS = envInt("ALEF_CONVERSATION_TIMEOUT_MS", 900_000);
+/** Idle timeout before the agent is considered stalled (overridable via ALEF_STALL_TIMEOUT_MS). */
 export const DEFAULT_STALL_TIMEOUT_MS = envInt("ALEF_STALL_TIMEOUT_MS", 180_000);
+/** Timeout for a single LLM HTTP call (overridable via ALEF_LLM_TIMEOUT_MS). */
 export const DEFAULT_LLM_TIMEOUT_MS = envInt("ALEF_LLM_TIMEOUT_MS", 120_000);
+/** Timeout for a single tool execution (overridable via ALEF_TOOL_TIMEOUT_MS). */
 export const DEFAULT_TOOL_TIMEOUT_MS = envInt("ALEF_TOOL_TIMEOUT_MS", 300_000);
 
+/** Parameters for sending a user message through an execution strategy. */
 export interface SendRequest {
 	text: string;
 	sender?: string;
@@ -31,6 +36,7 @@ export interface SendRequest {
 	onInnerEvent?: (callId: string, innerType: string, innerPayload: Record<string, unknown>) => void;
 }
 
+/** Pluggable strategy that drives the LLM conversation loop for a single send/reply cycle. */
 export interface ExecutionStrategy {
 	send(req: SendRequest): Promise<string>;
 	dispose?(): void;

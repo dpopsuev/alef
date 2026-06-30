@@ -5,6 +5,7 @@ import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { Args } from "../boot/args.js";
 import { metricsHandler, setupMetrics } from "../boot/metrics.js";
 
+/** Running HTTP router with its resolved port for SSE and REST endpoints. */
 export interface HttpSurface {
 	port: number;
 	router: RouterAdapter;
@@ -88,6 +89,7 @@ async function createRouter(
 	return { port: addr.port, router };
 }
 
+/** Create and start the HTTP/SSE router surface if --serve or --daemon is active. */
 export async function setupHttpSurface(
 	args: Args,
 	agent: Agent,

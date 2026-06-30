@@ -13,6 +13,7 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 
 const SEND_TIMEOUT_MS = 120_000;
 
+/** Send a single prompt to the session, print the reply, and exit. */
 export async function runPrintMode(prompt: string, session: Session): Promise<void> {
 	try {
 		await session.send?.(prompt, SEND_TIMEOUT_MS);

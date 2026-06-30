@@ -1,3 +1,4 @@
+/** Pluggable key-value cache with prefix-based invalidation. */
 export interface CacheStrategy {
 	get(key: string): Record<string, unknown> | undefined;
 	set(key: string, value: Record<string, unknown>): void;
@@ -14,10 +15,12 @@ function stableHash(payload: Record<string, unknown>): string {
 	return JSON.stringify(sorted);
 }
 
+/** Derive a deterministic cache key from an event type and its payload. */
 export function makeCacheKey(eventType: string, payload: Record<string, unknown>): string {
 	return `${eventType}:${stableHash(payload)}`;
 }
 
+/** Create an in-memory Map-backed cache. */
 export function createMapCache(): CacheStrategy {
 	const store = new Map<string, Record<string, unknown>>();
 	return {

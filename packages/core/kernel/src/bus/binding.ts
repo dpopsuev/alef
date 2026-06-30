@@ -2,9 +2,12 @@ import type { Bus, EventMessage } from "./messages.js";
 import { makeBus, newCorrelationId } from "./messages.js";
 import { traceEvent } from "../trace.js";
 
+/** Bus event type requesting validation from a bound adapter. */
 export const VALIDATE_REQUEST = "validate.required";
+/** Bus event type carrying a validation result from a bound adapter. */
 export const VALIDATE_RESULT = "validate.result";
 
+/** Payload for a validation request sent to a binding stage adapter. */
 export interface ValidateRequest {
 	id: string;
 	output: unknown;
@@ -13,6 +16,7 @@ export interface ValidateRequest {
 	targetAdapter?: string;
 }
 
+/** Payload for a validation result returned by a binding stage adapter. */
 export interface ValidateResult {
 	id: string;
 	approved: boolean;
@@ -21,22 +25,27 @@ export interface ValidateResult {
 	reviewer: string;
 }
 
+/** Synchronous validation contract for a single output. */
 export interface Validator {
 	validate(output: unknown): Promise<ValidateResult>;
 }
 
+/** Evaluation contract for assessing output quality. */
 export interface Evaluator {
 	evaluate(output: unknown): Promise<ValidateResult>;
 }
 
+/** Execution strategy for a binding chain: sequential, all-parallel, or first-wins. */
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
 
+/** One step in a binding chain, targeting a specific adapter with an optional filter. */
 export interface BindingStage {
 	adapter: string;
 	filter?: (payload: Record<string, unknown>) => boolean;
 	timeout?: number;
 }
 
+/** Named validation pipeline triggered by a bus event, with ordered or parallel stages. */
 export interface Binding {
 	id: string;
 	event: string;
@@ -216,6 +225,7 @@ export function registerBindingStrategy(mode: string, strategy: BindingExecution
 	(strategies as Record<string, BindingExecutionStrategy>)[mode] = strategy;
 }
 
+/** Run a binding's chain of validation stages using the strategy matching its mode. */
 export function executeBindingChain(
 	binding: Binding,
 	input: ChainInput,
@@ -235,6 +245,7 @@ export function executeBindingChain(
 	return strategy.execute(binding.chain, input, bus, sourceCorrelationId);
 }
 
+/** Wrap a bus so that matching command publishes are intercepted and routed through binding chains. */
 export function withBindings(bindings: Map<string, Binding>, baseBus: Bus): Bus {
 	return makeBus(
 		{

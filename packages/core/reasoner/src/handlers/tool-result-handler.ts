@@ -3,6 +3,7 @@ import type { Message } from "@dpopsuev/alef-ai/types";
 import type { ToolCall } from "../stream-turn.js";
 import { payloadToText } from "../tool-dispatch.js";
 
+/** Append tool-result messages to the conversation for each completed tool call. */
 export function appendToolResults(
 	messages: Message[],
 	toolCalls: ToolCall[],

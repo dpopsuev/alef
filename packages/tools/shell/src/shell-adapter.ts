@@ -4,6 +4,7 @@ import { waitForChildProcess } from "./child-process.js";
 import { killProcessTree, trackDetachedChildPid, untrackDetachedChildPid } from "./process-tree.js";
 import { getShellConfig, getShellEnv } from "./shell.js";
 
+/** Context passed to a shell adapter's execute method with command, cwd, and streaming hooks. */
 export interface ShellAdapterContext {
 	command: string;
 	cwd: string;
@@ -14,6 +15,7 @@ export interface ShellAdapterContext {
 	shellPath?: string;
 }
 
+/** Platform-agnostic contract for spawning and awaiting shell commands. */
 export interface ShellAdapter {
 	execute(context: ShellAdapterContext): Promise<{ exitCode: number | null }>;
 }
@@ -98,18 +100,21 @@ async function executeWithDetachedMode(
 	});
 }
 
+/** Shell adapter that spawns commands in a detached process group (Unix). */
 export class PosixShellAdapter implements ShellAdapter {
 	async execute(context: ShellAdapterContext): Promise<{ exitCode: number | null }> {
 		return await executeWithDetachedMode(context, true);
 	}
 }
 
+/** Shell adapter that spawns commands without detached mode (Windows). */
 export class WindowsShellAdapter implements ShellAdapter {
 	async execute(context: ShellAdapterContext): Promise<{ exitCode: number | null }> {
 		return await executeWithDetachedMode(context, false);
 	}
 }
 
+/** Create a platform-appropriate shell adapter (PosixShellAdapter or WindowsShellAdapter). */
 export function createPlatformShellAdapter(platform: NodeJS.Platform = process.platform): ShellAdapter {
 	return platform === "win32" ? new WindowsShellAdapter() : new PosixShellAdapter();
 }

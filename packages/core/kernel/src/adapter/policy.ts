@@ -1,14 +1,17 @@
 import { resolve } from "node:path";
 
+/** Result of an access policy check: allow, deny, or escalate with optional reason. */
 export interface AccessDecision {
 	action: "allow" | "deny" | "escalate";
 	reason?: string;
 }
 
+/** Gate that decides whether a tool call is allowed, denied, or requires escalation. */
 export interface AccessPolicy {
 	check(toolName: string, payload: Record<string, unknown>): AccessDecision;
 }
 
+/** Declarative rule set for path, command, and URL access control. */
 export interface AccessPolicyRules {
 	paths?: {
 		allow?: readonly string[];
@@ -76,10 +79,12 @@ function isWithinRoots(absPath: string, roots: readonly string[]): boolean {
 	});
 }
 
+/** Permissive policy that allows every tool call unconditionally. */
 export const ALLOW_ALL: AccessPolicy = {
 	check: () => ({ action: "allow" }),
 };
 
+/** Build an AccessPolicy from declarative rules, including built-in credential and SSRF guards. */
 export function createAccessPolicy(rules: AccessPolicyRules): AccessPolicy {
 	const pathDeny = [...CREDENTIAL_PATH_PATTERNS, ...(rules.paths?.deny ?? [])];
 	const pathEscalate = rules.paths?.escalate ?? [];

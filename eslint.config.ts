@@ -71,7 +71,7 @@ export default tseslint.config(
 		ignores: ["**/node_modules/**", "**/dist/**", "**/test/**"],
 		plugins: { jsdoc },
 		rules: {
-			"jsdoc/require-jsdoc": ["warn", {
+			"jsdoc/require-jsdoc": ["error", {
 				publicOnly: false,
 				require: {
 					FunctionDeclaration: true,

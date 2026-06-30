@@ -100,7 +100,7 @@ export default tseslint.config(
 		],
 		ignores: ["**/test/**"],
 		rules: {
-			"no-magic-numbers": ["warn", {
+			"no-magic-numbers": ["error", {
 				ignore: [0, 1, -1, 2],
 				ignoreArrayIndexes: true,
 				ignoreDefaultValues: true,

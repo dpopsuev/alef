@@ -16,6 +16,8 @@ import {
 } from "@dpopsuev/alef-tool-workflow";
 import type { z } from "zod";
 
+const STATION_TIMEOUT_MS = 180_000;
+
 const PRESET_CONTRACTS: Record<string, Contract<z.ZodTypeAny>> = {
 	intent: IntentContract,
 	goal: GoalContract,
@@ -82,7 +84,7 @@ export class ImplStationRunner implements StationRunner {
 
 		const artifactText = artifact !== undefined ? `\n\nIncoming artifact:\n${JSON.stringify(artifact, null, 2)}` : "";
 
-		await controller.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? 180_000);
+		await controller.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? STATION_TIMEOUT_MS);
 
 		agent.dispose();
 

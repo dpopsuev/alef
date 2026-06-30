@@ -1,3 +1,5 @@
+const CHARS_PER_TOKEN = 4;
+const ERROR_TRACE_MAX_LENGTH = 120;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 const DEFAULT_THINKING_TIMEOUT_MS = 300_000;
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -57,7 +59,7 @@ export async function callLLM(
 			? (systemMsg as { content: string }).content // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- narrowing validated system message
 			: options.systemPrompt;
 
-	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
+	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / CHARS_PER_TOKEN);
 
 	const span = tracer.startSpan(`chat ${model.id}`, {
 		kind: SpanKind.CLIENT,
@@ -164,7 +166,7 @@ export async function callLLM(
 			turn,
 			elapsedMs: Date.now() - httpStart,
 			abort: isAbort,
-			err: String(err).slice(0, 120),
+			err: String(err).slice(0, ERROR_TRACE_MAX_LENGTH),
 		});
 		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
 		span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });

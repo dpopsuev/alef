@@ -1,3 +1,5 @@
+const HASH_HEX_LENGTH = 16;
+
 import { createHash } from "node:crypto";
 
 export type BusKind = "command" | "event" | "notification" | "internal";
@@ -29,7 +31,7 @@ export function hashRecord(record: Omit<StorageRecord, "hash">): string {
 		payload: record.payload,
 		timestamp: record.timestamp,
 	});
-	return createHash("sha256").update(data).digest("hex").slice(0, 16);
+	return createHash("sha256").update(data).digest("hex").slice(0, HASH_HEX_LENGTH);
 }
 
 export interface WindowAssembledRecord extends StorageRecord {

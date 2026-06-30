@@ -15,6 +15,9 @@ const P50 = 50;
 const P95 = 95;
 const P99 = 99;
 const TOP_TOOLS_COUNT = 10;
+const PERCENT = 100;
+const COST_PRECISION = 10000;
+const MS_PER_SECOND = 1000;
 
 export function createResourceMeter(): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
@@ -36,7 +39,7 @@ export function createResourceMeter(): Adapter {
 
 	function percentile(sorted: number[], p: number): number {
 		if (sorted.length === 0) return 0;
-		const idx = Math.ceil((p / 100) * sorted.length) - 1;
+		const idx = Math.ceil((p / PERCENT) * sorted.length) - 1;
 		return sorted[Math.max(0, idx)];
 	}
 
@@ -54,7 +57,7 @@ export function createResourceMeter(): Adapter {
 				errors: s.errors,
 				avgMs: Math.round(s.totalMs / s.calls),
 				maxMs: s.maxMs,
-				successRate: s.calls > 0 ? (((s.calls - s.errors) / s.calls) * 100).toFixed(1) : "N/A",
+				successRate: s.calls > 0 ? (((s.calls - s.errors) / s.calls) * PERCENT).toFixed(1) : "N/A",
 			}));
 
 		return {
@@ -65,12 +68,12 @@ export function createResourceMeter(): Adapter {
 				tokensOut: tokens.output,
 				tokensCacheRead: tokens.cacheRead,
 				tokensTotal: tokens.input + tokens.output,
-				estimatedCostUsd: Math.round(cost * 10000) / 10000,
+				estimatedCostUsd: Math.round(cost * COST_PRECISION) / COST_PRECISION,
 			},
 			tools: {
 				totalCalls,
 				totalErrors,
-				errorRate: totalCalls > 0 ? `${((totalErrors / totalCalls) * 100).toFixed(1)}%` : "0%",
+				errorRate: totalCalls > 0 ? `${((totalErrors / totalCalls) * PERCENT).toFixed(1)}%` : "0%",
 				p50Ms: percentile(sortedLatencies, P50),
 				p95Ms: percentile(sortedLatencies, P95),
 				p99Ms: percentile(sortedLatencies, P99),
@@ -93,7 +96,7 @@ export function createResourceMeter(): Adapter {
 						await Promise.resolve();
 						const s = summary();
 						const lines = [
-							`Session: ${s.session.turns} turns, ${(s.session.elapsedMs / 1000).toFixed(0)}s`,
+							`Session: ${s.session.turns} turns, ${(s.session.elapsedMs / MS_PER_SECOND).toFixed(0)}s`,
 							`Tokens: ${s.session.tokensIn} in + ${s.session.tokensOut} out = ${s.session.tokensTotal} (cache read: ${s.session.tokensCacheRead})`,
 							`Cost: $${s.session.estimatedCostUsd}`,
 							`Tools: ${s.tools.totalCalls} calls, ${s.tools.errorRate} error rate`,

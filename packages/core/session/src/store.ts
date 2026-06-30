@@ -20,10 +20,17 @@ const CWD_HASH_LENGTH = 12;
 const SESSION_ID_LENGTH = 8;
 const CHARS_PER_TOKEN = 4;
 const SIZE_CHECK_INTERVAL = 500;
-const FILE_SIZE_WARNING_BYTES = 50 * 1024 * 1024;
+const FILE_SIZE_WARNING_MB = 50;
+const BYTES_PER_KB = 1024;
+const KB_PER_MB = 1024;
+const FILE_SIZE_WARNING_BYTES = FILE_SIZE_WARNING_MB * BYTES_PER_KB * KB_PER_MB;
 const DEFAULT_PRUNE_AGE_DAYS = 30;
 const DEFAULT_PRUNE_MAX_COUNT = 50;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const HOURS_PER_DAY = 24;
+const MINUTES_PER_HOUR = 60;
+const SECONDS_PER_MINUTE = 60;
+const MS_PER_SECOND = 1000;
+const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const BUS_INTERNAL = "internal" as const;
 const EVENT_SESSION_NAME = "session.name" as const;
 const CORRELATION_META = "meta";
@@ -205,7 +212,7 @@ export class JsonlSessionStore {
 				if (s.size > FILE_SIZE_WARNING_BYTES) {
 					this._sizeWarned = true;
 					process.stderr.write(
-						`[session] Warning: session file is ${Math.round(s.size / 1024 / 1024)}MB (${this.path}). Consider starting a new session.\n`,
+						`[session] Warning: session file is ${Math.round(s.size / BYTES_PER_KB / KB_PER_MB)}MB (${this.path}). Consider starting a new session.\n`,
 					);
 				}
 			} catch {}

@@ -43,6 +43,7 @@ export function setModelConfigProvider(fn: () => ModelConfig): void {
 	_configProvider = fn;
 }
 
+const DEFAULT_CONTEXT_WINDOW = 128_000;
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
 
 const PROVIDER_PREFERENCE: KnownProvider[] = [
@@ -96,7 +97,7 @@ function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: st
 		reasoning: false,
 		input: ["text" as const],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: _configProvider().llm?.contextWindow ?? 128_000,
+		contextWindow: _configProvider().llm?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
 		maxTokens: 8_192,
 	};
 }

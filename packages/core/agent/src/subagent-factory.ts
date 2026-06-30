@@ -1,4 +1,6 @@
 const PHASE_TIMEOUT_MS = 100;
+const RANDOM_ID_RADIX = 36;
+const RANDOM_ID_LENGTH = 10;
 import { assembleAgentServer } from "@dpopsuev/alef-agent/assemble";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
@@ -29,7 +31,7 @@ export interface SubagentSessionOptions {
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
 	return (callOpts) => {
 		const { adapters, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;
-		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(36).slice(2, 10)}`;
+		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(RANDOM_ID_RADIX).slice(2, RANDOM_ID_LENGTH)}`;
 		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", subId, opts.boardId ?? "");
 
 		const dateContext = `Date: ${new Date().toISOString().split("T")[0]}`;

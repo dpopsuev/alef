@@ -28,6 +28,8 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 
 type EventBus = { subscribe: (type: string, handler: (event: EventMessage) => void) => () => void };
 
+const CORRELATION_ID_DISPLAY_LENGTH = 8;
+const CHARS_PER_TOKEN = 4;
 const STALL_INTERVAL_MS = 5_000;
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
 const TIMEOUT_BUFFER_MS = 10_000;
@@ -112,7 +114,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 		stallIntervalMs: stallMs = STALL_INTERVAL_MS,
 	} = sub;
 	const subscribedAt = Date.now();
-	traceEvent("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
+	traceEvent("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, CORRELATION_ID_DISPLAY_LENGTH) });
 	return new Promise((resolve, reject) => {
 		const watchdog = onStall
 			? new Watchdog(stallMs, () => {
@@ -262,7 +264,7 @@ export async function dispatchTools(
 					}
 					const displayBlock = extractDisplay(r.payload);
 					const resultText = payloadToText(r.payload, r.isError, r.errorMessage);
-					const estimatedTokens = Math.ceil(resultText.length / 4);
+					const estimatedTokens = Math.ceil(resultText.length / CHARS_PER_TOKEN);
 					signal.publish({
 						type: "llm.tool-end",
 						payload: {

@@ -28,6 +28,7 @@ import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 
 const DEFAULT_REPEATED_INTERACTION_THRESHOLD = 3;
 const DEFAULT_TOTAL_CALL_THRESHOLD = 40;
+const RESULT_HASH_MAX_CHARS = 512;
 
 export interface LoopGuardOptions {
 	/**
@@ -63,17 +64,17 @@ function hashResult(payload: Record<string, unknown>): string {
 	// For streaming adapters: intermediate chunks have isFinal:false — skip them.
 	// Only hash the final payload.
 	if (payload.isFinal === false) return "";
-	if (typeof rest.content === "string") return rest.content.slice(0, 512);
+	if (typeof rest.content === "string") return rest.content.slice(0, RESULT_HASH_MAX_CHARS);
 	// Anthropic-format content array: [{ type: "text", text: "..." }]
 	// typeof check above misses this case, causing false-negative loop detection.
 	if (Array.isArray(rest.content)) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- rest.content is unknown; array shape validated by Array.isArray guard above
 		const block = (rest.content as { type?: string; text?: unknown }[]).find((b) => b.type === "text");
-		if (typeof block?.text === "string") return block.text.slice(0, 512);
+		if (typeof block?.text === "string") return block.text.slice(0, RESULT_HASH_MAX_CHARS);
 	}
-	if (typeof rest.text === "string") return rest.text.slice(0, 512);
-	if (typeof rest.output === "string") return rest.output.slice(0, 512);
-	return JSON.stringify(rest).slice(0, 512);
+	if (typeof rest.text === "string") return rest.text.slice(0, RESULT_HASH_MAX_CHARS);
+	if (typeof rest.output === "string") return rest.output.slice(0, RESULT_HASH_MAX_CHARS);
+	return JSON.stringify(rest).slice(0, RESULT_HASH_MAX_CHARS);
 }
 
 export class LoopGuard implements Adapter {

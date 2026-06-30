@@ -1,3 +1,5 @@
+const BASE_RETRY_DELAY_MS = 1_000;
+
 import type { AssistantMessage, Message } from "@dpopsuev/alef-ai/types";
 
 /** Return true if the error message indicates a transient failure eligible for retry. */
@@ -32,7 +34,7 @@ export function shouldRetry(msg: AssistantMessage, retryCount: number, maxRetrie
 
 /** Compute exponential backoff delay in milliseconds, capped at maxDelayMs. */
 export function retryDelayMs(attempt: number, maxDelayMs: number): number {
-	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
+	return Math.min(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1), maxDelayMs);
 }
 
 /** Promise-based sleep for retry backoff delays. */

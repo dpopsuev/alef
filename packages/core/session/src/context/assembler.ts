@@ -1,6 +1,8 @@
 import type { Message } from "@dpopsuev/alef-ai/types";
 import type { Turn } from "../contracts/storage.js";
 
+const ARG_DISPLAY_MAX_LENGTH = 80;
+
 export const HISTORY_BUDGET_FRACTION = 0.7;
 export const MAX_SINGLE_TURN_FRACTION = 0.25;
 export const DEFAULT_RECENT_GUARANTEE = 4;
@@ -206,7 +208,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 		const lines = motorTools.map((e) => {
 			const { toolCallId: _tc, content: _c, ...args } = e.payload;
 			const argStr = Object.entries(args)
-				.map(([k, v]) => `${k}=${String(v).slice(0, 80)}`)
+				.map(([k, v]) => `${k}=${String(v).slice(0, ARG_DISPLAY_MAX_LENGTH)}`)
 				.join(", ");
 			return `${e.type}(${argStr})`;
 		});

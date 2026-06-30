@@ -13,6 +13,7 @@ import { createTurnSignals } from "./turn-signals.js";
 
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
+const ERROR_REASON_MAX_LENGTH = 80;
 
 // ---------------------------------------------------------------------------
 // Options — structural subset of AgentLoopOptions, avoids circular import
@@ -109,7 +110,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				traceEvent("llm:retry", {
 					turn,
 					attempt: appRetryCount,
-					reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
+					reason: finalMessage.errorMessage?.slice(0, ERROR_REASON_MAX_LENGTH) ?? "unknown",
 				});
 				await sleep(retryDelayMs(appRetryCount, maxRetryDelayMs));
 				continue;

@@ -22,6 +22,7 @@ export interface CompactionStageOptions {
 }
 
 const CHARS_PER_TOKEN = 4;
+const SUMMARY_LINE_MAX_LENGTH = 120;
 const DEFAULT_COMPACTION_THRESHOLD = 0.9;
 const DEFAULT_PRESERVE_RECENT = 4;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -60,7 +61,7 @@ function defaultSummarize(messages: readonly unknown[]): string {
 		}
 		if (!text) continue;
 		const firstLine = text.split("\n").find((l) => l.trim()) ?? "";
-		lines.push(`- ${role}: ${firstLine.slice(0, 120)}`);
+		lines.push(`- ${role}: ${firstLine.slice(0, SUMMARY_LINE_MAX_LENGTH)}`);
 	}
 	return lines.join("\n");
 }

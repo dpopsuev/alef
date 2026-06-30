@@ -2,6 +2,7 @@ const DEFAULT_HALF_LIFE_MS = 600;
 const DEFAULT_PULSE_STRENGTH = 0.25;
 const DEFAULT_CYCLE_PERIOD_MS = 3500;
 const DEFAULT_PRESSURE_SPEED_BOOST = 3;
+const DEGREES_PER_ROTATION = 360;
 /**
  * Decaying event pressure gauge.
  *
@@ -65,5 +66,5 @@ export function timeBasedHue(
 ): number {
 	const baseRate = 1 / cyclePeriodMs; // rotations per ms
 	const speedMult = 1 + pressureLevel * pressureSpeedBoost;
-	return (elapsedMs * baseRate * speedMult * 360) % 360;
+	return (elapsedMs * baseRate * speedMult * DEGREES_PER_ROTATION) % DEGREES_PER_ROTATION;
 }

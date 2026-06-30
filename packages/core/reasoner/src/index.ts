@@ -79,6 +79,9 @@ export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTop
 // Factory
 // ---------------------------------------------------------------------------
 
+const KEY_ARG_MAX_LENGTH = 80;
+const MS_PER_SECOND = 1000;
+const CORRELATION_ID_DISPLAY_LENGTH = 8;
 const LLM_INPUT = "llm.input";
 
 /** Build the inner LLM adapter that handles llm.input events with the turn loop. */
@@ -161,7 +164,7 @@ function inflightKey(type: string, correlationId: string, toolCallId: string | u
 function pickKeyArg(payload: Record<string, unknown>): string {
 	for (const k of KEY_ARG_FIELDS) {
 		const v = payload[k];
-		if (typeof v === "string" && v.length > 0) return v.slice(0, 80);
+		if (typeof v === "string" && v.length > 0) return v.slice(0, KEY_ARG_MAX_LENGTH);
 	}
 	return "";
 }
@@ -206,8 +209,8 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		if (inflight.size === 0) return messages;
 		const now = Date.now();
 		const lines = [...inflight.values()].map((e) => {
-			const elapsed = Math.floor((now - e.startedAt) / 1000);
-			const corr = e.correlationId.slice(0, 8);
+			const elapsed = Math.floor((now - e.startedAt) / MS_PER_SECOND);
+			const corr = e.correlationId.slice(0, CORRELATION_ID_DISPLAY_LENGTH);
 			return `  - ${e.type} (${corr}, ${elapsed}s)${e.keyArg ? `: ${e.keyArg}` : ""}`;
 		});
 		const block = `\nPending operations:\n${lines.join("\n")}`;

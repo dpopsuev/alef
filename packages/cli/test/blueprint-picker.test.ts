@@ -1,76 +1,46 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
+import { afterEach, describe, expect, it } from "vitest";
 import { discoverBlueprints, resolveBlueprint } from "../src/boot/blueprints.js";
 
-vi.mock("../src/pkg/alef-pm.js", () => ({
-	listInstalled: vi.fn().mockReturnValue([]),
-	resolveAdapterPath: vi.fn(),
-}));
+describe("blueprint discovery (registry-based)", { tags: ["unit"] }, () => {
+	const registered: string[] = [];
 
-import { listInstalled } from "../src/pkg/alef-pm.js";
-
-const mockedListInstalled = vi.mocked(listInstalled);
-
-describe("blueprint discovery (PM-based)", { tags: ["unit"] }, () => {
-	beforeEach(() => {
-		mockedListInstalled.mockReturnValue([]);
+	afterEach(() => {
+		registered.splice(0);
 	});
 
-	it("discovers blueprints with type=blueprint from PM", () => {
-		mockedListInstalled.mockReturnValue([
-			{
-				name: "coding-bp",
-				version: "1.0.0",
-				description: "Coding agent",
-				manifest: { type: "blueprint", entry: "/pm/coding/index.ts" },
-				entry: "/pm/coding/index.ts",
-			},
-			{
-				name: "research-bp",
-				version: "1.0.0",
-				description: "Research agent",
-				manifest: { type: "blueprint", entry: "/pm/research/index.ts" },
-				entry: "/pm/research/index.ts",
-			},
-			{
-				name: "some-tool",
-				version: "1.0.0",
-				description: "A tool",
-				manifest: { type: "tool", entry: "/pm/tool/index.ts" },
-				entry: "/pm/tool/index.ts",
-			},
-		]);
+	function register(name: string): void {
+		blueprintRegistry.register(name, async () => ({ adapters: [], contextAssembly: undefined as never }));
+		registered.push(name);
+	}
+
+	it("discovers registered blueprints", () => {
+		register("test-coding-bp");
+		register("test-research-bp");
 
 		const found = discoverBlueprints();
-		expect(found).toHaveLength(2);
-		expect(found.map((b) => b.name).sort()).toEqual(["coding-bp", "research-bp"]);
+		const names = found.map((b) => b.name);
+		expect(names).toContain("test-coding-bp");
+		expect(names).toContain("test-research-bp");
 	});
 
-	it("ignores packages without blueprint type", () => {
-		mockedListInstalled.mockReturnValue([
-			{
-				name: "my-tool",
-				version: "1.0.0",
-				description: "Tool",
-				manifest: { type: "tool", entry: "index.ts" },
-				entry: "/pm/index.ts",
-			},
-		]);
-
-		expect(discoverBlueprints()).toHaveLength(0);
-	});
-
-	it("returns empty when no packages installed", () => {
-		expect(discoverBlueprints()).toHaveLength(0);
+	it("returns registered blueprints only", () => {
+		const before = discoverBlueprints().length;
+		register("test-new-bp");
+		expect(discoverBlueprints()).toHaveLength(before + 1);
 	});
 });
 
 describe("blueprint resolution", { tags: ["unit"] }, () => {
 	const dirs: string[] = [];
+	const registered: string[] = [];
+
 	afterEach(() => {
 		for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+		registered.splice(0);
 	});
 
 	it("resolves absolute path directly", () => {
@@ -81,22 +51,14 @@ describe("blueprint resolution", { tags: ["unit"] }, () => {
 		expect(resolveBlueprint(path)).toBe(path);
 	});
 
-	it("resolves by name from PM-installed blueprints", () => {
-		mockedListInstalled.mockReturnValue([
-			{
-				name: "research",
-				version: "1.0.0",
-				description: "Research",
-				manifest: { type: "blueprint", entry: "/pm/research.ts" },
-				entry: "/pm/research.ts",
-			},
-		]);
+	it("resolves by name from registered blueprints", () => {
+		blueprintRegistry.register("test-research", async () => ({ adapters: [], contextAssembly: undefined as never }));
+		registered.push("test-research");
 
-		const resolved = resolveBlueprint("research");
-		expect(resolved).toBe("/pm/research.ts");
+		expect(resolveBlueprint("test-research")).toBe("test-research");
 	});
 
 	it("returns undefined for unknown name", () => {
-		expect(resolveBlueprint("nonexistent")).toBeUndefined();
+		expect(resolveBlueprint("nonexistent-xyz-999")).toBeUndefined();
 	});
 });

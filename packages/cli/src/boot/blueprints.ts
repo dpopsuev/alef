@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { runPicker } from "../client/runs.js";
-import { listInstalled } from "../pkg/alef-pm.js";
 
 export interface BlueprintChoice {
 	name: string;
@@ -10,24 +9,13 @@ export interface BlueprintChoice {
 }
 
 export function discoverBlueprints(): BlueprintChoice[] {
-	const choices: BlueprintChoice[] = [];
-	for (const pkg of listInstalled()) {
-		if (pkg.manifest?.type === "blueprint") {
-			choices.push({ name: pkg.name, description: pkg.description, path: pkg.entry });
-		}
-	}
-	return choices;
+	return blueprintRegistry.list().map((name) => ({ name, description: "", path: name }));
 }
 
 export function resolveBlueprint(nameOrPath: string, _cwd?: string): string | undefined {
-	const registeredNames = blueprintRegistry.list();
-	if (registeredNames.includes(nameOrPath)) {
-		return nameOrPath;
-	}
+	if (blueprintRegistry.list().includes(nameOrPath)) return nameOrPath;
 	if (existsSync(nameOrPath)) return nameOrPath;
-	const discovered = discoverBlueprints();
-	const match = discovered.find((bp) => bp.name === nameOrPath);
-	return match?.path;
+	return undefined;
 }
 
 function readBlueprintPreview(path: string): string[] {
@@ -64,18 +52,6 @@ function readBlueprintPreview(path: string): string[] {
 
 		const capMatch = raw.match(/orchestration:\s*(true|false)/);
 		if (capMatch) lines.push(`  Orchestration: ${capMatch[1]}`);
-
-		const memMatch = raw.match(/session:\s*(\S+)/);
-		if (memMatch) lines.push(`  Memory: ${memMatch[1]}`);
-
-		const blockedMatches = [...raw.matchAll(/^\s+-\s+"(.+)"/gm)];
-		if (blockedMatches.length > 0) {
-			lines.push("");
-			lines.push("  Blocked patterns:");
-			for (const m of blockedMatches.slice(0, 5)) {
-				lines.push(`    ${m[1]}`);
-			}
-		}
 
 		return lines.length > 0 ? lines : ["  (no details available)"];
 	} catch {

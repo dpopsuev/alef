@@ -23,7 +23,7 @@ import { createAgentServiceDescriptor } from "./boot/agent-service.js";
 import { parseArgs } from "./boot/args.js";
 import { BUILD_INFO } from "./boot/build-info.js";
 import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
-import { initYamlBlueprints } from "./boot/init-yaml-blueprints.js";
+import { initPmBlueprints } from "./boot/init-pm-blueprints.js";
 import { createRunnerLogger } from "./boot/logger.js";
 import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
@@ -49,7 +49,7 @@ ensureDirectories();
 const cfg = loadConfig();
 setModelConfigProvider(() => cfg);
 setupOTel();
-await initYamlBlueprints();
+initPmBlueprints();
 
 const args = parseArgs(process.argv.slice(2));
 

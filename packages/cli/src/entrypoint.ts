@@ -32,7 +32,7 @@ import { createSessionServiceDescriptor, type SessionService } from "./boot/sess
 import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { pickSession } from "./client/commands/sessions.js";
-import { detectDark, queryPalette, readAlacrittyOpacity } from "./client/splash/terminal.js";
+import { detectDark, queryPalette, readAlacrittyOpacity } from "./client/terminal.js";
 import { loadTheme } from "./client/theme.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";

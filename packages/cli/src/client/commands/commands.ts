@@ -8,14 +8,57 @@
 
 import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
-import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
+import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import { type SelectItem, SelectList, type SelectListTheme, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
+import type { ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../../boot/auth.js";
 import { getConfig } from "../../boot/config.js";
-import { color, getProviderColor, setThemeByName, statusGlyph } from "../theme.js";
-import { openConfigPicker, openEnumPicker } from "./configs.js";
-import { buildPickerTheme, openPicker } from "./picker.js";
-import { CommandRegistry } from "./registry.js";
-import type { TuiHandlerContext } from "./types.js";
+import type { InteractiveOptions } from "../../boot/interactive.js";
+import type { TuiEvent } from "../events.js";
+import { color, getProviderColor, setThemeByName, statusGlyph, type ThemeTokens } from "../theme.js";
+
+export interface TuiHandlerContext {
+	tuiStore?: TuiStateStore;
+	t: ThemeTokens;
+	writer: ChatLog;
+	opts?: InteractiveOptions;
+	tui: {
+		stop(): void;
+		removeChild(c: unknown): void;
+		addChild(c: unknown): void;
+		requestRender(force?: boolean): void;
+	};
+	session: Session;
+	store?: SessionStore;
+	dispatch: (event: TuiEvent) => void;
+	abortCurrentTurn: (() => void) | undefined;
+	setAbortCurrentTurn(fn: (() => void) | undefined): void;
+}
+
+export interface Command {
+	name: string;
+	description: string;
+	run(ctx: TuiHandlerContext, args: string[]): void | Promise<void>;
+}
+
+export class CommandRegistry {
+	private readonly _commands = new Map<string, Command>();
+
+	register(cmd: Command, ...aliases: string[]): this {
+		this._commands.set(cmd.name, cmd);
+		for (const alias of aliases) this._commands.set(alias, cmd);
+		return this;
+	}
+
+	find(name: string): Command | undefined {
+		return this._commands.get(name);
+	}
+
+	list(): ReadonlyArray<Command> {
+		return [...new Set(this._commands.values())];
+	}
+}
 
 function isAnthropicViaVertex(): boolean {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from trim() must fall through */
@@ -726,3 +769,106 @@ export const registry = new CommandRegistry()
 	.register(skills)
 	.register(sticky, "note", "pin")
 	.register(stickies);
+
+export interface ConfigPickerOptions<T> {
+	id: string;
+	source: () => readonly T[];
+	toItem: (entry: T) => SelectItem;
+	onSelect: (entry: T) => void;
+	maxVisible?: number;
+}
+
+export function openConfigPicker<T>(
+	t: ThemeTokens,
+	dispatch: (event: TuiEvent) => void,
+	requestRender: () => void,
+	opts: ConfigPickerOptions<T>,
+): void {
+	const entries = opts.source();
+	const entryMap = new Map<string, T>();
+	const items: SelectItem[] = entries.map((entry) => {
+		const item = opts.toItem(entry);
+		entryMap.set(item.value, entry);
+		return item;
+	});
+
+	openPicker(t, dispatch, requestRender, {
+		id: opts.id,
+		items,
+		maxVisible: opts.maxVisible,
+		onSelect: (item) => {
+			const entry = entryMap.get(item.value);
+			if (entry) opts.onSelect(entry);
+		},
+	});
+}
+
+export interface EnumPickerOptions {
+	id: string;
+	values: readonly string[];
+	active?: string;
+	onSelect: (value: string) => void;
+	maxVisible?: number;
+}
+
+export function openEnumPicker(
+	t: ThemeTokens,
+	dispatch: (event: TuiEvent) => void,
+	requestRender: () => void,
+	opts: EnumPickerOptions,
+): void {
+	const items: SelectItem[] = opts.values.map((v) => ({
+		value: v,
+		label: v === opts.active ? `${v} *` : v,
+	}));
+
+	openPicker(t, dispatch, requestRender, {
+		id: opts.id,
+		items,
+		maxVisible: opts.maxVisible ?? opts.values.length,
+		onSelect: (item) => opts.onSelect(item.value),
+	});
+}
+
+export interface PickerOptions {
+	id: string;
+	items: SelectItem[];
+	maxVisible?: number;
+	onSelect: (item: SelectItem) => void;
+}
+
+export function buildPickerTheme(t: ThemeTokens): SelectListTheme {
+	return {
+		selectedPrefix: (s) => color(s, t.accentFg),
+		selectedText: (s) => color(s, t.accentFg),
+		description: (s) => color(s, t.mutedFg),
+		scrollInfo: (s) => color(s, t.mutedFg),
+		noMatch: (s) => color(s, t.mutedFg),
+	};
+}
+
+export function openPicker(
+	t: ThemeTokens,
+	dispatch: (event: TuiEvent) => void,
+	requestRender: () => void,
+	opts: PickerOptions,
+): void {
+	const theme = buildPickerTheme(t);
+	const list = new SelectList(opts.items, opts.maxVisible ?? 10, theme).enableSearch();
+
+	const close = () => {
+		dispatch({ type: "overlay.hide", id: opts.id });
+		requestRender();
+	};
+
+	list.onSelect = (item: SelectItem) => {
+		close();
+		opts.onSelect(item);
+	};
+	list.onCancel = close;
+
+	dispatch({
+		type: "overlay.show",
+		descriptor: { id: opts.id, component: list, handleInput: (d) => list.handleInput(d) },
+	});
+}

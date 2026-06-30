@@ -25,6 +25,11 @@ import type { ColorToken, ThemeTokens } from "@dpopsuev/alef-tui";
 import { colorDepth, FG_RESET, fgCode, hexToRgb, nerdFontsAvailable } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 
+const ANSI_FG_START = 30;
+const ANSI_BRIGHT_START = 90;
+const ANSI_BRIGHT_OFFSET = 8;
+const DEFAULT_SPINNER_FRAMES = 12;
+
 /**
  * Return a chalk instance pre-configured for a theme token's color.
  * Use this instead of fgCode() wherever chalk can drive the output.
@@ -41,7 +46,7 @@ export function chalkForToken(token: ColorToken): typeof chalk {
 	if (token.ansi16 !== undefined) {
 		// SGR 30-37 → palette index 0-7, SGR 90-97 → palette index 8-15
 		const code = token.ansi16;
-		const idx = code >= 90 ? code - 90 + 8 : code - 30;
+		const idx = code >= ANSI_BRIGHT_START ? code - ANSI_BRIGHT_START + ANSI_BRIGHT_OFFSET : code - ANSI_FG_START;
 		if (idx >= 0 && idx <= 15) return chalk.ansi256(idx);
 	}
 	return chalk;
@@ -184,7 +189,7 @@ export function systemLang(): string {
 }
 
 /** Return shuffled spinner frames from the user's locale script. */
-export function spinnerFrames(count = 12): string[] {
+export function spinnerFrames(count = DEFAULT_SPINNER_FRAMES): string[] {
 	const lang = systemLang();
 	const glyphs = SCRIPT_GLYPHS[lang] as readonly string[] | undefined;
 	const pool = [...(glyphs ?? SCRIPT_GLYPHS.default)];

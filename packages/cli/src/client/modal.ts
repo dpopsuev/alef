@@ -37,6 +37,8 @@ const SEQ = {
 } as const;
 
 const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
+const ASCII_PRINTABLE_START = 32;
+const ASCII_PRINTABLE_END = 127;
 
 const WHICHKEY_HINT =
 	"h/j/k/l move  w/b word  i/a insert  dd/dw delete  u/ctrl+r undo/redo  yy/p yank/paste  : command";
@@ -207,7 +209,11 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 		// Printable ASCII — accumulate.
-		if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) < 127) {
+		if (
+			data.length === 1 &&
+			data.charCodeAt(0) >= ASCII_PRINTABLE_START &&
+			data.charCodeAt(0) < ASCII_PRINTABLE_END
+		) {
 			this.cmdBuffer += data;
 			this.cmdTabIndex = -1;
 			this.updateCmdPrompt();

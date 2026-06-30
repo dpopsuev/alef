@@ -27,7 +27,7 @@ export function parseOSC11Response(response: string): BgColor | null {
 	//   \x1b]11;rgba:RRRR/GGGG/BBBB/AAAA\x07  (with alpha)
 	const m = response.match(/\]1[01];rgba?:([\da-fA-F]+)\/([\da-fA-F]+)\/([\da-fA-F]+)(?:\/([\da-fA-F]+))?/);
 	if (!m) return null;
-	const scale = m[1].length <= 2 ? 255 : 65535;
+	const scale = m[1].length <= COLOR_CHANNEL_8BIT_LENGTH ? COLOR_CHANNEL_8BIT : COLOR_CHANNEL_16BIT;
 	return {
 		r: parseInt(m[1], 16) / scale,
 		g: parseInt(m[2], 16) / scale,
@@ -37,10 +37,30 @@ export function parseOSC11Response(response: string): BgColor | null {
 	};
 }
 
+const OPACITY_THRESHOLD = 0.8;
+const LUMINANCE_DARK_THRESHOLD = 0.5;
+const COLORFGBG_DARK_THRESHOLD = 8;
+
+const COLOR_CHANNEL_8BIT = 255;
+const COLOR_CHANNEL_16BIT = 65535;
+const COLOR_CHANNEL_8BIT_LENGTH = 2;
+
+const SRGB_LINEAR_THRESHOLD = 0.04045;
+const SRGB_LINEAR_DIVISOR = 12.92;
+const SRGB_GAMMA_OFFSET = 0.055;
+const SRGB_GAMMA_BASE = 1.055;
+const SRGB_GAMMA_EXPONENT = 2.4;
+const LUMINANCE_R = 0.2126;
+const LUMINANCE_G = 0.7152;
+const LUMINANCE_B = 0.0722;
+
 /** Compute the WCAG relative luminance of an RGB color. */
 export function relativeLuminance(c: Pick<BgColor, "r" | "g" | "b">): number {
-	const linear = (x: number): number => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
-	return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+	const linear = (x: number): number =>
+		x <= SRGB_LINEAR_THRESHOLD
+			? x / SRGB_LINEAR_DIVISOR
+			: ((x + SRGB_GAMMA_OFFSET) / SRGB_GAMMA_BASE) ** SRGB_GAMMA_EXPONENT;
+	return LUMINANCE_R * linear(c.r) + LUMINANCE_G * linear(c.g) + LUMINANCE_B * linear(c.b);
 }
 
 /** Send an OSC 11 escape sequence and parse the terminal's background color response. */
@@ -100,7 +120,7 @@ function detectFromColorfgbg(): boolean | null {
 	const parts = val.split(";");
 	const bg = parseInt(parts[parts.length - 1] ?? "", 10);
 	if (Number.isNaN(bg)) return null;
-	return bg < 8;
+	return bg < COLORFGBG_DARK_THRESHOLD;
 }
 
 // ---------------------------------------------------------------------------
@@ -111,18 +131,18 @@ function detectFromColorfgbg(): boolean | null {
  * Determine whether the terminal background is dark.
  *
  * Priority:
- *   1. opacity < 0.8 → dark (high transparency, desktop showing through)
+ *   1. opacity < OPACITY_THRESHOLD → dark (high transparency, desktop showing through)
  *   2. OSC 11 query → parse luminance + alpha from actual terminal bg
  *   3. COLORFGBG env var → rxvt/konsole convention
  *   4. Default: dark
  */
 export async function detectDark(opacity?: number): Promise<boolean> {
-	if (opacity !== undefined && opacity < 0.8) return true;
+	if (opacity !== undefined && opacity < OPACITY_THRESHOLD) return true;
 
 	const osc = await queryOSC11();
 	if (osc) {
-		if (osc.a < 0.8) return true;
-		return relativeLuminance(osc) < 0.5;
+		if (osc.a < OPACITY_THRESHOLD) return true;
+		return relativeLuminance(osc) < LUMINANCE_DARK_THRESHOLD;
 	}
 
 	const fromEnv = detectFromColorfgbg();
@@ -137,7 +157,7 @@ export async function detectDark(opacity?: number): Promise<boolean> {
 
 /** Synchronous fallback for dark-background detection using env vars only. */
 export function detectDarkSync(opacity?: number): boolean {
-	if (opacity !== undefined && opacity < 0.8) return true;
+	if (opacity !== undefined && opacity < OPACITY_THRESHOLD) return true;
 	const fromEnv = detectFromColorfgbg();
 	if (fromEnv !== null) return fromEnv;
 	return true;
@@ -202,7 +222,7 @@ export async function queryPalette(
 				const m = re.exec(buf);
 				if (!m) break;
 				const slot = Number(m[1]);
-				const scale = m[2].length <= 2 ? 255 : 65535;
+				const scale = m[2].length <= COLOR_CHANNEL_8BIT_LENGTH ? COLOR_CHANNEL_8BIT : COLOR_CHANNEL_16BIT;
 				const r = Math.round((parseInt(m[2], 16) / scale) * 255);
 				const g = Math.round((parseInt(m[3], 16) / scale) * 255);
 				const b = Math.round((parseInt(m[4], 16) / scale) * 255);

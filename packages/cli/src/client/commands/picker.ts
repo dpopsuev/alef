@@ -1,3 +1,5 @@
+const PICKER_MAX_VISIBLE = 10;
+
 import {
 	getKeybindings,
 	Input,
@@ -79,7 +81,7 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 
 		const previewList = new PreviewSelectList({
 			items: opts.items,
-			maxVisible: opts.maxVisible ?? 10,
+			maxVisible: opts.maxVisible ?? PICKER_MAX_VISIBLE,
 			theme: listTheme,
 			listWidthFraction: opts.listWidthFraction,
 			onModeChange: (mode) => {

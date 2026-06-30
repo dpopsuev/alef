@@ -442,7 +442,7 @@ export function dispatchTuiEvent(
 				task.reply = event.reply;
 			}
 			promptConsole.updateBackgroundTask(event.taskId, "completed");
-			promptConsole.showToast(`Task ${event.taskId} completed (${event.profile})`, 5000);
+			promptConsole.showToast(`Task ${event.taskId} completed (${event.profile})`, TASK_TOAST_DURATION_MS);
 			return { ...state, backgroundTasks: tasks };
 		}
 
@@ -455,7 +455,7 @@ export function dispatchTuiEvent(
 				task.error = event.error;
 			}
 			promptConsole.updateBackgroundTask(event.taskId, "failed", event.error);
-			promptConsole.showToast(`Task ${event.taskId} failed: ${event.error}`, 5000);
+			promptConsole.showToast(`Task ${event.taskId} failed: ${event.error}`, TASK_TOAST_DURATION_MS);
 			return { ...state, backgroundTasks: tasks };
 		}
 
@@ -463,6 +463,8 @@ export function dispatchTuiEvent(
 			return state;
 	}
 }
+
+const TASK_TOAST_DURATION_MS = 5000;
 
 const INSPECTOR_LINES = 12;
 const INSPECTOR_SCROLL_STEP = 3;

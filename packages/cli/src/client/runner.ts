@@ -1,3 +1,5 @@
+const MAX_LABEL_LENGTH = 60;
+
 import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
@@ -334,7 +336,7 @@ export function createHistoryPicker(
 
 	const items: SelectItem[] = entries.map((e) => ({
 		value: e,
-		label: e.length > 60 ? `${e.slice(0, 60)}…` : e,
+		label: e.length > MAX_LABEL_LENGTH ? `${e.slice(0, MAX_LABEL_LENGTH)}…` : e,
 	}));
 
 	const list = new SelectListConstructor(items, 6, theme);

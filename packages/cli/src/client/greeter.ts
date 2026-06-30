@@ -1,3 +1,6 @@
+const MIN_GLYPH_INK_PIXELS = 20;
+const FONT_LOAD_TIMEOUT_MS = 2000;
+const GLYPH_PT_SIZE = 20;
 export async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<number[][] | null> {
 	try {
 		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
@@ -29,7 +32,7 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 			}),
 		);
 
-		return totalInk < 20 ? null : pixels;
+		return totalInk < MIN_GLYPH_INK_PIXELS ? null : pixels;
 	} catch {
 		return null;
 	}
@@ -158,7 +161,7 @@ function installedLangs(): Set<string> {
 	const langs = new Set<string>();
 	try {
 		const out = execSync("fc-list --format='%{lang}\\n'", {
-			timeout: 2000,
+			timeout: FONT_LOAD_TIMEOUT_MS,
 			encoding: "utf-8",
 			stdio: ["ignore", "pipe", "ignore"],
 		});
@@ -177,7 +180,7 @@ function installedLangs(): Set<string> {
 function fontPathForLang(lang: string): string | null {
 	try {
 		const out = execSync(`fc-list :lang=${lang} --format='%{file}\\n'`, {
-			timeout: 2000,
+			timeout: FONT_LOAD_TIMEOUT_MS,
 			encoding: "utf-8",
 			stdio: ["ignore", "pipe", "ignore"],
 		});
@@ -226,7 +229,7 @@ export async function renderSplash(): Promise<string> {
 		const fontPath = fontPathForLang(block.lang);
 		if (!fontPath) continue;
 
-		const pixels = await rasterise(randomCodePoint(block), fontPath, 20);
+		const pixels = await rasterise(randomCodePoint(block), fontPath, GLYPH_PT_SIZE);
 		if (!pixels) continue;
 
 		const art = rasterToBlocks(

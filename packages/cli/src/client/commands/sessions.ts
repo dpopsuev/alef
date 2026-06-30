@@ -1,3 +1,6 @@
+const SESSION_PICKER_MAX_VISIBLE = 12;
+const SESSION_PREVIEW_LINES = 12;
+
 /**
  * TUI session picker — vi-modal with preview pane.
  * Delegates to runPicker() for TUI lifecycle.
@@ -36,7 +39,7 @@ export async function pickSession(
 	const result = await runPicker({
 		title: "Sessions",
 		items,
-		maxVisible: 12,
+		maxVisible: SESSION_PICKER_MAX_VISIBLE,
 		allowFilter: true,
 		previewFn: (item, requestRender) => {
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
@@ -45,7 +48,7 @@ export async function pickSession(
 			const cached = previewCache.get(item.value);
 			if (cached) return cached;
 
-			void preview.getSessionPreview(item.value, 12).then((lines) => {
+			void preview.getSessionPreview(item.value, SESSION_PREVIEW_LINES).then((lines) => {
 				previewCache.set(item.value, lines.length > 0 ? lines : ["  (empty session)"]);
 				requestRender?.();
 			});

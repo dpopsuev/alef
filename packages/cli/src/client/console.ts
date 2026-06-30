@@ -49,6 +49,8 @@ import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef
 const SPINNER_FRAME_COUNT = 12;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
+const TOAST_DURATION_MS = 3000;
+const BACKGROUND_TASK_POLL_MS = 10_000;
 const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
 const MIN_WIDGET_LINES = 3;
 
@@ -394,7 +396,7 @@ export class PromptConsole {
 		this.tui.requestRender();
 	}
 
-	showToast(message: string, durationMs = 3000): void {
+	showToast(message: string, durationMs = TOAST_DURATION_MS): void {
 		const toast = new Toast({
 			message,
 			durationMs,
@@ -423,7 +425,7 @@ export class PromptConsole {
 		setTimeout(() => {
 			this.backgroundTasks.delete(taskId);
 			this.refreshBackgroundTaskPanel();
-		}, 10_000);
+		}, BACKGROUND_TASK_POLL_MS);
 	}
 
 	private refreshBackgroundTaskPanel(): void {

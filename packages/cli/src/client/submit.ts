@@ -10,6 +10,8 @@ import type { TokenFooterHandle, TuiWriter } from "./state.js";
 /**
  * Configuration for message submission.
  */
+const SEND_TIMEOUT_MS = 3_600_000;
+
 export interface SubmitConfig {
 	actorRoutes: InteractiveOptions["actorRoutes"];
 	session: Session;
@@ -102,7 +104,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 				text,
 				message: parsed.message,
 				executor: async () => {
-					await route(parsed.message, 3_600_000);
+					await route(parsed.message, SEND_TIMEOUT_MS);
 				},
 				session,
 				writer,
@@ -129,7 +131,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 			message: text,
 			executor: sendFn
 				? async () => {
-						await sendFn(text, 3_600_000);
+						await sendFn(text, SEND_TIMEOUT_MS);
 					}
 				: undefined,
 			session,

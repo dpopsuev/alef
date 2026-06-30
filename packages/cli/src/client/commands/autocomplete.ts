@@ -1,3 +1,5 @@
+const MAX_HISTORY_ENTRIES = 500;
+
 /**
  * AutocompleteProvider that surfaces conversation history as ghost-text
  * suggestions.
@@ -31,7 +33,7 @@ export class HistoryAutocompleteProvider implements AutocompleteProvider {
 		if (idx >= 0) this.entries.splice(idx, 1);
 		this.entries.unshift(trimmed);
 		// Cap at 500 entries
-		if (this.entries.length > 500) this.entries.pop();
+		if (this.entries.length > MAX_HISTORY_ENTRIES) this.entries.pop();
 	}
 
 	getSuggestions(

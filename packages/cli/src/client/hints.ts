@@ -1,3 +1,5 @@
+const HINT_COL_MIN_WIDTH = 20;
+
 import type { Component } from "@dpopsuev/alef-tui";
 import { fuzzyFilter, truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
 
@@ -57,7 +59,7 @@ export class CommandHintGrid implements Component {
 
 		const items = this.filtered;
 		const showDesc = items.length <= 6;
-		const cols = Math.min(this.columns, Math.max(1, Math.floor(width / 20)));
+		const cols = Math.min(this.columns, Math.max(1, Math.floor(width / HINT_COL_MIN_WIDTH)));
 
 		const rows: string[] = [];
 		for (let i = 0; i < items.length; i += cols) {

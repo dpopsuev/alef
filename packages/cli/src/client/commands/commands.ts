@@ -60,6 +60,9 @@ export class CommandRegistry {
 	}
 }
 
+const PICKER_MAX_VISIBLE = 12;
+const SETTINGS_MAX_VISIBLE = 10;
+
 function isAnthropicViaVertex(): boolean {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from trim() must fall through */
 	const projectId =
@@ -116,7 +119,7 @@ function buildModelSubmenu(currentValue: string, done: (value?: string) => void,
 		label: currentValue.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
 	}));
 	const theme = buildPickerTheme(ctx.t);
-	const list = new SelectList(items, 12, theme).enableSearch();
+	const list = new SelectList(items, PICKER_MAX_VISIBLE, theme).enableSearch();
 	list.onSelect = (item: SelectItem) => {
 		try {
 			buildModel(item.value);
@@ -163,7 +166,7 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 
 	const settings = new SettingsList(
 		settingsItems,
-		10,
+		SETTINGS_MAX_VISIBLE,
 		settingsTheme,
 		(id, value) => {
 			if (id === "model") {
@@ -854,7 +857,7 @@ export function openPicker(
 	opts: PickerOptions,
 ): void {
 	const theme = buildPickerTheme(t);
-	const list = new SelectList(opts.items, opts.maxVisible ?? 10, theme).enableSearch();
+	const list = new SelectList(opts.items, opts.maxVisible ?? SETTINGS_MAX_VISIBLE, theme).enableSearch();
 
 	const close = () => {
 		dispatch({ type: "overlay.hide", id: opts.id });

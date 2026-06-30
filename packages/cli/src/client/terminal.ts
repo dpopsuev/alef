@@ -1,3 +1,6 @@
+const OSC_QUERY_TIMEOUT_MS = 50;
+const PALETTE_QUERY_TIMEOUT_MS = 200;
+
 import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
@@ -34,7 +37,7 @@ export function relativeLuminance(c: Pick<BgColor, "r" | "g" | "b">): number {
 	return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
 }
 
-async function queryOSC11(timeoutMs = 50): Promise<BgColor | null> {
+async function queryOSC11(timeoutMs = OSC_QUERY_TIMEOUT_MS): Promise<BgColor | null> {
 	if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
 
 	// Multiplexers intercept OSC and responses are unreliable — skip.
@@ -149,7 +152,10 @@ export function detectDarkSync(opacity?: number): boolean {
  *
  * Skips in non-TTY contexts and under multiplexers (tmux/screen intercept OSC).
  */
-export async function queryPalette(slots: readonly number[], timeoutMs = 200): Promise<Record<number, string>> {
+export async function queryPalette(
+	slots: readonly number[],
+	timeoutMs = PALETTE_QUERY_TIMEOUT_MS,
+): Promise<Record<number, string>> {
 	if (!process.stdin.isTTY || !process.stdout.isTTY) return {};
 	const term = process.env.TERM ?? "";
 	if (term.startsWith("tmux") || term.startsWith("screen")) return {};
@@ -218,7 +224,7 @@ export function readAlacrittyOpacity(): number | undefined {
 		try {
 			const raw = execFileSync("grep", ["-m1", "^opacity", path], {
 				encoding: "utf-8",
-				timeout: 200,
+				timeout: PALETTE_QUERY_TIMEOUT_MS,
 				stdio: ["ignore", "pipe", "ignore"],
 			});
 			const m = raw.match(/opacity\s*=\s*([\d.]+)/);

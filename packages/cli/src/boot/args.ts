@@ -192,9 +192,18 @@ Examples:
   alef --json -p "Fix the bug"        # machine-readable output
 `.trim();
 
-/** Parse process.argv into a typed Args struct, exiting on --help or unknown flags. */
-export function parseArgs(argv: string[]): Args {
-	const args: Args = {
+// ── Named constants ─────────────────────────────────────────────────────────
+/** Default maximum tool-call turns before the agent stops. */
+const DEFAULT_MAX_TURNS = 50;
+/** Default HTTP port for the --serve flag. */
+const DEFAULT_SERVE_PORT = 3000;
+/** Rollback sentinel: roll back to the previous generation. */
+const ROLLBACK_PREVIOUS = -1;
+
+// ── Defaults factory ────────────────────────────────────────────────────────
+/** Construct a fresh Args struct with default values. */
+function defaultArgs(): Args {
+	return {
 		print: false,
 		prompt: "",
 		cwd: process.cwd(),
@@ -203,7 +212,7 @@ export function parseArgs(argv: string[]): Args {
 		blueprint: undefined,
 		listTools: false,
 		listAdapters: false,
-		maxTurns: 50,
+		maxTurns: DEFAULT_MAX_TURNS,
 		debugSubcmd: undefined,
 		debugSubcmdArgs: [],
 		logSubcmd: undefined,
@@ -244,291 +253,270 @@ export function parseArgs(argv: string[]): Args {
 		preflight: false,
 		migrate: false,
 	};
+}
+
+// ── Flag group parsers ──────────────────────────────────────────────────────
+// Each returns the number of extra argv entries consumed beyond the flag itself
+// (0 = flag only, 1 = flag + value). Returns undefined when the flag is not
+// recognized by this group.
+
+/** -p/--print, --json, --no-tui, --daemon, --attach, --serve, --host */
+function parseModeFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {
+	if (arg === "-p" || arg === "--print") {
+		args.print = true;
+		args.prompt = argv[i + 1] ?? "";
+		return 1;
+	}
+	if (arg === "--json") {
+		args.json = true;
+		return 0;
+	}
+	if (arg === "--no-tui") {
+		args.noTui = true;
+		return 0;
+	}
+	if (arg === "--daemon") {
+		args.daemon = true;
+		args.noTui = true;
+		args.serve = 0; // daemon implies --serve 0 (random port)
+		return 0;
+	}
+	if (arg === "--attach") {
+		args.attach = argv[i + 1] ?? "last";
+		return 1;
+	}
+	if (arg === "--serve") {
+		const n = Number.parseInt(argv[i + 1] ?? String(DEFAULT_SERVE_PORT), 10);
+		args.serve = Number.isNaN(n) ? DEFAULT_SERVE_PORT : n;
+		return 1;
+	}
+	if (arg === "--host") {
+		args.host = argv[i + 1] ?? "127.0.0.1";
+		return 1;
+	}
+	return undefined;
+}
+
+/** --resume, --list-sessions, --replay, --kill, --list/ls (daemons) */
+function parseSessionFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {
+	if (arg === "--resume") {
+		// Optional value: --resume <id> or bare --resume (= last)
+		const next = argv[i + 1];
+		if (next && !next.startsWith("-")) {
+			args.resume = next;
+			return 1;
+		}
+		args.resume = "last";
+		return 0;
+	}
+	if (arg === "--list-sessions") {
+		args.listSessions = true;
+		return 0;
+	}
+	if (arg === "--replay" || arg === "replay") {
+		args.replay = argv[i + 1] ?? "last";
+		return 1;
+	}
+	if (arg === "--kill" || arg === "kill") {
+		args.killDaemon = argv[i + 1] ?? "";
+		return 1;
+	}
+	if (arg === "--list" || arg === "ls") {
+		args.listDaemons = true;
+		return 0;
+	}
+	return undefined;
+}
+
+/** --model, --thinking, --blueprint, --profile, --max-turns */
+function parseModelFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {
+	if (arg === "--model") {
+		args.modelId = argv[i + 1] ?? args.modelId;
+		return 1;
+	}
+	if (arg === "--thinking") {
+		args.thinking = argv[i + 1] ?? undefined;
+		return 1;
+	}
+	if (arg === "--blueprint") {
+		args.blueprint = argv[i + 1] ?? undefined;
+		return 1;
+	}
+	if (arg === "--profile") {
+		args.profile = argv[i + 1] ?? undefined;
+		return 1;
+	}
+	if (arg === "--max-turns") {
+		const n = Number.parseInt(argv[i + 1] ?? String(DEFAULT_MAX_TURNS), 10);
+		if (!Number.isNaN(n) && n >= 0) args.maxTurns = n;
+		return 1;
+	}
+	return undefined;
+}
+
+/** -h/--help, --list-tools, --list-adapters, --list-models, --show-config,
+ *  --list-directives, --preflight, --migrate, --debug */
+function parseInfoFlags(arg: string, _argv: string[], _i: number, args: Args): number | undefined {
+	if (arg === "-h" || arg === "--help") {
+		console.log(USAGE);
+		process.exit(0);
+	}
+	if (arg === "--list-tools") {
+		args.listTools = true;
+		return 0;
+	}
+	if (arg === "--list-adapters") {
+		args.listAdapters = true;
+		return 0;
+	}
+	if (arg === "--list-models") {
+		args.listModels = true;
+		return 0;
+	}
+	if (arg === "--show-config") {
+		args.showConfig = true;
+		return 0;
+	}
+	if (arg === "--list-directives") {
+		args.listDirectives = true;
+		return 0;
+	}
+	if (arg === "--preflight") {
+		args.preflight = true;
+		return 0;
+	}
+	if (arg === "--migrate") {
+		args.migrate = true;
+		return 0;
+	}
+	if (arg === "--debug") {
+		args.debug = true;
+		return 0;
+	}
+	return undefined;
+}
+
+/** install, remove, upgrade, rollback, history, audit, gc, search, sbom, adapter,
+ *  export, import, update */
+function parsePmFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {
+	if (arg === "install") {
+		args.pmInstall = argv[i + 1] ?? "";
+		return 1;
+	}
+	if (arg === "remove") {
+		args.pmRemove = argv[i + 1] ?? "";
+		return 1;
+	}
+	if (arg === "upgrade") {
+		args.pmUpgrade = true;
+		return 0;
+	}
+	if (arg === "rollback") {
+		const n = parseInt(argv[i + 1] ?? "", 10);
+		args.pmRollback = Number.isNaN(n) ? ROLLBACK_PREVIOUS : n;
+		if (!Number.isNaN(n)) return 1;
+		return 0;
+	}
+	if (arg === "history") {
+		args.pmHistory = true;
+		return 0;
+	}
+	if (arg === "audit") {
+		args.pmAudit = true;
+		return 0;
+	}
+	if (arg === "gc") {
+		args.pmGc = true;
+		return 0;
+	}
+	if (arg === "search") {
+		args.pmSearch = argv[i + 1] ?? "";
+		return 1;
+	}
+	if (arg === "sbom") {
+		args.pmSbom = true;
+		return 0;
+	}
+	if (arg === "adapter") {
+		const sub = argv[i + 1];
+		if (sub === "list") {
+			args.pmAdapterList = true;
+			return 1;
+		}
+		if (sub === "new") {
+			args.pmAdapterNew = argv[i + 2] ?? "";
+			return 2;
+		}
+		console.error(`Unknown adapter subcommand: ${sub}. Available: list, new`);
+		process.exit(1);
+	}
+	if (arg === "export") {
+		const next = argv[i + 1];
+		if (next && !next.startsWith("-")) {
+			args.pmExport = next;
+			return 1;
+		}
+		args.pmExport = true;
+		return 0;
+	}
+	if (arg === "import") {
+		const next = argv[i + 1];
+		if (next && !next.startsWith("-")) {
+			args.pmImport = next;
+			return 1;
+		}
+		args.pmImport = true;
+		return 0;
+	}
+	if (arg === "update") {
+		args.pmSelfUpdate = true;
+		return 0;
+	}
+	return undefined;
+}
+
+/** --cwd, --yolo, debug (subcmd), log (subcmd) */
+function parseMiscFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {
+	if (arg === "--cwd") {
+		args.cwd = argv[i + 1] ?? process.cwd();
+		return 1;
+	}
+	if (arg === "--yolo") {
+		args.yolo = true;
+		return 0;
+	}
+	if (arg === "debug") {
+		// alef debug <subcmd> [args...]
+		args.debugSubcmd = argv[i + 1] ?? "session";
+		args.debugSubcmdArgs = argv.slice(i + 2);
+		return Infinity; // consume all remaining args
+	}
+	if (arg === "log") {
+		args.logSubcmd = argv[i + 1] ?? "sessions";
+		args.logArgs = argv.slice(i + 2);
+		return Infinity; // consume all remaining args
+	}
+	return undefined;
+}
+
+/** Parse process.argv into a typed Args struct, exiting on --help or unknown flags. */
+export function parseArgs(argv: string[]): Args {
+	const args = defaultArgs();
 
 	let i = 0;
 	while (i < argv.length) {
 		const arg = argv[i];
 
-		if (arg === "debug") {
-			// alef debug <subcmd> [args...]
-			args.debugSubcmd = argv[++i] ?? "session";
-			args.debugSubcmdArgs = argv.slice(i + 1);
-			break;
-		}
+		const consumed =
+			parseModeFlags(arg, argv, i, args) ??
+			parseSessionFlags(arg, argv, i, args) ??
+			parseModelFlags(arg, argv, i, args) ??
+			parseInfoFlags(arg, argv, i, args) ??
+			parsePmFlags(arg, argv, i, args) ??
+			parseMiscFlags(arg, argv, i, args);
 
-		if (arg === "log") {
-			args.logSubcmd = argv[++i] ?? "sessions";
-			args.logArgs = argv.slice(i + 1);
-			break;
-		}
-
-		if (arg === "-h" || arg === "--help") {
-			console.log(USAGE);
-			process.exit(0);
-		}
-
-		if (arg === "-p" || arg === "--print") {
-			args.print = true;
-			args.prompt = argv[++i] ?? "";
-			i++;
-			continue;
-		}
-
-		if (arg === "--cwd") {
-			args.cwd = argv[++i] ?? process.cwd();
-			i++;
-			continue;
-		}
-
-		if (arg === "--model") {
-			args.modelId = argv[++i] ?? args.modelId;
-			i++;
-			continue;
-		}
-
-		if (arg === "--blueprint") {
-			args.blueprint = argv[++i] ?? undefined;
-			i++;
-			continue;
-		}
-
-		if (arg === "--list-tools") {
-			args.listTools = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--list-adapters") {
-			args.listAdapters = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--list-models") {
-			args.listModels = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--show-config") {
-			args.showConfig = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--list-directives") {
-			args.listDirectives = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--preflight") {
-			args.preflight = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--migrate") {
-			args.migrate = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--max-turns") {
-			const n = Number.parseInt(argv[++i] ?? "50", 10);
-			if (!Number.isNaN(n) && n >= 0) args.maxTurns = n;
-			i++;
-			continue;
-		}
-
-		if (arg === "--thinking") {
-			args.thinking = argv[++i] ?? undefined;
-			i++;
-			continue;
-		}
-
-		if (arg === "--resume") {
-			// Optional value: --resume <id> or bare --resume (= last)
-			const next = argv[i + 1];
-			if (next && !next.startsWith("-")) {
-				args.resume = next;
-				i++;
-			} else {
-				args.resume = "last";
-			}
-			i++;
-			continue;
-		}
-
-		if (arg === "--list-sessions") {
-			args.listSessions = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--no-tui") {
-			args.noTui = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--yolo") {
-			args.yolo = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--daemon") {
-			args.daemon = true;
-			args.noTui = true;
-			args.serve = 0; // daemon implies --serve 0 (random port)
-			i++;
-			continue;
-		}
-
-		if (arg === "--attach") {
-			args.attach = argv[++i] ?? "last";
-			i++;
-			continue;
-		}
-
-		if (arg === "--list" || arg === "ls") {
-			args.listDaemons = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--kill" || arg === "kill") {
-			args.killDaemon = argv[++i] ?? "";
-			i++;
-			continue;
-		}
-
-		if (arg === "--replay" || arg === "replay") {
-			args.replay = argv[++i] ?? "last";
-			i++;
-			continue;
-		}
-
-		if (arg === "--serve") {
-			const n = Number.parseInt(argv[++i] ?? "3000", 10);
-			args.serve = Number.isNaN(n) ? 3000 : n;
-			i++;
-			continue;
-		}
-
-		if (arg === "--host") {
-			args.host = argv[++i] ?? "127.0.0.1";
-			i++;
-			continue;
-		}
-
-		if (arg === "--profile") {
-			args.profile = argv[++i] ?? undefined;
-			i++;
-			continue;
-		}
-
-		if (arg === "--json") {
-			args.json = true;
-			i++;
-			continue;
-		}
-
-		if (arg === "--debug") {
-			args.debug = true;
-			i++;
-			continue;
-		}
-
-		// Package manager subcommands
-		if (arg === "install") {
-			args.pmInstall = argv[++i] ?? "";
-			i++;
-			continue;
-		}
-		if (arg === "remove") {
-			args.pmRemove = argv[++i] ?? "";
-			i++;
-			continue;
-		}
-		if (arg === "upgrade") {
-			args.pmUpgrade = true;
-			i++;
-			continue;
-		}
-		if (arg === "rollback") {
-			const n = parseInt(argv[i + 1] ?? "", 10);
-			args.pmRollback = Number.isNaN(n) ? -1 : n; // -1 = previous
-			if (!Number.isNaN(n)) i++;
-			i++;
-			continue;
-		}
-		if (arg === "history") {
-			args.pmHistory = true;
-			i++;
-			continue;
-		}
-		if (arg === "audit") {
-			args.pmAudit = true;
-			i++;
-			continue;
-		}
-		if (arg === "gc") {
-			args.pmGc = true;
-			i++;
-			continue;
-		}
-		if (arg === "search") {
-			args.pmSearch = argv[++i] ?? "";
-			i++;
-			continue;
-		}
-		if (arg === "sbom") {
-			args.pmSbom = true;
-			i++;
-			continue;
-		}
-		if (arg === "adapter") {
-			const sub = argv[++i];
-			if (sub === "list") {
-				args.pmAdapterList = true;
-			} else if (sub === "new") {
-				args.pmAdapterNew = argv[++i] ?? "";
-				i++;
-			} else {
-				console.error(`Unknown adapter subcommand: ${sub}. Available: list, new`);
-				process.exit(1);
-			}
-			i++;
-			continue;
-		}
-		if (arg === "export") {
-			const next = argv[i + 1];
-			if (next && !next.startsWith("-")) {
-				args.pmExport = next;
-				i++;
-			} else {
-				args.pmExport = true;
-			}
-			i++;
-			continue;
-		}
-		if (arg === "import") {
-			const next = argv[i + 1];
-			if (next && !next.startsWith("-")) {
-				args.pmImport = next;
-				i++;
-			} else {
-				args.pmImport = true;
-			}
-			i++;
-			continue;
-		}
-
-		if (arg === "update") {
-			args.pmSelfUpdate = true;
-			i++;
+		if (consumed !== undefined) {
+			i += 1 + consumed;
 			continue;
 		}
 

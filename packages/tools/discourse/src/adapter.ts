@@ -1,4 +1,4 @@
-import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, BaseAdapterOptions, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
@@ -63,52 +63,62 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		return { messages: injectContextBlock(input.messages, block) };
 	};
 
+	async function handlePost(
+		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { topic, thread, content, author } = ctx.payload;
+		const post = store.append(topic, thread, author ?? "agent", content);
+		return withDisplay(
+			{ posted: true, topic, thread, timestamp: post.timestamp },
+			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleRead(
+		ctx: CommandHandlerCtx<z.infer<typeof FORUM_READ.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { topic, thread, since } = ctx.payload;
+		const posts = store.readThread(topic, thread, since);
+		return withDisplay(
+			{ posts, count: posts.length },
+			{ text: posts.length > 0 ? posts.map(formatPost).join("\n") : "(no posts)", mimeType: "text/plain" },
+		);
+	}
+
+	async function handleList(
+		ctx: CommandHandlerCtx<z.infer<typeof FORUM_LIST.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { topic } = ctx.payload;
+		if (topic) {
+			const infos = store.listThreads(topic).map((t) => store.threadInfo(topic, t));
+			return withDisplay(
+				{ topic, threads: infos },
+				{
+					text:
+						infos.length > 0
+							? infos
+									.map((t) => `  ${topic}/${t.name} (${t.posts} posts, ${t.participants.join(", ")})`)
+									.join("\n")
+							: `(no threads in ${topic})`,
+					mimeType: "text/plain",
+				},
+			);
+		}
+		const summaries = store.topicSummaries();
+		const lines = summaries.flatMap((s) => [`${s.topic}/`, ...s.threads.map((t) => `  ${t}`)]);
+		return withDisplay(
+			{ topics: summaries },
+			{ text: lines.length > 0 ? lines.join("\n") : "(empty forum)", mimeType: "text/plain" },
+		);
+	}
+
 	return defineAdapter(
 		"discourse",
 		{
 			command: {
-				"discourse.post": typedAction(FORUM_POST, async (ctx) => {
-					const { topic, thread, content, author } = ctx.payload;
-					const post = store.append(topic, thread, author ?? "agent", content);
-					return withDisplay(
-						{ posted: true, topic, thread, timestamp: post.timestamp },
-						{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
-					);
-				}),
-
-				"discourse.read": typedAction(FORUM_READ, async (ctx) => {
-					const { topic, thread, since } = ctx.payload;
-					const posts = store.readThread(topic, thread, since);
-					return withDisplay(
-						{ posts, count: posts.length },
-						{ text: posts.length > 0 ? posts.map(formatPost).join("\n") : "(no posts)", mimeType: "text/plain" },
-					);
-				}),
-
-				"discourse.list": typedAction(FORUM_LIST, async (ctx) => {
-					const { topic } = ctx.payload;
-					if (topic) {
-						const infos = store.listThreads(topic).map((t) => store.threadInfo(topic, t));
-						return withDisplay(
-							{ topic, threads: infos },
-							{
-								text:
-									infos.length > 0
-										? infos
-												.map((t) => `  ${topic}/${t.name} (${t.posts} posts, ${t.participants.join(", ")})`)
-												.join("\n")
-										: `(no threads in ${topic})`,
-								mimeType: "text/plain",
-							},
-						);
-					}
-					const summaries = store.topicSummaries();
-					const lines = summaries.flatMap((s) => [`${s.topic}/`, ...s.threads.map((t) => `  ${t}`)]);
-					return withDisplay(
-						{ topics: summaries },
-						{ text: lines.length > 0 ? lines.join("\n") : "(empty forum)", mimeType: "text/plain" },
-					);
-				}),
+				"discourse.post": typedAction(FORUM_POST, handlePost),
+				"discourse.read": typedAction(FORUM_READ, handleRead),
+				"discourse.list": typedAction(FORUM_LIST, handleList),
 			},
 		},
 		{

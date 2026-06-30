@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, BaseAdapterOptions, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -8,6 +8,118 @@ import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assem
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
+
+const PLAN_BEGIN = {
+	name: "plan.begin",
+	description: "Start a new plan. Sets the intention and enters the ideation block.",
+	inputSchema: z.object({ intention: z.string().min(1) }),
+};
+
+const PLAN_STATE = {
+	name: "plan.state",
+	description: "Set current and desired state (inception phase).",
+	inputSchema: z.object({
+		current: z.string().min(1),
+		desired: z.string().min(1),
+		delta: z.string().min(1).describe("What needs to change"),
+	}),
+};
+
+const PLAN_EXCLUDE = {
+	name: "plan.exclude",
+	description: "Add exclusions — what's out of scope (contraction phase).",
+	inputSchema: z.object({ items: z.array(z.string().min(1)).min(1) }),
+};
+
+const PLAN_FIX = {
+	name: "plan.fix",
+	description: "Define the singular end state — what 'done' looks like (fixation phase).",
+	inputSchema: z.object({ endState: z.string().min(1) }),
+};
+
+const PLAN_EXPAND = {
+	name: "plan.expand",
+	description: "Add nodes to the navigation graph (expansion phase). Each node represents work to do.",
+	inputSchema: z.object({
+		nodes: z
+			.array(
+				z.object({
+					label: z
+						.string()
+						.min(10)
+						.max(60)
+						.describe("Node title: 3-8 words (e.g. 'extract authentication middleware logic')"),
+					parent: z
+						.string()
+						.optional()
+						.describe("Parent node ID (the slugified title). Omit for root."),
+				}),
+			)
+			.min(1),
+	}),
+};
+
+const PLAN_REDUCE = {
+	name: "plan.reduce",
+	description: "Prune unnecessary nodes from the plan (reduction phase).",
+	inputSchema: z.object({ prune: z.array(z.string().min(1)).min(1).describe("Node IDs to prune") }),
+};
+
+const PLAN_CONSOLIDATE = {
+	name: "plan.consolidate",
+	description: "Mark the plan as consolidated — ready for implementation. Optionally defer nodes.",
+	inputSchema: z.object({
+		defer: z.array(z.string()).optional().describe("Node IDs to defer to later"),
+	}),
+};
+
+const PLAN_CHECKPOINT = {
+	name: "plan.checkpoint",
+	description: "Mark a plan node as in-progress (implementation phase).",
+	inputSchema: z.object({
+		nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+	}),
+};
+
+const PLAN_ASSESS = {
+	name: "plan.assess",
+	description: "Record the result of implementing a node — compare execution to intent.",
+	inputSchema: z.object({
+		nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+		result: z.string().min(1).describe("What was the outcome?"),
+	}),
+};
+
+const PLAN_REFINE = {
+	name: "plan.refine",
+	description: "Send a node back for rework with feedback.",
+	inputSchema: z.object({
+		nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+		feedback: z.string().min(1),
+	}),
+};
+
+const PLAN_COMPLETE = {
+	name: "plan.complete",
+	description: "Mark a node as done.",
+	inputSchema: z.object({
+		nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+	}),
+};
+
+const PLAN_CLOSE = {
+	name: "plan.close",
+	description: "Close the plan with an after-action review (introspection phase).",
+	inputSchema: z.object({
+		aar: z.string().min(1).describe("After-action review: what worked, what didn't, what to improve"),
+	}),
+};
+
+const PLAN_SHOW = {
+	name: "plan.show",
+	description: "Show the current plan state, phase, and navigation tree.",
+	inputSchema: z.object({}),
+};
 
 export interface PlanAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
@@ -43,294 +155,207 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		return { messages: injectContextBlock(input.messages, `[Plan — ${plan.phase}]\n${summary}`) };
 	};
 
+	async function handleBegin(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_BEGIN.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const id = `plan-${shortId()}`;
+		activePlan = new PlanGraph(id, ctx.payload.intention, ensureDisk());
+		return withDisplay(
+			{ id, phase: "intention" },
+			{ text: `Plan ${id} started: ${ctx.payload.intention}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleState(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_STATE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay(
+				{ error: "no plan" },
+				{ text: "No active plan. Use plan.begin first.", mimeType: "text/plain" },
+			);
+		plan.setInception(ctx.payload.current, ctx.payload.desired, ctx.payload.delta);
+		return withDisplay(
+			{ phase: plan.phase },
+			{ text: `State set. Phase: ${plan.phase}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleExclude(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_EXCLUDE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		for (const item of ctx.payload.items) plan.addExclusion(item);
+		return withDisplay(
+			{ exclusions: ctx.payload.items.length },
+			{ text: `${ctx.payload.items.length} exclusion(s) added`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleFix(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_FIX.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.setEndState(ctx.payload.endState);
+		return withDisplay(
+			{ phase: plan.phase },
+			{ text: `End state fixed: ${ctx.payload.endState}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleExpand(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_EXPAND.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		const created = ctx.payload.nodes.map((n) => plan.addNode(n.label, n.parent ?? null));
+		return withDisplay(
+			{ added: created.length, ids: created.map((n) => n.id) },
+			{
+				text: `Added ${created.length} node(s): ${created.map((n) => `${n.id}:${n.label}`).join(", ")}`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	async function handleReduce(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_REDUCE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		let pruned = 0;
+		for (const id of ctx.payload.prune) {
+			if (plan.pruneNode(id)) pruned++;
+		}
+		return withDisplay({ pruned }, { text: `Pruned ${pruned} node(s)`, mimeType: "text/plain" });
+	}
+
+	async function handleConsolidate(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_CONSOLIDATE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		for (const id of ctx.payload.defer ?? []) plan.deferNode(id);
+		plan.advanceTo("consolidation");
+		return withDisplay(
+			{ phase: plan.phase, stats: plan.stats() },
+			{ text: `Plan consolidated.\n${plan.renderTree()}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleCheckpoint(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_CHECKPOINT.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.checkpoint(ctx.payload.nodeId);
+		emitSignal("plan.intent", { text: ctx.payload.nodeId });
+		emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
+		return withDisplay(
+			{ nodeId: ctx.payload.nodeId, phase: plan.phase },
+			{ text: `Node ${ctx.payload.nodeId} is now active`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleAssess(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_ASSESS.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.assess(ctx.payload.nodeId, ctx.payload.result);
+		return withDisplay(
+			{ nodeId: ctx.payload.nodeId },
+			{ text: `Assessment recorded for ${ctx.payload.nodeId}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleRefine(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_REFINE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.refine(ctx.payload.nodeId, ctx.payload.feedback);
+		return withDisplay(
+			{ nodeId: ctx.payload.nodeId },
+			{ text: `Node ${ctx.payload.nodeId} sent back: ${ctx.payload.feedback}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleComplete(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_COMPLETE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.completeNode(ctx.payload.nodeId);
+		emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
+		const s = plan.stats();
+		return withDisplay(
+			{ nodeId: ctx.payload.nodeId, stats: s },
+			{
+				text: `Node ${ctx.payload.nodeId} done. Progress: ${s.done}/${s.total}`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	async function handleClose(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_CLOSE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
+		plan.setAAR(ctx.payload.aar);
+		plan.close();
+		emitSignal("plan.intent", { text: "" });
+		emitSignal("plan.tree", { tree: "" });
+		const summary = plan.renderSummary();
+		activePlan = null;
+		return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
+	}
+
+	async function handleShow(): Promise<Record<string, unknown>> {
+		const plan = loadOrCreate();
+		if (!plan)
+			return withDisplay(
+				{ active: false },
+				{ text: "No active plan. Use plan.begin to start.", mimeType: "text/plain" },
+			);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanData is a plain object, safe to widen
+		return withDisplay(plan.toJSON() as unknown as Record<string, unknown>, {
+			text: plan.renderSummary(),
+			mimeType: "text/plain",
+		});
+	}
+
 	return defineAdapter(
 		"plan",
 		{
 			command: {
-				"plan.begin": typedAction(
-					{
-						name: "plan.begin",
-						description: "Start a new plan. Sets the intention and enters the ideation block.",
-						inputSchema: z.object({ intention: z.string().min(1) }),
-					},
-					async (ctx) => {
-						const id = `plan-${shortId()}`;
-						activePlan = new PlanGraph(id, ctx.payload.intention, ensureDisk());
-						return withDisplay(
-							{ id, phase: "intention" },
-							{ text: `Plan ${id} started: ${ctx.payload.intention}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.state": typedAction(
-					{
-						name: "plan.state",
-						description: "Set current and desired state (inception phase).",
-						inputSchema: z.object({
-							current: z.string().min(1),
-							desired: z.string().min(1),
-							delta: z.string().min(1).describe("What needs to change"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay(
-								{ error: "no plan" },
-								{ text: "No active plan. Use plan.begin first.", mimeType: "text/plain" },
-							);
-						plan.setInception(ctx.payload.current, ctx.payload.desired, ctx.payload.delta);
-						return withDisplay(
-							{ phase: plan.phase },
-							{ text: `State set. Phase: ${plan.phase}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.exclude": typedAction(
-					{
-						name: "plan.exclude",
-						description: "Add exclusions — what's out of scope (contraction phase).",
-						inputSchema: z.object({ items: z.array(z.string().min(1)).min(1) }),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						for (const item of ctx.payload.items) plan.addExclusion(item);
-						return withDisplay(
-							{ exclusions: ctx.payload.items.length },
-							{ text: `${ctx.payload.items.length} exclusion(s) added`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.fix": typedAction(
-					{
-						name: "plan.fix",
-						description: "Define the singular end state — what 'done' looks like (fixation phase).",
-						inputSchema: z.object({ endState: z.string().min(1) }),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.setEndState(ctx.payload.endState);
-						return withDisplay(
-							{ phase: plan.phase },
-							{ text: `End state fixed: ${ctx.payload.endState}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.expand": typedAction(
-					{
-						name: "plan.expand",
-						description: "Add nodes to the navigation graph (expansion phase). Each node represents work to do.",
-						inputSchema: z.object({
-							nodes: z
-								.array(
-									z.object({
-										label: z
-											.string()
-											.min(10)
-											.max(60)
-											.describe("Node title: 3-8 words (e.g. 'extract authentication middleware logic')"),
-										parent: z
-											.string()
-											.optional()
-											.describe("Parent node ID (the slugified title). Omit for root."),
-									}),
-								)
-								.min(1),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						const created = ctx.payload.nodes.map((n) => plan.addNode(n.label, n.parent ?? null));
-						return withDisplay(
-							{ added: created.length, ids: created.map((n) => n.id) },
-							{
-								text: `Added ${created.length} node(s): ${created.map((n) => `${n.id}:${n.label}`).join(", ")}`,
-								mimeType: "text/plain",
-							},
-						);
-					},
-				),
-
-				"plan.reduce": typedAction(
-					{
-						name: "plan.reduce",
-						description: "Prune unnecessary nodes from the plan (reduction phase).",
-						inputSchema: z.object({ prune: z.array(z.string().min(1)).min(1).describe("Node IDs to prune") }),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						let pruned = 0;
-						for (const id of ctx.payload.prune) {
-							if (plan.pruneNode(id)) pruned++;
-						}
-						return withDisplay({ pruned }, { text: `Pruned ${pruned} node(s)`, mimeType: "text/plain" });
-					},
-				),
-
-				"plan.consolidate": typedAction(
-					{
-						name: "plan.consolidate",
-						description: "Mark the plan as consolidated — ready for implementation. Optionally defer nodes.",
-						inputSchema: z.object({
-							defer: z.array(z.string()).optional().describe("Node IDs to defer to later"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						for (const id of ctx.payload.defer ?? []) plan.deferNode(id);
-						plan.advanceTo("consolidation");
-						return withDisplay(
-							{ phase: plan.phase, stats: plan.stats() },
-							{ text: `Plan consolidated.\n${plan.renderTree()}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.checkpoint": typedAction(
-					{
-						name: "plan.checkpoint",
-						description: "Mark a plan node as in-progress (implementation phase).",
-						inputSchema: z.object({
-							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.checkpoint(ctx.payload.nodeId);
-						emitSignal("plan.intent", { text: ctx.payload.nodeId });
-						emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
-						return withDisplay(
-							{ nodeId: ctx.payload.nodeId, phase: plan.phase },
-							{ text: `Node ${ctx.payload.nodeId} is now active`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.assess": typedAction(
-					{
-						name: "plan.assess",
-						description: "Record the result of implementing a node — compare execution to intent.",
-						inputSchema: z.object({
-							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
-							result: z.string().min(1).describe("What was the outcome?"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.assess(ctx.payload.nodeId, ctx.payload.result);
-						return withDisplay(
-							{ nodeId: ctx.payload.nodeId },
-							{ text: `Assessment recorded for ${ctx.payload.nodeId}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.refine": typedAction(
-					{
-						name: "plan.refine",
-						description: "Send a node back for rework with feedback.",
-						inputSchema: z.object({
-							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
-							feedback: z.string().min(1),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.refine(ctx.payload.nodeId, ctx.payload.feedback);
-						return withDisplay(
-							{ nodeId: ctx.payload.nodeId },
-							{ text: `Node ${ctx.payload.nodeId} sent back: ${ctx.payload.feedback}`, mimeType: "text/plain" },
-						);
-					},
-				),
-
-				"plan.complete": typedAction(
-					{
-						name: "plan.complete",
-						description: "Mark a node as done.",
-						inputSchema: z.object({
-							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.completeNode(ctx.payload.nodeId);
-						emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
-						const s = plan.stats();
-						return withDisplay(
-							{ nodeId: ctx.payload.nodeId, stats: s },
-							{
-								text: `Node ${ctx.payload.nodeId} done. Progress: ${s.done}/${s.total}`,
-								mimeType: "text/plain",
-							},
-						);
-					},
-				),
-
-				"plan.close": typedAction(
-					{
-						name: "plan.close",
-						description: "Close the plan with an after-action review (introspection phase).",
-						inputSchema: z.object({
-							aar: z.string().min(1).describe("After-action review: what worked, what didn't, what to improve"),
-						}),
-					},
-					async (ctx) => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
-						plan.setAAR(ctx.payload.aar);
-						plan.close();
-						emitSignal("plan.intent", { text: "" });
-						emitSignal("plan.tree", { tree: "" });
-						const summary = plan.renderSummary();
-						activePlan = null;
-						return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
-					},
-				),
-
-				"plan.show": typedAction(
-					{
-						name: "plan.show",
-						description: "Show the current plan state, phase, and navigation tree.",
-						inputSchema: z.object({}),
-					},
-					async () => {
-						const plan = loadOrCreate();
-						if (!plan)
-							return withDisplay(
-								{ active: false },
-								{ text: "No active plan. Use plan.begin to start.", mimeType: "text/plain" },
-							);
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanData is a plain object, safe to widen
-						return withDisplay(plan.toJSON() as unknown as Record<string, unknown>, {
-							text: plan.renderSummary(),
-							mimeType: "text/plain",
-						});
-					},
-				),
+				"plan.begin": typedAction(PLAN_BEGIN, handleBegin),
+				"plan.state": typedAction(PLAN_STATE, handleState),
+				"plan.exclude": typedAction(PLAN_EXCLUDE, handleExclude),
+				"plan.fix": typedAction(PLAN_FIX, handleFix),
+				"plan.expand": typedAction(PLAN_EXPAND, handleExpand),
+				"plan.reduce": typedAction(PLAN_REDUCE, handleReduce),
+				"plan.consolidate": typedAction(PLAN_CONSOLIDATE, handleConsolidate),
+				"plan.checkpoint": typedAction(PLAN_CHECKPOINT, handleCheckpoint),
+				"plan.assess": typedAction(PLAN_ASSESS, handleAssess),
+				"plan.refine": typedAction(PLAN_REFINE, handleRefine),
+				"plan.complete": typedAction(PLAN_COMPLETE, handleComplete),
+				"plan.close": typedAction(PLAN_CLOSE, handleClose),
+				"plan.show": typedAction(PLAN_SHOW, handleShow),
 			},
 		},
 		{

@@ -1,5 +1,5 @@
 import { exec } from "node:child_process";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -26,6 +26,14 @@ const WireInputSchema = z.object({
 	wiring: z.array(WiringRuleSchema).min(1).describe("Subscription graph — WHO listens to WHO for WHAT"),
 	start: z.string().min(1).describe("Entry event type to kick off the workflow"),
 	input: z.string().min(1).describe("Initial payload text for the start event"),
+});
+
+const WorkflowStatusInputSchema = z.object({
+	workflowId: z.string().optional().describe("Workflow ID. Omit to list all."),
+});
+
+const WorkflowStopInputSchema = z.object({
+	workflowId: z.string().min(1).describe("Workflow ID to stop"),
 });
 
 type WiringRule = z.infer<typeof WiringRuleSchema>;
@@ -296,6 +304,116 @@ export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 		}
 	}
 
+	async function handleWire(
+		ctx: CommandHandlerCtx<z.infer<typeof WireInputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { name, wiring, start, input } = ctx.payload;
+		const id = `wf-${++wireSeq}`;
+		const state: WireState = {
+			id,
+			name,
+			status: "running",
+			startedAt: Date.now(),
+			events: [],
+			retryCounters: new Map(),
+			unmounts: [],
+		};
+		workflows.set(id, state);
+
+		const doneRule = wiring.find((r) => r.produces === "done");
+		if (doneRule) {
+			const unsub = bus?.event.subscribe("done", () => {
+				state.status = "completed";
+				state.completedAt = Date.now();
+				recordEvent(state, "done", "completed");
+				bus?.notification.publish({
+					type: "workflow.completed",
+					payload: { workflowId: id, elapsedMs: Date.now() - state.startedAt },
+					correlationId: ctx.correlationId,
+				});
+			});
+			if (unsub) state.unmounts.push(unsub);
+		}
+
+		mountWiring(state, wiring);
+
+		bus?.command.publish({
+			type: start,
+			payload: { text: input },
+			correlationId: ctx.correlationId,
+		});
+
+		recordEvent(state, start, "started", input.slice(0, 100));
+
+		return withDisplay(
+			{ workflowId: id, name, status: "running", rules: wiring.length },
+			{
+				text: `Workflow '${name}' started (${id}), ${wiring.length} rules wired.`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	async function handleStatus(
+		ctx: CommandHandlerCtx<z.infer<typeof WorkflowStatusInputSchema>>,
+	): Promise<Record<string, unknown>> {
+		if (ctx.payload.workflowId) {
+			const state = workflows.get(ctx.payload.workflowId);
+			if (!state) {
+				return withDisplay(
+					{ error: "not found" },
+					{ text: `Workflow ${ctx.payload.workflowId} not found`, mimeType: "text/plain" },
+				);
+			}
+			const elapsed = (state.completedAt ?? Date.now()) - state.startedAt;
+			const lines = [
+				`${state.id} [${state.status}] ${state.name} — ${(elapsed / 1000).toFixed(1)}s`,
+				"",
+				...state.events.map(
+					(e) =>
+						`  ${new Date(e.timestamp).toISOString().slice(11, 19)} ${e.type} [${e.status}]${e.detail ? ` ${e.detail.slice(0, 80)}` : ""}`,
+				),
+			];
+			return withDisplay(
+				{ ...state, elapsedMs: elapsed, retryCounters: Object.fromEntries(state.retryCounters) },
+				{ text: lines.join("\n"), mimeType: "text/plain" },
+			);
+		}
+
+		const all = [...workflows.values()].map((s) => ({
+			id: s.id,
+			name: s.name,
+			status: s.status,
+			events: s.events.length,
+			elapsedMs: (s.completedAt ?? Date.now()) - s.startedAt,
+		}));
+		const lines =
+			all.length > 0
+				? all.map(
+						(w) =>
+							`${w.id} [${w.status}] ${w.name} — ${w.events} events, ${(w.elapsedMs / 1000).toFixed(1)}s`,
+					)
+				: ["No workflows"];
+		return withDisplay({ workflows: all }, { text: lines.join("\n"), mimeType: "text/plain" });
+	}
+
+	async function handleStop(
+		ctx: CommandHandlerCtx<z.infer<typeof WorkflowStopInputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const state = workflows.get(ctx.payload.workflowId);
+		if (!state) {
+			return withDisplay({ error: "not found" }, { text: "Not found", mimeType: "text/plain" });
+		}
+		for (const unsub of state.unmounts) unsub();
+		state.unmounts.length = 0;
+		state.status = "completed";
+		state.completedAt = Date.now();
+		return withDisplay(
+			{ stopped: true },
+			{ text: `Workflow ${state.id} stopped`, mimeType: "text/plain" },
+		);
+	}
+
 	return defineAdapter(
 		"workflow",
 		{
@@ -309,127 +427,25 @@ export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 						inputSchema: WireInputSchema,
 						longRunning: true,
 					},
-					async (ctx) => {
-						const { name, wiring, start, input } = ctx.payload;
-						const id = `wf-${++wireSeq}`;
-						const state: WireState = {
-							id,
-							name,
-							status: "running",
-							startedAt: Date.now(),
-							events: [],
-							retryCounters: new Map(),
-							unmounts: [],
-						};
-						workflows.set(id, state);
-
-						const doneRule = wiring.find((r) => r.produces === "done");
-						if (doneRule) {
-							const unsub = bus?.event.subscribe("done", () => {
-								state.status = "completed";
-								state.completedAt = Date.now();
-								recordEvent(state, "done", "completed");
-								bus?.notification.publish({
-									type: "workflow.completed",
-									payload: { workflowId: id, elapsedMs: Date.now() - state.startedAt },
-									correlationId: ctx.correlationId,
-								});
-							});
-							if (unsub) state.unmounts.push(unsub);
-						}
-
-						mountWiring(state, wiring);
-
-						bus?.command.publish({
-							type: start,
-							payload: { text: input },
-							correlationId: ctx.correlationId,
-						});
-
-						recordEvent(state, start, "started", input.slice(0, 100));
-
-						return withDisplay(
-							{ workflowId: id, name, status: "running", rules: wiring.length },
-							{
-								text: `Workflow '${name}' started (${id}), ${wiring.length} rules wired.`,
-								mimeType: "text/plain",
-							},
-						);
-					},
+					handleWire,
 				),
 
 				"workflow.status": typedAction(
 					{
 						name: "workflow.status",
 						description: "Query workflow progress — events, gate results, retry counts.",
-						inputSchema: z.object({
-							workflowId: z.string().optional().describe("Workflow ID. Omit to list all."),
-						}),
+						inputSchema: WorkflowStatusInputSchema,
 					},
-					async (ctx) => {
-						if (ctx.payload.workflowId) {
-							const state = workflows.get(ctx.payload.workflowId);
-							if (!state) {
-								return withDisplay(
-									{ error: "not found" },
-									{ text: `Workflow ${ctx.payload.workflowId} not found`, mimeType: "text/plain" },
-								);
-							}
-							const elapsed = (state.completedAt ?? Date.now()) - state.startedAt;
-							const lines = [
-								`${state.id} [${state.status}] ${state.name} — ${(elapsed / 1000).toFixed(1)}s`,
-								"",
-								...state.events.map(
-									(e) =>
-										`  ${new Date(e.timestamp).toISOString().slice(11, 19)} ${e.type} [${e.status}]${e.detail ? ` ${e.detail.slice(0, 80)}` : ""}`,
-								),
-							];
-							return withDisplay(
-								{ ...state, elapsedMs: elapsed, retryCounters: Object.fromEntries(state.retryCounters) },
-								{ text: lines.join("\n"), mimeType: "text/plain" },
-							);
-						}
-
-						const all = [...workflows.values()].map((s) => ({
-							id: s.id,
-							name: s.name,
-							status: s.status,
-							events: s.events.length,
-							elapsedMs: (s.completedAt ?? Date.now()) - s.startedAt,
-						}));
-						const lines =
-							all.length > 0
-								? all.map(
-										(w) =>
-											`${w.id} [${w.status}] ${w.name} — ${w.events} events, ${(w.elapsedMs / 1000).toFixed(1)}s`,
-									)
-								: ["No workflows"];
-						return withDisplay({ workflows: all }, { text: lines.join("\n"), mimeType: "text/plain" });
-					},
+					handleStatus,
 				),
 
 				"workflow.stop": typedAction(
 					{
 						name: "workflow.stop",
 						description: "Stop a running workflow — unmount all subscriptions.",
-						inputSchema: z.object({
-							workflowId: z.string().min(1).describe("Workflow ID to stop"),
-						}),
+						inputSchema: WorkflowStopInputSchema,
 					},
-					async (ctx) => {
-						const state = workflows.get(ctx.payload.workflowId);
-						if (!state) {
-							return withDisplay({ error: "not found" }, { text: "Not found", mimeType: "text/plain" });
-						}
-						for (const unsub of state.unmounts) unsub();
-						state.unmounts.length = 0;
-						state.status = "completed";
-						state.completedAt = Date.now();
-						return withDisplay(
-							{ stopped: true },
-							{ text: `Workflow ${state.id} stopped`, mimeType: "text/plain" },
-						);
-					},
+					handleStop,
 				),
 			},
 		},

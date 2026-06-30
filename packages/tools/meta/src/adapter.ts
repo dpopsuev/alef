@@ -15,6 +15,7 @@ import { Worker } from "node:worker_threads";
 import {
 	type ActionMap,
 	type Adapter,
+	type CommandHandlerCtx,
 	defineAdapter,
 	passthroughSchema,
 	type SkillBook,
@@ -260,371 +261,408 @@ function validateAdapterCode(code: string): string | null {
 	return null;
 }
 
+const PROTOTYPE_PLUG = {
+	name: "prototype.plug",
+	description:
+		"Load a TypeScript adapter into the running agent. " +
+		"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
+		"The adapter's tools become available immediately.",
+	inputSchema: z
+		.object({
+			path: z
+				.string()
+				.optional()
+				.describe("Absolute or cwd-relative path to a .ts file exporting createAdapter()"),
+			code: z
+				.string()
+				.optional()
+				.describe("TypeScript adapter source. Written to ~/.alef/prototypes/<name>.ts."),
+			name: z
+				.string()
+				.optional()
+				.describe("File name (without .ts) when using code. Defaults to 'prototype'."),
+		})
+		.refine((d) => d.path ?? d.code, "Provide either path or code")
+		.and(
+			z.object({
+				thread: z
+					.boolean()
+					.optional()
+					.describe(
+						"Run the adapter in a worker_threads.Worker for crash isolation. " +
+							"The adapter cannot call process.exit() on the main thread and can be terminate()d safely.",
+					),
+			}),
+		),
+} as const;
+
+const PROTOTYPE_UNPLUG = {
+	name: "prototype.unplug",
+	description: "Unload a prototype adapter from the running agent by name.",
+	inputSchema: z.object({
+		name: z.string().min(1).describe("Adapter name as returned by prototype.list"),
+	}),
+} as const;
+
+const PROTOTYPE_LIST = {
+	name: "prototype.list",
+	description: "List all adapters currently loaded in the running agent.",
+	inputSchema: z.object({}),
+} as const;
+
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
 	loadAdapter: NonNullable<MetaAdapterOptions["loadAdapter"]>,
 	cwd: string,
 ): ActionMap {
+	async function handlePrototypePlug(
+		ctx: CommandHandlerCtx<z.infer<typeof PROTOTYPE_PLUG.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		let adapterPath: string;
+		if (ctx.payload.code) {
+			const code = ctx.payload.code;
+			const rejection = validateAdapterCode(code);
+			if (rejection) {
+				return withDisplay(
+					{ error: "validation failed", reason: rejection },
+					{ text: `Rejected: ${rejection}`, mimeType: "text/plain" },
+				);
+			}
+			await mkdir(PROTOTYPES_DIR, { recursive: true });
+			const filename = `${ctx.payload.name ?? "prototype"}.ts`;
+			adapterPath = join(PROTOTYPES_DIR, filename);
+			await writeFile(adapterPath, code, "utf-8");
+		} else {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod refine guarantees path is set in this branch
+			adapterPath = resolve(cwd, ctx.payload.path as string);
+		}
+		const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;
+		const adapter = useThread
+			? await loadAdapterInWorker(adapterPath, cwd)
+			: await loadAdapter(adapterPath, cwd);
+		agent.load(adapter);
+		const toolNames = adapter.tools.map((t) => t.name);
+		return withDisplay(
+			{ name: adapter.name, tools: toolNames, path: adapterPath },
+			{
+				text: `Plugged adapter '${adapter.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	async function handlePrototypeUnplug(
+		ctx: CommandHandlerCtx<z.infer<typeof PROTOTYPE_UNPLUG.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { name } = ctx.payload;
+		if (CORE_ADAPTERS.has(name)) {
+			return withDisplay(
+				{ unloaded: false, name, reason: "core adapter" },
+				{
+					text: `Cannot unplug '${name}' — core adapter required for agent operation`,
+					mimeType: "text/plain",
+				},
+			);
+		}
+		const removed = agent.unload(name);
+		return withDisplay(
+			{ unloaded: removed, name },
+			{
+				text: removed ? `Unplugged '${name}'` : `Adapter '${name}' not found`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	function handlePrototypeList(): Promise<Record<string, unknown>> {
+		const adapters = agent.adapters.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
+		return Promise.resolve(
+			withDisplay({ adapters }, { text: `${adapters.length} adapter(s) loaded`, mimeType: "text/plain" }),
+		);
+	}
+
 	return {
 		command: {
-			"prototype.plug": typedAction(
-				{
-					name: "prototype.plug",
-					description:
-						"Load a TypeScript adapter into the running agent. " +
-						"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
-						"The adapter's tools become available immediately.",
-					inputSchema: z
-						.object({
-							path: z
-								.string()
-								.optional()
-								.describe("Absolute or cwd-relative path to a .ts file exporting createAdapter()"),
-							code: z
-								.string()
-								.optional()
-								.describe("TypeScript adapter source. Written to ~/.alef/prototypes/<name>.ts."),
-							name: z
-								.string()
-								.optional()
-								.describe("File name (without .ts) when using code. Defaults to 'prototype'."),
-						})
-						.refine((d) => d.path ?? d.code, "Provide either path or code")
-						.and(
-							z.object({
-								thread: z
-									.boolean()
-									.optional()
-									.describe(
-										"Run the adapter in a worker_threads.Worker for crash isolation. " +
-											"The adapter cannot call process.exit() on the main thread and can be terminate()d safely.",
-									),
-							}),
-						),
-				},
-				async (ctx) => {
-					let adapterPath: string;
-					if (ctx.payload.code) {
-						const code = ctx.payload.code;
-						const rejection = validateAdapterCode(code);
-						if (rejection) {
-							return withDisplay(
-								{ error: "validation failed", reason: rejection },
-								{ text: `Rejected: ${rejection}`, mimeType: "text/plain" },
-							);
-						}
-						await mkdir(PROTOTYPES_DIR, { recursive: true });
-						const filename = `${ctx.payload.name ?? "prototype"}.ts`;
-						adapterPath = join(PROTOTYPES_DIR, filename);
-						await writeFile(adapterPath, code, "utf-8");
-					} else {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod refine guarantees path is set in this branch
-						adapterPath = resolve(cwd, ctx.payload.path as string);
-					}
-					const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;
-					const adapter = useThread
-						? await loadAdapterInWorker(adapterPath, cwd)
-						: await loadAdapter(adapterPath, cwd);
-					agent.load(adapter);
-					const toolNames = adapter.tools.map((t) => t.name);
-					return withDisplay(
-						{ name: adapter.name, tools: toolNames, path: adapterPath },
-						{
-							text: `Plugged adapter '${adapter.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
-							mimeType: "text/plain",
-						},
-					);
-				},
-			),
-			"prototype.unplug": typedAction(
-				{
-					name: "prototype.unplug",
-					description: "Unload a prototype adapter from the running agent by name.",
-					inputSchema: z.object({
-						name: z.string().min(1).describe("Adapter name as returned by prototype.list"),
-					}),
-				},
-				async (ctx) => {
-					const { name } = ctx.payload;
-					if (CORE_ADAPTERS.has(name)) {
-						return withDisplay(
-							{ unloaded: false, name, reason: "core adapter" },
-							{
-								text: `Cannot unplug '${name}' — core adapter required for agent operation`,
-								mimeType: "text/plain",
-							},
-						);
-					}
-					const removed = agent.unload(name);
-					return withDisplay(
-						{ unloaded: removed, name },
-						{
-							text: removed ? `Unplugged '${name}'` : `Adapter '${name}' not found`,
-							mimeType: "text/plain",
-						},
-					);
-				},
-			),
-			"prototype.list": typedAction(
-				{
-					name: "prototype.list",
-					description: "List all adapters currently loaded in the running agent.",
-					inputSchema: z.object({}),
-				},
-				() => {
-					const adapters = agent.adapters.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
-					return Promise.resolve(
-						withDisplay({ adapters }, { text: `${adapters.length} adapter(s) loaded`, mimeType: "text/plain" }),
-					);
-				},
-			),
+			"prototype.plug": typedAction(PROTOTYPE_PLUG, handlePrototypePlug),
+			"prototype.unplug": typedAction(PROTOTYPE_UNPLUG, handlePrototypeUnplug),
+			"prototype.list": typedAction(PROTOTYPE_LIST, handlePrototypeList),
 		},
 	};
 }
+
+const DIRECTIVE_LIST = {
+	name: "alef.directive.list",
+	description: "List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
+	inputSchema: z.object({}),
+} as const;
+
+const DIRECTIVE_ENABLE = {
+	name: "alef.directive.enable",
+	description: "Enable a system prompt block.",
+	inputSchema: z.object({ id: z.string().min(1) }),
+} as const;
+
+const DIRECTIVE_DISABLE = {
+	name: "alef.directive.disable",
+	description: "Disable a system prompt block.",
+	inputSchema: z.object({ id: z.string().min(1) }),
+} as const;
+
+const DIRECTIVE_TOGGLE = {
+	name: "alef.directive.toggle",
+	description: "Toggle a system prompt block on or off.",
+	inputSchema: z.object({ id: z.string().min(1) }),
+} as const;
+
+const DIRECTIVE_REPLACE = {
+	name: "alef.directive.replace",
+	description: "Replace the content of a system prompt block.",
+	inputSchema: z.object({ id: z.string().min(1), content: z.string().min(1) }),
+} as const;
+
+const DIRECTIVE_ADD = {
+	name: "alef.directive.add",
+	description: "Add a new block to the system prompt.",
+	inputSchema: z.object({
+		id: z.string().min(1),
+		priority: z.number(),
+		content: z.string().min(1),
+		tags: z.array(z.string()).optional(),
+	}),
+} as const;
+
+const DIRECTIVE_REMOVE = {
+	name: "alef.directive.remove",
+	description: "Remove a block from the prompt scroll.",
+	inputSchema: z.object({ id: z.string().min(1) }),
+} as const;
 
 function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>): ActionMap {
+	async function handleDirectiveList(): Promise<Record<string, unknown>> {
+		const blocks = g()?.list() ?? [];
+		return withDisplay({ blocks }, { text: `${blocks.length} directive block(s)`, mimeType: "text/plain" });
+	}
+
+	async function handleDirectiveEnable(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_ENABLE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.enable(ctx.payload.id);
+		return withDisplay(
+			{ ok: true },
+			{ text: `Enabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleDirectiveDisable(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_DISABLE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.disable(ctx.payload.id);
+		return withDisplay(
+			{ ok: true },
+			{ text: `Disabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleDirectiveToggle(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_TOGGLE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.toggle(ctx.payload.id);
+		return withDisplay(
+			{ ok: true },
+			{ text: `Toggled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleDirectiveReplace(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_REPLACE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.replace(ctx.payload.id, ctx.payload.content);
+		return withDisplay(
+			{ ok: true },
+			{ text: `Replaced directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleDirectiveAdd(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_ADD.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
+		return withDisplay(
+			{ ok: true },
+			{
+				text: `Added directive: ${ctx.payload.id} (priority ${ctx.payload.priority})`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	async function handleDirectiveRemove(
+		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_REMOVE.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		g()?.remove(ctx.payload.id);
+		return withDisplay(
+			{ ok: true },
+			{ text: `Removed directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
 	return {
 		command: {
-			"alef.directive.list": typedAction(
-				{
-					name: "alef.directive.list",
-					description:
-						"List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
-					inputSchema: z.object({}),
-				},
-				async () => {
-					const blocks = g()?.list() ?? [];
-					return withDisplay({ blocks }, { text: `${blocks.length} directive block(s)`, mimeType: "text/plain" });
-				},
-			),
-			"alef.directive.enable": typedAction(
-				{
-					name: "alef.directive.enable",
-					description: "Enable a system prompt block.",
-					inputSchema: z.object({ id: z.string().min(1) }),
-				},
-				async (ctx) => {
-					g()?.enable(ctx.payload.id);
-					return withDisplay(
-						{ ok: true },
-						{ text: `Enabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.directive.disable": typedAction(
-				{
-					name: "alef.directive.disable",
-					description: "Disable a system prompt block.",
-					inputSchema: z.object({ id: z.string().min(1) }),
-				},
-				async (ctx) => {
-					g()?.disable(ctx.payload.id);
-					return withDisplay(
-						{ ok: true },
-						{ text: `Disabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.directive.toggle": typedAction(
-				{
-					name: "alef.directive.toggle",
-					description: "Toggle a system prompt block on or off.",
-					inputSchema: z.object({ id: z.string().min(1) }),
-				},
-				async (ctx) => {
-					g()?.toggle(ctx.payload.id);
-					return withDisplay(
-						{ ok: true },
-						{ text: `Toggled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.directive.replace": typedAction(
-				{
-					name: "alef.directive.replace",
-					description: "Replace the content of a system prompt block.",
-					inputSchema: z.object({ id: z.string().min(1), content: z.string().min(1) }),
-				},
-				async (ctx) => {
-					g()?.replace(ctx.payload.id, ctx.payload.content);
-					return withDisplay(
-						{ ok: true },
-						{ text: `Replaced directive: ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.directive.add": typedAction(
-				{
-					name: "alef.directive.add",
-					description: "Add a new block to the system prompt.",
-					inputSchema: z.object({
-						id: z.string().min(1),
-						priority: z.number(),
-						content: z.string().min(1),
-						tags: z.array(z.string()).optional(),
-					}),
-				},
-				async (ctx) => {
-					g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
-					return withDisplay(
-						{ ok: true },
-						{
-							text: `Added directive: ${ctx.payload.id} (priority ${ctx.payload.priority})`,
-							mimeType: "text/plain",
-						},
-					);
-				},
-			),
-			"alef.directive.remove": typedAction(
-				{
-					name: "alef.directive.remove",
-					description: "Remove a block from the prompt scroll.",
-					inputSchema: z.object({ id: z.string().min(1) }),
-				},
-				async (ctx) => {
-					g()?.remove(ctx.payload.id);
-					return withDisplay(
-						{ ok: true },
-						{ text: `Removed directive: ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
+			"alef.directive.list": typedAction(DIRECTIVE_LIST, handleDirectiveList),
+			"alef.directive.enable": typedAction(DIRECTIVE_ENABLE, handleDirectiveEnable),
+			"alef.directive.disable": typedAction(DIRECTIVE_DISABLE, handleDirectiveDisable),
+			"alef.directive.toggle": typedAction(DIRECTIVE_TOGGLE, handleDirectiveToggle),
+			"alef.directive.replace": typedAction(DIRECTIVE_REPLACE, handleDirectiveReplace),
+			"alef.directive.add": typedAction(DIRECTIVE_ADD, handleDirectiveAdd),
+			"alef.directive.remove": typedAction(DIRECTIVE_REMOVE, handleDirectiveRemove),
 		},
 	};
 }
 
+const SESSIONS_LIST = {
+	name: "alef.sessions.list",
+	description: "List all Alef sessions across all working directories, newest first.",
+	inputSchema: z.object({}),
+} as const;
+
+const SESSIONS_SEARCH = {
+	name: "alef.sessions.search",
+	description: "Search sessions by keyword across name, first message, and conversation content.",
+	inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
+} as const;
+
+const SESSIONS_RENAME = {
+	name: "alef.sessions.rename",
+	description: "Give a session a human-readable name so it can be found later.",
+	inputSchema: z.object({
+		id: z.string().min(1).describe("8-char session ID"),
+		name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
+	}),
+} as const;
+
+const SESSIONS_READ = {
+	name: "alef.sessions.read",
+	description: "Read the first N turns of a session by ID.",
+	inputSchema: z.object({
+		id: z.string().min(1).describe("8-char session ID"),
+		maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
+	}),
+} as const;
+
+const CONFIG_GET = {
+	name: "alef.config.get",
+	description: "Get the current Alef config from ~/.config/alef/config.yaml.",
+	inputSchema: z.object({}),
+} as const;
+
+const ADAPTERS_LIST = {
+	name: "alef.adapters.list",
+	description: "List user-installed adapters from ~/.config/alef/adapters.yaml.",
+	inputSchema: z.object({}),
+} as const;
+
+const PM_HISTORY = {
+	name: "alef.pm.history",
+	description: "List adapter package manager generation history.",
+	inputSchema: z.object({}),
+} as const;
+
+const ALEF_REBUILD = {
+	name: "alef.rebuild",
+	description:
+		"Trigger a blue-green rebuild: runs npm run check, spawns a new green with the same session, " +
+		"and promotes it if healthy. Only available when running under the supervisor (alef-dev.sh). " +
+		"Use after editing source files to apply the fix without losing session context.",
+	inputSchema: z.object({}),
+} as const;
+
 function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
+	async function handleSessionsList(): Promise<Record<string, unknown>> {
+		const sessions = await listAllSessions(opts.dialogEventType);
+		return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
+	}
+
+	async function handleSessionsSearch(
+		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_SEARCH.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const results = await searchSessions(ctx.payload.query, opts.dialogEventType);
+		return withDisplay(
+			{ results },
+			{ text: `${results.length} session(s) matching "${ctx.payload.query}"`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleSessionsRename(
+		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_RENAME.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const result = await renameSession(ctx.payload.id, ctx.payload.name);
+		return withDisplay(result, {
+			text: result.ok
+				? `Renamed session ${ctx.payload.id} to "${ctx.payload.name}"`
+				: `Rename failed: ${result.error}`,
+			mimeType: "text/plain",
+		});
+	}
+
+	async function handleSessionsRead(
+		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_READ.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const turns = await readSessionTurns(ctx.payload.id, opts.dialogEventType, ctx.payload.maxTurns);
+		return withDisplay(
+			{ turns },
+			{ text: `${turns.length} turn(s) from session ${ctx.payload.id}`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleConfigGet(): Promise<Record<string, unknown>> {
+		const config = await getConfig();
+		return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
+	}
+
+	async function handleAdaptersList(): Promise<Record<string, unknown>> {
+		const adapters = await listAdapters();
+		return withDisplay({ adapters }, { text: "adapters.yaml loaded", mimeType: "text/plain" });
+	}
+
+	async function handlePmHistory(): Promise<Record<string, unknown>> {
+		const history = await pmHistory();
+		return withDisplay(
+			{ history },
+			{ text: `${history.length} generation(s) in PM history`, mimeType: "text/plain" },
+		);
+	}
+
+	async function handleRebuild(
+		ctx: CommandHandlerCtx<z.infer<typeof ALEF_REBUILD.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		if (typeof opts.onRebuildRequest !== "function") {
+			ctx.log.warn({}, "alef.rebuild called but supervisor is not running");
+			return withDisplay(
+				{ ok: false, reason: "supervisor not running — start with alef-dev.sh" },
+				{ text: "rebuild: supervisor not running — start with alef-dev.sh", mimeType: "text/plain" },
+			);
+		}
+		opts.onRebuildRequest();
+		ctx.log.info({}, "alef.rebuild: rebuild requested");
+		return withDisplay(
+			{ ok: true, reason: "rebuild requested — new green will take over when healthy" },
+			{
+				text: "rebuild: triggered — new green spawning, session will continue on promotion",
+				mimeType: "text/plain",
+			},
+		);
+	}
+
 	return {
 		command: {
-			"alef.sessions.list": typedAction(
-				{
-					name: "alef.sessions.list",
-					description: "List all Alef sessions across all working directories, newest first.",
-					inputSchema: z.object({}),
-				},
-				async () => {
-					const sessions = await listAllSessions(opts.dialogEventType);
-					return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
-				},
-				{ shouldCache: () => false },
-			),
-			"alef.sessions.search": typedAction(
-				{
-					name: "alef.sessions.search",
-					description: "Search sessions by keyword across name, first message, and conversation content.",
-					inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
-				},
-				async (ctx) => {
-					const results = await searchSessions(ctx.payload.query, opts.dialogEventType);
-					return withDisplay(
-						{ results },
-						{ text: `${results.length} session(s) matching "${ctx.payload.query}"`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.sessions.rename": typedAction(
-				{
-					name: "alef.sessions.rename",
-					description: "Give a session a human-readable name so it can be found later.",
-					inputSchema: z.object({
-						id: z.string().min(1).describe("8-char session ID"),
-						name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
-					}),
-				},
-				async (ctx) => {
-					const result = await renameSession(ctx.payload.id, ctx.payload.name);
-					return withDisplay(result, {
-						text: result.ok
-							? `Renamed session ${ctx.payload.id} to "${ctx.payload.name}"`
-							: `Rename failed: ${result.error}`,
-						mimeType: "text/plain",
-					});
-				},
-			),
-			"alef.sessions.read": typedAction(
-				{
-					name: "alef.sessions.read",
-					description: "Read the first N turns of a session by ID.",
-					inputSchema: z.object({
-						id: z.string().min(1).describe("8-char session ID"),
-						maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
-					}),
-				},
-				async (ctx) => {
-					const turns = await readSessionTurns(ctx.payload.id, opts.dialogEventType, ctx.payload.maxTurns);
-					return withDisplay(
-						{ turns },
-						{ text: `${turns.length} turn(s) from session ${ctx.payload.id}`, mimeType: "text/plain" },
-					);
-				},
-			),
-			"alef.config.get": typedAction(
-				{
-					name: "alef.config.get",
-					description: "Get the current Alef config from ~/.config/alef/config.yaml.",
-					inputSchema: z.object({}),
-				},
-				async () => {
-					const config = await getConfig();
-					return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
-				},
-				{ shouldCache: () => true },
-			),
-			"alef.adapters.list": typedAction(
-				{
-					name: "alef.adapters.list",
-					description: "List user-installed adapters from ~/.config/alef/adapters.yaml.",
-					inputSchema: z.object({}),
-				},
-				async () => {
-					const adapters = await listAdapters();
-					return withDisplay({ adapters }, { text: "adapters.yaml loaded", mimeType: "text/plain" });
-				},
-				{ shouldCache: () => true },
-			),
-			"alef.pm.history": typedAction(
-				{
-					name: "alef.pm.history",
-					description: "List adapter package manager generation history.",
-					inputSchema: z.object({}),
-				},
-				async () => {
-					const history = await pmHistory();
-					return withDisplay(
-						{ history },
-						{ text: `${history.length} generation(s) in PM history`, mimeType: "text/plain" },
-					);
-				},
-				{ shouldCache: () => true },
-			),
-			"alef.rebuild": typedAction(
-				{
-					name: "alef.rebuild",
-					description:
-						"Trigger a blue-green rebuild: runs npm run check, spawns a new green with the same session, " +
-						"and promotes it if healthy. Only available when running under the supervisor (alef-dev.sh). " +
-						"Use after editing source files to apply the fix without losing session context.",
-					inputSchema: z.object({}),
-				},
-				async (ctx) => {
-					if (typeof opts.onRebuildRequest !== "function") {
-						ctx.log.warn({}, "alef.rebuild called but supervisor is not running");
-						return withDisplay(
-							{ ok: false, reason: "supervisor not running — start with alef-dev.sh" },
-							{ text: "rebuild: supervisor not running — start with alef-dev.sh", mimeType: "text/plain" },
-						);
-					}
-					opts.onRebuildRequest();
-					ctx.log.info({}, "alef.rebuild: rebuild requested");
-					return withDisplay(
-						{ ok: true, reason: "rebuild requested — new green will take over when healthy" },
-						{
-							text: "rebuild: triggered — new green spawning, session will continue on promotion",
-							mimeType: "text/plain",
-						},
-					);
-				},
-			),
+			"alef.sessions.list": typedAction(SESSIONS_LIST, handleSessionsList, { shouldCache: () => false }),
+			"alef.sessions.search": typedAction(SESSIONS_SEARCH, handleSessionsSearch),
+			"alef.sessions.rename": typedAction(SESSIONS_RENAME, handleSessionsRename),
+			"alef.sessions.read": typedAction(SESSIONS_READ, handleSessionsRead),
+			"alef.config.get": typedAction(CONFIG_GET, handleConfigGet, { shouldCache: () => true }),
+			"alef.adapters.list": typedAction(ADAPTERS_LIST, handleAdaptersList, { shouldCache: () => true }),
+			"alef.pm.history": typedAction(PM_HISTORY, handlePmHistory, { shouldCache: () => true }),
+			"alef.rebuild": typedAction(ALEF_REBUILD, handleRebuild),
 		},
 	};
 }

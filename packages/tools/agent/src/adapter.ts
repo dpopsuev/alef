@@ -16,6 +16,7 @@ import type {
 	Adapter,
 	AgentRunContext,
 	BaseAdapterOptions,
+	CommandHandlerCtx,
 	ReasoningContributions,
 	ToolDefinition,
 } from "@dpopsuev/alef-kernel/adapter";
@@ -213,6 +214,72 @@ export function createAgentAdapter(
 			return { reply, profile: `isolated:${childName}`, elapsed: 0, relevance: relevance.overlap };
 		} finally {
 			await handleKill(deps, { payload: { name: childName } });
+		}
+	}
+
+	// ── extracted command handlers ───────────────────────────────────────
+
+	async function handleTasks(
+		ctx: CommandHandlerCtx<{ taskId?: string }>,
+	): Promise<Record<string, unknown>> {
+		if (ctx.payload.taskId) {
+			const task = asyncTasks.get(ctx.payload.taskId);
+			if (!task)
+				return withDisplay(
+					{ error: "not found" },
+					{ text: `Task ${ctx.payload.taskId} not found`, mimeType: "text/plain" },
+				);
+			const elapsed = (task.completedAt ?? Date.now()) - task.startedAt;
+			return withDisplay(
+				{ ...task, elapsedMs: elapsed },
+				{
+					text: `${task.id} [${task.status}] ${task.profile} — ${task.reply?.slice(0, 200) ?? task.error ?? "running..."}`,
+					mimeType: "text/plain",
+				},
+			);
+		}
+		const tasks = [...asyncTasks.values()].map((t) => ({
+			id: t.id,
+			status: t.status,
+			profile: t.profile,
+			elapsedMs: (t.completedAt ?? Date.now()) - t.startedAt,
+			preview: t.status === "completed" ? t.reply?.slice(0, 100) : (t.error ?? "running..."),
+		}));
+		const lines =
+			tasks.length > 0
+				? tasks.map(
+						(t) =>
+							`${t.id} [${t.status}] ${t.profile} ${(t.elapsedMs / 1000).toFixed(1)}s — ${t.preview}`,
+					)
+				: ["No async tasks"];
+		return withDisplay({ tasks }, { text: lines.join("\n"), mimeType: "text/plain" });
+	}
+
+	async function handleModels(
+		ctx: CommandHandlerCtx<{ provider?: string }>,
+	): Promise<Record<string, unknown>> {
+		try {
+			const { getProviders, getModels } = await import("@dpopsuev/alef-ai/models");
+			const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
+			const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
+			for (const p of providers) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed from getProviders()
+				for (const m of getModels(p as never)) {
+					result.push({ provider: p, id: m.id, name: m.name, contextWindow: m.contextWindow });
+				}
+			}
+			const lines = result.map(
+				(m) => `${m.provider}/${m.id} (${m.name}, ${m.contextWindow / 1000}k ctx)`,
+			);
+			return withDisplay(
+				{ models: result, count: result.length },
+				{ text: lines.join("\n"), mimeType: "text/plain" },
+			);
+		} catch {
+			return withDisplay(
+				{ models: [], count: 0 },
+				{ text: "Model registry not available", mimeType: "text/plain" },
+			);
 		}
 	}
 
@@ -434,39 +501,7 @@ export function createAgentAdapter(
 							taskId: z.string().optional().describe("Get details for a specific task. Omit to list all."),
 						}),
 					},
-					async (ctx) => {
-						if (ctx.payload.taskId) {
-							const task = asyncTasks.get(ctx.payload.taskId);
-							if (!task)
-								return withDisplay(
-									{ error: "not found" },
-									{ text: `Task ${ctx.payload.taskId} not found`, mimeType: "text/plain" },
-								);
-							const elapsed = (task.completedAt ?? Date.now()) - task.startedAt;
-							return withDisplay(
-								{ ...task, elapsedMs: elapsed },
-								{
-									text: `${task.id} [${task.status}] ${task.profile} — ${task.reply?.slice(0, 200) ?? task.error ?? "running..."}`,
-									mimeType: "text/plain",
-								},
-							);
-						}
-						const tasks = [...asyncTasks.values()].map((t) => ({
-							id: t.id,
-							status: t.status,
-							profile: t.profile,
-							elapsedMs: (t.completedAt ?? Date.now()) - t.startedAt,
-							preview: t.status === "completed" ? t.reply?.slice(0, 100) : (t.error ?? "running..."),
-						}));
-						const lines =
-							tasks.length > 0
-								? tasks.map(
-										(t) =>
-											`${t.id} [${t.status}] ${t.profile} ${(t.elapsedMs / 1000).toFixed(1)}s — ${t.preview}`,
-									)
-								: ["No async tasks"];
-						return withDisplay({ tasks }, { text: lines.join("\n"), mimeType: "text/plain" });
-					},
+					handleTasks,
 				),
 				"agent.models": typedAction(
 					{
@@ -480,31 +515,7 @@ export function createAgentAdapter(
 								.describe("Filter by provider (e.g. 'anthropic', 'google-vertex'). Omit to list all."),
 						}),
 					},
-					async (ctx) => {
-						try {
-							const { getProviders, getModels } = await import("@dpopsuev/alef-ai/models");
-							const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
-							const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
-							for (const p of providers) {
-								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed from getProviders()
-								for (const m of getModels(p as never)) {
-									result.push({ provider: p, id: m.id, name: m.name, contextWindow: m.contextWindow });
-								}
-							}
-							const lines = result.map(
-								(m) => `${m.provider}/${m.id} (${m.name}, ${m.contextWindow / 1000}k ctx)`,
-							);
-							return withDisplay(
-								{ models: result, count: result.length },
-								{ text: lines.join("\n"), mimeType: "text/plain" },
-							);
-						} catch {
-							return withDisplay(
-								{ models: [], count: 0 },
-								{ text: "Model registry not available", mimeType: "text/plain" },
-							);
-						}
-					},
+					handleModels,
 				),
 				"agent.spawn": typedAction(SPAWN_TOOL, (ctx) => handleSpawn(deps, ctx)),
 				"agent.ask": typedAction(ASK_TOOL, (ctx) => handleAsk(deps, ctx)),

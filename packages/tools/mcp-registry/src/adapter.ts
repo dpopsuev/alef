@@ -1,4 +1,4 @@
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
@@ -90,164 +90,174 @@ const LIST_TOOL = {
 export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 	const loadedAdapters = new Map<string, Adapter>();
 
+	async function handleSearch(
+		ctx: CommandHandlerCtx<z.infer<typeof SEARCH_TOOL.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { query, limit = 10 } = ctx.payload;
+
+		try {
+			const url = `https://registry.modelcontextprotocol.io/v0/servers?search=${encodeURIComponent(query)}&limit=${limit}`;
+			const response = await fetch(url);
+
+			if (!response.ok) {
+				throw new Error(`Registry API error: ${response.status} ${response.statusText}`);
+			}
+
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- fetch JSON has no static type
+			const data = (await response.json()) as RegistryResponse;
+			const servers = data.servers;
+
+			// Format results for display
+			const results = servers.map((s) => ({
+				name: s.server.name,
+				description: s.server.description,
+				version: s.server.version,
+				repository: s.server.repository?.url,
+				packages: s.server.packages?.map((p) => ({
+					type: p.registryType,
+					identifier: p.identifier,
+					transport: p.transport.type,
+					runtimeHint: p.runtimeHint,
+				})),
+				status: s._meta?.["io.modelcontextprotocol.registry/official"]?.status,
+			}));
+
+			const displayText = results
+				.map(
+					(r, i) =>
+						`${i + 1}. **${r.name}** (${r.version})\n` +
+						`   ${r.description}\n` +
+						`   Repository: ${r.repository ?? "N/A"}\n` +
+						`   Status: ${r.status ?? "unknown"}`,
+				)
+				.join("\n\n");
+
+			return withDisplay(
+				{
+					query,
+					count: results.length,
+					servers: results,
+				},
+				{
+					text: `Found ${results.length} MCP server(s) matching "${query}":\n\n${displayText}`,
+					mimeType: "text/markdown",
+				},
+			);
+		} catch (error) {
+			const errMsg = error instanceof Error ? error.message : String(error);
+			return withDisplay(
+				{ error: errMsg, query },
+				{ text: `Error searching MCP registry: ${errMsg}`, mimeType: "text/plain" },
+			);
+		}
+	}
+
+	async function handleInstall(
+		ctx: CommandHandlerCtx<z.infer<typeof INSTALL_TOOL.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const { serverName, transport, config = {} } = ctx.payload;
+
+		try {
+			// Check if already loaded
+			if (loadedAdapters.has(serverName)) {
+				return withDisplay(
+					{ serverName, alreadyLoaded: true },
+					{
+						text: `MCP server "${serverName}" is already loaded`,
+						mimeType: "text/plain",
+					},
+				);
+			}
+
+			let adapter: Adapter;
+
+			if (transport === "stdio") {
+				// Default to npx for npm packages
+				const command = config.command ?? "npx";
+				const args = config.args ?? ["-y", serverName];
+
+				adapter = await McpAdapter.stdio(command, args, serverName);
+			} else {
+				if (!config.url) {
+					throw new Error("config.url is required for http transport");
+				}
+				adapter = await McpAdapter.http(config.url, serverName);
+			}
+
+			loadedAdapters.set(serverName, adapter);
+			if (opts.agent) {
+				opts.agent.load(adapter);
+			}
+
+			const toolCount = adapter.tools.length;
+			const toolNames = adapter.tools.map((t) => t.name).join(", ") || "none";
+
+			return withDisplay(
+				{
+					serverName,
+					transport,
+					toolCount,
+					tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
+				},
+				{
+					text:
+						`Successfully loaded MCP server "${serverName}"\n` +
+						`Transport: ${transport}\n` +
+						`Tools (${toolCount}): ${toolNames}`,
+					mimeType: "text/plain",
+				},
+			);
+		} catch (error) {
+			const errMsg = error instanceof Error ? error.message : String(error);
+			return withDisplay(
+				{ error: errMsg, serverName },
+				{
+					text: `Error installing MCP server "${serverName}": ${errMsg}`,
+					mimeType: "text/plain",
+				},
+			);
+		}
+	}
+
+	async function handleList(
+		_ctx: CommandHandlerCtx<z.infer<typeof LIST_TOOL.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const adapters = Array.from(loadedAdapters.entries()).map(([name, adapter]) => ({
+			name,
+			toolCount: adapter.tools.length,
+			tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
+		}));
+
+		const displayText =
+			adapters.length === 0
+				? "No MCP servers currently loaded."
+				: adapters
+						.map(
+							(o) =>
+								`**${o.name}** (${o.toolCount} tools)\n` +
+								o.tools.map((t) => `  - ${t.name}: ${t.description}`).join("\n"),
+						)
+						.join("\n\n");
+
+		return withDisplay(
+			{
+				count: adapters.length,
+				adapters,
+			},
+			{
+				text: `Loaded MCP Servers (${adapters.length}):\n\n${displayText}`,
+				mimeType: "text/markdown",
+			},
+		);
+	}
+
 	return defineAdapter(
 		"mcp-registry",
 		{
 			command: {
-				"mcp.search": typedAction(SEARCH_TOOL, async (ctx) => {
-					const { query, limit = 10 } = ctx.payload;
-
-					try {
-						const url = `https://registry.modelcontextprotocol.io/v0/servers?search=${encodeURIComponent(query)}&limit=${limit}`;
-						const response = await fetch(url);
-
-						if (!response.ok) {
-							throw new Error(`Registry API error: ${response.status} ${response.statusText}`);
-						}
-
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- fetch JSON has no static type
-						const data = (await response.json()) as RegistryResponse;
-						const servers = data.servers;
-
-						// Format results for display
-						const results = servers.map((s) => ({
-							name: s.server.name,
-							description: s.server.description,
-							version: s.server.version,
-							repository: s.server.repository?.url,
-							packages: s.server.packages?.map((p) => ({
-								type: p.registryType,
-								identifier: p.identifier,
-								transport: p.transport.type,
-								runtimeHint: p.runtimeHint,
-							})),
-							status: s._meta?.["io.modelcontextprotocol.registry/official"]?.status,
-						}));
-
-						const displayText = results
-							.map(
-								(r, i) =>
-									`${i + 1}. **${r.name}** (${r.version})\n` +
-									`   ${r.description}\n` +
-									`   Repository: ${r.repository ?? "N/A"}\n` +
-									`   Status: ${r.status ?? "unknown"}`,
-							)
-							.join("\n\n");
-
-						return withDisplay(
-							{
-								query,
-								count: results.length,
-								servers: results,
-							},
-							{
-								text: `Found ${results.length} MCP server(s) matching "${query}":\n\n${displayText}`,
-								mimeType: "text/markdown",
-							},
-						);
-					} catch (error) {
-						const errMsg = error instanceof Error ? error.message : String(error);
-						return withDisplay(
-							{ error: errMsg, query },
-							{ text: `Error searching MCP registry: ${errMsg}`, mimeType: "text/plain" },
-						);
-					}
-				}),
-
-				"mcp.install": typedAction(INSTALL_TOOL, async (ctx) => {
-					const { serverName, transport, config = {} } = ctx.payload;
-
-					try {
-						// Check if already loaded
-						if (loadedAdapters.has(serverName)) {
-							return withDisplay(
-								{ serverName, alreadyLoaded: true },
-								{
-									text: `MCP server "${serverName}" is already loaded`,
-									mimeType: "text/plain",
-								},
-							);
-						}
-
-						let adapter: Adapter;
-
-						if (transport === "stdio") {
-							// Default to npx for npm packages
-							const command = config.command ?? "npx";
-							const args = config.args ?? ["-y", serverName];
-
-							adapter = await McpAdapter.stdio(command, args, serverName);
-						} else {
-							if (!config.url) {
-								throw new Error("config.url is required for http transport");
-							}
-							adapter = await McpAdapter.http(config.url, serverName);
-						}
-
-						loadedAdapters.set(serverName, adapter);
-						if (opts.agent) {
-							opts.agent.load(adapter);
-						}
-
-						const toolCount = adapter.tools.length;
-						const toolNames = adapter.tools.map((t) => t.name).join(", ") || "none";
-
-						return withDisplay(
-							{
-								serverName,
-								transport,
-								toolCount,
-								tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
-							},
-							{
-								text:
-									`Successfully loaded MCP server "${serverName}"\n` +
-									`Transport: ${transport}\n` +
-									`Tools (${toolCount}): ${toolNames}`,
-								mimeType: "text/plain",
-							},
-						);
-					} catch (error) {
-						const errMsg = error instanceof Error ? error.message : String(error);
-						return withDisplay(
-							{ error: errMsg, serverName },
-							{
-								text: `Error installing MCP server "${serverName}": ${errMsg}`,
-								mimeType: "text/plain",
-							},
-						);
-					}
-				}),
-
-				"mcp.list": typedAction(LIST_TOOL, async () => {
-					const adapters = Array.from(loadedAdapters.entries()).map(([name, adapter]) => ({
-						name,
-						toolCount: adapter.tools.length,
-						tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
-					}));
-
-					const displayText =
-						adapters.length === 0
-							? "No MCP servers currently loaded."
-							: adapters
-									.map(
-										(o) =>
-											`**${o.name}** (${o.toolCount} tools)\n` +
-											o.tools.map((t) => `  - ${t.name}: ${t.description}`).join("\n"),
-									)
-									.join("\n\n");
-
-					return withDisplay(
-						{
-							count: adapters.length,
-							adapters,
-						},
-						{
-							text: `Loaded MCP Servers (${adapters.length}):\n\n${displayText}`,
-							mimeType: "text/markdown",
-						},
-					);
-				}),
+				"mcp.search": typedAction(SEARCH_TOOL, handleSearch),
+				"mcp.install": typedAction(INSTALL_TOOL, handleInstall),
+				"mcp.list": typedAction(LIST_TOOL, handleList),
 			},
 		},
 		{

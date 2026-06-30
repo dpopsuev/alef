@@ -1,3 +1,4 @@
+const META_AGENT_TIMEOUT_MS = 60_000;
 import { autoDetectModel, buildModel } from "@dpopsuev/alef-agent/model";
 import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
@@ -36,5 +37,5 @@ export async function runMetaAgent(
 	const strategy = new InProcessStrategy(adapters, (sessionOpts) =>
 		factory({ ...sessionOpts, onChunk: sessionOpts.onChunk ?? onChunk }),
 	);
-	return strategy.send({ text: prompt, sender: "human", timeoutMs: 60_000 });
+	return strategy.send({ text: prompt, sender: "human", timeoutMs: META_AGENT_TIMEOUT_MS });
 }

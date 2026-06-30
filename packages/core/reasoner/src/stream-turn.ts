@@ -1,3 +1,5 @@
+const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
+const DEFAULT_THINKING_TIMEOUT_MS = 300_000;
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
@@ -81,9 +83,9 @@ export async function callLLM(
 
 	const thinking = options.getThinking?.() ?? options.thinking;
 	const defaultTimeoutMs = DEFAULT_LLM_TIMEOUT_MS;
-	const thinkingTimeoutMs = Number(process.env.ALEF_LLM_THINKING_TIMEOUT_MS) || 300_000;
+	const thinkingTimeoutMs = Number(process.env.ALEF_LLM_THINKING_TIMEOUT_MS) || DEFAULT_THINKING_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? (thinking ? thinkingTimeoutMs : defaultTimeoutMs);
-	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
+	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
 
 	const stream = streamSimple(
 		model,

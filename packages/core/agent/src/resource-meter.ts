@@ -11,6 +11,11 @@ interface ToolStats {
 	maxMs: number;
 }
 
+const P50 = 50;
+const P95 = 95;
+const P99 = 99;
+const TOP_TOOLS_COUNT = 10;
+
 export function createResourceMeter(): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
 	const cost = 0;
@@ -42,7 +47,7 @@ export function createResourceMeter(): Adapter {
 		const totalErrors = [...toolStats.values()].reduce((n, s) => n + s.errors, 0);
 		const topTools = [...toolStats.entries()]
 			.sort(([, a], [, b]) => b.calls - a.calls)
-			.slice(0, 10)
+			.slice(0, TOP_TOOLS_COUNT)
 			.map(([name, s]) => ({
 				name,
 				calls: s.calls,
@@ -66,9 +71,9 @@ export function createResourceMeter(): Adapter {
 				totalCalls,
 				totalErrors,
 				errorRate: totalCalls > 0 ? `${((totalErrors / totalCalls) * 100).toFixed(1)}%` : "0%",
-				p50Ms: percentile(sortedLatencies, 50),
-				p95Ms: percentile(sortedLatencies, 95),
-				p99Ms: percentile(sortedLatencies, 99),
+				p50Ms: percentile(sortedLatencies, P50),
+				p95Ms: percentile(sortedLatencies, P95),
+				p99Ms: percentile(sortedLatencies, P99),
 			},
 			topTools,
 		};

@@ -1,3 +1,4 @@
+const PHASE_TIMEOUT_MS = 100;
 import { assembleAgentServer } from "@dpopsuev/alef-agent/assemble";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
@@ -12,7 +13,7 @@ import { buildModel } from "./model/index.js";
 export type LlmAdapterFactory = (opts: { model: Model<Api>; systemPrompt?: string }) => Adapter;
 
 const defaultLlmFactory: LlmAdapterFactory = (opts) =>
-	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, phaseTimeoutMs: 100 });
+	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, phaseTimeoutMs: PHASE_TIMEOUT_MS });
 
 export interface SubagentSessionOptions {
 	model: Model<Api>;

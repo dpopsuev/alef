@@ -1,3 +1,6 @@
+const DEFAULT_LOOP_THRESHOLD = 10;
+const DIRECTIVE_BUDGET_FRACTION = 0.1;
+const CHARS_PER_TOKEN = 4;
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
@@ -36,7 +39,7 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 	const directives = opts.directives ?? createDefaultDirectives({ tools: opts.adapters.flatMap((o) => o.tools), cwd: opts.cwd });
 	if (!opts.directives) registerAdapters(directives, opts.adapters);
 
-	const budgetChars = Math.floor(opts.model.contextWindow * 0.1 * 4);
+	const budgetChars = Math.floor(opts.model.contextWindow * DIRECTIVE_BUDGET_FRACTION * CHARS_PER_TOKEN);
 	const systemPrompt = directives.build(budgetChars);
 
 	const toolShell = createToolShellAdapter({
@@ -59,7 +62,7 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 		trackConcurrentOps: opts.trackConcurrentOps,
 	});
 
-	const agent = buildAgent({ llm, loopThreshold: 10 });
+	const agent = buildAgent({ llm, loopThreshold: DEFAULT_LOOP_THRESHOLD });
 
 	for (const adapter of opts.adapters) agent.load(adapter);
 	agent.load(toolShell);

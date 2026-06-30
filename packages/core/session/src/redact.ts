@@ -1,3 +1,4 @@
+const MAX_REDACTION_DEPTH = 10;
 /**
  * Payload redaction for the audit event log.
  *
@@ -71,7 +72,7 @@ function isSensitiveKey(key: string): boolean {
  */
 export function redactPayload(value: unknown, depth = 0): unknown {
 	// Guard against infinite recursion on circular structures.
-	if (depth > 10) return value;
+	if (depth > MAX_REDACTION_DEPTH) return value;
 	if (process.env.ALEF_AUDIT_REDACT_DISABLED === "1") return value;
 
 	if (Array.isArray(value)) {

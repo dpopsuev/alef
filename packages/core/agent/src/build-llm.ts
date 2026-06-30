@@ -1,3 +1,4 @@
+const PHASE_TIMEOUT_MS = 100;
 import { ScriptedLlmAdapter } from "./scripted-llm.js";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
@@ -37,7 +38,7 @@ export function buildLlm(opts: LlmBuildOptions): Adapter {
 		timeoutMs: opts.llm?.timeoutMs,
 		trackConcurrentOps: opts.trackConcurrentOps,
 		getSignal: opts.getSignal,
-		phaseTimeoutMs: 100,
+		phaseTimeoutMs: PHASE_TIMEOUT_MS,
 		schemaResolver: opts.schemaResolver,
 	});
 }

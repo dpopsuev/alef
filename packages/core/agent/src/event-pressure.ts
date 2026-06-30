@@ -1,3 +1,7 @@
+const DEFAULT_HALF_LIFE_MS = 600;
+const DEFAULT_PULSE_STRENGTH = 0.25;
+const DEFAULT_CYCLE_PERIOD_MS = 3500;
+const DEFAULT_PRESSURE_SPEED_BOOST = 3;
 /**
  * Decaying event pressure gauge.
  *
@@ -11,8 +15,8 @@ export class EventPressure {
 	private lastDecayAt = Date.now();
 
 	constructor(
-		private readonly halfLifeMs = 600,
-		private readonly pulseStrength = 0.25,
+		private readonly halfLifeMs = DEFAULT_HALF_LIFE_MS,
+		private readonly pulseStrength = DEFAULT_PULSE_STRENGTH,
 	) {}
 
 	pulse(): void {
@@ -56,8 +60,8 @@ export function pressureToInterval(level: number, slowMs = 80, fastMs = 28): num
 export function timeBasedHue(
 	elapsedMs: number,
 	pressureLevel: number,
-	cyclePeriodMs = 3500,
-	pressureSpeedBoost = 3,
+	cyclePeriodMs = DEFAULT_CYCLE_PERIOD_MS,
+	pressureSpeedBoost = DEFAULT_PRESSURE_SPEED_BOOST,
 ): number {
 	const baseRate = 1 / cyclePeriodMs; // rotations per ms
 	const speedMult = 1 + pressureLevel * pressureSpeedBoost;

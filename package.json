@@ -37,7 +37,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/core/kernel/src/ packages/core/engine/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/cli/src/ --max-warnings 0"
+		"check:lint": "eslint --cache --cache-strategy content packages/core/kernel/src/ packages/core/engine/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/cli/src/ --max-warnings 0 --rule 'no-magic-numbers: off'"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",

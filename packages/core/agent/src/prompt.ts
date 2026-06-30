@@ -53,6 +53,15 @@ export interface CreateScrollOptions {
 	cwd: string;
 }
 
+const PRIORITY_CORE = 0;
+const PRIORITY_RECONCILIATION = 5;
+const PRIORITY_FORMAT = 10;
+const PRIORITY_SAFETY = 15;
+const PRIORITY_TOOLS = 100;
+const PRIORITY_GUIDELINES = 200;
+const PRIORITY_ADAPTER = 600;
+const PRIORITY_ENVIRONMENT = 1000;
+
 function b(id: string, priority: number, content: Directive["content"], ...tags: string[]): Directive {
 	return { id, priority, content, enabled: true, tags: ["core", ...tags] };
 }
@@ -63,13 +72,13 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	directives.renderer = xmlRenderer;
 
 	directives
-		.register(b("core", 0, BLOCK_CORE, "identity", "behavior", "format", "safety"))
-		.register(b("reconciliation", 5, () => loadPrompt("reconciliation"), "behavior"))
-		.register(b("no-emojis", 10, () => loadPrompt("no-emojis"), "format"))
-		.register(b("no-files", 15, () => loadPrompt("no-files"), "behavior", "safety"))
-		.register(b("tools", 100, () => buildToolsBlock(tools), "dynamic"))
-		.register(b("guidelines", 200, () => buildGuidelinesBlock(tools), "dynamic"))
-		.register(b("environment", 1000, () => buildEnvironmentBlock(cwd), "ephemeral"));
+		.register(b("core", PRIORITY_CORE, BLOCK_CORE, "identity", "behavior", "format", "safety"))
+		.register(b("reconciliation", PRIORITY_RECONCILIATION, () => loadPrompt("reconciliation"), "behavior"))
+		.register(b("no-emojis", PRIORITY_FORMAT, () => loadPrompt("no-emojis"), "format"))
+		.register(b("no-files", PRIORITY_SAFETY, () => loadPrompt("no-files"), "behavior", "safety"))
+		.register(b("tools", PRIORITY_TOOLS, () => buildToolsBlock(tools), "dynamic"))
+		.register(b("guidelines", PRIORITY_GUIDELINES, () => buildGuidelinesBlock(tools), "dynamic"))
+		.register(b("environment", PRIORITY_ENVIRONMENT, () => buildEnvironmentBlock(cwd), "ephemeral"));
 
 	return directives;
 }
@@ -92,7 +101,7 @@ export function registerAdapters(directives: Directives, adapters: readonly Adap
 		const body = adapter.directives.map((d) => d.trim()).join("\n\n");
 		directives.register({
 			id: `adapter.${adapter.name}`,
-			priority: 600,
+			priority: PRIORITY_ADAPTER,
 			content: `${header}\n\n${body}`,
 			enabled: true,
 			tags: ["adapter"],

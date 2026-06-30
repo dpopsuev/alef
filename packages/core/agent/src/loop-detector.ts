@@ -26,6 +26,9 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 
+const DEFAULT_REPEATED_INTERACTION_THRESHOLD = 3;
+const DEFAULT_TOTAL_CALL_THRESHOLD = 40;
+
 export interface LoopGuardOptions {
 	/**
 	 * How many times the same (tool, args, result) triple may appear
@@ -84,8 +87,8 @@ export class LoopGuard implements Adapter {
 	private readonly onLoop: (eventType: string, reason: string) => void;
 
 	constructor(opts: LoopGuardOptions = {}) {
-		this.repeatedInteractionThreshold = opts.repeatedInteractionThreshold ?? 3;
-		this.totalCallThreshold = opts.totalCallThreshold ?? 40;
+		this.repeatedInteractionThreshold = opts.repeatedInteractionThreshold ?? DEFAULT_REPEATED_INTERACTION_THRESHOLD;
+		this.totalCallThreshold = opts.totalCallThreshold ?? DEFAULT_TOTAL_CALL_THRESHOLD;
 		this.onLoop =
 			opts.onLoop ??
 			// Default writes to stderr — safe only before TUI starts.

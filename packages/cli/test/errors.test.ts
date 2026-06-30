@@ -1,28 +1,28 @@
-import { formatError } from "@dpopsuev/alef-agent/errors";
+import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 import { describe, expect, it } from "vitest";
 
-// formatError returns the human-readable message only.
+// formatErrorForUser returns the human-readable message only.
 // Call sites are responsible for adding any [error] prefix — see tui-mode.ts.
 
-describe("formatError", () => {
+describe("formatErrorForUser", () => {
 	it("formats timeout errors", () => {
-		const msg = formatError(new Error("AgentController.send timed out after 120000ms"));
+		const msg = formatErrorForUser(new Error("AgentController.send timed out after 120000ms"));
 		expect(msg).toContain("timed out");
 		expect(msg).not.toContain("120000");
 	});
 
 	it("formats rate limit errors", () => {
-		const msg = formatError(new Error("429 Too Many Requests"));
+		const msg = formatErrorForUser(new Error("429 Too Many Requests"));
 		expect(msg).toContain("Rate limited");
 	});
 
 	it("formats unknown errors with original message", () => {
 		// Temporarily unset ALEF_DEBUG to test the base behavior
-		// In debug mode, formatErrorForUser appends stack traces
+		// In debug mode, formatErrorForUserForUser appends stack traces
 		const originalDebug = process.env.ALEF_DEBUG;
 		delete process.env.ALEF_DEBUG;
 
-		const msg = formatError(new Error("some unexpected failure"));
+		const msg = formatErrorForUser(new Error("some unexpected failure"));
 		expect(msg).toBe("some unexpected failure");
 
 		// Restore
@@ -32,7 +32,7 @@ describe("formatError", () => {
 	});
 
 	it("handles non-Error values", () => {
-		const msg = formatError("plain string error");
+		const msg = formatErrorForUser("plain string error");
 		expect(msg).toBe("plain string error");
 	});
 
@@ -45,7 +45,7 @@ describe("formatError", () => {
 			new Error("anything else"),
 			"raw string",
 		]) {
-			expect(formatError(e).length).toBeGreaterThan(0);
+			expect(formatErrorForUser(e).length).toBeGreaterThan(0);
 		}
 	});
 
@@ -53,7 +53,7 @@ describe("formatError", () => {
 		const originalDebug = process.env.ALEF_DEBUG;
 		process.env.ALEF_DEBUG = "1";
 
-		const msg = formatError(new Error("debug mode error"));
+		const msg = formatErrorForUser(new Error("debug mode error"));
 		expect(msg).toContain("debug mode error");
 		expect(msg).toContain("Error: debug mode error"); // Stack trace included
 		expect(msg.split("\n").length).toBeGreaterThan(1); // Multi-line

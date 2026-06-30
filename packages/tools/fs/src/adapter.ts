@@ -29,7 +29,6 @@ import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
-import { makeWriteQueue } from "./write-queue.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -702,3 +701,23 @@ const FS_DIRECTIVES = [
 - Use fs.patch when a refactor touches multiple files — one call, all-or-nothing validation before any file is written.
 - All paths must be within the allowed roots configured by the security profile. Paths outside are rejected.`,
 ];
+/** Create a per-path write serialization queue that chains concurrent writes on the same file. */
+export function makeWriteQueue() {
+	const queues = new Map<string, Promise<void>>();
+
+	return async function withQueue<T>(absolutePath: string, fn: () => Promise<T>): Promise<T> {
+		const prev = queues.get(absolutePath) ?? Promise.resolve();
+		let resolve!: () => void;
+		const gate = new Promise<void>((res) => {
+			resolve = res;
+		});
+		queues.set(absolutePath, gate);
+		try {
+			await prev;
+			return await fn();
+		} finally {
+			resolve();
+			if (queues.get(absolutePath) === gate) queues.delete(absolutePath);
+		}
+	};
+}

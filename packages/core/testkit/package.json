@@ -13,7 +13,7 @@
     },
     "./adapter-contract": "./src/adapter-contract.ts",
     "./adapter-harness": "./src/adapter-harness.ts",
-    "./bdd": "./src/bdd.ts",
+    "./bdd": "./src/cucumber.ts",
     "./blueprint-gauntlet": "./src/blueprint-gauntlet.ts",
     "./blueprint-harness": "./src/blueprint-harness.ts",
     "./bus-fixture": "./src/bus-fixture.ts",

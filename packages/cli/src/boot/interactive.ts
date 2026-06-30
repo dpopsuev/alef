@@ -7,7 +7,7 @@
  * Conversation history accumulates across turns.
  */
 
-import { formatError } from "@dpopsuev/alef-agent/errors";
+import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { readStdinLines } from "./readline.js";
 
@@ -47,7 +47,7 @@ export async function runInteractive(session: Session, opts: InteractiveOptions)
 			try {
 				await session.send?.(line, 120_000);
 			} catch (e) {
-				console.error(formatError(e));
+				console.error(formatErrorForUser(e));
 			}
 			if (process.stdin.isTTY) {
 				console.log();

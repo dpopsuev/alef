@@ -1,5 +1,5 @@
-import { formatError } from "@dpopsuev/alef-agent/errors";
 import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
+import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
@@ -162,7 +162,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 	}
 
 	if (!event.aborted) {
-		writer.addNotice(`[error] ${formatError(event.error)}`);
+		writer.addNotice(`[error] ${formatErrorForUser(event.error)}`);
 	}
 
 	return {

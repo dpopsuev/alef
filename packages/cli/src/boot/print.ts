@@ -8,7 +8,7 @@
  *   echo "Fix the bug in src/math.ts" | alef
  */
 
-import { formatError } from "@dpopsuev/alef-agent/errors";
+import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 
 const SEND_TIMEOUT_MS = 120_000;
@@ -18,7 +18,7 @@ export async function runPrintMode(prompt: string, session: Session): Promise<vo
 	try {
 		await session.send?.(prompt, SEND_TIMEOUT_MS);
 	} catch (e) {
-		console.error(formatError(e));
+		console.error(formatErrorForUser(e));
 		process.exitCode = 1;
 	} finally {
 		session.dispose();

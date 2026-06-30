@@ -47,9 +47,6 @@
 			"@dpopsuev/alef-agent/loop-detector": [
 				"./packages/core/agent/src/loop-detector.ts"
 			],
-			"@dpopsuev/alef-agent/errors": [
-				"./packages/core/agent/src/errors.ts"
-			],
 			"@dpopsuev/alef-agent/resource-meter": [
 				"./packages/core/agent/src/resource-meter.ts"
 			],

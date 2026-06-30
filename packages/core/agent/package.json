@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     "./loop-detector": "./src/loop-detector.ts",
-    "./errors": "./src/errors.ts",
     "./resource-meter": "./src/resource-meter.ts",
     "./event-pressure": "./src/event-pressure.ts",
     "./input-patterns": "./src/input-patterns.ts",

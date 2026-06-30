@@ -1,6 +1,11 @@
 const OSC_QUERY_TIMEOUT_MS = 50;
 const PALETTE_QUERY_TIMEOUT_MS = 200;
 
+const ESC = "\x1b";
+const BEL = "\x07";
+const OSC_11_QUERY = `${ESC}]11;?${BEL}`;
+const osc4Query = (slot: number) => `${ESC}]4;${slot};?${BEL}`;
+
 import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
@@ -75,7 +80,7 @@ async function queryOSC11(timeoutMs = OSC_QUERY_TIMEOUT_MS): Promise<BgColor | n
 			stdin.setRawMode(true);
 			stdin.resume();
 			stdin.on("data", onData);
-			process.stdout.write("\x1b]11;?\x07");
+			process.stdout.write(OSC_11_QUERY);
 		} catch {
 			finish(null);
 		}
@@ -209,7 +214,7 @@ export async function queryPalette(
 			stdin.resume();
 			stdin.on("data", onData);
 			// Send all queries in one write to minimize round-trips.
-			process.stdout.write(slots.map((n) => `\x1b]4;${n};?\x07`).join(""));
+			process.stdout.write(slots.map((n) => osc4Query(n)).join(""));
 		} catch {
 			finish();
 		}

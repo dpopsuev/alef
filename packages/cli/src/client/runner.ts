@@ -189,17 +189,29 @@ export function createContextFactory(
 	});
 }
 
+const KEY = {
+	CTRL_C: "\x03",
+	CTRL_R: "\x12",
+	CTRL_T: "\x14",
+	TAB: "\t",
+	ESC: "\x1b",
+	SHIFT_TAB: "\x1b[Z",
+	UP: "\x1b[A",
+	DOWN: "\x1b[B",
+} as const;
+
+const KEY_MAP: Record<string, string> = {
+	"ctrl+c": KEY.CTRL_C,
+	"ctrl+r": KEY.CTRL_R,
+	"ctrl+t": KEY.CTRL_T,
+	tab: KEY.TAB,
+	escape: KEY.ESC,
+	"shift+tab": KEY.SHIFT_TAB,
+	up: KEY.UP,
+	down: KEY.DOWN,
+};
+
 function matchesKey(data: string, combo: string): boolean {
-	const KEY_MAP: Record<string, string> = {
-		"ctrl+c": "\x03",
-		"ctrl+r": "\x12",
-		"ctrl+t": "\x14",
-		tab: "\t",
-		escape: "\x1b",
-		"shift+tab": "\x1b[Z",
-		up: "\x1b[A",
-		down: "\x1b[B",
-	};
 	return data === (KEY_MAP[combo] ?? combo);
 }
 

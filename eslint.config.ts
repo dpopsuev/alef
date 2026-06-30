@@ -1,4 +1,5 @@
 import boundaries from "eslint-plugin-boundaries";
+import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -56,6 +57,34 @@ export default tseslint.config(
 						group: ["@dpopsuev/alef-tool-*"],
 						message: "Core packages must not import from tool packages. Use adapter contributions instead.",
 					},
+				],
+			}],
+		},
+	},
+
+	// ── JSDoc: require documentation on all exported symbols ────────────
+	// Enforces JSDoc on exported functions, classes, interfaces, type
+	// aliases, and enums. Set to "warn" — does not block CI, but surfaces
+	// undocumented code in editor and lint output.
+	{
+		files: ["packages/*/src/**/*.ts", "packages/*/*/src/**/*.ts"],
+		ignores: ["**/node_modules/**", "**/dist/**", "**/test/**"],
+		plugins: { jsdoc },
+		rules: {
+			"jsdoc/require-jsdoc": ["warn", {
+				publicOnly: false,
+				require: {
+					FunctionDeclaration: true,
+					MethodDefinition: false,
+					ClassDeclaration: true,
+					ArrowFunctionExpression: false,
+					FunctionExpression: false,
+				},
+				contexts: [
+					"ExportNamedDeclaration > TSInterfaceDeclaration",
+					"ExportNamedDeclaration > TSTypeAliasDeclaration",
+					"ExportNamedDeclaration > TSEnumDeclaration",
+					"ExportNamedDeclaration > VariableDeclaration",
 				],
 			}],
 		},

@@ -37,7 +37,8 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/core/kernel/src/ packages/core/engine/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/cli/src/ --max-warnings 0"
+		"check:lint": "eslint --cache --cache-strategy content packages/core/kernel/src/ packages/core/engine/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/cli/src/ --max-warnings 0 --rule 'jsdoc/require-jsdoc: off'",
+		"check:jsdoc": "eslint --no-cache packages/core/kernel/src/ packages/core/engine/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/cli/src/ 2>&1 | tail -3"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",
@@ -53,6 +54,7 @@
 		"eslint": "^10.4.0",
 		"eslint-import-resolver-typescript": "^4.4.5",
 		"eslint-plugin-boundaries": "^6.0.2",
+		"eslint-plugin-jsdoc": "63.0.10",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",
 		"publint": "0.3.21",

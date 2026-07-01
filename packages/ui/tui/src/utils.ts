@@ -75,53 +75,36 @@ function truncateFragmentToWidth(text: string, maxWidth: number): { text: string
 
 	let result = "";
 	let width = 0;
-	let i = 0;
-	let pendingAnsi = "";
+	let ansiState: AnsiAccumState = CLEAN_STATE;
 
-	while (i < text.length) {
-		const ansi = extractAnsiCode(text, i);
-		if (ansi) {
-			pendingAnsi += ansi.code;
-			i += ansi.length;
+	for (const seg of scanAnsiText(text)) {
+		if (seg.kind === "ansi") {
+			ansiState = accumAnsi(ansiState, seg.code);
 			continue;
 		}
 
-		if (text[i] === "\t") {
+		if (seg.kind === "tab") {
 			if (width + 3 > maxWidth) {
 				break;
 			}
-			if (pendingAnsi) {
-				result += pendingAnsi;
-				pendingAnsi = "";
-			}
-			result += "\t";
+			const { flushed, state } = flushAnsi(ansiState);
+			ansiState = state;
+			result += flushed + "\t";
 			width += 3;
-			i++;
 			continue;
 		}
 
-		let end = i;
-		while (end < text.length && text[end] !== "\t") {
-			const nextAnsi = extractAnsiCode(text, end);
-			if (nextAnsi) {
-				break;
-			}
-			end++;
-		}
-
-		for (const { segment } of segmenter.segment(text.slice(i, end))) {
+		// seg.kind === "text"
+		for (const { segment } of segmenter.segment(seg.text)) {
 			const w = graphemeWidth(segment);
 			if (width + w > maxWidth) {
 				return { text: result, width };
 			}
-			if (pendingAnsi) {
-				result += pendingAnsi;
-				pendingAnsi = "";
-			}
-			result += segment;
+			const { flushed, state } = flushAnsi(ansiState);
+			ansiState = state;
+			result += flushed + segment;
 			width += w;
 		}
-		i = end;
 	}
 
 	return { text: result, width };
@@ -311,6 +294,87 @@ export function extractAnsiCode(str: string, pos: number): { code: string; lengt
 
 	return null;
 }
+
+// ---------------------------------------------------------------------------
+// ANSI Text Scanner — shared FSM for iterating text with ANSI escape codes
+// ---------------------------------------------------------------------------
+
+/**
+ * Discriminated union for segments yielded by the ANSI text scanner.
+ * Replaces ad-hoc `pendingAnsi` string accumulators and boolean flags.
+ */
+type AnsiTextSegment =
+	| { kind: "ansi"; code: string; length: number }
+	| { kind: "tab" }
+	| { kind: "text"; text: string };
+
+/**
+ * Scan text and yield typed segments: ANSI escape codes, tabs, and plain text spans.
+ * Each "text" segment is the longest contiguous run of non-ANSI, non-tab characters.
+ * Callers iterate segments instead of manually tracking `pendingAnsi` buffers.
+ */
+function* scanAnsiText(str: string): Generator<AnsiTextSegment> {
+	let i = 0;
+	while (i < str.length) {
+		const ansi = extractAnsiCode(str, i);
+		if (ansi) {
+			yield { kind: "ansi", code: ansi.code, length: ansi.length };
+			i += ansi.length;
+			continue;
+		}
+		if (str[i] === "\t") {
+			yield { kind: "tab" };
+			i++;
+			continue;
+		}
+		// Collect the longest plain text run (no ANSI, no tab)
+		let end = i + 1;
+		while (end < str.length && str[end] !== "\t" && !extractAnsiCode(str, end)) {
+			end++;
+		}
+		yield { kind: "text", text: str.slice(i, end) };
+		i = end;
+	}
+}
+
+/**
+ * Discriminated union state for ANSI code accumulation.
+ * Replaces the `let pendingAnsi = ""; ... if (pendingAnsi) { flush }` pattern.
+ *
+ *   clean   — no ANSI codes pending
+ *   pending — one or more ANSI codes buffered, waiting to attach to visible content
+ */
+type AnsiAccumState = { mode: "clean" } | { mode: "pending"; buffer: string };
+
+const CLEAN_STATE: AnsiAccumState = { mode: "clean" };
+
+/**
+ * Accumulate an ANSI code into the buffer.
+ */
+function accumAnsi(state: AnsiAccumState, code: string): AnsiAccumState {
+	return state.mode === "pending"
+		? { mode: "pending", buffer: state.buffer + code }
+		: { mode: "pending", buffer: code };
+}
+
+/**
+ * Flush pending ANSI codes, returning the buffered string (or "") and a clean state.
+ */
+function flushAnsi(state: AnsiAccumState): { flushed: string; state: AnsiAccumState } {
+	if (state.mode === "pending") {
+		return { flushed: state.buffer, state: CLEAN_STATE };
+	}
+	return { flushed: "", state: CLEAN_STATE };
+}
+
+/**
+ * Discard any pending ANSI codes without emitting them.
+ */
+function discardAnsi(_state: AnsiAccumState): AnsiAccumState {
+	return CLEAN_STATE;
+}
+
+// ---------------------------------------------------------------------------
 
 type Osc8Terminator = "\x07" | "\x1b\\";
 
@@ -574,17 +638,18 @@ class AnsiCodeTracker {
 }
 
 function updateTrackerFromText(text: string, tracker: AnsiCodeTracker): void {
-	let i = 0;
-	while (i < text.length) {
-		const ansiResult = extractAnsiCode(text, i);
-		if (ansiResult) {
-			tracker.process(ansiResult.code);
-			i += ansiResult.length;
-		} else {
-			i++;
+	for (const seg of scanAnsiText(text)) {
+		if (seg.kind === "ansi") {
+			tracker.process(seg.code);
 		}
 	}
 }
+
+/**
+ * Discriminated union for tokenizer character classification.
+ * Replaces the `inWhitespace` boolean flag.
+ */
+type TokenCharKind = "word" | "space";
 
 /**
  * Split text into words while keeping ANSI codes attached.
@@ -592,42 +657,37 @@ function updateTrackerFromText(text: string, tracker: AnsiCodeTracker): void {
 function splitIntoTokensWithAnsi(text: string): string[] {
 	const tokens: string[] = [];
 	let current = "";
-	let pendingAnsi = ""; // ANSI codes waiting to be attached to next visible content
-	let inWhitespace = false;
-	let i = 0;
+	let ansiState: AnsiAccumState = CLEAN_STATE;
+	let charKind: TokenCharKind = "word";
 
-	while (i < text.length) {
-		const ansiResult = extractAnsiCode(text, i);
-		if (ansiResult) {
-			// Hold ANSI codes separately - they'll be attached to the next visible char
-			pendingAnsi += ansiResult.code;
-			i += ansiResult.length;
+	for (const seg of scanAnsiText(text)) {
+		if (seg.kind === "ansi") {
+			ansiState = accumAnsi(ansiState, seg.code);
 			continue;
 		}
 
-		const char = text[i];
-		const charIsSpace = char === " ";
+		// For tabs and text segments, process each visible character
+		const chars = seg.kind === "tab" ? "\t" : seg.text;
+		for (const char of chars) {
+			const thisKind: TokenCharKind = char === " " ? "space" : "word";
 
-		if (charIsSpace !== inWhitespace && current) {
-			// Switching between whitespace and non-whitespace, push current token
-			tokens.push(current);
-			current = "";
+			if (thisKind !== charKind && current) {
+				// Switching between whitespace and non-whitespace, push current token
+				tokens.push(current);
+				current = "";
+			}
+
+			// Attach any pending ANSI codes to this visible character
+			const { flushed, state } = flushAnsi(ansiState);
+			ansiState = state;
+			current += flushed + char;
+			charKind = thisKind;
 		}
-
-		// Attach any pending ANSI codes to this visible character
-		if (pendingAnsi) {
-			current += pendingAnsi;
-			pendingAnsi = "";
-		}
-
-		inWhitespace = charIsSpace;
-		current += char;
-		i++;
 	}
 
 	// Handle any remaining pending ANSI codes (attach to last token)
-	if (pendingAnsi) {
-		current += pendingAnsi;
+	if (ansiState.mode === "pending") {
+		current += ansiState.buffer;
 	}
 
 	if (current) {
@@ -770,30 +830,19 @@ function breakLongWord(word: string, width: number, tracker: AnsiCodeTracker): s
 	let currentLine = tracker.getActiveCodes();
 	let currentWidth = 0;
 
-	// First, separate ANSI codes from visible content
-	// We need to handle ANSI codes specially since they're not graphemes
-	let i = 0;
+	// Separate ANSI codes from visible content using the shared scanner,
+	// then expand text spans into individual graphemes for line-breaking.
 	const segments: Array<{ type: "ansi" | "grapheme"; value: string }> = [];
 
-	while (i < word.length) {
-		const ansiResult = extractAnsiCode(word, i);
-		if (ansiResult) {
-			segments.push({ type: "ansi", value: ansiResult.code });
-			i += ansiResult.length;
+	for (const seg of scanAnsiText(word)) {
+		if (seg.kind === "ansi") {
+			segments.push({ type: "ansi", value: seg.code });
 		} else {
-			// Find the next ANSI code or end of string
-			let end = i;
-			while (end < word.length) {
-				const nextAnsi = extractAnsiCode(word, end);
-				if (nextAnsi) break;
-				end++;
+			// Both "text" and "tab" segments are grapheme-segmented
+			const text = seg.kind === "tab" ? "\t" : seg.text;
+			for (const g of segmenter.segment(text)) {
+				segments.push({ type: "grapheme", value: g.segment });
 			}
-			// Segment this non-ANSI portion into graphemes
-			const textPortion = word.slice(i, end);
-			for (const seg of segmenter.segment(textPortion)) {
-				segments.push({ type: "grapheme", value: seg.segment });
-			}
-			i = end;
 		}
 	}
 
@@ -809,9 +858,9 @@ function breakLongWord(word: string, width: number, tracker: AnsiCodeTracker): s
 		// Skip empty graphemes to avoid issues with string-width calculation
 		if (!grapheme) continue;
 
-		const graphemeWidth = visibleWidth(grapheme);
+		const gw = visibleWidth(grapheme);
 
-		if (currentWidth + graphemeWidth > width) {
+		if (currentWidth + gw > width) {
 			// Add specific reset for underline only (preserves background)
 			const lineEndReset = tracker.getLineEndReset();
 			if (lineEndReset) {
@@ -823,7 +872,7 @@ function breakLongWord(word: string, width: number, tracker: AnsiCodeTracker): s
 		}
 
 		currentLine += grapheme;
-		currentWidth += graphemeWidth;
+		currentWidth += gw;
 	}
 
 	if (currentLine) {
@@ -902,7 +951,6 @@ export function truncateToWidth(
 
 	const targetWidth = maxWidth - ellipsisWidth;
 	let result = "";
-	let pendingAnsi = "";
 	let visibleSoFar = 0;
 	let keptWidth = 0;
 	let keepContiguousPrefix = true;
@@ -928,57 +976,43 @@ export function truncateToWidth(
 		}
 		exhaustedInput = !overflowed;
 	} else {
-		let i = 0;
-		while (i < text.length) {
-			const ansi = extractAnsiCode(text, i);
-			if (ansi) {
-				pendingAnsi += ansi.code;
-				i += ansi.length;
+		let ansiState: AnsiAccumState = CLEAN_STATE;
+
+		for (const seg of scanAnsiText(text)) {
+			if (seg.kind === "ansi") {
+				ansiState = accumAnsi(ansiState, seg.code);
 				continue;
 			}
 
-			if (text[i] === "\t") {
+			if (seg.kind === "tab") {
 				if (keepContiguousPrefix && keptWidth + 3 <= targetWidth) {
-					if (pendingAnsi) {
-						result += pendingAnsi;
-						pendingAnsi = "";
-					}
-					result += "\t";
+					const { flushed, state } = flushAnsi(ansiState);
+					ansiState = state;
+					result += flushed + "\t";
 					keptWidth += 3;
 				} else {
 					keepContiguousPrefix = false;
-					pendingAnsi = "";
+					ansiState = discardAnsi(ansiState);
 				}
 				visibleSoFar += 3;
 				if (visibleSoFar > maxWidth) {
 					overflowed = true;
 					break;
 				}
-				i++;
 				continue;
 			}
 
-			let end = i;
-			while (end < text.length && text[end] !== "\t") {
-				const nextAnsi = extractAnsiCode(text, end);
-				if (nextAnsi) {
-					break;
-				}
-				end++;
-			}
-
-			for (const { segment } of segmenter.segment(text.slice(i, end))) {
+			// seg.kind === "text"
+			for (const { segment } of segmenter.segment(seg.text)) {
 				const width = graphemeWidth(segment);
 				if (keepContiguousPrefix && keptWidth + width <= targetWidth) {
-					if (pendingAnsi) {
-						result += pendingAnsi;
-						pendingAnsi = "";
-					}
-					result += segment;
+					const { flushed, state } = flushAnsi(ansiState);
+					ansiState = state;
+					result += flushed + segment;
 					keptWidth += width;
 				} else {
 					keepContiguousPrefix = false;
-					pendingAnsi = "";
+					ansiState = discardAnsi(ansiState);
 				}
 
 				visibleSoFar += width;
@@ -990,9 +1024,8 @@ export function truncateToWidth(
 			if (overflowed) {
 				break;
 			}
-			i = end;
 		}
-		exhaustedInput = i >= text.length;
+		exhaustedInput = !overflowed;
 	}
 
 	if (!overflowed && exhaustedInput) {
@@ -1021,38 +1054,35 @@ export function sliceWithWidth(
 	const endCol = startCol + length;
 	let result = "",
 		resultWidth = 0,
-		currentCol = 0,
-		i = 0,
-		pendingAnsi = "";
+		currentCol = 0;
+	let ansiState: AnsiAccumState = CLEAN_STATE;
 
-	while (i < line.length) {
-		const ansi = extractAnsiCode(line, i);
-		if (ansi) {
-			if (currentCol >= startCol && currentCol < endCol) result += ansi.code;
-			else if (currentCol < startCol) pendingAnsi += ansi.code;
-			i += ansi.length;
+	for (const seg of scanAnsiText(line)) {
+		if (seg.kind === "ansi") {
+			if (currentCol >= startCol && currentCol < endCol) {
+				result += seg.code;
+			} else if (currentCol < startCol) {
+				ansiState = accumAnsi(ansiState, seg.code);
+			}
 			continue;
 		}
 
-		let textEnd = i;
-		while (textEnd < line.length && !extractAnsiCode(line, textEnd)) textEnd++;
+		// Tabs are not expected in sliceWithWidth input, but handle gracefully
+		const text = seg.kind === "tab" ? "\t" : seg.text;
 
-		for (const { segment } of segmenter.segment(line.slice(i, textEnd))) {
+		for (const { segment } of segmenter.segment(text)) {
 			const w = graphemeWidth(segment);
 			const inRange = currentCol >= startCol && currentCol < endCol;
 			const fits = !strict || currentCol + w <= endCol;
 			if (inRange && fits) {
-				if (pendingAnsi) {
-					result += pendingAnsi;
-					pendingAnsi = "";
-				}
-				result += segment;
+				const { flushed, state } = flushAnsi(ansiState);
+				ansiState = state;
+				result += flushed + segment;
 				resultWidth += w;
 			}
 			currentCol += w;
 			if (currentCol >= endCol) break;
 		}
-		i = textEnd;
 		if (currentCol >= endCol) break;
 	}
 	return { text: result, width: resultWidth };
@@ -1077,51 +1107,47 @@ export function extractSegments(
 		beforeWidth = 0,
 		after = "",
 		afterWidth = 0;
-	let currentCol = 0,
-		i = 0;
-	let pendingAnsiBefore = "";
-	let afterStarted = false;
+	let currentCol = 0;
+	let beforeAnsi: AnsiAccumState = CLEAN_STATE;
+	/** Discriminated state: "waiting" until first visible "after" grapheme, then "active". */
+	let afterRegion: { mode: "waiting" } | { mode: "active" } = { mode: "waiting" };
 	const afterEnd = afterStart + afterLen;
 
 	// Track styling state so "after" inherits styling from before the overlay
 	pooledStyleTracker.clear();
 
-	while (i < line.length) {
-		const ansi = extractAnsiCode(line, i);
-		if (ansi) {
+	for (const seg of scanAnsiText(line)) {
+		if (seg.kind === "ansi") {
 			// Track all SGR codes to know styling state at afterStart
-			pooledStyleTracker.process(ansi.code);
+			pooledStyleTracker.process(seg.code);
 			// Include ANSI codes in their respective segments
 			if (currentCol < beforeEnd) {
-				pendingAnsiBefore += ansi.code;
-			} else if (currentCol >= afterStart && currentCol < afterEnd && afterStarted) {
+				beforeAnsi = accumAnsi(beforeAnsi, seg.code);
+			} else if (currentCol >= afterStart && currentCol < afterEnd && afterRegion.mode === "active") {
 				// Only include after we've started "after" (styling already prepended)
-				after += ansi.code;
+				after += seg.code;
 			}
-			i += ansi.length;
 			continue;
 		}
 
-		let textEnd = i;
-		while (textEnd < line.length && !extractAnsiCode(line, textEnd)) textEnd++;
+		// Tabs are not expected in extractSegments input, but handle gracefully
+		const text = seg.kind === "tab" ? "\t" : seg.text;
 
-		for (const { segment } of segmenter.segment(line.slice(i, textEnd))) {
+		for (const { segment } of segmenter.segment(text)) {
 			const w = graphemeWidth(segment);
 
 			if (currentCol < beforeEnd) {
-				if (pendingAnsiBefore) {
-					before += pendingAnsiBefore;
-					pendingAnsiBefore = "";
-				}
-				before += segment;
+				const { flushed, state } = flushAnsi(beforeAnsi);
+				beforeAnsi = state;
+				before += flushed + segment;
 				beforeWidth += w;
 			} else if (currentCol >= afterStart && currentCol < afterEnd) {
 				const fits = !strictAfter || currentCol + w <= afterEnd;
 				if (fits) {
 					// On first "after" grapheme, prepend inherited styling from before overlay
-					if (!afterStarted) {
+					if (afterRegion.mode === "waiting") {
 						after += pooledStyleTracker.getActiveCodes();
-						afterStarted = true;
+						afterRegion = { mode: "active" };
 					}
 					after += segment;
 					afterWidth += w;
@@ -1132,7 +1158,6 @@ export function extractSegments(
 			// Early exit: done with "before" only, or done with both segments
 			if (afterLen <= 0 ? currentCol >= beforeEnd : currentCol >= afterEnd) break;
 		}
-		i = textEnd;
 		if (afterLen <= 0 ? currentCol >= beforeEnd : currentCol >= afterEnd) break;
 	}
 

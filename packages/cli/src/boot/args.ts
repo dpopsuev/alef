@@ -255,10 +255,7 @@ function defaultArgs(): Args {
 	};
 }
 
-// ── Flag group parsers ──────────────────────────────────────────────────────
-// Each returns the number of extra argv entries consumed beyond the flag itself
-// (0 = flag only, 1 = flag + value). Returns undefined when the flag is not
-// recognized by this group.
+// Flag group parsers — return extra argv consumed (0 = flag only, 1 = flag + value), or undefined if unrecognized.
 
 /** -p/--print, --json, --no-tui, --daemon, --attach, --serve, --host */
 function parseModeFlags(arg: string, argv: string[], i: number, args: Args): number | undefined {

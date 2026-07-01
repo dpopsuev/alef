@@ -5,13 +5,7 @@ import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
 import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 
-// ---------------------------------------------------------------------------
-// TuiInputEvent — typed events from the Input layer (keyboard, editor, modal)
-// Convention: AgentEvent types use hyphens (tool-start), TuiInputEvent uses
-// dots (turn.start). Both inhabit TuiEvent but are visually distinct.
-// ---------------------------------------------------------------------------
-
-/** Typed events from the TUI input layer (keyboard, editor, modal, inspector). */
+/** TUI input events — dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
@@ -174,13 +168,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 	};
 }
 
-// ---------------------------------------------------------------------------
-// TUI Dispatcher — routes events to UI components.
-// Adapter-contributed signal handlers run first (OCP extension point).
-// Built-in cases handle turn lifecycle, tool display, and inspector chrome.
-// ---------------------------------------------------------------------------
-
-/** Route a TuiEvent through adapter signal handlers and built-in state transitions. */
+/** Route TuiEvent through adapter signal handlers (OCP extension), then built-in transitions. */
 export function dispatchTuiEvent(
 	state: TuiState,
 	event: TuiEvent,

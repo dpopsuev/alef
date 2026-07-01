@@ -9,7 +9,7 @@ export function setAuthStore(store: AuthStore): void {
 	_store = store;
 }
 
-/** Pre-load all stored API keys into the in-memory cache at boot. */
+/** Boot-time prefetch so resolveApiKey() never hits disk on the hot path. */
 export async function warmAuthCache(): Promise<void> {
 	if (!_store) return;
 	const entries = await _store.list();
@@ -19,7 +19,7 @@ export async function warmAuthCache(): Promise<void> {
 	}
 }
 
-/** Return a cached API key for the given provider, or undefined if absent. */
+/** Cache-only lookup — call warmAuthCache() first or this always returns undefined. */
 export function getStoredApiKey(provider: string): string | undefined {
 	return _cache.get(provider);
 }

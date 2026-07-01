@@ -29,17 +29,7 @@ export interface ViewMode {
 	run(session: Session): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// HeadlessViewMode
-//
-// In-process viewer for tests and programmatic use. Records every AgentEvent,
-// exposes typed accessors for assertions, and lets the caller drive input via
-// send() without needing a real TTY or HTTP endpoint.
-//
-// Pattern: Observer (session.subscribe) + typed query methods.
-// ---------------------------------------------------------------------------
-
-/** In-process viewer for tests that records events and exposes typed query methods. */
+/** In-process viewer for tests — records events, exposes typed query methods, no TTY needed. */
 export class HeadlessViewMode implements ViewMode {
 	private readonly _events: AgentEvent[] = [];
 	private _session: Session | null = null;

@@ -21,7 +21,7 @@ export function passthroughSchema(raw: Record<string, unknown>): ZodTypeAny {
 	return schema;
 }
 
-/** Convert a Zod tool input schema to a plain JSON Schema object. */
+/** LLM providers require JSON Schema, not Zod — this bridges the gap. */
 export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
 	const raw = passthroughRawMap.get(schema);
 	if (raw !== undefined) return raw;

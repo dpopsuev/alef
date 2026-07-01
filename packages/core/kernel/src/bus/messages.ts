@@ -107,7 +107,7 @@ export function makeBus(
 	return { command, event, notification, pulse };
 }
 
-/** Generate a new UUID-based correlation ID for bus messages. */
+/** Each user turn gets a fresh ID so subscribers can reset per-turn state. */
 export function newCorrelationId(): string {
 	return randomUUID();
 }

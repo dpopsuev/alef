@@ -1,6 +1,6 @@
 import type { CommandMessage, EventInput } from "./messages.js";
 
-/** Extract the toolCallId string from a payload, if present. */
+/** Pluck toolCallId if the payload carries one (not all messages do). */
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
 	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
 }

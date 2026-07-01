@@ -21,7 +21,7 @@ export function makeCacheKey(eventType: string, payload: Record<string, unknown>
 	return `${eventType}:${stableHash(payload)}`;
 }
 
-/** Create an in-memory Map-backed cache. */
+/** Adapters share this cache to avoid re-fetching within one mount cycle. */
 export function createMapCache(): CacheStrategy {
 	const store = new Map<string, Record<string, unknown>>();
 	return {

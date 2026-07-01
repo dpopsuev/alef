@@ -50,7 +50,7 @@ export function typedAction<TSchema extends ZodTypeAny>(
 	};
 }
 
-/** Wrap a typed async-iterable stream into a streaming CommandAction. */
+/** Streaming variant of typedAction — yields chunks so the TUI can show progress. */
 export function typedStreamAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
 	stream: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,

@@ -226,12 +226,12 @@ export const PALETTE: PaletteFamily[] = [
 /** Flat list of all 144 palette colors. */
 export const ALL_COLORS: PaletteColor[] = PALETTE.flatMap((f) => f.colors);
 
-/** Lookup a color by name. Returns undefined if not found. */
+/** Case-insensitive CSS color name lookup. */
 export function lookupColor(name: string): PaletteColor | undefined {
 	return ALL_COLORS.find((c) => c.name === name);
 }
 
-/** Convert a palette hex string to a ColorToken for the TUI. */
+/** Bridges hex palette entries into the TUI's 256-color space. */
 export function hexToColorToken(hex: string): { truecolor: string } {
 	return { truecolor: hex };
 }

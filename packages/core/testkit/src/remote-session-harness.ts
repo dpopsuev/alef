@@ -59,8 +59,8 @@ export async function createRemoteHarness(opts: RemoteSessionHarnessOptions): Pr
 		controller,
 		host: addr.host,
 		port: addr.port,
-		dispose() {
-			agent.dispose();
+		async dispose() {
+			await agent.dispose();
 		},
 	};
 }

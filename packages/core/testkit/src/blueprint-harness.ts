@@ -248,7 +248,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	}
 
 	/** Dispose the agent and clean up. */
-	dispose(): void {
-		this.agent.dispose();
+	async dispose(): Promise<void> {
+		await this.agent.dispose();
 	}
 }

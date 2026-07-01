@@ -212,7 +212,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Unmount the agent and clean up the temp workspace. */
 	async dispose(): Promise<void> {
-		this.agent.dispose();
+		await this.agent.dispose();
 		await rm(this.workspace, { recursive: true, force: true });
 	}
 }

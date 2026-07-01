@@ -430,7 +430,7 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 		? (ctx: { payload: { command: string; timeout?: number } }) => streamExecPty(ctx, options, pool)
 		: (ctx: { payload: { command: string; timeout?: number } }) => streamExec(ctx, options);
 
-	return defineAdapter(
+	const adapter = defineAdapter(
 		"shell",
 		{
 			command: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, exec) },
@@ -453,8 +453,6 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 			},
 			publishSchemas: {
 				event: {
-					// Streaming: discriminate on isFinal — intermediate events carry chunk,
-					// final event carries output + exitCode.
 					"shell.exec": z.discriminatedUnion("isFinal", [
 						z.object({ chunk: z.string().min(1), isFinal: z.literal(false) }),
 						z.object({
@@ -470,6 +468,12 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 			},
 		},
 	);
+
+	if (pool) {
+		adapter.close = () => pool.dispose();
+	}
+
+	return adapter;
 }
 
 const SHELL_DIRECTIVES = [

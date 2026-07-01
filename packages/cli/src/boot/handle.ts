@@ -133,8 +133,8 @@ export class SessionHandle implements Session {
 		this._agent.reload({ ...adapter, name });
 	}
 
-	dispose(): void {
-		this._agent.dispose();
+	async dispose(): Promise<void> {
+		await this._agent.dispose();
 	}
 
 	send = (text: string, timeoutMs?: number): Promise<string> => {

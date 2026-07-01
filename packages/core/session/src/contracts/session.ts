@@ -93,7 +93,7 @@ export interface Session {
 	reloadAdapter?(name: string, path: string): Promise<void>;
 	readonly adapters?: ReadonlyArray<{ name: string; description?: string }>;
 
-	dispose(): void;
+	dispose(): void | Promise<void>;
 
 	send?(text: string, timeoutMs?: number): Promise<string>;
 	receive?(text: string): void;

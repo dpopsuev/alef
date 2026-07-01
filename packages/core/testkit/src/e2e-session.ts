@@ -103,9 +103,9 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 			await controller.send(text, "human", timeoutMs);
 			return { reply, events: [...events] };
 		},
-		dispose() {
+		async dispose() {
 			controller.dispose();
-			agent.dispose();
+			await agent.dispose();
 		},
 	};
 }

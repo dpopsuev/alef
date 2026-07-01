@@ -41,6 +41,8 @@ export const HTTP = {
 	UNAVAILABLE: 503,
 } as const;
 
+const READY_TIMEOUT_MS = 10_000;
+
 /** Union of all HTTP status codes defined in the HTTP constant. */
 export type HttpStatus = (typeof HTTP)[keyof typeof HTTP];
 
@@ -276,11 +278,11 @@ export class RouterAdapter implements Adapter {
 			});
 		});
 
-		// Start the HTTP server. _ready resolves once the port is bound.
 		this.server = createServer((req, res) => this.handle(req, res, bus));
 		this._readyPromise = new Promise<void>((resolve, reject) => {
-			this.server?.once("listening", resolve);
-			this.server?.once("error", reject);
+			const timeout = setTimeout(() => reject(new Error("RouterAdapter: port bind timed out")), READY_TIMEOUT_MS);
+			this.server?.once("listening", () => { clearTimeout(timeout); resolve(); });
+			this.server?.once("error", (err) => { clearTimeout(timeout); reject(err); });
 		});
 		this.server.listen(this.options.port, this.options.host);
 

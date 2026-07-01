@@ -20,6 +20,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { CallSite } from "./backend.js";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +67,9 @@ export class LspClient {
 			this._drain();
 		});
 
-		proc.stderr?.on("data", () => {}); // suppress
+		proc.stderr?.on("data", (data: Buffer) => {
+			traceEvent("lsp:stderr", { text: data.toString("utf-8").trimEnd() });
+		});
 
 		// Initialize the server.
 		this.initPromise = this._initialize(cwd);

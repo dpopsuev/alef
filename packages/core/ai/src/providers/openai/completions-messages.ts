@@ -10,6 +10,7 @@ import type {
 	ChatCompletionToolMessageParam,
 } from "openai/resources/chat/completions.js";
 import type {
+	AssistantMessage,
 	CacheRetention,
 	Context,
 	ImageContent,
@@ -20,6 +21,7 @@ import type {
 	Tool,
 	ToolCall,
 	ToolResultMessage,
+	UserMessage,
 } from "../../types.js";
 import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
 import { transformMessages } from "../normalize-messages.js";
@@ -252,6 +254,230 @@ export function convertMessages(
 
 	let lastRole: string | null = null;
 
+	// -----------------------------------------------------------------------
+	// Per-role handlers — each returns whether lastRole was already set
+	// (i.e. the caller should skip the default `lastRole = msg.role`).
+	// The toolResult handler also advances the loop index via the cursor.
+	// -----------------------------------------------------------------------
+
+	function handleUser(msg: UserMessage): boolean {
+		if (typeof msg.content === "string") {
+			params.push({
+				role: "user",
+				content: sanitizeSurrogates(msg.content),
+			});
+		} else {
+			const content: ChatCompletionContentPart[] = msg.content.map((item): ChatCompletionContentPart => {
+				if (item.type === "text") {
+					return {
+						type: "text",
+						text: sanitizeSurrogates(item.text),
+					} satisfies ChatCompletionContentPartText;
+				} else {
+					return {
+						type: "image_url",
+						image_url: {
+							url: `data:${item.mimeType};base64,${item.data}`,
+						},
+					} satisfies ChatCompletionContentPartImage;
+				}
+			});
+			if (content.length === 0) return true;
+			params.push({
+				role: "user",
+				content,
+			});
+		}
+		return false;
+	}
+
+	function handleAssistant(msg: AssistantMessage): boolean {
+		// Some providers don't accept null content, use empty string instead
+		const assistantMsg: ChatCompletionAssistantMessageParam = {
+			role: "assistant",
+			content: compat.requiresAssistantAfterToolResult ? "" : null,
+		};
+
+		const assistantTextParts = msg.content
+			.filter(isTextContentBlock)
+			.filter((block) => block.text.trim().length > 0)
+			.map(
+				(block) =>
+					({
+						type: "text",
+						text: sanitizeSurrogates(block.text),
+					}) satisfies ChatCompletionContentPartText,
+			);
+		const assistantText = assistantTextParts.map((part) => part.text).join("");
+
+		const nonEmptyThinkingBlocks = msg.content
+			.filter(isThinkingContentBlock)
+			.filter((block) => block.thinking.trim().length > 0);
+		if (nonEmptyThinkingBlocks.length > 0) {
+			if (compat.requiresThinkingAsText) {
+				// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
+				const thinkingText = nonEmptyThinkingBlocks
+					.map((block) => sanitizeSurrogates(block.thinking))
+					.join("\n\n");
+				assistantMsg.content = [{ type: "text", text: thinkingText }, ...assistantTextParts];
+			} else {
+				// Always send assistant content as a plain string (OpenAI Chat Completions
+				// API standard format). Sending as an array of {type:"text", text:"..."}
+				// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
+				// NVIDIA NIM) to mirror the content-block structure literally in their
+				// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
+				if (assistantText.length > 0) {
+					assistantMsg.content = assistantText;
+				}
+
+				// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
+				const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
+				if (signature && signature.length > 0) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic property name from provider thinking signature
+					(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
+				}
+			}
+		} else if (assistantText.length > 0) {
+			// Always send assistant content as a plain string (OpenAI Chat Completions
+			// API standard format). Sending as an array of {type:"text", text:"..."}
+			// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
+			// NVIDIA NIM) to mirror the content-block structure literally in their
+			// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
+			assistantMsg.content = assistantText;
+		}
+
+		const toolCalls = msg.content.filter(isToolCallBlock);
+		if (toolCalls.length > 0) {
+			assistantMsg.tool_calls = toolCalls.map((tc) => ({
+				id: tc.id,
+				type: "function" as const,
+				function: {
+					name: tc.name,
+					arguments: JSON.stringify(tc.arguments),
+				},
+			}));
+			const reasoningDetails = toolCalls
+				.filter((tc) => tc.thoughtSignature)
+				.map((tc) => {
+					try {
+						return JSON.parse(tc.thoughtSignature!);
+					} catch {
+						return null;
+					}
+				})
+				.filter(Boolean);
+			if (reasoningDetails.length > 0) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI reasoning extension
+				(assistantMsg as any).reasoning_details = reasoningDetails;
+			}
+		}
+		if (
+			compat.requiresReasoningContentOnAssistantMessages &&
+			model.reasoning &&
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
+			(assistantMsg as { reasoning_content?: string }).reasoning_content === undefined
+		) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
+			(assistantMsg as { reasoning_content?: string }).reasoning_content = "";
+		}
+		// Skip assistant messages that have no content and no tool calls.
+		// Some providers require "either content or tool_calls, but not none".
+		// Other providers also don't accept empty assistant messages.
+		// This handles aborted assistant responses that got no content.
+		const content = assistantMsg.content;
+		const hasContent =
+			content !== null &&
+			content !== undefined &&
+			(typeof content === "string" ? content.length > 0 : content.length > 0);
+		if (!hasContent && !assistantMsg.tool_calls) {
+			return true;
+		}
+		params.push(assistantMsg);
+		return false;
+	}
+
+	function handleToolResult(startIndex: number): { skipDefault: boolean; newIndex: number } {
+		const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
+		let j = startIndex;
+
+		for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role check boundary
+			const toolMsg = transformedMessages[j] as ToolResultMessage;
+
+			// Extract text and image content
+			const textResult = toolMsg.content
+				.filter(isTextContentBlock)
+				.map((block) => block.text)
+				.join("\n");
+			const hasImages = toolMsg.content.some((c) => c.type === "image");
+
+			// Always send tool result with text (or placeholder if only images)
+			const hasText = textResult.length > 0;
+			// Some providers require the 'name' field in tool results
+			const toolResultMsg: ChatCompletionToolMessageParam = {
+				role: "tool",
+				content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
+				tool_call_id: toolMsg.toolCallId,
+			};
+			if (compat.requiresToolResultName && toolMsg.toolName) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+				(toolResultMsg as any).name = toolMsg.toolName;
+			}
+			params.push(toolResultMsg);
+
+			if (hasImages && model.input.includes("image")) {
+				for (const block of toolMsg.content) {
+					if (isImageContentBlock(block)) {
+						imageBlocks.push({
+							type: "image_url",
+							image_url: {
+								url: `data:${block.mimeType};base64,${block.data}`,
+							},
+						});
+					}
+				}
+			}
+		}
+
+		if (imageBlocks.length > 0) {
+			if (compat.requiresAssistantAfterToolResult) {
+				params.push({
+					role: "assistant",
+					content: "I have processed the tool results.",
+				});
+			}
+
+			params.push({
+				role: "user",
+				content: [
+					{
+						type: "text",
+						text: "Attached image(s) from tool result:",
+					},
+					...imageBlocks,
+				],
+			});
+			lastRole = "user";
+		} else {
+			lastRole = "toolResult";
+		}
+
+		return { skipDefault: true, newIndex: j - 1 };
+	}
+
+	// -----------------------------------------------------------------------
+	// Role dispatch table
+	// -----------------------------------------------------------------------
+
+	type RoleDispatchResult = { skipDefault: boolean; newIndex?: number };
+	const roleHandlers: Record<string, (msg: Message, index: number) => RoleDispatchResult> = {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch key guarantees role
+		user: (msg) => ({ skipDefault: handleUser(msg as UserMessage) }),
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch key guarantees role
+		assistant: (msg) => ({ skipDefault: handleAssistant(msg as AssistantMessage) }),
+		toolResult: (_msg, index) => handleToolResult(index),
+	};
+
 	for (let i = 0; i < transformedMessages.length; i++) {
 		const msg = transformedMessages[i];
 		// Some providers don't allow user messages directly after tool results
@@ -263,204 +489,16 @@ export function convertMessages(
 			});
 		}
 
-		if (msg.role === "user") {
-			if (typeof msg.content === "string") {
-				params.push({
-					role: "user",
-					content: sanitizeSurrogates(msg.content),
-				});
-			} else {
-				const content: ChatCompletionContentPart[] = msg.content.map((item): ChatCompletionContentPart => {
-					if (item.type === "text") {
-						return {
-							type: "text",
-							text: sanitizeSurrogates(item.text),
-						} satisfies ChatCompletionContentPartText;
-					} else {
-						return {
-							type: "image_url",
-							image_url: {
-								url: `data:${item.mimeType};base64,${item.data}`,
-							},
-						} satisfies ChatCompletionContentPartImage;
-					}
-				});
-				if (content.length === 0) continue;
-				params.push({
-					role: "user",
-					content,
-				});
+		const handler = roleHandlers[msg.role];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive guard for unknown roles
+		if (handler) {
+			const result = handler(msg, i);
+			if (result.newIndex !== undefined) {
+				i = result.newIndex;
 			}
-		} else if (msg.role === "assistant") {
-			// Some providers don't accept null content, use empty string instead
-			const assistantMsg: ChatCompletionAssistantMessageParam = {
-				role: "assistant",
-				content: compat.requiresAssistantAfterToolResult ? "" : null,
-			};
-
-			const assistantTextParts = msg.content
-				.filter(isTextContentBlock)
-				.filter((block) => block.text.trim().length > 0)
-				.map(
-					(block) =>
-						({
-							type: "text",
-							text: sanitizeSurrogates(block.text),
-						}) satisfies ChatCompletionContentPartText,
-				);
-			const assistantText = assistantTextParts.map((part) => part.text).join("");
-
-			const nonEmptyThinkingBlocks = msg.content
-				.filter(isThinkingContentBlock)
-				.filter((block) => block.thinking.trim().length > 0);
-			if (nonEmptyThinkingBlocks.length > 0) {
-				if (compat.requiresThinkingAsText) {
-					// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
-					const thinkingText = nonEmptyThinkingBlocks
-						.map((block) => sanitizeSurrogates(block.thinking))
-						.join("\n\n");
-					assistantMsg.content = [{ type: "text", text: thinkingText }, ...assistantTextParts];
-				} else {
-					// Always send assistant content as a plain string (OpenAI Chat Completions
-					// API standard format). Sending as an array of {type:"text", text:"..."}
-					// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
-					// NVIDIA NIM) to mirror the content-block structure literally in their
-					// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
-					if (assistantText.length > 0) {
-						assistantMsg.content = assistantText;
-					}
-
-					// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
-					const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
-					if (signature && signature.length > 0) {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic property name from provider thinking signature
-						(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
-					}
-				}
-			} else if (assistantText.length > 0) {
-				// Always send assistant content as a plain string (OpenAI Chat Completions
-				// API standard format). Sending as an array of {type:"text", text:"..."}
-				// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
-				// NVIDIA NIM) to mirror the content-block structure literally in their
-				// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
-				assistantMsg.content = assistantText;
-			}
-
-			const toolCalls = msg.content.filter(isToolCallBlock);
-			if (toolCalls.length > 0) {
-				assistantMsg.tool_calls = toolCalls.map((tc) => ({
-					id: tc.id,
-					type: "function" as const,
-					function: {
-						name: tc.name,
-						arguments: JSON.stringify(tc.arguments),
-					},
-				}));
-				const reasoningDetails = toolCalls
-					.filter((tc) => tc.thoughtSignature)
-					.map((tc) => {
-						try {
-							return JSON.parse(tc.thoughtSignature!);
-						} catch {
-							return null;
-						}
-					})
-					.filter(Boolean);
-				if (reasoningDetails.length > 0) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI reasoning extension
-					(assistantMsg as any).reasoning_details = reasoningDetails;
-				}
-			}
-			if (
-				compat.requiresReasoningContentOnAssistantMessages &&
-				model.reasoning &&
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
-				(assistantMsg as { reasoning_content?: string }).reasoning_content === undefined
-			) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
-				(assistantMsg as { reasoning_content?: string }).reasoning_content = "";
-			}
-			// Skip assistant messages that have no content and no tool calls.
-			// Some providers require "either content or tool_calls, but not none".
-			// Other providers also don't accept empty assistant messages.
-			// This handles aborted assistant responses that got no content.
-			const content = assistantMsg.content;
-			const hasContent =
-				content !== null &&
-				content !== undefined &&
-				(typeof content === "string" ? content.length > 0 : content.length > 0);
-			if (!hasContent && !assistantMsg.tool_calls) {
+			if (result.skipDefault) {
 				continue;
 			}
-			params.push(assistantMsg);
-		} else {
-			const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
-			let j = i;
-
-			for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role check boundary
-				const toolMsg = transformedMessages[j] as ToolResultMessage;
-
-				// Extract text and image content
-				const textResult = toolMsg.content
-					.filter(isTextContentBlock)
-					.map((block) => block.text)
-					.join("\n");
-				const hasImages = toolMsg.content.some((c) => c.type === "image");
-
-				// Always send tool result with text (or placeholder if only images)
-				const hasText = textResult.length > 0;
-				// Some providers require the 'name' field in tool results
-				const toolResultMsg: ChatCompletionToolMessageParam = {
-					role: "tool",
-					content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
-					tool_call_id: toolMsg.toolCallId,
-				};
-				if (compat.requiresToolResultName && toolMsg.toolName) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-					(toolResultMsg as any).name = toolMsg.toolName;
-				}
-				params.push(toolResultMsg);
-
-				if (hasImages && model.input.includes("image")) {
-					for (const block of toolMsg.content) {
-						if (isImageContentBlock(block)) {
-							imageBlocks.push({
-								type: "image_url",
-								image_url: {
-									url: `data:${block.mimeType};base64,${block.data}`,
-								},
-							});
-						}
-					}
-				}
-			}
-
-			i = j - 1;
-
-			if (imageBlocks.length > 0) {
-				if (compat.requiresAssistantAfterToolResult) {
-					params.push({
-						role: "assistant",
-						content: "I have processed the tool results.",
-					});
-				}
-
-				params.push({
-					role: "user",
-					content: [
-						{
-							type: "text",
-							text: "Attached image(s) from tool result:",
-						},
-						...imageBlocks,
-					],
-				});
-				lastRole = "user";
-			} else {
-				lastRole = "toolResult";
-			}
-			continue;
 		}
 
 		lastRole = msg.role;

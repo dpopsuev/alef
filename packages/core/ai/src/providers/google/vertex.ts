@@ -104,6 +104,27 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			let currentBlock: TextContent | ThinkingContent | null = null;
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
+
+			function emitBlockEnd(block: TextContent | ThinkingContent): void {
+				const endEvents: Record<string, () => void> = {
+					text: () =>
+						stream.push({
+							type: "text_end",
+							contentIndex: blockIndex(),
+							content: (block as TextContent).text,
+							partial: output,
+						}),
+					thinking: () =>
+						stream.push({
+							type: "thinking_end",
+							contentIndex: blockIndex(),
+							content: (block as ThinkingContent).thinking,
+							partial: output,
+						}),
+				};
+				endEvents[block.type]();
+			}
+
 			for await (const chunk of googleStream) {
 				// Vertex uses the same @google/genai GenerateContentResponse type as Gemini.
 				// responseId is documented there as an output-only identifier for each response.
@@ -119,21 +140,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 								(!isThinking && currentBlock.type !== "text")
 							) {
 								if (currentBlock) {
-									if (currentBlock.type === "text") {
-										stream.push({
-											type: "text_end",
-											contentIndex: blocks.length - 1,
-											content: currentBlock.text,
-											partial: output,
-										});
-									} else {
-										stream.push({
-											type: "thinking_end",
-											contentIndex: blockIndex(),
-											content: currentBlock.thinking,
-											partial: output,
-										});
-									}
+									emitBlockEnd(currentBlock);
 								}
 								if (isThinking) {
 									currentBlock = { type: "thinking", thinking: "", thinkingSignature: undefined };
@@ -174,21 +181,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 
 						if (part.functionCall) {
 							if (currentBlock) {
-								if (currentBlock.type === "text") {
-									stream.push({
-										type: "text_end",
-										contentIndex: blockIndex(),
-										content: currentBlock.text,
-										partial: output,
-									});
-								} else {
-									stream.push({
-										type: "thinking_end",
-										contentIndex: blockIndex(),
-										content: currentBlock.thinking,
-										partial: output,
-									});
-								}
+								emitBlockEnd(currentBlock);
 								currentBlock = null;
 							}
 
@@ -250,21 +243,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			}
 
 			if (currentBlock) {
-				if (currentBlock.type === "text") {
-					stream.push({
-						type: "text_end",
-						contentIndex: blockIndex(),
-						content: currentBlock.text,
-						partial: output,
-					});
-				} else {
-					stream.push({
-						type: "thinking_end",
-						contentIndex: blockIndex(),
-						content: currentBlock.thinking,
-						partial: output,
-					});
-				}
+				emitBlockEnd(currentBlock);
 			}
 
 			if (options?.signal?.aborted) {
@@ -518,30 +497,28 @@ function getDisabledThinkingConfig(model: Model<"google-vertex">): ThinkingConfi
 	return { thinkingBudget: 0 };
 }
 
+const GEMINI3_PRO_THINKING_LEVEL: Record<ClampedThinkingLevel, GoogleThinkingLevel> = {
+	minimal: "LOW",
+	low: "LOW",
+	medium: "HIGH",
+	high: "HIGH",
+};
+
+const GEMINI3_DEFAULT_THINKING_LEVEL: Record<ClampedThinkingLevel, GoogleThinkingLevel> = {
+	minimal: "MINIMAL",
+	low: "LOW",
+	medium: "MEDIUM",
+	high: "HIGH",
+};
+
 function getGemini3ThinkingLevel(
 	effort: ClampedThinkingLevel,
 	model: Model<"google-generative-ai">,
 ): GoogleThinkingLevel {
 	if (isGemini3ProModel(model)) {
-		switch (effort) {
-			case "minimal":
-			case "low":
-				return "LOW";
-			case "medium":
-			case "high":
-				return "HIGH";
-		}
+		return GEMINI3_PRO_THINKING_LEVEL[effort];
 	}
-	switch (effort) {
-		case "minimal":
-			return "MINIMAL";
-		case "low":
-			return "LOW";
-		case "medium":
-			return "MEDIUM";
-		case "high":
-			return "HIGH";
-	}
+	return GEMINI3_DEFAULT_THINKING_LEVEL[effort];
 }
 
 function getGoogleBudget(

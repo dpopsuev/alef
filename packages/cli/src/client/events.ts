@@ -205,269 +205,322 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
-	switch (event.type) {
-		// ── Input events ────────────────────────────────────────────────────
+	// ── Input event handlers ────────────────────────────────────────────
 
-		case "overlay.show":
-			return { ...state, overlays: [...state.overlays, event.descriptor] };
-
-		case "overlay.hide":
-			return { ...state, overlays: state.overlays.filter((o) => o.id !== event.id) };
-
-		case "turn.start":
-			promptConsole.hidePendingFooter();
-			promptConsole.startThinking();
-			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
-
-		case "turn.complete":
-			resetUIComponents(ui);
-			promptConsole.stopThinking();
-			promptConsole.hidePendingFooter();
-			return { ...state, pendingFooterShown: false, pendingTokenFooter: event.tokenFooter };
-
-		case "turn.abort":
-			return { ...state, abortCurrentTurn: undefined };
-
-		case "turn.error":
-			return handleTurnError(state, event, ui);
-
-		case "abort.set":
-			return { ...state, abortCurrentTurn: event.fn };
-
-		case "abort.clear":
-			return { ...state, abortCurrentTurn: undefined };
-
-		case "thinking.toggle": {
-			const next = !replyBlock.hideThinking;
-			replyBlock.setHideThinking(next);
-			writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
-			return state;
-		}
-
-		case "inspector.cycle":
-			return handleInspectorCycle(state, ui);
-
-		case "inspector.close":
-			return handleInspectorClose(state, ui);
-
-		case "inspector.cancel":
-			return handleInspectorCancel(state, ui);
-
-		case "inspector.scroll":
-			return handleInspectorScroll(state, ui, event.direction);
-
-		// ── Agent events ────────────────────────────────────────────────────
-
-		case "tool-start": {
-			const { callId, name, args } = event;
-			const keyArg = keyArgFromPayload(args);
-			traceEvent("tool:start", {
-				callId: callId.slice(0, 8),
-				name,
-				keyArg,
-				activeCount: state.activeCalls.size + 1,
-			});
-			promptConsole.pulse();
-			resetUIComponents(ui);
-			promptConsole.showInFlightCall(callId, name, keyArg);
-			if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
-			const activeCalls = new Map(state.activeCalls);
-			activeCalls.set(callId, { name, keyArg, children: new Map(), depth: 0 });
-			return {
-				...state,
-				activeCalls,
-				batchStartedAt: state.batchStartedAt ?? Date.now(),
-				pendingFooterShown: true,
-			};
-		}
-
-		case "tool-end":
-			return handleToolEnd(state, event, ui);
-
-		case "inner-tool-start": {
-			const parent = state.activeCalls.get(event.parentCallId);
-			if (!parent) return state;
-			const childKeyArg = keyArgFromPayload(event.args);
-			parent.children.set(event.callId, {
-				name: event.name,
-				keyArg: childKeyArg,
-				parentCallId: event.parentCallId,
-				children: new Map(),
-				depth: parent.depth + 1,
-			});
-			promptConsole.addChildCall(event.parentCallId, event.callId, event.name, childKeyArg, parent.depth + 1);
-			return state;
-		}
-
-		case "inner-tool-end": {
-			const parent = state.activeCalls.get(event.parentCallId);
-			if (!parent) return state;
-			parent.children.delete(event.callId);
-			promptConsole.removeChildCall(event.parentCallId, event.callId);
-			return state;
-		}
-
-		case "inner-chunk": {
-			const existing = state.innerReplies.get(event.parentCallId) ?? "";
-			const innerReplies = new Map(state.innerReplies);
-			innerReplies.set(event.parentCallId, existing + event.text);
-			return { ...state, innerReplies };
-		}
-
-		case "token-usage": {
-			const { input, output, totalTokens, costUsd } = event.usage;
-			const sessionTokensTotal = state.sessionTokensTotal + input + output;
-			const sessionInputTokens = state.sessionInputTokens + input;
-			const sessionOutputTokens = state.sessionOutputTokens + output;
-			const sessionCostUsd = state.sessionCostUsd + (costUsd ?? 0);
-			const contextFillTokens = totalTokens > 0 ? totalTokens : state.contextFillTokens;
-			if (state.pendingTokenFooter) {
-				state.pendingTokenFooter.setText(
-					formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
-				);
-			}
-			const contextWindow = session.state.contextWindow;
-			if (contextWindow && totalTokens > 0) {
-				const fill = totalTokens / contextWindow;
-				if (fill > CONTEXT_CRITICAL_THRESHOLD) {
-					writer.addNotice(
-						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens) — start a new session soon`,
-					);
-				} else if (fill > CONTEXT_WARNING_THRESHOLD) {
-					writer.addNotice(`context ${Math.round(fill * 100)}% full`);
-				}
-			}
-			return {
-				...state,
-				sessionTokensTotal,
-				sessionInputTokens,
-				sessionOutputTokens,
-				sessionCostUsd,
-				contextFillTokens,
-				pendingTokenFooter: null,
-			};
-		}
-
-		case "chunk":
-			promptConsole.pulse();
-			replyTW.receive(event.text);
-			if (!state.pendingFooterShown) {
-				promptConsole.showPendingFooter(t.agentFg);
-				return { ...state, pendingFooterShown: true };
-			}
-			return state;
-
-		case "thinking":
-			promptConsole.pulse();
-			thinkingTW.receive(event.text);
-			return state;
-
-		case "subagent-identity": {
-			promptConsole.setCallIdentity(event.callId, event.color, event.address, event.modelId);
-			return state;
-		}
-
-		case "subagent-token-usage": {
-			promptConsole.updateCallTokens(event.callId, event.input, event.output);
-			return state;
-		}
-
-		case "tool-chunk": {
-			promptConsole.pulse();
-			promptConsole.updateInFlightCallChunk(event.callId, event.text);
-			const chunks = state.callChunks.get(event.callId) ?? [];
-			chunks.push(event.text);
-			const callChunks = new Map(state.callChunks);
-			callChunks.set(event.callId, chunks);
-			if (state.focusedCallId === event.callId) {
-				const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
-				promptConsole.setChunkText(tail);
-			}
-			return { ...state, callChunks };
-		}
-
-		case "tool-stall":
-			promptConsole.pulse();
-			promptConsole.updateInFlightCallChunk(
-				event.callId,
-				`\u23f3 no output for ${Math.round(event.lastChunkMs / 1_000)}s`,
-			);
-			return state;
-
-		case "tool-validation-error": {
-			promptConsole.pulse();
-			const errorMsg = `\u26a0 invalid arg '${event.field}': ${event.message}`;
-			promptConsole.updateInFlightCallChunk(event.callId, errorMsg);
-
-			// Store validation error to display when tool completes
-			const errors = state.validationErrors.get(event.callId) ?? [];
-			errors.push(errorMsg);
-			const validationErrors = new Map(state.validationErrors);
-			validationErrors.set(event.callId, errors);
-
-			return { ...state, validationErrors };
-		}
-
-		case "turn-error":
-			promptConsole.pulse();
-			writer.addNotice(`LLM error: ${event.message}`);
-			return state;
-
-		case "message-queued":
-			writer.addNotice(
-				event.queueLength === 1
-					? "message queued — agent will receive it after the current turn"
-					: `${event.queueLength} messages queued`,
-			);
-			return state;
-
-		case "task-progress": {
-			const tasks = new Map(state.backgroundTasks);
-			let task = tasks.get(event.taskId);
-			if (!task) {
-				task = {
-					taskId: event.taskId,
-					profile: "background",
-					status: "running",
-					startedAt: Date.now(),
-					chunks: [],
-				};
-				tasks.set(event.taskId, task);
-				promptConsole.showBackgroundTask(event.taskId, task.profile);
-			}
-			task.chunks.push(event.chunk);
-			return { ...state, backgroundTasks: tasks };
-		}
-
-		case "task-completed": {
-			const tasks = new Map(state.backgroundTasks);
-			const task = tasks.get(event.taskId);
-			if (task) {
-				task.status = "completed";
-				task.completedAt = Date.now();
-				task.reply = event.reply;
-			}
-			promptConsole.updateBackgroundTask(event.taskId, "completed");
-			promptConsole.showToast(`Task ${event.taskId} completed (${event.profile})`, TASK_TOAST_DURATION_MS);
-			return { ...state, backgroundTasks: tasks };
-		}
-
-		case "task-failed": {
-			const tasks = new Map(state.backgroundTasks);
-			const task = tasks.get(event.taskId);
-			if (task) {
-				task.status = "failed";
-				task.completedAt = Date.now();
-				task.error = event.error;
-			}
-			promptConsole.updateBackgroundTask(event.taskId, "failed", event.error);
-			promptConsole.showToast(`Task ${event.taskId} failed: ${event.error}`, TASK_TOAST_DURATION_MS);
-			return { ...state, backgroundTasks: tasks };
-		}
-
-		default:
-			return state;
+	function onOverlayShow(e: Extract<TuiEvent, { type: "overlay.show" }>): TuiState {
+		return { ...state, overlays: [...state.overlays, e.descriptor] };
 	}
+
+	function onOverlayHide(e: Extract<TuiEvent, { type: "overlay.hide" }>): TuiState {
+		return { ...state, overlays: state.overlays.filter((o) => o.id !== e.id) };
+	}
+
+	function onTurnStart(e: Extract<TuiEvent, { type: "turn.start" }>): TuiState {
+		promptConsole.hidePendingFooter();
+		promptConsole.startThinking();
+		return { ...state, pendingFooterShown: false, turnStartedAt: e.timestamp };
+	}
+
+	function onTurnComplete(e: Extract<TuiEvent, { type: "turn.complete" }>): TuiState {
+		resetUIComponents(ui);
+		promptConsole.stopThinking();
+		promptConsole.hidePendingFooter();
+		return { ...state, pendingFooterShown: false, pendingTokenFooter: e.tokenFooter };
+	}
+
+	function onTurnAbort(): TuiState {
+		return { ...state, abortCurrentTurn: undefined };
+	}
+
+	function onTurnError(e: Extract<TuiEvent, { type: "turn.error" }>): TuiState {
+		return handleTurnError(state, e, ui);
+	}
+
+	function onAbortSet(e: Extract<TuiEvent, { type: "abort.set" }>): TuiState {
+		return { ...state, abortCurrentTurn: e.fn };
+	}
+
+	function onAbortClear(): TuiState {
+		return { ...state, abortCurrentTurn: undefined };
+	}
+
+	function onThinkingToggle(): TuiState {
+		const next = !replyBlock.hideThinking;
+		replyBlock.setHideThinking(next);
+		writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
+		return state;
+	}
+
+	function onInspectorCycle(): TuiState {
+		return handleInspectorCycle(state, ui);
+	}
+
+	function onInspectorClose(): TuiState {
+		return handleInspectorClose(state, ui);
+	}
+
+	function onInspectorCancel(): TuiState {
+		return handleInspectorCancel(state, ui);
+	}
+
+	function onInspectorScroll(e: Extract<TuiEvent, { type: "inspector.scroll" }>): TuiState {
+		return handleInspectorScroll(state, ui, e.direction);
+	}
+
+	// ── Agent event handlers ────────────────────────────────────────────
+
+	function onToolStart(e: Extract<TuiEvent, { type: "tool-start" }>): TuiState {
+		const { callId, name, args } = e;
+		const keyArg = keyArgFromPayload(args);
+		traceEvent("tool:start", {
+			callId: callId.slice(0, 8),
+			name,
+			keyArg,
+			activeCount: state.activeCalls.size + 1,
+		});
+		promptConsole.pulse();
+		resetUIComponents(ui);
+		promptConsole.showInFlightCall(callId, name, keyArg);
+		if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
+		const activeCalls = new Map(state.activeCalls);
+		activeCalls.set(callId, { name, keyArg, children: new Map(), depth: 0 });
+		return {
+			...state,
+			activeCalls,
+			batchStartedAt: state.batchStartedAt ?? Date.now(),
+			pendingFooterShown: true,
+		};
+	}
+
+	function onToolEnd(e: Extract<TuiEvent, { type: "tool-end" }>): TuiState {
+		return handleToolEnd(state, e, ui);
+	}
+
+	function onInnerToolStart(e: Extract<TuiEvent, { type: "inner-tool-start" }>): TuiState {
+		const parent = state.activeCalls.get(e.parentCallId);
+		if (!parent) return state;
+		const childKeyArg = keyArgFromPayload(e.args);
+		parent.children.set(e.callId, {
+			name: e.name,
+			keyArg: childKeyArg,
+			parentCallId: e.parentCallId,
+			children: new Map(),
+			depth: parent.depth + 1,
+		});
+		promptConsole.addChildCall(e.parentCallId, e.callId, e.name, childKeyArg, parent.depth + 1);
+		return state;
+	}
+
+	function onInnerToolEnd(e: Extract<TuiEvent, { type: "inner-tool-end" }>): TuiState {
+		const parent = state.activeCalls.get(e.parentCallId);
+		if (!parent) return state;
+		parent.children.delete(e.callId);
+		promptConsole.removeChildCall(e.parentCallId, e.callId);
+		return state;
+	}
+
+	function onInnerChunk(e: Extract<TuiEvent, { type: "inner-chunk" }>): TuiState {
+		const existing = state.innerReplies.get(e.parentCallId) ?? "";
+		const innerReplies = new Map(state.innerReplies);
+		innerReplies.set(e.parentCallId, existing + e.text);
+		return { ...state, innerReplies };
+	}
+
+	function onTokenUsage(e: Extract<TuiEvent, { type: "token-usage" }>): TuiState {
+		const { input, output, totalTokens, costUsd } = e.usage;
+		const sessionTokensTotal = state.sessionTokensTotal + input + output;
+		const sessionInputTokens = state.sessionInputTokens + input;
+		const sessionOutputTokens = state.sessionOutputTokens + output;
+		const sessionCostUsd = state.sessionCostUsd + (costUsd ?? 0);
+		const contextFillTokens = totalTokens > 0 ? totalTokens : state.contextFillTokens;
+		if (state.pendingTokenFooter) {
+			state.pendingTokenFooter.setText(
+				formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
+			);
+		}
+		const contextWindow = session.state.contextWindow;
+		if (contextWindow && totalTokens > 0) {
+			const fill = totalTokens / contextWindow;
+			if (fill > CONTEXT_CRITICAL_THRESHOLD) {
+				writer.addNotice(
+					`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens) — start a new session soon`,
+				);
+			} else if (fill > CONTEXT_WARNING_THRESHOLD) {
+				writer.addNotice(`context ${Math.round(fill * 100)}% full`);
+			}
+		}
+		return {
+			...state,
+			sessionTokensTotal,
+			sessionInputTokens,
+			sessionOutputTokens,
+			sessionCostUsd,
+			contextFillTokens,
+			pendingTokenFooter: null,
+		};
+	}
+
+	function onChunk(e: Extract<TuiEvent, { type: "chunk" }>): TuiState {
+		promptConsole.pulse();
+		replyTW.receive(e.text);
+		if (!state.pendingFooterShown) {
+			promptConsole.showPendingFooter(t.agentFg);
+			return { ...state, pendingFooterShown: true };
+		}
+		return state;
+	}
+
+	function onThinking(e: Extract<TuiEvent, { type: "thinking" }>): TuiState {
+		promptConsole.pulse();
+		thinkingTW.receive(e.text);
+		return state;
+	}
+
+	function onSubagentIdentity(e: Extract<TuiEvent, { type: "subagent-identity" }>): TuiState {
+		promptConsole.setCallIdentity(e.callId, e.color, e.address, e.modelId);
+		return state;
+	}
+
+	function onSubagentTokenUsage(e: Extract<TuiEvent, { type: "subagent-token-usage" }>): TuiState {
+		promptConsole.updateCallTokens(e.callId, e.input, e.output);
+		return state;
+	}
+
+	function onToolChunk(e: Extract<TuiEvent, { type: "tool-chunk" }>): TuiState {
+		promptConsole.pulse();
+		promptConsole.updateInFlightCallChunk(e.callId, e.text);
+		const chunks = state.callChunks.get(e.callId) ?? [];
+		chunks.push(e.text);
+		const callChunks = new Map(state.callChunks);
+		callChunks.set(e.callId, chunks);
+		if (state.focusedCallId === e.callId) {
+			const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
+			promptConsole.setChunkText(tail);
+		}
+		return { ...state, callChunks };
+	}
+
+	function onToolStall(e: Extract<TuiEvent, { type: "tool-stall" }>): TuiState {
+		promptConsole.pulse();
+		promptConsole.updateInFlightCallChunk(
+			e.callId,
+			`⏳ no output for ${Math.round(e.lastChunkMs / 1_000)}s`,
+		);
+		return state;
+	}
+
+	function onToolValidationError(e: Extract<TuiEvent, { type: "tool-validation-error" }>): TuiState {
+		promptConsole.pulse();
+		const errorMsg = `⚠ invalid arg '${e.field}': ${e.message}`;
+		promptConsole.updateInFlightCallChunk(e.callId, errorMsg);
+
+		// Store validation error to display when tool completes
+		const errors = state.validationErrors.get(e.callId) ?? [];
+		errors.push(errorMsg);
+		const validationErrors = new Map(state.validationErrors);
+		validationErrors.set(e.callId, errors);
+
+		return { ...state, validationErrors };
+	}
+
+	function onLlmTurnError(e: Extract<TuiEvent, { type: "turn-error" }>): TuiState {
+		promptConsole.pulse();
+		writer.addNotice(`LLM error: ${e.message}`);
+		return state;
+	}
+
+	function onMessageQueued(e: Extract<TuiEvent, { type: "message-queued" }>): TuiState {
+		writer.addNotice(
+			e.queueLength === 1
+				? "message queued — agent will receive it after the current turn"
+				: `${e.queueLength} messages queued`,
+		);
+		return state;
+	}
+
+	function onTaskProgress(e: Extract<TuiEvent, { type: "task-progress" }>): TuiState {
+		const tasks = new Map(state.backgroundTasks);
+		let task = tasks.get(e.taskId);
+		if (!task) {
+			task = {
+				taskId: e.taskId,
+				profile: "background",
+				status: "running",
+				startedAt: Date.now(),
+				chunks: [],
+			};
+			tasks.set(e.taskId, task);
+			promptConsole.showBackgroundTask(e.taskId, task.profile);
+		}
+		task.chunks.push(e.chunk);
+		return { ...state, backgroundTasks: tasks };
+	}
+
+	function onTaskCompleted(e: Extract<TuiEvent, { type: "task-completed" }>): TuiState {
+		const tasks = new Map(state.backgroundTasks);
+		const task = tasks.get(e.taskId);
+		if (task) {
+			task.status = "completed";
+			task.completedAt = Date.now();
+			task.reply = e.reply;
+		}
+		promptConsole.updateBackgroundTask(e.taskId, "completed");
+		promptConsole.showToast(`Task ${e.taskId} completed (${e.profile})`, TASK_TOAST_DURATION_MS);
+		return { ...state, backgroundTasks: tasks };
+	}
+
+	function onTaskFailed(e: Extract<TuiEvent, { type: "task-failed" }>): TuiState {
+		const tasks = new Map(state.backgroundTasks);
+		const task = tasks.get(e.taskId);
+		if (task) {
+			task.status = "failed";
+			task.completedAt = Date.now();
+			task.error = e.error;
+		}
+		promptConsole.updateBackgroundTask(e.taskId, "failed", e.error);
+		promptConsole.showToast(`Task ${e.taskId} failed: ${e.error}`, TASK_TOAST_DURATION_MS);
+		return { ...state, backgroundTasks: tasks };
+	}
+
+	// ── Dispatch table ──────────────────────────────────────────────────
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const handlers: Record<string, (e: any) => TuiState> = {
+		"overlay.show": onOverlayShow,
+		"overlay.hide": onOverlayHide,
+		"turn.start": onTurnStart,
+		"turn.complete": onTurnComplete,
+		"turn.abort": onTurnAbort,
+		"turn.error": onTurnError,
+		"abort.set": onAbortSet,
+		"abort.clear": onAbortClear,
+		"thinking.toggle": onThinkingToggle,
+		"inspector.cycle": onInspectorCycle,
+		"inspector.close": onInspectorClose,
+		"inspector.cancel": onInspectorCancel,
+		"inspector.scroll": onInspectorScroll,
+		"tool-start": onToolStart,
+		"tool-end": onToolEnd,
+		"inner-tool-start": onInnerToolStart,
+		"inner-tool-end": onInnerToolEnd,
+		"inner-chunk": onInnerChunk,
+		"token-usage": onTokenUsage,
+		"chunk": onChunk,
+		"thinking": onThinking,
+		"subagent-identity": onSubagentIdentity,
+		"subagent-token-usage": onSubagentTokenUsage,
+		"tool-chunk": onToolChunk,
+		"tool-stall": onToolStall,
+		"tool-validation-error": onToolValidationError,
+		"turn-error": onLlmTurnError,
+		"message-queued": onMessageQueued,
+		"task-progress": onTaskProgress,
+		"task-completed": onTaskCompleted,
+		"task-failed": onTaskFailed,
+	};
+
+	const handle = handlers[event.type];
+	return handle ? handle(event) : state;
 }
 
 const TASK_TOAST_DURATION_MS = 5000;

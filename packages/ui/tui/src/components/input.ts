@@ -1,5 +1,5 @@
 import { type Component, CURSOR_MARKER, type Focusable } from "../component.js";
-import { getKeybindings } from "../keybindings.js";
+import { type Keybinding, getKeybindings } from "../keybindings.js";
 import { decodeKittyPrintable } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
 import { UndoStack } from "../undo-stack.js";
@@ -84,108 +84,38 @@ export class Input implements Component, Focusable {
 
 		const kb = getKeybindings();
 
-		// Escape/Cancel
-		if (kb.matches(data, "tui.select.cancel")) {
-			if (this.onEscape) this.onEscape();
-			return;
-		}
-
-		// Undo
-		if (kb.matches(data, "tui.editor.undo")) {
-			this.undo();
-			return;
-		}
-
-		// Submit
-		if (kb.matches(data, "tui.input.submit") || data === "\n") {
+		// Keybinding dispatch table: [binding, handler] pairs checked in order.
+		// Submit also accepts raw newline as a fallback (not bound via keybindings).
+		if (data === "\n") {
 			if (this.onSubmit) this.onSubmit(this.value);
 			return;
 		}
 
-		// Deletion
-		if (kb.matches(data, "tui.editor.deleteCharBackward")) {
-			this.handleBackspace();
-			return;
-		}
+		const keyActions: [Keybinding, () => void][] = [
+			["tui.select.cancel", () => { if (this.onEscape) this.onEscape(); }],
+			["tui.editor.undo", () => this.undo()],
+			["tui.input.submit", () => { if (this.onSubmit) this.onSubmit(this.value); }],
+			["tui.editor.deleteCharBackward", () => this.handleBackspace()],
+			["tui.editor.deleteCharForward", () => this.handleForwardDelete()],
+			["tui.editor.deleteWordBackward", () => this.deleteWordBackwards()],
+			["tui.editor.deleteWordForward", () => this.deleteWordForward()],
+			["tui.editor.deleteToLineStart", () => this.deleteToLineStart()],
+			["tui.editor.deleteToLineEnd", () => this.deleteToLineEnd()],
+			["tui.editor.yank", () => this.yank()],
+			["tui.editor.yankPop", () => this.yankPop()],
+			["tui.editor.cursorLeft", () => this.moveCursorLeft()],
+			["tui.editor.cursorRight", () => this.moveCursorRight()],
+			["tui.editor.cursorLineStart", () => this.moveCursorToLineStart()],
+			["tui.editor.cursorLineEnd", () => this.moveCursorToLineEnd()],
+			["tui.editor.cursorWordLeft", () => this.moveWordBackwards()],
+			["tui.editor.cursorWordRight", () => this.moveWordForwards()],
+		];
 
-		if (kb.matches(data, "tui.editor.deleteCharForward")) {
-			this.handleForwardDelete();
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.deleteWordBackward")) {
-			this.deleteWordBackwards();
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.deleteWordForward")) {
-			this.deleteWordForward();
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.deleteToLineStart")) {
-			this.deleteToLineStart();
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.deleteToLineEnd")) {
-			this.deleteToLineEnd();
-			return;
-		}
-
-		// Kill ring actions
-		if (kb.matches(data, "tui.editor.yank")) {
-			this.yank();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.yankPop")) {
-			this.yankPop();
-			return;
-		}
-
-		// Cursor movement
-		if (kb.matches(data, "tui.editor.cursorLeft")) {
-			this.lastAction = null;
-			if (this.cursor > 0) {
-				const beforeCursor = this.value.slice(0, this.cursor);
-				const graphemes = [...segmenter.segment(beforeCursor)];
-				const lastGrapheme = graphemes[graphemes.length - 1];
-				this.cursor -= lastGrapheme.segment.length;
+		for (const [binding, handler] of keyActions) {
+			if (kb.matches(data, binding)) {
+				handler();
+				return;
 			}
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.cursorRight")) {
-			this.lastAction = null;
-			if (this.cursor < this.value.length) {
-				const afterCursor = this.value.slice(this.cursor);
-				const graphemes = [...segmenter.segment(afterCursor)];
-				const firstGrapheme = graphemes[0];
-				this.cursor += firstGrapheme.segment.length;
-			}
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.cursorLineStart")) {
-			this.lastAction = null;
-			this.cursor = 0;
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.cursorLineEnd")) {
-			this.lastAction = null;
-			this.cursor = this.value.length;
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.cursorWordLeft")) {
-			this.moveWordBackwards();
-			return;
-		}
-
-		if (kb.matches(data, "tui.editor.cursorWordRight")) {
-			this.moveWordForwards();
-			return;
 		}
 
 		// Kitty CSI-u printable character (e.g. \x1b[97u for 'a').
@@ -344,6 +274,36 @@ export class Input implements Component, Focusable {
 		this.value = snapshot.value;
 		this.cursor = snapshot.cursor;
 		this.lastAction = null;
+	}
+
+	private moveCursorLeft(): void {
+		this.lastAction = null;
+		if (this.cursor > 0) {
+			const beforeCursor = this.value.slice(0, this.cursor);
+			const graphemes = [...segmenter.segment(beforeCursor)];
+			const lastGrapheme = graphemes[graphemes.length - 1];
+			this.cursor -= lastGrapheme.segment.length;
+		}
+	}
+
+	private moveCursorRight(): void {
+		this.lastAction = null;
+		if (this.cursor < this.value.length) {
+			const afterCursor = this.value.slice(this.cursor);
+			const graphemes = [...segmenter.segment(afterCursor)];
+			const firstGrapheme = graphemes[0];
+			this.cursor += firstGrapheme.segment.length;
+		}
+	}
+
+	private moveCursorToLineStart(): void {
+		this.lastAction = null;
+		this.cursor = 0;
+	}
+
+	private moveCursorToLineEnd(): void {
+		this.lastAction = null;
+		this.cursor = this.value.length;
 	}
 
 	private moveWordBackwards(): void {

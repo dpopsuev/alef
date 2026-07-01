@@ -296,160 +296,181 @@ export class Markdown implements Component {
 	): string[] {
 		const lines: string[] = [];
 
-		switch (token.type) {
-			case "heading": {
-				const headingLevel = token.depth;
-				const headingPrefix = `${"#".repeat(headingLevel)} `;
+		const renderHeading = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "heading"
+			const heading = token as Tokens.Heading;
+			const headingLevel = heading.depth;
+			const headingPrefix = `${"#".repeat(headingLevel)} `;
 
-				// Build a heading-specific style context so inline tokens (codespan, bold, etc.)
-				// restore heading styling after their own ANSI resets instead of falling back to
-				// the default text style.
-				let headingStyleFn: (text: string) => string;
-				if (headingLevel === 1) {
-					headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(this.theme.underline(text)));
-				} else {
-					headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(text));
-				}
-
-				const headingStyleContext: InlineStyleContext = {
-					applyText: headingStyleFn,
-					stylePrefix: this.getStylePrefix(headingStyleFn),
-				};
-
-				const headingText = this.renderInlineTokens(token.tokens ?? [], headingStyleContext);
-				const styledHeading = headingLevel >= 3 ? headingStyleFn(headingPrefix) + headingText : headingText;
-				lines.push(styledHeading);
-				if (nextTokenType && nextTokenType !== "space") {
-					lines.push(""); // Add spacing after headings (unless space token follows)
-				}
-				break;
+			// Build a heading-specific style context so inline tokens (codespan, bold, etc.)
+			// restore heading styling after their own ANSI resets instead of falling back to
+			// the default text style.
+			let headingStyleFn: (text: string) => string;
+			if (headingLevel === 1) {
+				headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(this.theme.underline(text)));
+			} else {
+				headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(text));
 			}
 
-			case "paragraph": {
-				const paragraphText = this.renderInlineTokens(token.tokens ?? [], styleContext);
-				lines.push(paragraphText);
-				// Don't add spacing if next token is space or list
-				if (nextTokenType && nextTokenType !== "list" && nextTokenType !== "space") {
-					lines.push("");
-				}
-				break;
+			const headingStyleContext: InlineStyleContext = {
+				applyText: headingStyleFn,
+				stylePrefix: this.getStylePrefix(headingStyleFn),
+			};
+
+			const headingText = this.renderInlineTokens(heading.tokens ?? [], headingStyleContext);
+			const styledHeading = headingLevel >= 3 ? headingStyleFn(headingPrefix) + headingText : headingText;
+			lines.push(styledHeading);
+			if (nextTokenType && nextTokenType !== "space") {
+				lines.push(""); // Add spacing after headings (unless space token follows)
 			}
+		};
 
-			case "text":
-				lines.push(this.renderInlineTokens([token], styleContext));
-				break;
-
-			case "code": {
-				const indent = this.theme.codeBlockIndent ?? "  ";
-				lines.push(this.theme.codeBlockBorder(`\`\`\`${token.lang ?? ""}`));
-				if (this.theme.highlightCode) {
-					const highlightedLines = this.theme.highlightCode(token.text, token.lang);
-					for (const hlLine of highlightedLines) {
-						lines.push(`${indent}${hlLine}`);
-					}
-				} else {
-					// Split code by newlines and style each line
-					const codeLines = token.text.split("\n");
-					for (const codeLine of codeLines) {
-						lines.push(`${indent}${this.theme.codeBlock(codeLine)}`);
-					}
-				}
-				lines.push(this.theme.codeBlockBorder("```"));
-				if (nextTokenType && nextTokenType !== "space") {
-					lines.push(""); // Add spacing after code blocks (unless space token follows)
-				}
-				break;
-			}
-
-			case "list": {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
-				const listLines = this.renderList(token as Tokens.List, 0, width, styleContext);
-				lines.push(...listLines);
-				// Don't add spacing after lists if a space token follows
-				// (the space token will handle it)
-				break;
-			}
-
-			case "table": {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
-				const tableLines = this.renderTable(token as Tokens.Table, width, nextTokenType, styleContext);
-				lines.push(...tableLines);
-				break;
-			}
-
-			case "blockquote": {
-				const quoteStyle = (text: string) => this.theme.quote(this.theme.italic(text));
-				const quoteStylePrefix = this.getStylePrefix(quoteStyle);
-				const applyQuoteStyle = (line: string): string => {
-					if (!quoteStylePrefix) {
-						return quoteStyle(line);
-					}
-					const lineWithReappliedStyle = line.replace(/\x1b\[0m/g, `\x1b[0m${quoteStylePrefix}`);
-					return quoteStyle(lineWithReappliedStyle);
-				};
-
-				// Calculate available width for quote content (subtract border "│ " = 2 chars)
-				const quoteContentWidth = Math.max(1, width - 2);
-
-				// Blockquotes contain block-level tokens (paragraph, list, code, etc.), so render
-				// children with renderToken() instead of renderInlineTokens().
-				// Default message style should not apply inside blockquotes.
-				const quoteInlineStyleContext: InlineStyleContext = {
-					applyText: (text: string) => text,
-					stylePrefix: quoteStylePrefix,
-				};
-				const quoteTokens = token.tokens ?? [];
-				const renderedQuoteLines: string[] = [];
-				for (let i = 0; i < quoteTokens.length; i++) {
-					const quoteToken = quoteTokens[i];
-					const nextQuoteToken = quoteTokens[i + 1];
-					renderedQuoteLines.push(
-						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
-					);
-				}
-
-				// Avoid rendering an extra empty quote line before the outer blockquote spacing.
-				while (renderedQuoteLines.length > 0 && renderedQuoteLines[renderedQuoteLines.length - 1] === "") {
-					renderedQuoteLines.pop();
-				}
-
-				for (const quoteLine of renderedQuoteLines) {
-					const styledLine = applyQuoteStyle(quoteLine);
-					const wrappedLines = wrapTextWithAnsi(styledLine, quoteContentWidth);
-					for (const wrappedLine of wrappedLines) {
-						lines.push(this.theme.quoteBorder("│ ") + wrappedLine);
-					}
-				}
-				if (nextTokenType && nextTokenType !== "space") {
-					lines.push(""); // Add spacing after blockquotes (unless space token follows)
-				}
-				break;
-			}
-
-			case "hr":
-				lines.push(this.theme.hr("─".repeat(Math.min(width, 80))));
-				if (nextTokenType && nextTokenType !== "space") {
-					lines.push(""); // Add spacing after horizontal rules (unless space token follows)
-				}
-				break;
-
-			case "html":
-				// Render HTML as plain text (escaped for terminal)
-				if ("raw" in token && typeof token.raw === "string") {
-					lines.push(this.applyDefaultStyle(token.raw.trim()));
-				}
-				break;
-
-			case "space":
-				// Space tokens represent blank lines in markdown
+		const renderParagraph = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "paragraph"
+			const paragraph = token as Tokens.Paragraph;
+			const paragraphText = this.renderInlineTokens(paragraph.tokens ?? [], styleContext);
+			lines.push(paragraphText);
+			// Don't add spacing if next token is space or list
+			if (nextTokenType && nextTokenType !== "list" && nextTokenType !== "space") {
 				lines.push("");
-				break;
+			}
+		};
 
-			default:
-				// Handle any other token types as plain text
-				if ("text" in token && typeof token.text === "string") {
-					lines.push(token.text);
+		const renderText = (): void => {
+			lines.push(this.renderInlineTokens([token], styleContext));
+		};
+
+		const renderCode = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "code"
+			const codeToken = token as Tokens.Code;
+			const indent = this.theme.codeBlockIndent ?? "  ";
+			lines.push(this.theme.codeBlockBorder(`\`\`\`${codeToken.lang ?? ""}`));
+			if (this.theme.highlightCode) {
+				const highlightedLines = this.theme.highlightCode(codeToken.text, codeToken.lang);
+				for (const hlLine of highlightedLines) {
+					lines.push(`${indent}${hlLine}`);
 				}
+			} else {
+				// Split code by newlines and style each line
+				const codeLines = codeToken.text.split("\n");
+				for (const codeLine of codeLines) {
+					lines.push(`${indent}${this.theme.codeBlock(codeLine)}`);
+				}
+			}
+			lines.push(this.theme.codeBlockBorder("```"));
+			if (nextTokenType && nextTokenType !== "space") {
+				lines.push(""); // Add spacing after code blocks (unless space token follows)
+			}
+		};
+
+		const renderList = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
+			const listLines = this.renderList(token as Tokens.List, 0, width, styleContext);
+			lines.push(...listLines);
+			// Don't add spacing after lists if a space token follows
+			// (the space token will handle it)
+		};
+
+		const renderTable = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
+			const tableLines = this.renderTable(token as Tokens.Table, width, nextTokenType, styleContext);
+			lines.push(...tableLines);
+		};
+
+		const renderBlockquote = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "blockquote"
+			const blockquote = token as Tokens.Blockquote;
+			const quoteStyle = (text: string) => this.theme.quote(this.theme.italic(text));
+			const quoteStylePrefix = this.getStylePrefix(quoteStyle);
+			const applyQuoteStyle = (line: string): string => {
+				if (!quoteStylePrefix) {
+					return quoteStyle(line);
+				}
+				const lineWithReappliedStyle = line.replace(/\x1b\[0m/g, `\x1b[0m${quoteStylePrefix}`);
+				return quoteStyle(lineWithReappliedStyle);
+			};
+
+			// Calculate available width for quote content (subtract border "│ " = 2 chars)
+			const quoteContentWidth = Math.max(1, width - 2);
+
+			// Blockquotes contain block-level tokens (paragraph, list, code, etc.), so render
+			// children with renderToken() instead of renderInlineTokens().
+			// Default message style should not apply inside blockquotes.
+			const quoteInlineStyleContext: InlineStyleContext = {
+				applyText: (text: string) => text,
+				stylePrefix: quoteStylePrefix,
+			};
+			const quoteTokens = blockquote.tokens ?? [];
+			const renderedQuoteLines: string[] = [];
+			for (let i = 0; i < quoteTokens.length; i++) {
+				const quoteToken = quoteTokens[i];
+				const nextQuoteToken = quoteTokens[i + 1];
+				renderedQuoteLines.push(
+					...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
+				);
+			}
+
+			// Avoid rendering an extra empty quote line before the outer blockquote spacing.
+			while (renderedQuoteLines.length > 0 && renderedQuoteLines[renderedQuoteLines.length - 1] === "") {
+				renderedQuoteLines.pop();
+			}
+
+			for (const quoteLine of renderedQuoteLines) {
+				const styledLine = applyQuoteStyle(quoteLine);
+				const wrappedLines = wrapTextWithAnsi(styledLine, quoteContentWidth);
+				for (const wrappedLine of wrappedLines) {
+					lines.push(this.theme.quoteBorder("│ ") + wrappedLine);
+				}
+			}
+			if (nextTokenType && nextTokenType !== "space") {
+				lines.push(""); // Add spacing after blockquotes (unless space token follows)
+			}
+		};
+
+		const renderHr = (): void => {
+			lines.push(this.theme.hr("─".repeat(Math.min(width, 80))));
+			if (nextTokenType && nextTokenType !== "space") {
+				lines.push(""); // Add spacing after horizontal rules (unless space token follows)
+			}
+		};
+
+		const renderHtml = (): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "html"
+			const html = token as Tokens.HTML;
+			// Render HTML as plain text (escaped for terminal)
+			lines.push(this.applyDefaultStyle(html.raw.trim()));
+		};
+
+		const renderSpace = (): void => {
+			// Space tokens represent blank lines in markdown
+			lines.push("");
+		};
+
+		const renderDefault = (): void => {
+			// Handle any other token types as plain text
+			if ("text" in token && typeof token.text === "string") {
+				lines.push(token.text);
+			}
+		};
+
+		const tokenRenderers: Record<string, () => void> = {
+			heading: renderHeading,
+			paragraph: renderParagraph,
+			text: renderText,
+			code: renderCode,
+			list: renderList,
+			table: renderTable,
+			blockquote: renderBlockquote,
+			hr: renderHr,
+			html: renderHtml,
+			space: renderSpace,
+		};
+
+		const renderer = tokenRenderers[token.type];
+		if (renderer) {
+			renderer();
+		} else {
+			renderDefault();
 		}
 
 		return lines;
@@ -464,82 +485,110 @@ export class Markdown implements Component {
 			return segments.map((segment: string) => applyText(segment)).join("\n");
 		};
 
+		const renderInlineText = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "text"
+			const textToken = tk as Tokens.Text;
+			// Text tokens in list items can have nested tokens for inline formatting
+			if (textToken.tokens && textToken.tokens.length > 0) {
+				result += this.renderInlineTokens(textToken.tokens, resolvedStyleContext);
+			} else {
+				result += applyTextWithNewlines(textToken.text);
+			}
+		};
+
+		const renderInlineParagraph = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "paragraph"
+			const paragraph = tk as Tokens.Paragraph;
+			// Paragraph tokens contain nested inline tokens
+			result += this.renderInlineTokens(paragraph.tokens ?? [], resolvedStyleContext);
+		};
+
+		const renderInlineStrong = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "strong"
+			const strong = tk as Tokens.Strong;
+			const boldContent = this.renderInlineTokens(strong.tokens ?? [], resolvedStyleContext);
+			result += this.theme.bold(boldContent) + stylePrefix;
+		};
+
+		const renderInlineEm = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "em"
+			const em = tk as Tokens.Em;
+			const italicContent = this.renderInlineTokens(em.tokens ?? [], resolvedStyleContext);
+			result += this.theme.italic(italicContent) + stylePrefix;
+		};
+
+		const renderInlineCodespan = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "codespan"
+			const codespan = tk as Tokens.Codespan;
+			result += this.theme.code(codespan.text) + stylePrefix;
+		};
+
+		const renderInlineLink = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "link"
+			const link = tk as Tokens.Link;
+			const linkText = this.renderInlineTokens(link.tokens ?? [], resolvedStyleContext);
+			const styledLink = this.theme.link(this.theme.underline(linkText));
+			if (getCapabilities().hyperlinks) {
+				// OSC 8: render as a clickable hyperlink. The URL is not printed inline,
+				// so we always show only the link text regardless of whether it matches href.
+				result += hyperlink(styledLink, link.href) + stylePrefix;
+			} else {
+				// Fallback: print URL in parentheses when text differs from href.
+				// Compare raw token.text (not styled) against href for the equality check.
+				// For mailto: links strip the prefix (autolinked emails use text="foo@bar.com"
+				// but href="mailto:foo@bar.com").
+				const hrefForComparison = link.href.startsWith("mailto:") ? link.href.slice(7) : link.href;
+				if (link.text === link.href || link.text === hrefForComparison) {
+					result += styledLink + stylePrefix;
+				} else {
+					result += styledLink + this.theme.linkUrl(` (${link.href})`) + stylePrefix;
+				}
+			}
+		};
+
+		const renderInlineBr = (): void => {
+			result += "\n";
+		};
+
+		const renderInlineDel = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "del"
+			const del = tk as Tokens.Del;
+			const delContent = this.renderInlineTokens(del.tokens ?? [], resolvedStyleContext);
+			result += this.theme.strikethrough(delContent) + stylePrefix;
+		};
+
+		const renderInlineHtml = (tk: Token): void => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "html"
+			const html = tk as Tokens.HTML;
+			// Render inline HTML as plain text
+			result += applyTextWithNewlines(html.raw);
+		};
+
+		const renderInlineDefault = (tk: Token): void => {
+			// Handle any other inline token types as plain text
+			if ("text" in tk && typeof tk.text === "string") {
+				result += applyTextWithNewlines(tk.text);
+			}
+		};
+
+		const inlineRenderers: Record<string, (tk: Token) => void> = {
+			text: renderInlineText,
+			paragraph: renderInlineParagraph,
+			strong: renderInlineStrong,
+			em: renderInlineEm,
+			codespan: renderInlineCodespan,
+			link: renderInlineLink,
+			br: renderInlineBr,
+			del: renderInlineDel,
+			html: renderInlineHtml,
+		};
+
 		for (const token of tokens) {
-			switch (token.type) {
-				case "text":
-					// Text tokens in list items can have nested tokens for inline formatting
-					if (token.tokens && token.tokens.length > 0) {
-						result += this.renderInlineTokens(token.tokens, resolvedStyleContext);
-					} else {
-						result += applyTextWithNewlines(token.text);
-					}
-					break;
-
-				case "paragraph":
-					// Paragraph tokens contain nested inline tokens
-					result += this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
-					break;
-
-				case "strong": {
-					const boldContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
-					result += this.theme.bold(boldContent) + stylePrefix;
-					break;
-				}
-
-				case "em": {
-					const italicContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
-					result += this.theme.italic(italicContent) + stylePrefix;
-					break;
-				}
-
-				case "codespan":
-					result += this.theme.code(token.text) + stylePrefix;
-					break;
-
-				case "link": {
-					const linkText = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
-					const styledLink = this.theme.link(this.theme.underline(linkText));
-					if (getCapabilities().hyperlinks) {
-						// OSC 8: render as a clickable hyperlink. The URL is not printed inline,
-						// so we always show only the link text regardless of whether it matches href.
-						result += hyperlink(styledLink, token.href) + stylePrefix;
-					} else {
-						// Fallback: print URL in parentheses when text differs from href.
-						// Compare raw token.text (not styled) against href for the equality check.
-						// For mailto: links strip the prefix (autolinked emails use text="foo@bar.com"
-						// but href="mailto:foo@bar.com").
-						const hrefForComparison = token.href.startsWith("mailto:") ? token.href.slice(7) : token.href;
-						if (token.text === token.href || token.text === hrefForComparison) {
-							result += styledLink + stylePrefix;
-						} else {
-							result += styledLink + this.theme.linkUrl(` (${token.href})`) + stylePrefix;
-						}
-					}
-					break;
-				}
-
-				case "br":
-					result += "\n";
-					break;
-
-				case "del": {
-					const delContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
-					result += this.theme.strikethrough(delContent) + stylePrefix;
-					break;
-				}
-
-				case "html":
-					// Render inline HTML as plain text
-					if ("raw" in token && typeof token.raw === "string") {
-						result += applyTextWithNewlines(token.raw);
-					}
-					break;
-
-				default:
-					// Handle any other inline token types as plain text
-					if ("text" in token && typeof token.text === "string") {
-						result += applyTextWithNewlines(token.text);
-					}
+			const renderer = inlineRenderers[token.type];
+			if (renderer) {
+				renderer(token);
+			} else {
+				renderInlineDefault(token);
 			}
 		}
 

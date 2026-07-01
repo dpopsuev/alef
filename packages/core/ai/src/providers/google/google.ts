@@ -87,6 +87,54 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			let currentBlock: TextContent | ThinkingContent | null = null;
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
+
+			function emitBlockEnd(block: TextContent | ThinkingContent): void {
+				const emitters: Record<string, () => void> = {
+					text: () =>
+						stream.push({
+							type: "text_end",
+							contentIndex: blockIndex(),
+							content: (block as TextContent).text,
+							partial: output,
+						}),
+					thinking: () =>
+						stream.push({
+							type: "thinking_end",
+							contentIndex: blockIndex(),
+							content: (block as ThinkingContent).thinking,
+							partial: output,
+						}),
+				};
+				emitters[block.type]?.();
+			}
+
+			function appendTextDelta(block: TextContent, text: string, thoughtSignature: string | undefined): void {
+				block.text += text;
+				block.textSignature = retainThoughtSignature(block.textSignature, thoughtSignature);
+				stream.push({
+					type: "text_delta",
+					contentIndex: blockIndex(),
+					delta: text,
+					partial: output,
+				});
+			}
+
+			function appendThinkingDelta(block: ThinkingContent, text: string, thoughtSignature: string | undefined): void {
+				block.thinking += text;
+				block.thinkingSignature = retainThoughtSignature(block.thinkingSignature, thoughtSignature);
+				stream.push({
+					type: "thinking_delta",
+					contentIndex: blockIndex(),
+					delta: text,
+					partial: output,
+				});
+			}
+
+			const deltaAppenders: Record<string, (block: any, text: string, thoughtSignature: string | undefined) => void> = {
+				text: appendTextDelta,
+				thinking: appendThinkingDelta,
+			};
+
 			for await (const chunk of googleStream) {
 				// @google/genai documents GenerateContentResponse.responseId as an output-only field
 				// used to identify each response. Keep the first non-empty one from the stream.
@@ -102,21 +150,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 								(!isThinking && currentBlock.type !== "text")
 							) {
 								if (currentBlock) {
-									if (currentBlock.type === "text") {
-										stream.push({
-											type: "text_end",
-											contentIndex: blocks.length - 1,
-											content: currentBlock.text,
-											partial: output,
-										});
-									} else {
-										stream.push({
-											type: "thinking_end",
-											contentIndex: blockIndex(),
-											content: currentBlock.thinking,
-											partial: output,
-										});
-									}
+									emitBlockEnd(currentBlock);
 								}
 								if (isThinking) {
 									currentBlock = { type: "thinking", thinking: "", thinkingSignature: undefined };
@@ -128,50 +162,12 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 									stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
 								}
 							}
-							if (currentBlock.type === "thinking") {
-								currentBlock.thinking += part.text;
-								currentBlock.thinkingSignature = retainThoughtSignature(
-									currentBlock.thinkingSignature,
-									part.thoughtSignature,
-								);
-								stream.push({
-									type: "thinking_delta",
-									contentIndex: blockIndex(),
-									delta: part.text,
-									partial: output,
-								});
-							} else {
-								currentBlock.text += part.text;
-								currentBlock.textSignature = retainThoughtSignature(
-									currentBlock.textSignature,
-									part.thoughtSignature,
-								);
-								stream.push({
-									type: "text_delta",
-									contentIndex: blockIndex(),
-									delta: part.text,
-									partial: output,
-								});
-							}
+							deltaAppenders[currentBlock.type]?.(currentBlock, part.text, part.thoughtSignature);
 						}
 
 						if (part.functionCall) {
 							if (currentBlock) {
-								if (currentBlock.type === "text") {
-									stream.push({
-										type: "text_end",
-										contentIndex: blockIndex(),
-										content: currentBlock.text,
-										partial: output,
-									});
-								} else {
-									stream.push({
-										type: "thinking_end",
-										contentIndex: blockIndex(),
-										content: currentBlock.thinking,
-										partial: output,
-									});
-								}
+								emitBlockEnd(currentBlock);
 								currentBlock = null;
 							}
 
@@ -233,21 +229,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			}
 
 			if (currentBlock) {
-				if (currentBlock.type === "text") {
-					stream.push({
-						type: "text_end",
-						contentIndex: blockIndex(),
-						content: currentBlock.text,
-						partial: output,
-					});
-				} else {
-					stream.push({
-						type: "thinking_end",
-						contentIndex: blockIndex(),
-						content: currentBlock.thinking,
-						partial: output,
-					});
-				}
+				emitBlockEnd(currentBlock);
 			}
 
 			if (options?.signal?.aborted) {

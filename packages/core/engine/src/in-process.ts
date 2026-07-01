@@ -32,7 +32,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 
 		const watchdog = new Watchdog(stallMs, () => {
 			traceEvent("in-process:stall", { stallMs });
-			session.dispose();
+			void session.dispose();
 		});
 
 		const wrappedChunk =
@@ -60,7 +60,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 
 		const onAbort = () => {
 			watchdog.stop();
-			session.dispose();
+			void session.dispose();
 		};
 		signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -77,7 +77,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		} finally {
 			watchdog.stop();
 			signal?.removeEventListener("abort", onAbort);
-			session.dispose();
+			await session.dispose();
 		}
 	}
 }

@@ -19,3 +19,10 @@ const provider = new NodeTracerProvider({
 });
 
 provider.register({ contextManager: ctxMgr });
+
+import { afterAll } from "vitest";
+
+afterAll(async () => {
+	await provider.shutdown();
+	ctxMgr.disable();
+});

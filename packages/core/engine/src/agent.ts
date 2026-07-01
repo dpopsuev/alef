@@ -360,13 +360,13 @@ export class Agent {
 		return this._bindings;
 	}
 
-	dispose(): void {
+	async dispose(): Promise<void> {
 		if (this.disposed) return;
 		this.disposed = true;
 		this.controller.abort();
 		for (const unmount of this.unmounts) unmount();
 		const closePromises = this._adapters.map((o) => o.close?.()).filter((p): p is Promise<void> => p !== undefined);
-		void Promise.all(closePromises);
+		await Promise.all(closePromises);
 		this.unmounts.length = 0;
 	}
 }

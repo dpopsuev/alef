@@ -60,6 +60,8 @@ export default defineConfig({
 	},
 	test: {
 		include: DEFAULT_INCLUDE,
+		teardownTimeout: 10_000,
+		globalSetup: [resolve(MONOREPO_ROOT, "packages/core/testkit/src/vitest-teardown.ts")],
 		// Tag definitions — options here apply to every test carrying that tag.
 		// strictTags: true would reject undefined tags; left off until all files are migrated.
 		tags: [

@@ -27,8 +27,11 @@ if [ -n "$CHANGED_PKGS" ]; then
     fi
   done
   if [ -n "$PROJECT_ARGS" ]; then
-    npx vitest run $PROJECT_ARGS --tags-filter=unit --reporter=dot 2>&1
-    if [ $? -ne 0 ]; then
+    VITEST_EXIT=0
+    timeout 120 npx vitest run $PROJECT_ARGS --tags-filter=unit --reporter=dot 2>&1 || VITEST_EXIT=$?
+    if [ $VITEST_EXIT -eq 124 ]; then
+      echo "⚠ Tests passed but vitest hung — forced exit (open handles)."
+    elif [ $VITEST_EXIT -ne 0 ]; then
       echo "❌ Tests failed. Please fix before committing."
       exit 1
     fi

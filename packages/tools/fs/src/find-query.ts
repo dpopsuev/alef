@@ -41,6 +41,88 @@ export interface FindToolDetails extends BaseToolDetails {
 /** Response type for file find queries. */
 export type FindToolResponse = ToolQueryResponse<FindToolDetails>;
 
+/** Map user-facing entry type names to fd's single-char type flags. */
+const FD_TYPE_FLAG: Record<string, string> = {
+	file: "f",
+	directory: "d",
+	symlink: "l",
+};
+
+/** Rules for conditionally appending fd CLI arguments based on query input. */
+const FD_ARG_RULES: {
+	test: (input: FindToolInput) => boolean;
+	args: (input: FindToolInput) => string[];
+}[] = [
+	{ test: (i) => i.hidden !== false, args: () => ["--hidden"] },
+	{
+		test: (i) => i.type !== undefined,
+		args: (i) => ["--type", FD_TYPE_FLAG[i.type!]],
+	},
+	{
+		test: (i) => i.extension !== undefined,
+		args: (i) => ["--extension", i.extension!.replace(/^\./, "")],
+	},
+	{
+		test: (i) => i.depth !== undefined && i.depth >= 0,
+		args: (i) => ["--max-depth", String(i.depth)],
+	},
+];
+
+/** Context passed to notice rules during result formatting. */
+interface FindNoticeContext {
+	resultCount: number;
+	effectiveLimit: number;
+	truncation: ReturnType<typeof truncateHead>;
+	/** When true, the limit-reached notice includes a hint to increase the limit. */
+	showLimitHint: boolean;
+}
+
+/** Rules for appending limit/truncation notices and populating response details. */
+const FIND_NOTICE_RULES: {
+	test: (ctx: FindNoticeContext) => boolean;
+	notice: (ctx: FindNoticeContext) => string;
+	apply: (ctx: FindNoticeContext, details: FindToolDetails) => void;
+}[] = [
+	{
+		test: (ctx) => ctx.resultCount >= ctx.effectiveLimit,
+		notice: (ctx) =>
+			ctx.showLimitHint
+				? `${ctx.effectiveLimit} results limit reached. Use limit=${ctx.effectiveLimit * 2} for more, or refine pattern`
+				: `${ctx.effectiveLimit} results limit reached`,
+		apply: (ctx, d) => {
+			d.resultLimitReached = ctx.effectiveLimit;
+		},
+	},
+	{
+		test: (ctx) => ctx.truncation.truncated === true,
+		notice: () => `${formatSize(DEFAULT_MAX_BYTES)} limit reached`,
+		apply: (ctx, d) => {
+			d.truncation = ctx.truncation;
+		},
+	},
+];
+
+/**
+ * Apply notice rules to a find result, returning the final output text and
+ * optional details object ready for caching.
+ */
+function applyFindNotices(
+	baseOutput: string,
+	ctx: FindNoticeContext,
+): { resultOutput: string; details: FindToolDetails | undefined } {
+	const details: FindToolDetails = {};
+	const matched = FIND_NOTICE_RULES.filter((r) => r.test(ctx));
+	for (const rule of matched) {
+		rule.apply(ctx, details);
+	}
+	const notices = matched.map((r) => r.notice(ctx));
+	const resultOutput = notices.length > 0 ? `${baseOutput}\n\n[${notices.join(". ")}]` : baseOutput;
+	return {
+		resultOutput,
+		details: Object.keys(details).length > 0 ? details : undefined,
+	};
+}
+
 /** Pluggable filesystem operations for the find query (enables test injection). */
 export interface FindOperations {
 	exists: (absolutePath: string) => Promise<boolean> | boolean;
@@ -180,26 +262,17 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 						}
 						return toPosixPath(path.relative(searchPath, entryPath));
 					});
-					const resultLimitReached = relativized.length >= effectiveLimit;
 					const rawOutput = relativized.join("\n");
 					const truncation = truncateHead(rawOutput, { maxLines: Number.MAX_SAFE_INTEGER });
-					let resultOutput = truncation.content;
-					const details: FindToolDetails = {};
-					const notices: string[] = [];
-					if (resultLimitReached) {
-						notices.push(`${effectiveLimit} results limit reached`);
-						details.resultLimitReached = effectiveLimit;
-					}
-					if (truncation.truncated) {
-						notices.push(`${formatSize(DEFAULT_MAX_BYTES)} limit reached`);
-						details.truncation = truncation;
-					}
-					if (notices.length > 0) {
-						resultOutput += `\n\n[${notices.join(". ")}]`;
-					}
+					const { resultOutput, details } = applyFindNotices(truncation.content, {
+						resultCount: relativized.length,
+						effectiveLimit,
+						truncation,
+						showLimitHint: false,
+					});
 					resolveWithOptionalCache({
 						content: [{ type: "text", text: resultOutput }],
-						details: Object.keys(details).length > 0 ? details : undefined,
+						details,
 					});
 					return;
 				}
@@ -222,20 +295,8 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					"--no-require-git",
 					"--max-results",
 					String(effectiveLimit),
+					...FD_ARG_RULES.filter((r) => r.test(input)).flatMap((r) => r.args(input)),
 				];
-				if (hidden !== false) {
-					args.push("--hidden");
-				}
-				if (entryType) {
-					const fdType = entryType === "file" ? "f" : entryType === "directory" ? "d" : "l";
-					args.push("--type", fdType);
-				}
-				if (extension) {
-					args.push("--extension", extension.replace(/^\./, ""));
-				}
-				if (depth !== undefined && depth >= 0) {
-					args.push("--max-depth", String(depth));
-				}
 
 				let effectivePattern = pattern;
 				if (pattern.includes("/")) {
@@ -342,28 +403,17 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 						relativized.push(toPosixPath(relativePath));
 					}
 
-					const resultLimitReached = relativized.length >= effectiveLimit;
 					const rawOutput = relativized.join("\n");
 					const truncation = truncateHead(rawOutput, { maxLines: Number.MAX_SAFE_INTEGER });
-					let resultOutput = truncation.content;
-					const details: FindToolDetails = {};
-					const notices: string[] = [];
-					if (resultLimitReached) {
-						notices.push(
-							`${effectiveLimit} results limit reached. Use limit=${effectiveLimit * 2} for more, or refine pattern`,
-						);
-						details.resultLimitReached = effectiveLimit;
-					}
-					if (truncation.truncated) {
-						notices.push(`${formatSize(DEFAULT_MAX_BYTES)} limit reached`);
-						details.truncation = truncation;
-					}
-					if (notices.length > 0) {
-						resultOutput += `\n\n[${notices.join(". ")}]`;
-					}
+					const { resultOutput, details } = applyFindNotices(truncation.content, {
+						resultCount: relativized.length,
+						effectiveLimit,
+						truncation,
+						showLimitHint: true,
+					});
 					resolveWithOptionalCache({
 						content: [{ type: "text", text: resultOutput }],
-						details: Object.keys(details).length > 0 ? details : undefined,
+						details,
 					});
 				});
 			} catch (error) {

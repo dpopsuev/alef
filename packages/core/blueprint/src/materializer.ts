@@ -218,29 +218,41 @@ type AdapterEntry = string | { name: string; path?: string; actions?: string[] }
  * Returns null when the file does not exist (caller falls back to default).
  */
 export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | null {
-	const configPath = userAdaptersConfigPath();
-	const legacyPath = configPath.replace("adapters.yaml", "organs.yaml");
-	const effectivePath = existsSync(configPath) ? configPath : existsSync(legacyPath) ? legacyPath : null;
+	const effectivePath = resolveAdaptersConfigPath();
 	if (!effectivePath) return null;
-	const text = readFileSync(effectivePath, "utf-8");
-	const parsed = parseYaml(text) as unknown;
+
+	const parsed = parseYaml(readFileSync(effectivePath, "utf-8")) as unknown;
 	if (!parsed || typeof parsed !== "object") return null;
+
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof/null check above
 	const rec = parsed as Record<string, unknown>;
 	const entries = rec.adapters ?? rec.organs;
 	if (!Array.isArray(entries)) return null;
+
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- entries validated by Array.isArray guard
-	return (entries as AdapterEntry[]).map((entry) => {
-		if (typeof entry === "string") {
-			return { name: entry, actions: [], toolNames: [] };
-		}
-		return {
-			name: entry.name,
-			path: entry.path,
-			actions: entry.actions ?? [],
-			toolNames: [],
-		};
-	});
+	return (entries as AdapterEntry[]).map(normalizeAdapterEntry);
+}
+
+/** Resolve the path to the adapters config file, preferring adapters.yaml over legacy organs.yaml. */
+function resolveAdaptersConfigPath(): string | null {
+	const configPath = userAdaptersConfigPath();
+	if (existsSync(configPath)) return configPath;
+	const legacyPath = configPath.replace("adapters.yaml", "organs.yaml");
+	if (existsSync(legacyPath)) return legacyPath;
+	return null;
+}
+
+/** Normalize a raw adapter entry (string or object) into a full adapter definition. */
+function normalizeAdapterEntry(entry: AdapterEntry): CompiledAgentDefinition["adapters"][number] {
+	if (typeof entry === "string") {
+		return { name: entry, actions: [], toolNames: [] };
+	}
+	return {
+		name: entry.name,
+		path: entry.path,
+		actions: entry.actions ?? [],
+		toolNames: [],
+	};
 }
 
 let _jiti: ReturnType<typeof createJiti> | undefined;
@@ -315,6 +327,25 @@ export async function loadAdapterFromPath(
 	});
 }
 
+/** Apply the permission gate when an allowlist is active, pass through otherwise. */
+function applyPermissionGate(adapter: Adapter, allowedTools: string[] | undefined): Adapter {
+	if (!allowedTools || allowedTools.length === 0) return adapter;
+	return wrapWithPermissions(adapter, allowedTools);
+}
+
+/** Resolve adapters from a loaded module — either via service supervisor or createAdapter(). */
+async function resolveAdaptersForEntry(
+	mod: ResolvedModule,
+	factoryOpts: AdapterFactoryOptions,
+	opts: MaterializerOptions,
+): Promise<readonly Adapter[]> {
+	if (mod.service && opts.resolveService) {
+		const supervised = await opts.resolveService(mod.service, factoryOpts);
+		if (supervised) return supervised;
+	}
+	return [await mod.createAdapter(factoryOpts)];
+}
+
 export async function materializeBlueprint(
 	definition: CompiledAgentDefinition,
 	opts: MaterializerOptions,
@@ -336,26 +367,9 @@ export async function materializeBlueprint(
 				blockedPatterns: adapterDef.blockedPatterns?.map((p) => new RegExp(p)),
 			};
 
-			let resolved: readonly Adapter[] | undefined;
-			if (mod.service && opts.resolveService) {
-				resolved = await opts.resolveService(mod.service, factoryOpts);
-			}
-
-			if (resolved) {
-				for (const adapter of resolved) {
-					const gated =
-						opts.allowedTools && opts.allowedTools.length > 0
-							? wrapWithPermissions(adapter, opts.allowedTools)
-							: adapter;
-					adapters.push(gated);
-				}
-			} else {
-				const adapter = await mod.createAdapter(factoryOpts);
-				const gated =
-					opts.allowedTools && opts.allowedTools.length > 0
-						? wrapWithPermissions(adapter, opts.allowedTools)
-						: adapter;
-				adapters.push(gated);
+			const resolved = await resolveAdaptersForEntry(mod, factoryOpts, opts);
+			for (const adapter of resolved) {
+				adapters.push(applyPermissionGate(adapter, opts.allowedTools));
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -367,10 +381,7 @@ export async function materializeBlueprint(
 		}
 	}
 
-	let modelId: string | undefined;
-	if (definition.model) {
-		modelId = `${definition.model.provider}/${definition.model.id}`;
-	}
+	const modelId = definition.model ? `${definition.model.provider}/${definition.model.id}` : undefined;
 
 	return { adapters, modelId };
 }

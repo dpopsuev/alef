@@ -6,6 +6,21 @@ import { fuzzyFilter } from "./fuzzy.js";
 
 const PATH_DELIMITERS = new Set([" ", "\t", '"', "'", "="]);
 
+/** Scoring rules for fuzzy file-path matching (higher weight = better match). */
+const MATCH_SCORE_RULES: ReadonlyArray<{
+	label: string;
+	test: (fileName: string, filePath: string, query: string) => boolean;
+	weight: number;
+}> = [
+	{ label: "exact",     test: (fn, _fp, q) => fn === q,            weight: 100 },
+	{ label: "prefix",    test: (fn, _fp, q) => fn.startsWith(q),    weight: 80 },
+	{ label: "substring", test: (fn, _fp, q) => fn.includes(q),      weight: 50 },
+	{ label: "path",      test: (_fn, fp, q) => fp.includes(q),      weight: 30 },
+];
+
+/** Bonus applied on top of match score when the entry is a directory. */
+const DIRECTORY_BONUS = 10;
+
 function toDisplayPath(value: string): string {
 	return value.replace(/\\/g, "/");
 }
@@ -642,25 +657,16 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 	// Score an entry against the query (higher = better match)
 	// isDirectory adds bonus to prioritize folders
 	private scoreEntry(filePath: string, query: string, isDirectory: boolean): number {
-		const fileName = basename(filePath);
-		const lowerFileName = fileName.toLowerCase();
+		const lowerFileName = basename(filePath).toLowerCase();
 		const lowerQuery = query.toLowerCase();
+		const lowerPath = filePath.toLowerCase();
 
-		let score = 0;
-
-		// Exact filename match (highest)
-		if (lowerFileName === lowerQuery) score = 100;
-		// Filename starts with query
-		else if (lowerFileName.startsWith(lowerQuery)) score = 80;
-		// Substring match in filename
-		else if (lowerFileName.includes(lowerQuery)) score = 50;
-		// Substring match in full path
-		else if (filePath.toLowerCase().includes(lowerQuery)) score = 30;
+		// First matching rule wins (rules ordered by descending weight).
+		const matchedRule = MATCH_SCORE_RULES.find((r) => r.test(lowerFileName, lowerPath, lowerQuery));
+		const score = matchedRule?.weight ?? 0;
 
 		// Directories get a bonus to appear first
-		if (isDirectory && score > 0) score += 10;
-
-		return score;
+		return isDirectory && score > 0 ? score + DIRECTORY_BONUS : score;
 	}
 
 	// Fuzzy file search using fd (fast, respects .gitignore)

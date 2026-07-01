@@ -255,17 +255,21 @@ function getValidator(schema: Tool["parameters"]): ReturnType<typeof Compile> {
 	return validator;
 }
 
+function instancePathToDot(instancePath: string): string {
+	return instancePath.replace(/^\//, "").replace(/\//g, ".");
+}
+
+function formatRequiredPath(error: TLocalizedValidationError): string | undefined {
+	if (error.keyword !== "required") return undefined;
+	const requiredProperties = (error.params as { requiredProperties?: string[] }).requiredProperties;
+	const requiredProperty = requiredProperties?.[0];
+	if (!requiredProperty) return undefined;
+	const basePath = instancePathToDot(error.instancePath);
+	return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
+}
+
 function formatValidationPath(error: TLocalizedValidationError): string {
-	if (error.keyword === "required") {
-		const requiredProperties = (error.params as { requiredProperties?: string[] }).requiredProperties;
-		const requiredProperty = requiredProperties?.[0];
-		if (requiredProperty) {
-			const basePath = error.instancePath.replace(/^\//, "").replace(/\//g, ".");
-			return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
-		}
-	}
-	const path = error.instancePath.replace(/^\//, "").replace(/\//g, ".");
-	return path || "root";
+	return formatRequiredPath(error) ?? (instancePathToDot(error.instancePath) || "root");
 }
 
 /**
@@ -290,36 +294,46 @@ export function validateToolCall(tools: Tool[], toolCall: ToolCall): any {
  * @returns The validated (and potentially coerced) arguments
  * @throws Error with formatted message if validation fails
  */
-export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
-	const args = structuredClone(toolCall.arguments);
-	Value.Convert(tool.parameters, args);
+function applyJsonSchemaCoercion(
+	args: unknown,
+	schema: Tool["parameters"],
+	validator: ReturnType<typeof Compile>,
+): unknown {
+	if (hasTypeBoxMetadata(schema)) return args;
+	if (!isJsonSchemaObject(schema)) return args;
 
-	const validator = getValidator(tool.parameters);
-	if (!hasTypeBoxMetadata(tool.parameters) && isJsonSchemaObject(tool.parameters)) {
-		const coerced = coerceWithJsonSchema(args, tool.parameters);
-		if (coerced !== args) {
-			if (isRecord(args) && isRecord(coerced)) {
-				for (const key of Object.keys(args)) {
-					delete args[key];
-				}
-				Object.assign(args, coerced);
-			} else {
-				return validator.Check(coerced) ? coerced : args;
-			}
-		}
+	const coerced = coerceWithJsonSchema(args, schema);
+	if (coerced === args) return args;
+
+	if (!isRecord(args) || !isRecord(coerced)) {
+		return validator.Check(coerced) ? coerced : args;
 	}
 
-	if (validator.Check(args)) {
-		return args;
+	for (const key of Object.keys(args)) {
+		delete args[key];
 	}
+	Object.assign(args, coerced);
+	return args;
+}
 
+function formatValidationErrors(validator: ReturnType<typeof Compile>, args: unknown, toolCall: ToolCall): string {
 	const errors =
 		validator
 			.Errors(args)
 			.map((error) => `  - ${formatValidationPath(error)}: ${error.message}`)
 			.join("\n") || "Unknown validation error";
 
-	const errorMessage = `Validation failed for tool "${toolCall.name}":\n${errors}\n\nReceived arguments:\n${JSON.stringify(toolCall.arguments, null, 2)}`;
+	return `Validation failed for tool "${toolCall.name}":\n${errors}\n\nReceived arguments:\n${JSON.stringify(toolCall.arguments, null, 2)}`;
+}
 
-	throw new Error(errorMessage);
+export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
+	const args = structuredClone(toolCall.arguments);
+	Value.Convert(tool.parameters, args);
+
+	const validator = getValidator(tool.parameters);
+	const coerced = applyJsonSchemaCoercion(args, tool.parameters, validator);
+
+	if (validator.Check(coerced)) return coerced;
+
+	throw new Error(formatValidationErrors(validator, coerced, toolCall));
 }

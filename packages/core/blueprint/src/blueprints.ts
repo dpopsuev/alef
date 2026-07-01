@@ -245,6 +245,12 @@ function normalizeStringMap(value: unknown): Record<string, string> {
 	return normalized;
 }
 
+function setIfNonEmpty(target: AgentDefinitionPackageSourceInput, key: "extensions" | "skills" | "prompts" | "themes", values: string[]): void {
+	if (values.length > 0) {
+		target[key] = values;
+	}
+}
+
 function normalizePackageSources(
 	packages: NonNullable<AgentDefinitionSchemaType["dependencies"]>["packages"],
 ): AgentDefinitionDependenciesConfig["packages"] {
@@ -254,38 +260,22 @@ function normalizePackageSources(
 	const normalized: AgentDefinitionDependenciesConfig["packages"] = [];
 	const seen = new Set<string>();
 	for (const entry of packages) {
-		if (typeof entry === "string") {
-			const source = entry.trim();
-			if (source.length === 0 || seen.has(source)) {
-				continue;
-			}
-			seen.add(source);
-			normalized.push(source);
-			continue;
-		}
-
-		const source = entry.source.trim();
+		const source = (typeof entry === "string" ? entry : entry.source).trim();
 		if (source.length === 0 || seen.has(source)) {
 			continue;
 		}
 		seen.add(source);
+
+		if (typeof entry === "string") {
+			normalized.push(source);
+			continue;
+		}
+
 		const normalizedEntry: AgentDefinitionPackageSourceInput = { source };
-		const extensions = normalizeStringArray(entry.extensions);
-		const skills = normalizeStringArray(entry.skills);
-		const prompts = normalizeStringArray(entry.prompts);
-		const themes = normalizeStringArray(entry.themes);
-		if (extensions.length > 0) {
-			normalizedEntry.extensions = extensions;
-		}
-		if (skills.length > 0) {
-			normalizedEntry.skills = skills;
-		}
-		if (prompts.length > 0) {
-			normalizedEntry.prompts = prompts;
-		}
-		if (themes.length > 0) {
-			normalizedEntry.themes = themes;
-		}
+		setIfNonEmpty(normalizedEntry, "extensions", normalizeStringArray(entry.extensions));
+		setIfNonEmpty(normalizedEntry, "skills", normalizeStringArray(entry.skills));
+		setIfNonEmpty(normalizedEntry, "prompts", normalizeStringArray(entry.prompts));
+		setIfNonEmpty(normalizedEntry, "themes", normalizeStringArray(entry.themes));
 		normalized.push(normalizedEntry);
 	}
 	return normalized;
@@ -357,6 +347,17 @@ function resolveChildBlueprints(
 	}));
 }
 
+function normalizeAblationConfig(
+	ablation: NonNullable<AgentDefinitionSchemaType["loop"]>["ablation"],
+): NonNullable<CompiledAgentDefinition["loop"]>["ablation"] {
+	if (!ablation) return undefined;
+	return {
+		disableSteering: ablation.disableSteering ?? false,
+		disableFollowUp: ablation.disableFollowUp ?? false,
+		forceSequentialTools: ablation.forceSequentialTools ?? false,
+	};
+}
+
 function normalizeLoopConfig(loop: AgentDefinitionSchemaType["loop"]): CompiledAgentDefinition["loop"] | undefined {
 	if (!loop) {
 		return undefined;
@@ -369,13 +370,7 @@ function normalizeLoopConfig(loop: AgentDefinitionSchemaType["loop"]): CompiledA
 		toolExecution: loop.toolExecution,
 		maxTurnsPerRun: loop.maxTurnsPerRun,
 		stopOnBudgetAction: loop.stopOnBudgetAction,
-		ablation: loop.ablation
-			? {
-					disableSteering: loop.ablation.disableSteering ?? false,
-					disableFollowUp: loop.ablation.disableFollowUp ?? false,
-					forceSequentialTools: loop.ablation.forceSequentialTools ?? false,
-				}
-			: undefined,
+		ablation: normalizeAblationConfig(loop.ablation),
 	};
 }
 
@@ -421,6 +416,24 @@ function normalizeSupervisorPolicy(
 	};
 }
 
+function validateOrchestrationConsistency(
+	hasAdapter: boolean,
+	orchestrationFlag: boolean | undefined,
+	sourcePath: string | undefined,
+): void {
+	if (hasAdapter === (orchestrationFlag === true)) return;
+
+	const location = sourcePath ? ` in ${sourcePath}` : "";
+	if (hasAdapter) {
+		throw new Error(
+			`Invalid agent definition${location}: orchestration adapter requires capabilities.orchestration: true`,
+		);
+	}
+	throw new Error(
+		`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration adapter`,
+	);
+}
+
 export function compileAgentDefinition(
 	input: AgentDefinitionInput,
 	options: { sourcePath?: string; resource?: CompiledAgentDefinition["resource"] } = {},
@@ -442,18 +455,7 @@ export function compileAgentDefinition(
 	const hasOrchestrationAdapter = adapters.some(
 		(adapter) => adapter.name === "orchestration" || adapter.name === "agent",
 	);
-	if (hasOrchestrationAdapter && input.capabilities?.orchestration !== true) {
-		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		throw new Error(
-			`Invalid agent definition${location}: orchestration adapter requires capabilities.orchestration: true`,
-		);
-	}
-	if (!hasOrchestrationAdapter && input.capabilities?.orchestration === true) {
-		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		throw new Error(
-			`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration adapter`,
-		);
-	}
+	validateOrchestrationConsistency(hasOrchestrationAdapter, input.capabilities?.orchestration, options.sourcePath);
 
 	const compiled: CompiledAgentDefinition = {
 		name: input.name.trim(),
@@ -493,6 +495,53 @@ export function compileAgentDefinition(
 	return compiled;
 }
 
+function migrateEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
+	if (envelope.apiVersion === AGENT_RESOURCE_API_VERSION) return envelope;
+
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- apiVersion is typed as string in envelope
+	const migrate = MIGRATION_CHAIN[envelope.apiVersion as string];
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- guard for future MIGRATION_CHAIN entries
+	if (!migrate) {
+		throw new Error(
+			`Unsupported agent resource apiVersion "${envelope.apiVersion}". ` +
+				`Expected "${AGENT_RESOURCE_API_VERSION}" or a migratable version.`,
+		);
+	}
+	return migrate(envelope);
+}
+
+function resolveSpecName(spec: Record<string, unknown>, metadata: AgentResourceMetadata): void {
+	if (typeof spec.name === "string" && spec.name.trim().length > 0) return;
+	if (metadata.name) {
+		spec.name = metadata.name;
+		return;
+	}
+	throw new Error("Invalid agent resource: spec.name is required (or metadata.name must be set).");
+}
+
+function compileResourceEnvelope(
+	parsed: AgentResourceEnvelope,
+	options: { sourcePath?: string },
+): CompiledAgentDefinition {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unnecessary-type-assertion -- narrowed by isAgentResourceEnvelope guard; assertion restores envelope shape after migration
+	const current = migrateEnvelope(parsed as unknown as Record<string, unknown>) as typeof parsed;
+	if (current.kind !== AGENT_RESOURCE_KIND) {
+		throw new Error(`Unsupported agent resource kind "${current.kind}". Expected "${AGENT_RESOURCE_KIND}".`);
+	}
+	const resourceMetadata = normalizeResourceMetadata(current.metadata);
+	const spec: Record<string, unknown> = { ...current.spec };
+	resolveSpecName(spec, resourceMetadata);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spec validated by compileAgentDefinition
+	return compileAgentDefinition(spec as unknown as AgentDefinitionInput, {
+		sourcePath: options.sourcePath,
+		resource: {
+			apiVersion: current.apiVersion,
+			kind: current.kind,
+			metadata: resourceMetadata,
+		},
+	});
+}
+
 export function parseAgentDefinitionYaml(
 	yamlText: string,
 	options: { sourcePath?: string } = {},
@@ -504,44 +553,7 @@ export function parseAgentDefinitionYaml(
 	}
 
 	if (isAgentResourceEnvelope(parsed)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by isAgentResourceEnvelope guard
-		let envelope = parsed as unknown as Record<string, unknown>;
-		if (envelope.apiVersion !== AGENT_RESOURCE_API_VERSION) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- apiVersion is typed as string in envelope
-			const migrate = MIGRATION_CHAIN[envelope.apiVersion as string];
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- guard for future MIGRATION_CHAIN entries
-			if (!migrate) {
-				throw new Error(
-					`Unsupported agent resource apiVersion "${envelope.apiVersion}". ` +
-						`Expected "${AGENT_RESOURCE_API_VERSION}" or a migratable version.`,
-				);
-			}
-			envelope = migrate(envelope);
-		}
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- envelope is narrowed to AgentResourceEnvelope shape
-		const current = envelope as typeof parsed;
-		if (current.kind !== AGENT_RESOURCE_KIND) {
-			throw new Error(`Unsupported agent resource kind "${current.kind}". Expected "${AGENT_RESOURCE_KIND}".`);
-		}
-		const resourceMetadata = normalizeResourceMetadata(current.metadata);
-		const spec: Record<string, unknown> = { ...current.spec };
-		if (typeof spec.name !== "string" || spec.name.trim().length === 0) {
-			if (resourceMetadata.name) {
-				spec.name = resourceMetadata.name;
-			}
-		}
-		if (typeof spec.name !== "string" || spec.name.trim().length === 0) {
-			throw new Error("Invalid agent resource: spec.name is required (or metadata.name must be set).");
-		}
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spec validated by compileAgentDefinition
-		return compileAgentDefinition(spec as unknown as AgentDefinitionInput, {
-			sourcePath: options.sourcePath,
-			resource: {
-				apiVersion: current.apiVersion,
-				kind: current.kind,
-				metadata: resourceMetadata,
-			},
-		});
+		return compileResourceEnvelope(parsed, options);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- parsed validated by compileAgentDefinition

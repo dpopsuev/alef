@@ -432,33 +432,44 @@ function handleContentBlockDelta(
 		block.arguments = parseStreamingJson(block.partialJson);
 		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input ?? "", partial: output });
 	} else if (delta?.reasoningContent) {
-		let thinkingBlock = block;
-		let thinkingIndex = index;
+		handleReasoningDelta(delta.reasoningContent, contentBlockIndex, block, index, blocks, output, stream);
+	}
+}
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; thinkingBlock can be undefined at runtime
-		if (!thinkingBlock) {
-			const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
-			output.content.push(newBlock);
-			thinkingIndex = blocks.length - 1;
-			thinkingBlock = blocks[thinkingIndex];
-			stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
-		}
+function handleReasoningDelta(
+	reasoningContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>,
+	contentBlockIndex: number,
+	block: Block | undefined,
+	index: number,
+	blocks: Block[],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+): void {
+	let thinkingBlock = block;
+	let thinkingIndex = index;
 
-		if (thinkingBlock.type === "thinking") {
-			if (delta.reasoningContent.text) {
-				thinkingBlock.thinking += delta.reasoningContent.text;
-				stream.push({
-					type: "thinking_delta",
-					contentIndex: thinkingIndex,
-					delta: delta.reasoningContent.text,
-					partial: output,
-				});
-			}
-			if (delta.reasoningContent.signature) {
-				thinkingBlock.thinkingSignature =
-					(thinkingBlock.thinkingSignature ?? "") + delta.reasoningContent.signature;
-			}
-		}
+	if (!thinkingBlock) {
+		const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
+		output.content.push(newBlock);
+		thinkingIndex = blocks.length - 1;
+		thinkingBlock = blocks[thinkingIndex];
+		stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
+	}
+
+	if (thinkingBlock.type !== "thinking") return;
+
+	if (reasoningContent.text) {
+		thinkingBlock.thinking += reasoningContent.text;
+		stream.push({
+			type: "thinking_delta",
+			contentIndex: thinkingIndex,
+			delta: reasoningContent.text,
+			partial: output,
+		});
+	}
+	if (reasoningContent.signature) {
+		thinkingBlock.thinkingSignature =
+			(thinkingBlock.thinkingSignature ?? "") + reasoningContent.signature;
 	}
 }
 
@@ -467,14 +478,14 @@ function handleMetadata(
 	model: Model<"bedrock-converse-stream">,
 	output: AssistantMessage,
 ): void {
-	if (event.usage) {
-		output.usage.input = event.usage.inputTokens ?? 0;
-		output.usage.output = event.usage.outputTokens ?? 0;
-		output.usage.cacheRead = event.usage.cacheReadInputTokens ?? 0;
-		output.usage.cacheWrite = event.usage.cacheWriteInputTokens ?? 0;
-		output.usage.totalTokens = event.usage.totalTokens ?? output.usage.input + output.usage.output;
-		calculateCost(model, output.usage);
-	}
+	if (!event.usage) return;
+
+	output.usage.input = event.usage.inputTokens ?? 0;
+	output.usage.output = event.usage.outputTokens ?? 0;
+	output.usage.cacheRead = event.usage.cacheReadInputTokens ?? 0;
+	output.usage.cacheWrite = event.usage.cacheWriteInputTokens ?? 0;
+	output.usage.totalTokens = event.usage.totalTokens ?? output.usage.input + output.usage.output;
+	calculateCost(model, output.usage);
 }
 
 function handleContentBlockStop(
@@ -650,6 +661,41 @@ function normalizeToolCallId(id: string): string {
 	return sanitized.length > 64 ? sanitized.slice(0, 64) : sanitized;
 }
 
+/**
+ * Convert a thinking content item into the appropriate Bedrock ContentBlock.
+ *
+ * Only Anthropic models support the signature field in reasoningText.
+ * For other models, we omit the signature to avoid errors like:
+ * "This model doesn't support the reasoningContent.reasoningText.signature field"
+ *
+ * Signatures arrive after thinking deltas. If a partial or externally
+ * persisted message lacks a signature, Bedrock rejects the replayed
+ * reasoning block. Fall back to plain text, matching Anthropic.
+ */
+function convertThinkingToContentBlock(
+	c: ThinkingContent,
+	model: Model<"bedrock-converse-stream">,
+): ContentBlock {
+	const sanitizedText = sanitizeSurrogates(c.thinking);
+
+	if (!supportsThinkingSignature(model)) {
+		return { reasoningContent: { reasoningText: { text: sanitizedText } } };
+	}
+
+	if (!c.thinkingSignature || c.thinkingSignature.trim().length === 0) {
+		return { text: sanitizedText };
+	}
+
+	return {
+		reasoningContent: {
+			reasoningText: {
+				text: sanitizedText,
+				signature: c.thinkingSignature,
+			},
+		},
+	};
+}
+
 function convertMessages(
 	context: Context,
 	model: Model<"bedrock-converse-stream">,
@@ -702,32 +748,7 @@ function convertMessages(
 						case "thinking":
 							// Skip empty thinking blocks
 							if (c.thinking.trim().length === 0) continue;
-							// Only Anthropic models support the signature field in reasoningText.
-							// For other models, we omit the signature to avoid errors like:
-							// "This model doesn't support the reasoningContent.reasoningText.signature field"
-							if (supportsThinkingSignature(model)) {
-								// Signatures arrive after thinking deltas. If a partial or externally
-								// persisted message lacks a signature, Bedrock rejects the replayed
-								// reasoning block. Fall back to plain text, matching Anthropic.
-								if (!c.thinkingSignature || c.thinkingSignature.trim().length === 0) {
-									contentBlocks.push({ text: sanitizeSurrogates(c.thinking) });
-								} else {
-									contentBlocks.push({
-										reasoningContent: {
-											reasoningText: {
-												text: sanitizeSurrogates(c.thinking),
-												signature: c.thinkingSignature,
-											},
-										},
-									});
-								}
-							} else {
-								contentBlocks.push({
-									reasoningContent: {
-										reasoningText: { text: sanitizeSurrogates(c.thinking) },
-									},
-								});
-							}
+							contentBlocks.push(convertThinkingToContentBlock(c, model));
 							break;
 						default:
 							throw new Error("Unknown assistant content type");
@@ -915,49 +936,66 @@ function buildAdditionalModelRequestFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions,
 ): Record<string, any> | undefined {
-	if (!options.reasoning || !model.reasoning) {
-		return undefined;
+	if (!options.reasoning || !model.reasoning) return undefined;
+	if (!isAnthropicClaudeModel(model)) return undefined;
+
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guard above narrows reasoning to ThinkingLevel
+	return buildClaudeThinkingFields(model, options as BedrockOptions & { reasoning: ThinkingLevel });
+}
+
+function buildClaudeThinkingFields(
+	model: Model<"bedrock-converse-stream">,
+	options: BedrockOptions & { reasoning: ThinkingLevel },
+): Record<string, any> {
+	// GovCloud Bedrock currently rejects the Claude thinking.display field.
+	// Omit it there until the GovCloud Converse schema catches up.
+	const display = isGovCloudBedrockTarget(model, options) ? undefined : (options.thinkingDisplay ?? "summarized");
+
+	const result: Record<string, any> = supportsAdaptiveThinking(model.id, model.name)
+		? buildAdaptiveThinkingFields(model, options, display)
+		: buildLegacyThinkingFields(options, display);
+
+	if (!supportsAdaptiveThinking(model.id, model.name) && (options.interleavedThinking ?? true)) {
+		result.anthropic_beta = ["interleaved-thinking-2025-05-14"];
 	}
 
-	if (isAnthropicClaudeModel(model)) {
-		// GovCloud Bedrock currently rejects the Claude thinking.display field.
-		// Omit it there until the GovCloud Converse schema catches up.
-		const display = isGovCloudBedrockTarget(model, options) ? undefined : (options.thinkingDisplay ?? "summarized");
-		const result: Record<string, any> = supportsAdaptiveThinking(model.id, model.name)
-			? {
-					thinking: { type: "adaptive", ...(display !== undefined ? { display } : {}) },
-					output_config: { effort: mapThinkingLevelToEffort(model, options.reasoning) },
-				}
-			: (() => {
-					const defaultBudgets: Record<ThinkingLevel, number> = {
-						minimal: 1024,
-						low: 2048,
-						medium: 8192,
-						high: 16384,
-						xhigh: 16384, // Claude doesn't support xhigh, clamp to high
-					};
+	return result;
+}
 
-					// Custom budgets override defaults (xhigh not in ThinkingBudgets, use high)
-					const level = options.reasoning === "xhigh" ? "high" : options.reasoning;
-					const budget = options.thinkingBudgets?.[level] ?? defaultBudgets[options.reasoning];
+function buildAdaptiveThinkingFields(
+	model: Model<"bedrock-converse-stream">,
+	options: BedrockOptions & { reasoning: ThinkingLevel },
+	display: BedrockThinkingDisplay | undefined,
+): Record<string, any> {
+	return {
+		thinking: { type: "adaptive", ...(display !== undefined ? { display } : {}) },
+		output_config: { effort: mapThinkingLevelToEffort(model, options.reasoning) },
+	};
+}
 
-					return {
-						thinking: {
-							type: "enabled",
-							budget_tokens: budget,
-							...(display !== undefined ? { display } : {}),
-						},
-					};
-				})();
+function buildLegacyThinkingFields(
+	options: BedrockOptions & { reasoning: ThinkingLevel },
+	display: BedrockThinkingDisplay | undefined,
+): Record<string, any> {
+	const defaultBudgets: Record<ThinkingLevel, number> = {
+		minimal: 1024,
+		low: 2048,
+		medium: 8192,
+		high: 16384,
+		xhigh: 16384, // Claude doesn't support xhigh, clamp to high
+	};
 
-		if (!supportsAdaptiveThinking(model.id, model.name) && (options.interleavedThinking ?? true)) {
-			result.anthropic_beta = ["interleaved-thinking-2025-05-14"];
-		}
+	// Custom budgets override defaults (xhigh not in ThinkingBudgets, use high)
+	const level = options.reasoning === "xhigh" ? "high" : options.reasoning;
+	const budget = options.thinkingBudgets?.[level] ?? defaultBudgets[options.reasoning];
 
-		return result;
-	}
-
-	return undefined;
+	return {
+		thinking: {
+			type: "enabled",
+			budget_tokens: budget,
+			...(display !== undefined ? { display } : {}),
+		},
+	};
 }
 
 function createImageBlock(mimeType: string, data: string) {

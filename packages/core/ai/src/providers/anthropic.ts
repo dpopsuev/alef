@@ -604,64 +604,60 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-				if (block && block.type === "text") {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
-					const delta = event.delta as { type: "text_delta"; text: string };
-					block.text += delta.text;
-					stream.push({
-						type: "text_delta",
-						contentIndex: index,
-						delta: delta.text,
-						partial: output,
-					});
-				}
+				if (!block || block.type !== "text") return;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const delta = event.delta as { type: "text_delta"; text: string };
+				block.text += delta.text;
+				stream.push({
+					type: "text_delta",
+					contentIndex: index,
+					delta: delta.text,
+					partial: output,
+				});
 			}
 
 			function handleThinkingDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-				if (block && block.type === "thinking") {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
-					const delta = event.delta as { type: "thinking_delta"; thinking: string };
-					block.thinking += delta.thinking;
-					stream.push({
-						type: "thinking_delta",
-						contentIndex: index,
-						delta: delta.thinking,
-						partial: output,
-					});
-				}
+				if (!block || block.type !== "thinking") return;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const delta = event.delta as { type: "thinking_delta"; thinking: string };
+				block.thinking += delta.thinking;
+				stream.push({
+					type: "thinking_delta",
+					contentIndex: index,
+					delta: delta.thinking,
+					partial: output,
+				});
 			}
 
 			function handleInputJsonDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-				if (block && block.type === "toolCall") {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
-					const delta = event.delta as { type: "input_json_delta"; partial_json: string };
-					block.partialJson += delta.partial_json;
-					block.arguments = parseStreamingJson(block.partialJson);
-					stream.push({
-						type: "toolcall_delta",
-						contentIndex: index,
-						delta: delta.partial_json,
-						partial: output,
-					});
-				}
+				if (!block || block.type !== "toolCall") return;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const delta = event.delta as { type: "input_json_delta"; partial_json: string };
+				block.partialJson += delta.partial_json;
+				block.arguments = parseStreamingJson(block.partialJson);
+				stream.push({
+					type: "toolcall_delta",
+					contentIndex: index,
+					delta: delta.partial_json,
+					partial: output,
+				});
 			}
 
 			function handleSignatureDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-				if (block && block.type === "thinking") {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
-					const delta = event.delta as { type: "signature_delta"; signature: string };
-					block.thinkingSignature = block.thinkingSignature ?? "";
-					block.thinkingSignature += delta.signature;
-				}
+				if (!block || block.type !== "thinking") return;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
+				const delta = event.delta as { type: "signature_delta"; signature: string };
+				block.thinkingSignature = block.thinkingSignature ?? "";
+				block.thinkingSignature += delta.signature;
 			}
 
 			const contentBlockDeltaHandlers: Record<
@@ -712,35 +708,37 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				const index = blocks.findIndex((b) => b.index === e.index);
 				const block = blocks[index];
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
-				if (block) {
-					delete (block as { index?: number }).index;
-					if (block.type === "text") {
-						stream.push({
-							type: "text_end",
-							contentIndex: index,
-							content: block.text,
-							partial: output,
-						});
-					} else if (block.type === "thinking") {
-						stream.push({
-							type: "thinking_end",
-							contentIndex: index,
-							content: block.thinking,
-							partial: output,
-						});
-					} else {
-						block.arguments = parseStreamingJson(block.partialJson);
-						// Finalize in-place and strip the scratch buffer so replay only
-						// carries parsed arguments.
-						delete (block as { partialJson?: string }).partialJson;
-						stream.push({
-							type: "toolcall_end",
-							contentIndex: index,
-							toolCall: block,
-							partial: output,
-						});
-					}
+				if (!block) return;
+
+				delete (block as { index?: number }).index;
+				if (block.type === "text") {
+					stream.push({
+						type: "text_end",
+						contentIndex: index,
+						content: block.text,
+						partial: output,
+					});
+					return;
 				}
+				if (block.type === "thinking") {
+					stream.push({
+						type: "thinking_end",
+						contentIndex: index,
+						content: block.thinking,
+						partial: output,
+					});
+					return;
+				}
+				block.arguments = parseStreamingJson(block.partialJson);
+				// Finalize in-place and strip the scratch buffer so replay only
+				// carries parsed arguments.
+				delete (block as { partialJson?: string }).partialJson;
+				stream.push({
+					type: "toolcall_end",
+					contentIndex: index,
+					toolCall: block,
+					partial: output,
+				});
 			}
 
 			function handleMessageDelta(event: RawMessageStreamEvent) {
@@ -1016,6 +1014,93 @@ function unsanitizeToolName(name: string, tools: Tool[] | undefined): string {
 	return tools?.find((t) => sanitizeToolName(t.name) === name)?.name ?? name;
 }
 
+function buildSystemBlock(
+	text: string,
+	cacheControl?: CacheControlEphemeral,
+): { type: "text"; text: string; cache_control?: CacheControlEphemeral } {
+	return {
+		type: "text",
+		text,
+		...(cacheControl ? { cache_control: cacheControl } : {}),
+	};
+}
+
+function applySystemPrompt(
+	params: MessageCreateParamsStreaming,
+	context: Context,
+	isOAuthToken: boolean,
+	cacheControl?: CacheControlEphemeral,
+): void {
+	// For OAuth tokens, we MUST include Claude Code identity
+	if (isOAuthToken) {
+		params.system = [
+			buildSystemBlock("You are Claude Code, Anthropic's official CLI for Claude.", cacheControl),
+		];
+		if (context.systemPrompt) {
+			params.system.push(buildSystemBlock(sanitizeSurrogates(context.systemPrompt), cacheControl));
+		}
+		return;
+	}
+
+	if (!context.systemPrompt) return;
+
+	// Add cache control to system prompt for non-OAuth tokens
+	params.system = [buildSystemBlock(sanitizeSurrogates(context.systemPrompt), cacheControl)];
+}
+
+function applyThinkingConfig(
+	params: MessageCreateParamsStreaming,
+	model: Model<"anthropic-messages">,
+	options?: AnthropicOptions,
+): void {
+	if (!model.reasoning) return;
+
+	if (options?.thinkingEnabled === false) {
+		params.thinking = { type: "disabled" };
+		return;
+	}
+
+	if (!options?.thinkingEnabled) return;
+
+	// Default to "summarized" so Opus 4.7 and Mythos Preview behave like
+	// older Claude 4 models (whose API default is also "summarized").
+	const display: AnthropicThinkingDisplay = options.thinkingDisplay ?? "summarized";
+
+	if (!supportsAdaptiveThinking(model.id)) {
+		// Budget-based thinking for older models
+		params.thinking = {
+			type: "enabled",
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
+			budget_tokens: options.thinkingBudgetTokens || 1024,
+			display,
+		};
+		return;
+	}
+
+	// Adaptive thinking: Claude decides when and how much to think.
+	params.thinking = { type: "adaptive", display };
+	if (!options.effort) return;
+
+	// The Anthropic SDK types can lag newly supported effort values such as "xhigh".
+	params.output_config =
+		options.effort === "xhigh"
+			? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SDK type mismatch, xhigh not yet in SDK types
+				({ effort: options.effort } as unknown as NonNullable<MessageCreateParamsStreaming["output_config"]>)
+			: { effort: options.effort };
+}
+
+function applyMetadata(params: MessageCreateParamsStreaming, options?: AnthropicOptions): void {
+	const userId = options?.metadata?.user_id;
+	if (typeof userId !== "string") return;
+	params.metadata = { user_id: userId };
+}
+
+function applyToolChoice(params: MessageCreateParamsStreaming, options?: AnthropicOptions): void {
+	if (!options?.toolChoice) return;
+	params.tool_choice =
+		typeof options.toolChoice === "string" ? { type: options.toolChoice } : options.toolChoice;
+}
+
 function buildParams(
 	model: Model<"anthropic-messages">,
 	context: Context,
@@ -1032,32 +1117,7 @@ function buildParams(
 		stream: true,
 	};
 
-	// For OAuth tokens, we MUST include Claude Code identity
-	if (isOAuthToken) {
-		params.system = [
-			{
-				type: "text",
-				text: "You are Claude Code, Anthropic's official CLI for Claude.",
-				...(cacheControl ? { cache_control: cacheControl } : {}),
-			},
-		];
-		if (context.systemPrompt) {
-			params.system.push({
-				type: "text",
-				text: sanitizeSurrogates(context.systemPrompt),
-				...(cacheControl ? { cache_control: cacheControl } : {}),
-			});
-		}
-	} else if (context.systemPrompt) {
-		// Add cache control to system prompt for non-OAuth tokens
-		params.system = [
-			{
-				type: "text",
-				text: sanitizeSurrogates(context.systemPrompt),
-				...(cacheControl ? { cache_control: cacheControl } : {}),
-			},
-		];
-	}
+	applySystemPrompt(params, context, isOAuthToken, cacheControl);
 
 	// Temperature is incompatible with extended thinking (adaptive or budget-based).
 	if (options?.temperature !== undefined && !options.thinkingEnabled) {
@@ -1076,52 +1136,11 @@ function buildParams(
 
 	// Configure thinking mode: adaptive (Opus 4.6+ and Sonnet 4.6),
 	// budget-based (older models), or explicitly disabled.
-	if (model.reasoning) {
-		if (options?.thinkingEnabled) {
-			// Default to "summarized" so Opus 4.7 and Mythos Preview behave like
-			// older Claude 4 models (whose API default is also "summarized").
-			const display: AnthropicThinkingDisplay = options.thinkingDisplay ?? "summarized";
-			if (supportsAdaptiveThinking(model.id)) {
-				// Adaptive thinking: Claude decides when and how much to think.
-				params.thinking = { type: "adaptive", display };
-				if (options.effort) {
-					// The Anthropic SDK types can lag newly supported effort values such as "xhigh".
-					params.output_config =
-						options.effort === "xhigh"
-							? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SDK type mismatch, xhigh not yet in SDK types
-								({ effort: options.effort } as unknown as NonNullable<
-									MessageCreateParamsStreaming["output_config"]
-								>)
-							: { effort: options.effort };
-				}
-			} else {
-				// Budget-based thinking for older models
-				params.thinking = {
-					type: "enabled",
-					// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
-					budget_tokens: options.thinkingBudgetTokens || 1024,
-					display,
-				};
-			}
-		} else if (options?.thinkingEnabled === false) {
-			params.thinking = { type: "disabled" };
-		}
-	}
+	applyThinkingConfig(params, model, options);
 
-	if (options?.metadata) {
-		const userId = options.metadata.user_id;
-		if (typeof userId === "string") {
-			params.metadata = { user_id: userId };
-		}
-	}
+	applyMetadata(params, options);
 
-	if (options?.toolChoice) {
-		if (typeof options.toolChoice === "string") {
-			params.tool_choice = { type: options.toolChoice };
-		} else {
-			params.tool_choice = options.toolChoice;
-		}
-	}
+	applyToolChoice(params, options);
 
 	return params;
 }
@@ -1129,6 +1148,91 @@ function buildParams(
 // Normalize tool call IDs to match Anthropic's required pattern and length
 function normalizeToolCallId(id: string): string {
 	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+}
+
+function convertThinkingBlock(block: ThinkingContent): ContentBlockParam | null {
+	// Redacted thinking: pass the opaque payload back as redacted_thinking
+	if (block.redacted) {
+		return {
+			type: "redacted_thinking",
+			data: block.thinkingSignature!,
+		};
+	}
+
+	if (block.thinking.trim().length === 0) return null;
+
+	// If thinking signature is missing/empty (e.g., from aborted stream),
+	// convert to plain text block without <thinking> tags to avoid API rejection
+	// and prevent Claude from mimicking the tags in responses
+	if (!block.thinkingSignature || block.thinkingSignature.trim().length === 0) {
+		return {
+			type: "text",
+			text: sanitizeSurrogates(block.thinking),
+		};
+	}
+
+	return {
+		type: "thinking",
+		thinking: sanitizeSurrogates(block.thinking),
+		signature: block.thinkingSignature,
+	};
+}
+
+function convertAssistantBlock(
+	block: TextContent | ThinkingContent | ToolCall,
+	isOAuthToken: boolean,
+): ContentBlockParam | null {
+	if (block.type === "text") {
+		if (block.text.trim().length === 0) return null;
+		return {
+			type: "text",
+			text: sanitizeSurrogates(block.text),
+		};
+	}
+
+	if (block.type === "thinking") {
+		return convertThinkingBlock(block);
+	}
+
+	return {
+		type: "tool_use",
+		id: block.id,
+		name: isOAuthToken ? toClaudeCodeName(block.name) : block.name,
+		input: block.arguments,
+	};
+}
+
+function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: CacheControlEphemeral): void {
+	if (!cacheControl || params.length === 0) return;
+
+	const lastMessage = params[params.length - 1];
+	if (lastMessage.role !== "user") return;
+
+	if (typeof lastMessage.content === "string") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control content type workaround
+		lastMessage.content = [
+			{
+				type: "text",
+				text: lastMessage.content,
+				cache_control: cacheControl,
+			},
+		] as any;
+		return;
+	}
+
+	if (!Array.isArray(lastMessage.content)) return;
+
+	const lastBlock = lastMessage.content[lastMessage.content.length - 1];
+	/* eslint-disable @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds */
+	if (
+		!lastBlock ||
+		(lastBlock.type !== "text" && lastBlock.type !== "image" && lastBlock.type !== "tool_result")
+	) {
+		return;
+	}
+	/* eslint-enable @typescript-eslint/no-unnecessary-condition */
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension not in SDK types
+	(lastBlock as any).cache_control = cacheControl;
 }
 
 function convertMessages(
@@ -1188,45 +1292,8 @@ function convertMessages(
 			const blocks: ContentBlockParam[] = [];
 
 			for (const block of msg.content) {
-				if (block.type === "text") {
-					if (block.text.trim().length === 0) continue;
-					blocks.push({
-						type: "text",
-						text: sanitizeSurrogates(block.text),
-					});
-				} else if (block.type === "thinking") {
-					// Redacted thinking: pass the opaque payload back as redacted_thinking
-					if (block.redacted) {
-						blocks.push({
-							type: "redacted_thinking",
-							data: block.thinkingSignature!,
-						});
-						continue;
-					}
-					if (block.thinking.trim().length === 0) continue;
-					// If thinking signature is missing/empty (e.g., from aborted stream),
-					// convert to plain text block without <thinking> tags to avoid API rejection
-					// and prevent Claude from mimicking the tags in responses
-					if (!block.thinkingSignature || block.thinkingSignature.trim().length === 0) {
-						blocks.push({
-							type: "text",
-							text: sanitizeSurrogates(block.thinking),
-						});
-					} else {
-						blocks.push({
-							type: "thinking",
-							thinking: sanitizeSurrogates(block.thinking),
-							signature: block.thinkingSignature,
-						});
-					}
-				} else {
-					blocks.push({
-						type: "tool_use",
-						id: block.id,
-						name: isOAuthToken ? toClaudeCodeName(block.name) : block.name,
-						input: block.arguments,
-					});
-				}
+				const converted = convertAssistantBlock(block, isOAuthToken);
+				if (converted) blocks.push(converted);
 			}
 			if (blocks.length === 0) continue;
 			params.push({
@@ -1271,32 +1338,7 @@ function convertMessages(
 	}
 
 	// Add cache_control to the last user message to cache conversation history
-	if (cacheControl && params.length > 0) {
-		const lastMessage = params[params.length - 1];
-		if (lastMessage.role === "user") {
-			if (Array.isArray(lastMessage.content)) {
-				const lastBlock = lastMessage.content[lastMessage.content.length - 1];
-				/* eslint-disable @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds */
-				if (
-					lastBlock &&
-					(lastBlock.type === "text" || lastBlock.type === "image" || lastBlock.type === "tool_result")
-				) {
-					/* eslint-enable @typescript-eslint/no-unnecessary-condition */
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension not in SDK types
-					(lastBlock as any).cache_control = cacheControl;
-				}
-			} else if (typeof lastMessage.content === "string") {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control content type workaround
-				lastMessage.content = [
-					{
-						type: "text",
-						text: lastMessage.content,
-						cache_control: cacheControl,
-					},
-				] as any;
-			}
-		}
-	}
+	applyCacheControlToLastMessage(params, cacheControl);
 
 	return params;
 }

@@ -9,7 +9,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "f
 import { homedir } from "os";
 import { dirname, join } from "path";
 import { getOAuthApiKey } from "../src/utils/oauth/index.js";
-import type { OAuthCredentials, OAuthProvider } from "../src/utils/oauth/types.js";
+import type { OAuthCredentials, OAuthProviderId } from "../src/utils/oauth/types.js";
 
 function expandTildePath(dir: string): string {
 	if (dir === "~") return homedir();
@@ -98,7 +98,7 @@ export async function resolveApiKey(provider: string): Promise<string | undefine
 			}
 		}
 
-		const result = await getOAuthApiKey(provider as OAuthProvider, oauthCredentials);
+		const result = await getOAuthApiKey(provider as OAuthProviderId, oauthCredentials);
 		if (!result) return undefined;
 
 		// Save refreshed credentials back to auth.json

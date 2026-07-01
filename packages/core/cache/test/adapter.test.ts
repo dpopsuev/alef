@@ -1,4 +1,4 @@
-import { buildSense } from "@dpopsuev/alef-kernel/bus";
+import { buildEventResult } from "@dpopsuev/alef-kernel/bus";
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createCacheAdapter } from "../src/adapter.js";
@@ -38,7 +38,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "file content", isFinal: true },
 				),
@@ -80,7 +80,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content 1", isFinal: true },
 				),
@@ -98,7 +98,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content 2", isFinal: true },
 				),
@@ -131,7 +131,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "original", isFinal: true },
 				),
@@ -152,7 +152,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "refreshed", isFinal: true },
 				),
@@ -186,7 +186,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "before write", isFinal: true },
 				),
@@ -213,7 +213,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "after write", isFinal: true },
 				),
@@ -241,7 +241,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "cached", isFinal: true },
 				),
@@ -269,7 +269,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "cached", isFinal: true },
 				),
@@ -315,7 +315,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content", isFinal: true },
 				),
@@ -373,7 +373,7 @@ describe("CacheAdapter", () => {
 		fixture.bus
 			.asBus()
 			.event.publish(
-				buildSense(
+				buildEventResult(
 					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "now exists", isFinal: true },
 				),

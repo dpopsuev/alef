@@ -109,17 +109,4 @@ export function registerAdapters(directives: Directives, adapters: readonly Adap
 	}
 }
 
-export interface BuildSystemPromptOptions {
-	tools: readonly ToolDefinition[];
-}
 
-/** @deprecated Use createDefaultDirectives() instead. */
-export function buildSystemPrompt(opts: BuildSystemPromptOptions = { tools: [] }): string {
-	return createDefaultDirectives({ tools: opts.tools, cwd: process.cwd() }).build();
-}
-
-/** @deprecated Environment is now the 'environment' block at priority 1000. */
-export function appendEnvironment(prompt: string, cwd: string): string {
-	const date = new Date().toISOString().split("T")[0];
-	return `${prompt}\n\nDate: ${date}\nDirectory: ${cwd}`;
-}

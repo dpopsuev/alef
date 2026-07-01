@@ -25,7 +25,7 @@ import type { AlefConfig } from "./config.js";
  * Resolution order:
  *   1. config.security.writable_roots (explicit user config)
  *   2. ALEF_WRITABLE_ROOTS env var (propagated from parent via orchestration.spawn)
- *   3. undefined (unrestricted — pi-mono style default)
+ *   3. undefined (unrestricted (no guard))
  */
 export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly string[] | undefined {
 	const raw = cfg.security?.writable_roots;

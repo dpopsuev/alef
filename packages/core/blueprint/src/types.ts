@@ -103,7 +103,6 @@ export interface CompiledAgentAdapterDefinition {
 	path?: string;
 	/** Action filter passed to the adapter factory. */
 	actions: string[];
-	/** @deprecated EDA adapters self-describe. Always empty. */
 	toolNames: string[];
 	/** Shell command patterns to block (string regexes compiled to RegExp by materializer). */
 	blockedPatterns?: string[];
@@ -241,8 +240,6 @@ export interface AgentDefinitionInput {
 	model?: string | AgentModelSelector;
 	systemPrompt?: string;
 	adapters?: AgentDefinitionAdapterInput[];
-	/** @deprecated Use adapters. Kept for YAML backward compat. */
-	organs?: AgentDefinitionAdapterInput[];
 	/** Event surface declarations — controls what the RouterAdapter broadcasts. */
 	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {

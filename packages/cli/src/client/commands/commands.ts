@@ -1,7 +1,7 @@
 /**
  * Command registry — all TUI commands as named, dispatchable units.
  *
- * Matches the Command + Registry pattern from Scribe (service/ops.go).
+ * Command + Registry pattern.
  * The colon prefix is the TUI invoker convention, not part of the command.
  * Any other invoker (MCP, HTTP) can dispatch through registry.find(name).
  */

@@ -150,7 +150,7 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 
 	it("parses a flat string list", () => {
 		const dir = makeTmp();
-		writeFileSync(join(dir, "organs.yaml"), "organs:\n  - fs\n  - shell\n");
+		writeFileSync(join(dir, "organs.yaml"), "adapters:\n  - fs\n  - shell\n");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
 			const result = loadUserAdaptersConfig();
@@ -166,9 +166,13 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 		const dir = makeTmp();
 		writeFileSync(
 			join(dir, "organs.yaml"),
-			["organs:", "  - name: fs", "    actions: [read]", "  - name: my-organ", "    path: /organs/my-organ.ts"].join(
-				"\n",
-			),
+			[
+				"adapters:",
+				"  - name: fs",
+				"    actions: [read]",
+				"  - name: my-organ",
+				"    path: /organs/my-organ.ts",
+			].join("\n"),
 		);
 		process.env.ALEF_PM_ROOT = dir;
 		try {

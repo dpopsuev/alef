@@ -91,7 +91,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			name: "full",
 			adapters: [{ name: "fs" }, { name: "shell" }],
 		});
-		// Blueprint does not know tool names — organs self-describe at mount time.
+		// Blueprint does not know tool names — adapters self-describe at mount time.
 		expect(def.capabilities.tools).toEqual([]);
 	});
 
@@ -259,7 +259,7 @@ spec:
 apiVersion: ${AGENT_RESOURCE_API_VERSION}
 kind: ${AGENT_RESOURCE_KIND}
 spec:
-  organs: []
+  adapters: []
 `.trim();
 		expect(() => parseAgentDefinitionYaml(yaml)).toThrow(/name.*required/i);
 	});
@@ -272,7 +272,7 @@ spec:
 		// Blueprint is structural — action validation is the materializer's concern.
 		const yaml = `
 name: passthrough
-organs:
+adapters:
   - name: fs
     actions: [nonexistent_action]
 `.trim();

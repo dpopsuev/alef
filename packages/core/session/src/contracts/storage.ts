@@ -68,4 +68,3 @@ export interface SessionStore {
 }
 
 /** @deprecated Use SessionStore (the interface) */
-export type ISessionStore = SessionStore;

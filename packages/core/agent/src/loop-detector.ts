@@ -5,7 +5,7 @@
  *
  *   1. Full interaction repetition (definite loop): the same tool is called
  *      with identical arguments AND produces the same result N times in one
- *      turn. Matches Crush's getToolInteractionSignature approach — hashing
+ *      turn. Full interaction hash — hashing
  *      (type + args + result) together. A tool returning different content
  *      each call is not a loop; identical (call, result) pairs N times is.
  *      Default threshold: 3.

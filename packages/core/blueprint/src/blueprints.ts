@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { parse } from "yaml";
-import { compileAgentAdapterDefinitions, listToolNamesForAdapters } from "./organs.js";
+import { compileAgentAdapterDefinitions } from "./organs.js";
 import type {
 	AgentDefinitionDependenciesConfig,
 	AgentDefinitionInput,
@@ -447,11 +447,9 @@ export function compileAgentDefinition(
 
 	const sourcePath = options.sourcePath ? resolve(options.sourcePath) : undefined;
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
-	const adapterInput = input.adapters ?? input.organs;
+	const adapterInput = input.adapters;
 	const adapters = compileAgentAdapterDefinitions(adapterInput);
-	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
-	const toolNames =
-		adapters.length > 0 ? [...new Set([...listToolNamesForAdapters(adapters), ...legacyToolNames])] : legacyToolNames;
+	const toolNames = normalizeStringArray(input.capabilities?.tools);
 	const hasOrchestrationAdapter = adapters.some(
 		(adapter) => adapter.name === "orchestration" || adapter.name === "agent",
 	);

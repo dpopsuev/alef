@@ -308,7 +308,7 @@ export function isRetriable(err: unknown): boolean {
 
 /**
  * Create a structured error object for the event bus.
- * Compatible with existing buildErrSense() pattern.
+ * Compatible with existing buildErrorResult() pattern.
  */
 export function toSenseError(err: unknown): { message: string; error: Record<string, unknown> } {
 	return {

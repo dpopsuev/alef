@@ -72,7 +72,7 @@ const ConfigSchema = z.object({
 	 * Examples:
 	 *   security: { writable_roots: ["${cwd}", "${tmpdir}"] }  # workspace + tmp
 	 *   security: { writable_roots: ["${cwd}"] }               # workspace only
-	 *   # omit security section entirely for unrestricted (pi-mono style)
+	 *   # omit security section entirely for unrestricted (unrestricted)
 	 */
 	security: z
 		.object({

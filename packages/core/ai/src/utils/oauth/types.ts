@@ -9,9 +9,6 @@ export type OAuthCredentials = {
 
 export type OAuthProviderId = string;
 
-/** @deprecated Use OAuthProviderId instead */
-export type OAuthProvider = OAuthProviderId;
-
 export type OAuthPrompt = {
 	message: string;
 	placeholder?: string;
@@ -63,9 +60,3 @@ export interface OAuthProviderInterface {
 	modifyModels?(models: Model<Api>[], credentials: OAuthCredentials): Model<Api>[];
 }
 
-/** @deprecated Use OAuthProviderInterface instead */
-export interface OAuthProviderInfo {
-	id: OAuthProviderId;
-	name: string;
-	available: boolean;
-}

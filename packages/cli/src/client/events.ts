@@ -207,20 +207,24 @@ export function dispatchTuiEvent(
 
 	// ── Input event handlers ────────────────────────────────────────────
 
+	/** Handle overlay show event. */
 	function onOverlayShow(e: Extract<TuiEvent, { type: "overlay.show" }>): TuiState {
 		return { ...state, overlays: [...state.overlays, e.descriptor] };
 	}
 
+	/** Handle overlay hide event. */
 	function onOverlayHide(e: Extract<TuiEvent, { type: "overlay.hide" }>): TuiState {
 		return { ...state, overlays: state.overlays.filter((o) => o.id !== e.id) };
 	}
 
+	/** Handle turn start event. */
 	function onTurnStart(e: Extract<TuiEvent, { type: "turn.start" }>): TuiState {
 		promptConsole.hidePendingFooter();
 		promptConsole.startThinking();
 		return { ...state, pendingFooterShown: false, turnStartedAt: e.timestamp };
 	}
 
+	/** Handle turn complete event. */
 	function onTurnComplete(e: Extract<TuiEvent, { type: "turn.complete" }>): TuiState {
 		resetUIComponents(ui);
 		promptConsole.stopThinking();
@@ -228,22 +232,27 @@ export function dispatchTuiEvent(
 		return { ...state, pendingFooterShown: false, pendingTokenFooter: e.tokenFooter };
 	}
 
+	/** Handle turn abort event. */
 	function onTurnAbort(): TuiState {
 		return { ...state, abortCurrentTurn: undefined };
 	}
 
+	/** Handle turn error event. */
 	function onTurnError(e: Extract<TuiEvent, { type: "turn.error" }>): TuiState {
 		return handleTurnError(state, e, ui);
 	}
 
+	/** Set the abort callback. */
 	function onAbortSet(e: Extract<TuiEvent, { type: "abort.set" }>): TuiState {
 		return { ...state, abortCurrentTurn: e.fn };
 	}
 
+	/** Clear the abort callback. */
 	function onAbortClear(): TuiState {
 		return { ...state, abortCurrentTurn: undefined };
 	}
 
+	/** Toggle thinking visibility. */
 	function onThinkingToggle(): TuiState {
 		const next = !replyBlock.hideThinking;
 		replyBlock.setHideThinking(next);
@@ -251,24 +260,29 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Cycle inspector focus. */
 	function onInspectorCycle(): TuiState {
 		return handleInspectorCycle(state, ui);
 	}
 
+	/** Close inspector. */
 	function onInspectorClose(): TuiState {
 		return handleInspectorClose(state, ui);
 	}
 
+	/** Cancel inspector. */
 	function onInspectorCancel(): TuiState {
 		return handleInspectorCancel(state, ui);
 	}
 
+	/** Scroll inspector view. */
 	function onInspectorScroll(e: Extract<TuiEvent, { type: "inspector.scroll" }>): TuiState {
 		return handleInspectorScroll(state, ui, e.direction);
 	}
 
 	// ── Agent event handlers ────────────────────────────────────────────
 
+	/** Handle tool execution start. */
 	function onToolStart(e: Extract<TuiEvent, { type: "tool-start" }>): TuiState {
 		const { callId, name, args } = e;
 		const keyArg = keyArgFromPayload(args);
@@ -292,10 +306,12 @@ export function dispatchTuiEvent(
 		};
 	}
 
+	/** Handle tool execution end. */
 	function onToolEnd(e: Extract<TuiEvent, { type: "tool-end" }>): TuiState {
 		return handleToolEnd(state, e, ui);
 	}
 
+	/** Handle nested tool start. */
 	function onInnerToolStart(e: Extract<TuiEvent, { type: "inner-tool-start" }>): TuiState {
 		const parent = state.activeCalls.get(e.parentCallId);
 		if (!parent) return state;
@@ -311,6 +327,7 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Handle nested tool end. */
 	function onInnerToolEnd(e: Extract<TuiEvent, { type: "inner-tool-end" }>): TuiState {
 		const parent = state.activeCalls.get(e.parentCallId);
 		if (!parent) return state;
@@ -319,6 +336,7 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Accumulate inner agent text chunk. */
 	function onInnerChunk(e: Extract<TuiEvent, { type: "inner-chunk" }>): TuiState {
 		const existing = state.innerReplies.get(e.parentCallId) ?? "";
 		const innerReplies = new Map(state.innerReplies);
@@ -326,6 +344,7 @@ export function dispatchTuiEvent(
 		return { ...state, innerReplies };
 	}
 
+	/** Process token usage report. */
 	function onTokenUsage(e: Extract<TuiEvent, { type: "token-usage" }>): TuiState {
 		const { input, output, totalTokens, costUsd } = e.usage;
 		const sessionTokensTotal = state.sessionTokensTotal + input + output;
@@ -360,6 +379,7 @@ export function dispatchTuiEvent(
 		};
 	}
 
+	/** Process streaming text chunk. */
 	function onChunk(e: Extract<TuiEvent, { type: "chunk" }>): TuiState {
 		promptConsole.pulse();
 		replyTW.receive(e.text);
@@ -370,22 +390,26 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Process thinking text chunk. */
 	function onThinking(e: Extract<TuiEvent, { type: "thinking" }>): TuiState {
 		promptConsole.pulse();
 		thinkingTW.receive(e.text);
 		return state;
 	}
 
+	/** Set subagent identity display. */
 	function onSubagentIdentity(e: Extract<TuiEvent, { type: "subagent-identity" }>): TuiState {
 		promptConsole.setCallIdentity(e.callId, e.color, e.address, e.modelId);
 		return state;
 	}
 
+	/** Update subagent token display. */
 	function onSubagentTokenUsage(e: Extract<TuiEvent, { type: "subagent-token-usage" }>): TuiState {
 		promptConsole.updateCallTokens(e.callId, e.input, e.output);
 		return state;
 	}
 
+	/** Process tool output chunk. */
 	function onToolChunk(e: Extract<TuiEvent, { type: "tool-chunk" }>): TuiState {
 		promptConsole.pulse();
 		promptConsole.updateInFlightCallChunk(e.callId, e.text);
@@ -400,15 +424,14 @@ export function dispatchTuiEvent(
 		return { ...state, callChunks };
 	}
 
+	/** Handle tool stall warning. */
 	function onToolStall(e: Extract<TuiEvent, { type: "tool-stall" }>): TuiState {
 		promptConsole.pulse();
-		promptConsole.updateInFlightCallChunk(
-			e.callId,
-			`⏳ no output for ${Math.round(e.lastChunkMs / 1_000)}s`,
-		);
+		promptConsole.updateInFlightCallChunk(e.callId, `⏳ no output for ${Math.round(e.lastChunkMs / 1_000)}s`);
 		return state;
 	}
 
+	/** Handle tool validation error. */
 	function onToolValidationError(e: Extract<TuiEvent, { type: "tool-validation-error" }>): TuiState {
 		promptConsole.pulse();
 		const errorMsg = `⚠ invalid arg '${e.field}': ${e.message}`;
@@ -423,12 +446,14 @@ export function dispatchTuiEvent(
 		return { ...state, validationErrors };
 	}
 
+	/** Handle LLM turn error. */
 	function onLlmTurnError(e: Extract<TuiEvent, { type: "turn-error" }>): TuiState {
 		promptConsole.pulse();
 		writer.addNotice(`LLM error: ${e.message}`);
 		return state;
 	}
 
+	/** Handle queued message notification. */
 	function onMessageQueued(e: Extract<TuiEvent, { type: "message-queued" }>): TuiState {
 		writer.addNotice(
 			e.queueLength === 1
@@ -438,6 +463,7 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Track background task progress. */
 	function onTaskProgress(e: Extract<TuiEvent, { type: "task-progress" }>): TuiState {
 		const tasks = new Map(state.backgroundTasks);
 		let task = tasks.get(e.taskId);
@@ -456,6 +482,7 @@ export function dispatchTuiEvent(
 		return { ...state, backgroundTasks: tasks };
 	}
 
+	/** Handle background task completion. */
 	function onTaskCompleted(e: Extract<TuiEvent, { type: "task-completed" }>): TuiState {
 		const tasks = new Map(state.backgroundTasks);
 		const task = tasks.get(e.taskId);
@@ -469,6 +496,7 @@ export function dispatchTuiEvent(
 		return { ...state, backgroundTasks: tasks };
 	}
 
+	/** Handle background task failure. */
 	function onTaskFailed(e: Extract<TuiEvent, { type: "task-failed" }>): TuiState {
 		const tasks = new Map(state.backgroundTasks);
 		const task = tasks.get(e.taskId);
@@ -485,7 +513,7 @@ export function dispatchTuiEvent(
 	// ── Dispatch table ──────────────────────────────────────────────────
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const handlers: Record<string, (e: any) => TuiState> = {
+	const handlers: Partial<Record<string, (e: any) => TuiState>> = {
 		"overlay.show": onOverlayShow,
 		"overlay.hide": onOverlayHide,
 		"turn.start": onTurnStart,
@@ -505,8 +533,8 @@ export function dispatchTuiEvent(
 		"inner-tool-end": onInnerToolEnd,
 		"inner-chunk": onInnerChunk,
 		"token-usage": onTokenUsage,
-		"chunk": onChunk,
-		"thinking": onThinking,
+		chunk: onChunk,
+		thinking: onThinking,
 		"subagent-identity": onSubagentIdentity,
 		"subagent-token-usage": onSubagentTokenUsage,
 		"tool-chunk": onToolChunk,
@@ -520,7 +548,7 @@ export function dispatchTuiEvent(
 	};
 
 	const handle = handlers[event.type];
-	return handle ? handle(event) : state;
+	return handle?.(event) ?? state;
 }
 
 const TASK_TOAST_DURATION_MS = 5000;

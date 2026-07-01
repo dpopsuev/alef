@@ -82,7 +82,7 @@ export interface ToolShellOptions {
 	 * Tool schema disclosure strategy. Default: "full".
 	 *
 	 * "full" — all tools sent with complete schemas from turn 1. No boot
-	 *          catalog, no tools.describe step. Matches pi-mono/cline/opencode.
+	 *          catalog, no tools.describe step. Progressive disclosure pattern.
 	 *
 	 * "progressive" — tools sent with stripped schemas ({}). Boot catalog
 	 *                 injected as user message. Model must call tools.describe

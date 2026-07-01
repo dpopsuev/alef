@@ -81,15 +81,7 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 		return removed;
 	}
 
-	/** @deprecated Use register/unregister. Single-row compat for migration. */
-	async set(entry: DaemonEntry): Promise<void> {
-		await this.register(entry);
-	}
 
-	/** @deprecated Use findLatest(). Single-row compat for migration. */
-	async clear(): Promise<void> {
-		await this.client.execute({ sql: "DELETE FROM daemon", args: [] });
-	}
 
 	private rowToEntry(row: Record<string, unknown> | undefined): DaemonEntry | undefined {
 		if (!row) return undefined;

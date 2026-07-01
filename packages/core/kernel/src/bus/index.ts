@@ -37,12 +37,9 @@ export type {
 } from "./messages.js";
 export { CHANNEL, makeBus, newCorrelationId } from "./messages.js";
 export {
-	buildErrSense,
-	buildErrSense as buildErrorResult,
-	buildSense,
-	buildSense as buildEventResult,
+	buildErrorResult,
+	buildEventResult,
 	extractToolCallId,
-	toErrorMessage,
 } from "./event-builders.js";
-export { InProcessBus, InProcessBus as InProcessNerve, type BusOptions, type WatchdogOptions } from "./in-process-bus.js";
+export { InProcessBus, type BusOptions, type WatchdogOptions } from "./in-process-bus.js";
 export { Watchdog } from "./watchdog.js";

@@ -1,17 +1,8 @@
 import type { CommandMessage, EventInput } from "./messages.js";
-import { getErrorMessage } from "../errors.js";
 
 /** Extract the toolCallId string from a payload, if present. */
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
 	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
-}
-
-/**
- * @deprecated Use getErrorMessage from "./errors.js" instead.
- * Kept for backward compatibility during migration.
- */
-export function toErrorMessage(err: unknown): string {
-	return getErrorMessage(err);
 }
 
 /** Construct a success or error event from a command, forwarding its correlation and toolCallId. */
@@ -43,7 +34,3 @@ export function buildErrorResult(command: CommandMessage, message: string): Even
 	};
 }
 
-/** @deprecated Use buildEventResult */
-export const buildSense = buildEventResult;
-/** @deprecated Use buildErrorResult */
-export const buildErrSense = buildErrorResult;

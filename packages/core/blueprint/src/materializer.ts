@@ -226,7 +226,7 @@ export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | 
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof/null check above
 	const rec = parsed as Record<string, unknown>;
-	const entries = rec.adapters ?? rec.organs;
+	const entries = rec.adapters;
 	if (!Array.isArray(entries)) return null;
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- entries validated by Array.isArray guard

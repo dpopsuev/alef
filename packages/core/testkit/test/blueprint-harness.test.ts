@@ -182,7 +182,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: test-agent", "organs:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
+			["name: test-agent", "adapters:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
 		);
 
 		const h = await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -203,7 +203,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: readonly-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"),
+			["name: readonly-agent", "adapters:", "  - name: fs", "    actions: [read]"].join("\n"),
 		);
 
 		const h = await BlueprintHarness.fromBlueprint(blueprintPath, {

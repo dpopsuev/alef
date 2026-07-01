@@ -27,7 +27,7 @@ const noopLogger: AdapterLogger = {
 	child: () => noopLogger,
 };
 
-export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
+export { buildErrorResult, buildEventResult, extractToolCallId } from "../bus/event-builders.js";
 
 /** Filter an action map to include only the event types present in the allowlist. */
 function filterActions(actions: ActionMap, allowlist: readonly string[]): ActionMap {

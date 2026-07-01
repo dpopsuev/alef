@@ -1,12 +1,5 @@
 import { Directives } from "@dpopsuev/alef-agent/directives";
-import {
-	appendEnvironment,
-	BLOCK_CORE,
-	buildPrepareStep,
-	buildSystemPrompt,
-	createDefaultDirectives,
-	registerAdapters,
-} from "@dpopsuev/alef-agent/prompt";
+import { BLOCK_CORE, buildPrepareStep, createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import { describe, expect, it } from "vitest";
 
 const FS_TOOLS = [
@@ -16,26 +9,31 @@ const FS_TOOLS = [
 ];
 const SHELL_TOOLS = [{ name: "shell.exec", description: "Run a shell command.", inputSchema: {} as never }];
 
-describe("buildSystemPrompt", { tags: ["unit"] }, () => {
+/** Build the full system prompt via createDefaultDirectives (replaces deprecated buildSystemPrompt). */
+function buildPrompt(tools: typeof FS_TOOLS = []): string {
+	return createDefaultDirectives({ tools, cwd: process.cwd() }).build();
+}
+
+describe("createDefaultDirectives", { tags: ["unit"] }, () => {
 	it("includes active tool names in the tool list", () => {
-		const prompt = buildSystemPrompt({ tools: [...FS_TOOLS, ...SHELL_TOOLS] });
+		const prompt = buildPrompt([...FS_TOOLS, ...SHELL_TOOLS]);
 		expect(prompt).toContain("fs.read");
 		expect(prompt).toContain("fs.edit");
 		expect(prompt).toContain("shell.exec");
 	});
 
 	it("shows (no tools loaded) when no tools provided", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
+		const prompt = buildPrompt();
 		expect(prompt).toContain("(no tools loaded)");
 	});
 
 	it("includes guidelines block", () => {
-		const prompt = buildSystemPrompt({ tools: FS_TOOLS });
+		const prompt = buildPrompt(FS_TOOLS);
 		expect(prompt).toContain("<guidelines>");
 	});
 
 	it("includes date and cwd via the environment block", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
+		const prompt = buildPrompt();
 		const today = new Date().toISOString().split("T")[0];
 		expect(prompt).toContain(today);
 		expect(prompt).toContain("Directory:");
@@ -93,7 +91,7 @@ describe("BLOCK_CORE — consolidated system prompt", { tags: ["unit"] }, () => 
 	});
 
 	it("built prompt contains all core rules in a single block", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
+		const prompt = buildPrompt();
 		expect(prompt).toContain("<core>");
 		expect(prompt).toContain("not create files");
 		expect(prompt).toContain("No emojis");
@@ -110,12 +108,12 @@ describe("BLOCK_CORE — consolidated system prompt", { tags: ["unit"] }, () => 
 
 describe("BLOCK_GUIDELINES — investigation rules", { tags: ["unit"] }, () => {
 	it("built prompt contains tool discovery rule", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
+		const prompt = buildPrompt();
 		expect(prompt).toContain("tools.describe");
 	});
 
 	it("built prompt contains anti-hallucination rule", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
+		const prompt = buildPrompt();
 		expect(prompt).toContain("Read files before describing them");
 	});
 });
@@ -222,24 +220,5 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		const systemContent = String(messages[0].content);
 		expect(systemContent).toContain("KEEP_THIS");
 		expect(systemContent).not.toContain("DROP_THIS");
-	});
-});
-
-describe("appendEnvironment", { tags: ["unit"] }, () => {
-	it("appends date and cwd last", () => {
-		const base = "base prompt";
-		const result = appendEnvironment(base, "/my/project");
-		expect(result.endsWith("/my/project")).toBe(true);
-		const today = new Date().toISOString().split("T")[0];
-		expect(result).toContain(today);
-		expect(result).toContain("/my/project");
-	});
-
-	it("date+cwd appear after all other content", () => {
-		const base = buildSystemPrompt({ tools: FS_TOOLS });
-		const result = appendEnvironment(base, "/cwd");
-		const cwdIdx = result.lastIndexOf("/cwd");
-		const guidelinesIdx = result.indexOf("Guidelines");
-		expect(cwdIdx).toBeGreaterThan(guidelinesIdx);
 	});
 });

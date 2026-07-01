@@ -103,8 +103,8 @@ export async function runAdapterContract(
 
 	// 5 & 6. probe each tool with valid + invalid command events
 	if (adapter.tools.length > 0) {
-		const probeNerve = new InProcessBus();
-		const probeUnmount = adapter.mount(probeNerve.asBus());
+		const probeBus = new InProcessBus();
+		const probeUnmount = adapter.mount(probeBus.asBus());
 
 		for (const tool of adapter.tools) {
 			// Build a minimal valid payload from the schema
@@ -112,7 +112,7 @@ export async function runAdapterContract(
 			const invalidPayload = { __invalid__: true };
 
 			// 5. Valid payload → event response (not necessarily isError)
-			const validResult = await probeCommand(probeNerve.asBus(), tool.name, validPayload, timeoutMs);
+			const validResult = await probeCommand(probeBus.asBus(), tool.name, validPayload, timeoutMs);
 			if (validResult === null) {
 				fail(`probe-valid:${tool.name}`, `no event response received within ${timeoutMs}ms for valid payload`);
 			} else {
@@ -120,7 +120,7 @@ export async function runAdapterContract(
 			}
 
 			// 6. Invalid payload → isError event response
-			const invalidResult = await probeCommand(probeNerve.asBus(), tool.name, invalidPayload, timeoutMs);
+			const invalidResult = await probeCommand(probeBus.asBus(), tool.name, invalidPayload, timeoutMs);
 			if (invalidResult === null) {
 				fail(`probe-invalid:${tool.name}`, `no event response received within ${timeoutMs}ms for invalid payload`);
 			} else if (!invalidResult.isError) {
@@ -275,13 +275,13 @@ export function adapterComplianceSuite(
 	describe("adapter framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
 		let adapter: Adapter;
 		let unmount: (() => void) | undefined;
-		const probeNerve = new InProcessBus();
+		const probeBus = new InProcessBus();
 		let capturedLogs: CapturedLog[] = [];
 
 		beforeEach(() => {
 			capturedLogs = [];
 			adapter = createAdapter(makeSpyLogger({}, capturedLogs));
-			unmount = adapter.mount(probeNerve.asBus());
+			unmount = adapter.mount(probeBus.asBus());
 		});
 		afterEach(() => {
 			unmount?.();

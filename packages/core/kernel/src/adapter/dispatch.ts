@@ -6,7 +6,8 @@ import { makeCacheKey } from "./cache.js";
 import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./types.js";
 import type { Bus, CommandMessage, EventMessage } from "../bus/messages.js";
 import { traceEvent } from "../trace.js";
-import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
+import { buildErrorResult, buildEventResult, extractToolCallId } from "../bus/event-builders.js";
+import { getErrorMessage } from "../errors.js";
 
 /**
  * Escalation callback for access policy decisions.
@@ -193,7 +194,7 @@ export async function dispatchCommandAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			bus.event.publish(buildErrorResult(command, toErrorMessage(e)));
+			bus.event.publish(buildErrorResult(command, getErrorMessage(e)));
 		} finally {
 			span.end();
 		}

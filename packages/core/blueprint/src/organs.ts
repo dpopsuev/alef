@@ -54,7 +54,3 @@ export function compileAgentAdapterDefinitions(
 	});
 }
 
-/** @deprecated EDA adapters self-describe at mount time. Returns empty for compatibility. */
-export function listToolNamesForAdapters(_adapters: CompiledAgentAdapterDefinition[]): string[] {
-	return [];
-}

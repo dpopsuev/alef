@@ -5,7 +5,7 @@ import {
 	typedAction,
 } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
-import { type Bus, type BusMiddleware, buildSense } from "@dpopsuev/alef-kernel/bus";
+import { type Bus, type BusMiddleware, buildEventResult } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 
 export interface CacheAdapterOptions {
@@ -121,7 +121,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 						hits++;
 						// Publish cached result directly to event bus
 						bus.event.publish(
-							buildSense(
+							buildEventResult(
 								{ ...event, timestamp: Date.now(), elapsed: 0 },
 								{ ...cached, _fromCache: true, isFinal: true },
 							),
@@ -184,24 +184,24 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 		}
 
 		// Return wrapped bus with cleanup
-		const wrappedNerve = { ...bus };
+		const wrappedBus = { ...bus };
 
 		// Override pulse to include cleanup of subscriptions
 		const originalPulse = bus.pulse.bind(bus);
-		wrappedNerve.pulse = () => {
+		wrappedBus.pulse = () => {
 			originalPulse();
 		};
 
 		// Store cleanup function for later
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- attaching cleanup fn to bus wrapper for later disposal
-		(wrappedNerve as unknown as { _cacheCleanup?: () => void })._cacheCleanup = () => {
+		(wrappedBus as unknown as { _cacheCleanup?: () => void })._cacheCleanup = () => {
 			for (const unsub of motorUnsubs) unsub();
 			for (const unsub of invalidateUnsubs) unsub();
 			for (const unsub of pendingCaptures.values()) unsub();
 			pendingCaptures.clear();
 		};
 
-		return wrappedNerve;
+		return wrappedBus;
 	};
 
 	return defineAdapter(

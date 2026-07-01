@@ -65,7 +65,7 @@ function flushPending(): void {
 	}
 }
 
-/** Register a pino logger to receive all debugLog calls. Called once at runner startup. */
+/** Register a pino logger to receive all traceEvent calls. Called once at runner startup. */
 export function initSpineLogger(logger: MinimalLogger): void {
 	sharedLogger = logger;
 	flushPending();
@@ -92,8 +92,6 @@ export function traceEvent(event: string, extra?: Record<string, unknown>): void
 	}
 }
 
-/** @deprecated Use traceEvent */
-export const debugLog = traceEvent;
 /**
  * Standard log field keys — unified schema across all Alef packages.
  *

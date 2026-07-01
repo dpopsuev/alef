@@ -4,7 +4,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
 
-/** Extract a human-readable text representation from a tool-result payload. */
+/** Best-effort text extraction for tool-result display pills. */
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;

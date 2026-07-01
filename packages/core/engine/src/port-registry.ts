@@ -37,12 +37,6 @@ export interface PortValidationResult {
 	violations: PortViolation[];
 }
 
-// ---------------------------------------------------------------------------
-// Built-in seam definitions
-// ---------------------------------------------------------------------------
-// Adapter seam membership detection
-// ---------------------------------------------------------------------------
-
 /**
  * Returns the action map keys an adapter covers.
  * Adapters created with defineAdapter expose their keys via the internal structure.

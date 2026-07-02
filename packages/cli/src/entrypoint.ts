@@ -17,6 +17,7 @@ import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-storage/service";
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
 import { loadAdapters } from "./boot/adapters.js";
 import { createAgentServiceDescriptor } from "./boot/agent-service.js";
@@ -32,8 +33,7 @@ import { createSessionServiceDescriptor, type SessionService } from "./boot/sess
 import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { pickSession } from "./client/commands/sessions.js";
-import { detectDark, queryPalette, readAlacrittyOpacity } from "./client/terminal.js";
-import { loadTheme } from "./client/theme.js";
+import { loadTheme, queryPalette } from "./client/theme.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";
 import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
@@ -163,13 +163,7 @@ if (args.attach !== undefined) {
 	const { runAgent } = await import("./boot/runner.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();
-	loadTheme(
-		undefined,
-		cfg.theme?.name,
-		cfg.theme?.colors,
-		await detectDark(cfg.theme?.background_opacity ?? readAlacrittyOpacity()),
-		[],
-	);
+	loadTheme(undefined, cfg.theme?.name, cfg.theme?.colors, (await isTermDark()) ?? true, []);
 	await runAgent({
 		args: { ...args, noTui: false },
 		resolvedModelDisplay: remoteSession.getModel(),
@@ -275,9 +269,8 @@ supervisor.register(createAgentServiceDescriptor({ args, cfg, storage }));
 supervisor.register(createTuiServiceDescriptor({ args, store: session }));
 
 // Theme
-const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
 const [isDark, terminalPalette] = await Promise.all([
-	detectDark(opacity),
+	isTermDark().then((r) => r ?? true),
 	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)),
 ]);
 loadTheme(

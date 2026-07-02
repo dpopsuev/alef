@@ -387,3 +387,77 @@ export function getProviderColor(provider: string): ProviderColor {
 export function allProviderColors(): ReadonlyMap<string, ProviderColor> {
 	return new Map(Object.entries(PROVIDER_COLORS));
 }
+
+// ---------------------------------------------------------------------------
+// OSC 4 terminal palette query
+// ---------------------------------------------------------------------------
+
+const PALETTE_QUERY_TIMEOUT_MS = 200;
+const OSC4_ESC = "\x1b";
+const OSC4_BEL = "\x07";
+const osc4Query = (slot: number) => `${OSC4_ESC}]4;${slot};?${OSC4_BEL}`;
+const COLOR_CHANNEL_8BIT = 255;
+const COLOR_CHANNEL_16BIT = 65535;
+const COLOR_CHANNEL_8BIT_LENGTH = 2;
+
+/** Query the terminal's actual RGB values for ANSI color slots via OSC 4. */
+export async function queryPalette(
+	slots: readonly number[],
+	timeoutMs = PALETTE_QUERY_TIMEOUT_MS,
+): Promise<Record<number, string>> {
+	if (!process.stdin.isTTY || !process.stdout.isTTY) return {};
+	const term = process.env.TERM ?? "";
+	if (term.startsWith("tmux") || term.startsWith("screen")) return {};
+	if (slots.length === 0) return {};
+
+	return new Promise((resolve) => {
+		const stdin = process.stdin as NodeJS.ReadStream & { isRaw?: boolean };
+		const wasRaw = stdin.isRaw;
+		const result: Record<number, string> = {};
+		const pending = new Set(slots);
+		let settled = false;
+
+		const finish = (): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			stdin.off("data", onData);
+			try {
+				if (!wasRaw) stdin.setRawMode(false);
+			} catch {
+				/* ignore */
+			}
+			resolve(result);
+		};
+
+		const timer = setTimeout(finish, timeoutMs);
+
+		let buf = "";
+		const onData = (chunk: Buffer): void => {
+			buf += chunk.toString();
+			const re = /\x1b\]4;(\d+);rgb:([\da-fA-F]+)\/([\da-fA-F]+)\/([\da-fA-F]+)[\x07\x1b\\]/g;
+			for (;;) {
+				const m = re.exec(buf);
+				if (!m) break;
+				const slot = Number(m[1]);
+				const scale = m[2].length <= COLOR_CHANNEL_8BIT_LENGTH ? COLOR_CHANNEL_8BIT : COLOR_CHANNEL_16BIT;
+				const r = Math.round((parseInt(m[2], 16) / scale) * 255);
+				const g = Math.round((parseInt(m[3], 16) / scale) * 255);
+				const b = Math.round((parseInt(m[4], 16) / scale) * 255);
+				result[slot] =
+					`#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+				pending.delete(slot);
+			}
+			if (pending.size === 0) finish();
+		};
+
+		try {
+			stdin.setRawMode(true);
+			stdin.resume();
+			stdin.on("data", onData);
+			process.stdout.write(slots.map((n) => osc4Query(n)).join(""));
+		} catch {
+			finish();
+		}
+	});
+}

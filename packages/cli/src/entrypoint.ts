@@ -205,6 +205,11 @@ if (willUseTui) {
 	};
 }
 const log = createRunnerLogger(willUseTui, args.debug);
+
+import { setModelLogger } from "@dpopsuev/alef-agent/model";
+
+setModelLogger({ warn: (msg) => log.warn(msg), error: (msg) => log.error(msg) });
+
 const storage = await getStorage();
 
 import { upgradeToSqliteExporter } from "./boot/otel.js";

@@ -291,10 +291,16 @@ export class RouterAdapter implements Adapter {
 			off2();
 			off3();
 			this.sse.closeAll();
-			this.server?.close();
-			this.server = null;
-			this._readyPromise = null;
 		};
+	}
+
+	async close(): Promise<void> {
+		const server = this.server;
+		this.server = null;
+		this._readyPromise = null;
+		if (server) {
+			await new Promise<void>((resolve) => server.close(() => resolve()));
+		}
 	}
 
 	// -------------------------------------------------------------------------

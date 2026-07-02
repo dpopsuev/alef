@@ -50,9 +50,16 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 	};
 
 	// Daemon/serve with no TTY — keep the process alive but let the router handle I/O.
+	// For ephemeral --serve 0 (supervisor one-shot tasks), arm an idle watchdog that
+	// exits after 5 minutes of no SSE clients. Daemon mode (--daemon) keeps alive forever.
 	if (args.serve !== undefined && !process.stdin.isTTY && !args.print) {
+		const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 		try {
-			await new Promise<void>(() => {});
+			await new Promise<void>((resolve) => {
+				if (args.daemon) return;
+				const timer = setTimeout(resolve, IDLE_TIMEOUT_MS);
+				timer.unref();
+			});
 		} finally {
 			traceEvent("shutdownOTel:start");
 			await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);

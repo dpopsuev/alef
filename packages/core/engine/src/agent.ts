@@ -365,7 +365,7 @@ export class Agent {
 		this.disposed = true;
 		this.controller.abort();
 		for (const unmount of this.unmounts) unmount();
-		const closePromises = this._adapters.map((o) => o.close?.()).filter((p): p is Promise<void> => p !== undefined);
+		const closePromises = this._adapters.map((o) => o.close?.()).filter((p): p is Promise<void> => p instanceof Promise);
 		await Promise.all(closePromises);
 		this.unmounts.length = 0;
 	}

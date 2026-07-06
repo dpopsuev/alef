@@ -381,9 +381,6 @@ export function convertMessages(
 				// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
 				const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
 				if (signature && signature.length > 0) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic property name from provider thinking signature
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 					(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
 				}
@@ -419,9 +416,6 @@ export function convertMessages(
 				})
 				.filter(Boolean);
 			if (reasoningDetails.length > 0) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI reasoning extension
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				(assistantMsg as any).reasoning_details = reasoningDetails;
 			}
@@ -478,9 +472,6 @@ export function convertMessages(
 				tool_call_id: toolMsg.toolCallId,
 			};
 			if (compat.requiresToolResultName && toolMsg.toolName) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				(toolResultMsg as any).name = toolMsg.toolName;
 			}

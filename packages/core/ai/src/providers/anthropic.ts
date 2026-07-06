@@ -1347,9 +1347,6 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 		return;
 	}
 	/* eslint-enable @typescript-eslint/no-unnecessary-condition */
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension not in SDK types
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(lastBlock as any).cache_control = cacheControl;
 }

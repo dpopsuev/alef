@@ -261,14 +261,8 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 				"skills.books": typedAction(BOOKS_TOOL, async () => handleBooks()),
 				// eslint-disable-next-line @typescript-eslint/require-await
 				"skills.list": typedAction(LIST_TOOL, async () => handleList()),
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
-				// eslint-disable-next-line @typescript-eslint/require-await
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unsafe-type-assertion
 				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as CommandHandlerCtx)),
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
-				// eslint-disable-next-line @typescript-eslint/require-await
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unsafe-type-assertion
 				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as CommandHandlerCtx)),
 			},

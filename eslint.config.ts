@@ -1,8 +1,27 @@
+import importX from "eslint-plugin-import-x";
 import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
 	{ ignores: ["**/*.d.ts"] },
+
+	// ── Cycle detection: blocks circular imports at commit time ──────────
+	{
+		files: ["packages/*/src/**/*.ts", "packages/*/*/src/**/*.ts"],
+		ignores: ["**/node_modules/**", "**/dist/**", "**/*.generated.ts"],
+		plugins: { "import-x": importX },
+		settings: {
+			"import-x/resolver": {
+				typescript: { project: "./tsconfig.json" },
+			},
+		},
+		rules: {
+			"import-x/no-cycle": ["error", {
+				maxDepth: 3,
+				ignoreExternal: true,
+			}],
+		},
+	},
 
 	// ── JSDoc: require documentation on all exported symbols ────────────
 	// Enforces JSDoc on exported functions, classes, interfaces, type

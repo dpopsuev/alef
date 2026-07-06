@@ -227,14 +227,8 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 
 				// Fallback: some providers (e.g., Moonshot) return usage
 				// in choice.usage instead of the standard chunk.usage
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				if (!chunk.usage && (choice as any).usage) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument -- non-standard provider field
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion
 					output.usage = parseChunkUsage((choice as any).usage, model);
 				}
@@ -318,9 +312,6 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 					}
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- non-standard provider field
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				const reasoningDetails = (choice.delta as any).reasoning_details;
 				if (reasoningDetails && Array.isArray(reasoningDetails)) {
@@ -370,9 +361,6 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
 			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			// Some providers via OpenRouter give additional information in this field.
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- non-standard provider error metadata
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 			const rawMetadata = (error as any)?.error?.metadata?.raw;
 			if (rawMetadata) output.errorMessage += `\n${rawMetadata}`;
@@ -398,7 +386,6 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	const base = buildBaseOptions(model, options, apiKey);
 	const clampedReasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;
 	const reasoningEffort = clampedReasoning === "off" ? undefined : clampedReasoning;
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	const toolChoice = (options as OpenAICompletionsOptions | undefined)?.toolChoice;
 
 	return streamOpenAICompletions(model, context, {
@@ -470,27 +457,18 @@ type ThinkingFormatHandler = (
 
 /** Apply Z.ai thinking format — sets enable_thinking flag. */
 function applyZaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(params as any).enable_thinking = !!options?.reasoningEffort;
 }
 
 /** Apply Qwen thinking format — sets enable_thinking flag. */
 function applyQwenThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(params as any).enable_thinking = !!options?.reasoningEffort;
 }
 
 /** Apply Qwen chat-template thinking format — sets chat_template_kwargs with enable_thinking and preserve_thinking. */
 function applyQwenChatTemplateThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(params as any).chat_template_kwargs = {
 		enable_thinking: !!options?.reasoningEffort,
@@ -500,15 +478,9 @@ function applyQwenChatTemplateThinking(params: OpenAI.Chat.Completions.ChatCompl
 
 /** Apply DeepSeek thinking format — sets thinking object and optional reasoning_effort. */
 function applyDeepseekThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	if (options?.reasoningEffort) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 		(params as any).reasoning_effort =
 			model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
@@ -545,17 +517,11 @@ function applyTogetherThinking(params: OpenAI.Chat.Completions.ChatCompletionCre
 function applyOpenaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined, compat: ResolvedOpenAICompletionsCompat) {
 	if (options?.reasoningEffort && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 	} else if (!options?.reasoningEffort && compat.supportsReasoningEffort) {
 		const offValue = model.thinkingLevelMap?.off;
 		if (typeof offValue === "string") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 			(params as any).reasoning_effort = offValue;
 		}
@@ -598,9 +564,6 @@ function buildParams(
 	};
 
 	if (compat.supportsUsageInStreaming !== false) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI extension
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 		(params as any).stream_options = { include_usage: true };
 	}
@@ -611,9 +574,6 @@ function buildParams(
 
 	if (options?.maxTokens) {
 		if (compat.maxTokensField === "max_tokens") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- legacy max_tokens field for compat
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 			(params as any).max_tokens = options.maxTokens;
 		} else {
@@ -628,9 +588,6 @@ function buildParams(
 	if (context.tools && context.tools.length > 0) {
 		params.tools = convertTools(context.tools, compat);
 		if (compat.zaiToolStream) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 			(params as any).tool_stream = true;
 		}
@@ -653,9 +610,6 @@ function buildParams(
 
 	// OpenRouter provider routing preferences
 	if (model.baseUrl.includes("openrouter.ai") && model.compat?.openRouterRouting) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 		(params as any).provider = model.compat.openRouterRouting;
 	}
@@ -667,9 +621,6 @@ function buildParams(
 			const gatewayOptions: Record<string, string[]> = {};
 			if (routing.only) gatewayOptions.only = routing.only;
 			if (routing.order) gatewayOptions.order = routing.order;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 			(params as any).providerOptions = { gateway: gatewayOptions };
 		}

@@ -2,6 +2,9 @@
  * Usage and result type definitions
  */
 
+/**
+ *
+ */
 export interface Usage {
 	input: number;
 	output: number;
@@ -17,6 +20,12 @@ export interface Usage {
 	};
 }
 
+/**
+ *
+ */
 export type StopReason = "stop" | "length" | "toolUse" | "error" | "aborted";
 
+/**
+ *
+ */
 export type ImagesStopReason = "stop" | "error" | "aborted";

@@ -13,6 +13,7 @@ import { appendFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "n
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { SessionStore, StorageRecord, Turn } from "./contracts/storage.js";
 import { eventTypeWeight, extractContentLength } from "./context/scoring.js";
 
@@ -41,6 +42,9 @@ const CORRELATION_META = "meta";
 
 export const SESSION_ROOT = join(homedir(), ".alef", "sessions");
 
+/**
+ *
+ */
 export async function scanSessionFiles(
 	visitor: (id: string, path: string, cwdHash: string) => Promise<void>,
 ): Promise<void> {
@@ -69,6 +73,9 @@ export async function scanSessionFiles(
 	}
 }
 
+/**
+ *
+ */
 export function sessionPath(id: string, cwdHash: string): string {
 	return join(SESSION_ROOT, cwdHash, `${id}.jsonl`);
 }
@@ -77,10 +84,16 @@ export function sessionPath(id: string, cwdHash: string): string {
 // TurnIndexer (previously turn-indexer.ts)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function cwdHash(cwd: string): string {
 	return createHash("sha1").update(cwd).digest("hex").slice(0, CWD_HASH_LENGTH);
 }
 
+/**
+ *
+ */
 export class TurnIndexer {
 	readonly turnMap = new Map<string, Turn>();
 	readonly hitCountsMap = new Map<string, number>();
@@ -120,18 +133,30 @@ export class TurnIndexer {
 // Private helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function sessionDir(cwd: string): string {
 	return join(homedir(), ".alef", "sessions", cwdHash(cwd));
 }
 
+/**
+ *
+ */
 function storeSessionPath(cwd: string, id: string): string {
 	return join(sessionDir(cwd), `${id}.jsonl`);
 }
 
+/**
+ *
+ */
 function latestPath(cwd: string): string {
 	return join(sessionDir(cwd), "latest");
 }
 
+/**
+ *
+ */
 async function ensureDir(cwd: string): Promise<void> {
 	await mkdir(sessionDir(cwd), { recursive: true });
 }
@@ -140,6 +165,9 @@ async function ensureDir(cwd: string): Promise<void> {
 // JsonlSessionStore
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export class JsonlSessionStore {
 	readonly id: string;
 	readonly path: string;

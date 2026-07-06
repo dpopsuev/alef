@@ -60,6 +60,9 @@ import {
 
 export type { ChildEntry };
 
+/**
+ *
+ */
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
@@ -86,6 +89,9 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	parentAdapterNames?: ReadonlySet<string>;
 }
 
+/**
+ *
+ */
 export function createAgentAdapter(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
@@ -171,6 +177,9 @@ export function createAgentAdapter(
 			),
 	} as const;
 
+	/**
+	 *
+	 */
 	function buildRunTool(): ToolDefinition {
 		return {
 			name: "agent.run",
@@ -183,6 +192,9 @@ export function createAgentAdapter(
 		};
 	}
 
+	/**
+	 *
+	 */
 	async function runIsolated(
 		text: string,
 		payload: Record<string, unknown>,
@@ -219,6 +231,10 @@ export function createAgentAdapter(
 
 	// ── extracted command handlers ───────────────────────────────────────
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleTasks(
 		ctx: CommandHandlerCtx<{ taskId?: string }>,
 	): Promise<Record<string, unknown>> {
@@ -255,6 +271,9 @@ export function createAgentAdapter(
 		return withDisplay({ tasks }, { text: lines.join("\n"), mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
 	async function handleModels(
 		ctx: CommandHandlerCtx<{ provider?: string }>,
 	): Promise<Record<string, unknown>> {
@@ -291,6 +310,7 @@ export function createAgentAdapter(
 		{
 			event: {
 				"adapter.loaded": {
+					// eslint-disable-next-line @typescript-eslint/require-await
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from bus event contract
 						const name = ctx.payload.name as string;
@@ -300,6 +320,7 @@ export function createAgentAdapter(
 					},
 				},
 				"adapter.unloaded": {
+					// eslint-disable-next-line @typescript-eslint/require-await
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from bus event contract
 						composite.remove(ctx.payload.name as string);

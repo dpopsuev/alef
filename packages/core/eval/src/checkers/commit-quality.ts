@@ -20,17 +20,26 @@ const SUBJECT_FORMAT = /^(feat|fix|refactor|test|docs|chore|ci): .+/;
 const TRACKER_ID = /\b[A-Z]{2,}-\d+\b|#\d+|\bTSK-\d+\b/;
 const BULLET_LINE = /^\s*[-*] /m;
 
+/**
+ *
+ */
 export interface CommitQualityOptions {
 	/** Seed SHA returned by initGitWorkspace(). Required. */
 	seedSha: string;
 }
 
+/**
+ *
+ */
 export interface CommitViolation {
 	sha: string;
 	rule: string;
 	message: string;
 }
 
+/**
+ *
+ */
 function checkCommit(sha: string, subject: string, body: string): CommitViolation[] {
 	const violations: CommitViolation[] = [];
 	const v = (rule: string, message: string) => violations.push({ sha: sha.slice(0, 8), rule, message });
@@ -57,8 +66,12 @@ function checkCommit(sha: string, subject: string, body: string): CommitViolatio
 	return violations;
 }
 
+/**
+ *
+ */
 export function commitQualityCheck(opts?: Partial<CommitQualityOptions>): Checker {
 	return {
+		// eslint-disable-next-line @typescript-eslint/require-await
 		async check({ workspace, seedSha: ctxSeedSha }: CheckerContext): Promise<CheckerResult> {
 			const resolvedSha = opts?.seedSha ?? ctxSeedSha;
 			if (!resolvedSha) {

@@ -37,6 +37,9 @@ const rgiEmojiRegex = /^\p{RGI_Emoji}$/v;
 const WIDTH_CACHE_SIZE = 512;
 const widthCache = new Map<string, number>();
 
+/**
+ *
+ */
 function isPrintableAscii(str: string): boolean {
 	for (let i = 0; i < str.length; i++) {
 		const code = str.charCodeAt(i);
@@ -47,6 +50,9 @@ function isPrintableAscii(str: string): boolean {
 	return true;
 }
 
+/**
+ *
+ */
 function truncateFragmentToWidth(text: string, maxWidth: number): { text: string; width: number } {
 	if (maxWidth <= 0 || text.length === 0) {
 		return { text: "", width: 0 };
@@ -110,6 +116,9 @@ function truncateFragmentToWidth(text: string, maxWidth: number): { text: string
 	return { text: result, width };
 }
 
+/**
+ *
+ */
 function finalizeTruncatedResult(
 	prefix: string,
 	prefixWidth: number,
@@ -247,6 +256,9 @@ export function visibleWidth(str: string): number {
 const THAI_LAO_AM_REGEX = /[\u0e33\u0eb3]/;
 const THAI_LAO_AM_GLOBAL_REGEX = /[\u0e33\u0eb3]/g;
 
+/**
+ *
+ */
 export function normalizeTerminalOutput(str: string): string {
 	if (!THAI_LAO_AM_REGEX.test(str)) return str;
 	return str.replace(THAI_LAO_AM_GLOBAL_REGEX, (char) => (char === "\u0e33" ? "\u0e4d\u0e32" : "\u0ecd\u0eb2"));
@@ -263,7 +275,7 @@ export function extractAnsiCode(str: string, pos: number): { code: string; lengt
 	// CSI sequence: ESC [ ... m/G/K/H/J
 	if (next === "[") {
 		let j = pos + 2;
-		while (j < str.length && !/[mGKHJ]/.test(str[j]!)) j++;
+		while (j < str.length && !/[mGKHJ]/.test(str[j])) j++;
 		if (j < str.length) return { code: str.substring(pos, j + 1), length: j + 1 - pos };
 		return null;
 	}
@@ -384,6 +396,9 @@ interface ActiveHyperlink {
 	terminator: Osc8Terminator;
 }
 
+/**
+ *
+ */
 function parseOsc8Hyperlink(ansiCode: string): ActiveHyperlink | null | undefined {
 	if (!ansiCode.startsWith("\x1b]8;")) {
 		return undefined;
@@ -404,10 +419,16 @@ function parseOsc8Hyperlink(ansiCode: string): ActiveHyperlink | null | undefine
 	return { params, url, terminator };
 }
 
+/**
+ *
+ */
 function formatOsc8Hyperlink(hyperlink: ActiveHyperlink): string {
 	return `\x1b]8;${hyperlink.params};${hyperlink.url}${hyperlink.terminator}`;
 }
 
+/**
+ *
+ */
 function formatOsc8Close(terminator: Osc8Terminator): string {
 	return `\x1b]8;;${terminator}`;
 }
@@ -637,6 +658,9 @@ class AnsiCodeTracker {
 	}
 }
 
+/**
+ *
+ */
 function updateTrackerFromText(text: string, tracker: AnsiCodeTracker): void {
 	for (const seg of scanAnsiText(text)) {
 		if (seg.kind === "ansi") {
@@ -730,6 +754,9 @@ export function wrapTextWithAnsi(text: string, width: number): string[] {
 	return result.length > 0 ? result : [""];
 }
 
+/**
+ *
+ */
 function wrapSingleLine(line: string, width: number): string[] {
 	if (!line) {
 		return [""];
@@ -825,6 +852,9 @@ export function isPunctuationChar(char: string): boolean {
 	return PUNCTUATION_REGEX.test(char);
 }
 
+/**
+ *
+ */
 function breakLongWord(word: string, width: number, tracker: AnsiCodeTracker): string[] {
 	const lines: string[] = [];
 	let currentLine = tracker.getActiveCodes();

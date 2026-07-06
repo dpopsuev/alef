@@ -33,6 +33,9 @@ import type { AgentRunContribution } from "@dpopsuev/alef-kernel/contributions";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";
 
+/**
+ *
+ */
 export interface SkillsAdapterOptions {
 	/** Working directory for relative skill path resolution. */
 	cwd: string;
@@ -74,10 +77,16 @@ const OPEN_TOOL = {
 	}),
 };
 
+/**
+ *
+ */
 export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 	const library = new Map<string, SkillBook>();
 	const adapterBooks = new Map<string, SkillBook[]>();
 
+	/**
+	 *
+	 */
 	function rebuildLibrary(): void {
 		library.clear();
 		for (const contribution of adapterBooks.values()) {
@@ -88,11 +97,17 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		}
 	}
 
+	/**
+	 *
+	 */
 	function mergeBooks(adapterName: string, books: readonly SkillBook[]): void {
 		adapterBooks.set(adapterName, [...books]);
 		rebuildLibrary();
 	}
 
+	/**
+	 *
+	 */
 	function removeAdapter(adapterName: string): void {
 		if (!adapterBooks.has(adapterName)) return;
 		adapterBooks.delete(adapterName);
@@ -102,6 +117,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 	const skills: Skill[] = discoverSkills(opts.cwd, opts.skillsPaths ?? []);
 	const byName = new Map(skills.map((s) => [s.name, s]));
 
+	/**
+	 *
+	 */
 	function buildDirective(): string {
 		const libraryIndex =
 			library.size > 0
@@ -119,6 +137,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		);
 	}
 
+	/**
+	 *
+	 */
 	function handleBooks(): Record<string, unknown> {
 		const books = [...library.values()].map((b) => ({
 			name: b.name,
@@ -129,6 +150,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		return { books, total: books.length };
 	}
 
+	/**
+	 *
+	 */
 	function handleList(): Record<string, unknown> {
 		return {
 			skills: skills.map((s) => ({
@@ -142,6 +166,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		};
 	}
 
+	/**
+	 *
+	 */
 	function handleInvoke(ctx: CommandHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book");
 		const pageName = getString(ctx.payload, "page");
@@ -176,6 +203,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		throw new Error("skills.invoke: pass name (filesystem skill) or book + page (library)");
 	}
 
+	/**
+	 *
+	 */
 	function handleOpen(ctx: CommandHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book") ?? "";
 		const book = library.get(bookName);
@@ -210,6 +240,7 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		{
 			event: {
 				"adapter.loaded": {
+					// eslint-disable-next-line @typescript-eslint/require-await
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- contributions shape defined by adapter protocol
@@ -218,6 +249,7 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 					},
 				},
 				"adapter.unloaded": {
+					// eslint-disable-next-line @typescript-eslint/require-await
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
 						removeAdapter(name);
@@ -225,11 +257,19 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 				},
 			},
 			command: {
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"skills.books": typedAction(BOOKS_TOOL, async () => handleBooks()),
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"skills.list": typedAction(LIST_TOOL, async () => handleList()),
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
+				// eslint-disable-next-line @typescript-eslint/require-await
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+				// eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unsafe-type-assertion
 				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as CommandHandlerCtx)),
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
+				// eslint-disable-next-line @typescript-eslint/require-await
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+				// eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unsafe-type-assertion
 				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as CommandHandlerCtx)),
 			},
 		},

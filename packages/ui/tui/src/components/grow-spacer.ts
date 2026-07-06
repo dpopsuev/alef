@@ -40,6 +40,7 @@ export class GrowSpacer implements Component {
 
 	render(_width: number): string[] {
 		if (!this._enabled) return [];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 		const rows = process.stdout.rows ?? 24;
 		const used = this.siblingLines + this._contentLines;
 		if (used >= rows) return [];

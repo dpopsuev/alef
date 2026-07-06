@@ -4,6 +4,9 @@ import { scanSessionFiles } from "@dpopsuev/alef-session/store";
 
 const CONFIG_ROOT = join(process.env.HOME ?? "", ".alef");
 
+/**
+ *
+ */
 export interface SessionEntry {
 	id: string;
 	cwdHash: string;
@@ -14,6 +17,9 @@ export interface SessionEntry {
 	eventCount: number;
 }
 
+/**
+ *
+ */
 async function parseSession(
 	path: string,
 	dialogEventType: string,
@@ -46,6 +52,9 @@ async function parseSession(
 	}
 }
 
+/**
+ *
+ */
 export async function listAllSessions(dialogEventType: string): Promise<SessionEntry[]> {
 	const results: SessionEntry[] = [];
 	await scanSessionFiles(async (id, path, cwdHash) => {
@@ -56,6 +65,9 @@ export async function listAllSessions(dialogEventType: string): Promise<SessionE
 	return results.sort((a, b) => b.mtime.localeCompare(a.mtime));
 }
 
+/**
+ *
+ */
 export async function readSessionTurns(
 	id: string,
 	dialogEventType: string,
@@ -84,6 +96,9 @@ export async function readSessionTurns(
 	return found;
 }
 
+/**
+ *
+ */
 export async function renameSession(id: string, name: string): Promise<{ ok: boolean; error?: string }> {
 	let renamed = false;
 	await scanSessionFiles(async (sessionId, path) => {
@@ -103,6 +118,9 @@ export async function renameSession(id: string, name: string): Promise<{ ok: boo
 	return renamed ? { ok: true } : { ok: false, error: `Session '${id}' not found` };
 }
 
+/**
+ *
+ */
 export async function searchSessions(
 	query: string,
 	dialogEventType: string,
@@ -122,6 +140,9 @@ export async function searchSessions(
 		}));
 }
 
+/**
+ *
+ */
 export async function getConfig(): Promise<Record<string, unknown>> {
 	try {
 		const path = join(CONFIG_ROOT, "config.yaml");
@@ -132,6 +153,9 @@ export async function getConfig(): Promise<Record<string, unknown>> {
 	}
 }
 
+/**
+ *
+ */
 export async function listAdapters(): Promise<string[]> {
 	try {
 		const path = join(CONFIG_ROOT, "adapters.yaml");
@@ -142,6 +166,9 @@ export async function listAdapters(): Promise<string[]> {
 	}
 }
 
+/**
+ *
+ */
 export async function pmHistory(): Promise<Array<{ id: number; ts: string; adapters: Record<string, string> }>> {
 	try {
 		const genDir = join(CONFIG_ROOT, "generations");

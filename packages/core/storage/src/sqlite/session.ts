@@ -12,15 +12,27 @@ const BUS_INTERNAL = "internal";
 const EVENT_SESSION_NAME = "session.name";
 const CORRELATION_META = "meta";
 
+/**
+ *
+ */
 export type EmbeddingCallback = (client: Client, rowid: number, bus: string, type: string, payload: Record<string, unknown>) => void;
 let _embeddingCallback: EmbeddingCallback | undefined;
+/**
+ *
+ */
 export function setEmbeddingCallback(cb: EmbeddingCallback | undefined): void { _embeddingCallback = cb; }
 
+/**
+ *
+ */
 function deriveAdapter(type: string): string | null {
 	const dot = type.indexOf(".");
 	return dot > 0 ? type.slice(0, dot) : null;
 }
 
+/**
+ *
+ */
 export class SqliteSessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;

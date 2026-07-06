@@ -3,6 +3,9 @@ import type { DaemonEntry, DaemonRegistry } from "../interfaces.js";
 
 export type { DaemonEntry };
 
+/**
+ *
+ */
 export class SqliteDaemonRegistry implements DaemonRegistry {
 	private readonly client: Client;
 
@@ -98,6 +101,9 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 	}
 }
 
+/**
+ *
+ */
 function isProcessAlive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);

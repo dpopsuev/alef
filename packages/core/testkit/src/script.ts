@@ -12,6 +12,9 @@
  * The real adapter handlers execute — tool results are real.
  */
 
+/**
+ *
+ */
 export interface ToolCallSpec {
 	/** EDA command event type (e.g. "fs.read", "code.search"). */
 	name: string;
@@ -19,6 +22,9 @@ export interface ToolCallSpec {
 	args: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export type ScriptStep =
 	| {
 			/** Simple text reply — no tool calls. */

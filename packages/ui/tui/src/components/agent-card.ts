@@ -1,6 +1,9 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface AgentCardTheme {
 	primary: (s: string) => string;
 	secondary: (s: string) => string;
@@ -9,6 +12,9 @@ export interface AgentCardTheme {
 	identity: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface AgentCardState {
 	name: string;
 	keyArg: string;
@@ -30,6 +36,9 @@ export interface AgentCardState {
 	}>;
 }
 
+/**
+ *
+ */
 export class AgentCard implements Component {
 	private _focused = false;
 	private _dimmed = false;
@@ -118,6 +127,9 @@ export class AgentCard implements Component {
 	}
 }
 
+/**
+ *
+ */
 function fmtMs(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;
 	const s = ms / 1000;
@@ -127,6 +139,9 @@ function fmtMs(ms: number): string {
 	return `${m}m ${rem}s`;
 }
 
+/**
+ *
+ */
 function fmtCompact(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;

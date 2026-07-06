@@ -18,14 +18,23 @@ type SerializedStep =
 	| { kind: "toolCall"; call: { name: string; args: Record<string, unknown> }; reply: string }
 	| { kind: "toolCalls"; calls: Array<{ name: string; args: Record<string, unknown> }>; reply: string };
 
+/**
+ *
+ */
 function toReplyText(step: SerializedStep): string {
 	if (typeof step === "string") return step;
 	if (step.kind === "reply") return step.text;
 	return step.reply;
 }
 
+/**
+ *
+ */
 export interface ScriptedLlmOptions {}
 
+/**
+ *
+ */
 export class ScriptedLlmAdapter implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];

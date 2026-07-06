@@ -28,6 +28,9 @@ const VITEST = join(fileURLToPath(import.meta.url), "../../../../..", "node_modu
 
 const MONOREPO_NODE_MODULES = join(fileURLToPath(import.meta.url), "../../../../node_modules");
 
+/**
+ *
+ */
 export interface Mutation {
 	/** Human-readable name: what bug is being introduced. */
 	name: string;
@@ -50,6 +53,9 @@ export function substitutionMutation(
 	return { name, file, mutatedContent: mutated };
 }
 
+/**
+ *
+ */
 function runVitest(workspace: string): Promise<{ exitCode: number }> {
 	return new Promise((resolve) => {
 		const proc = spawn(VITEST, ["run", "--root", workspace], {
@@ -62,6 +68,9 @@ function runVitest(workspace: string): Promise<{ exitCode: number }> {
 	});
 }
 
+/**
+ *
+ */
 export function mutationCheck(mutations: Mutation[]): Checker {
 	return {
 		async check({ workspace }: CheckerContext): Promise<CheckerResult> {

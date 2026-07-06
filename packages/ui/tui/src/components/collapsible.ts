@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 
+/**
+ *
+ */
 export interface CollapsibleOptions {
 	header: string;
 	collapsed?: boolean;
 	headerStyle?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class Collapsible implements Component {
 	private _collapsed: boolean;
 	private header: string;

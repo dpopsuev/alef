@@ -6,7 +6,7 @@ const imageModelRegistry: Map<string, Map<string, ImagesModel<ImagesApi>>> = new
 for (const [provider, models] of Object.entries(IMAGE_MODELS)) {
 	const providerModels = new Map<string, ImagesModel<ImagesApi>>();
 	for (const [id, model] of Object.entries(models)) {
-		providerModels.set(id, model as ImagesModel<ImagesApi>);
+		providerModels.set(id, model);
 	}
 	imageModelRegistry.set(provider, providerModels);
 }
@@ -20,6 +20,9 @@ type ImageModelApi<
 		: never
 	: never;
 
+/**
+ *
+ */
 export function getImageModel<
 	TProvider extends KnownImagesProvider,
 	TModelId extends keyof (typeof IMAGE_MODELS)[TProvider],
@@ -29,11 +32,17 @@ export function getImageModel<
 	return providerModels?.get(modelId as string) as ImagesModel<ImageModelApi<TProvider, TModelId>>;
 }
 
+/**
+ *
+ */
 export function getImageProviders(): KnownImagesProvider[] {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- registry keys are KnownImagesProvider strings from IMAGE_MODELS
 	return Array.from(imageModelRegistry.keys()) as KnownImagesProvider[];
 }
 
+/**
+ *
+ */
 export function getImageModels<TProvider extends KnownImagesProvider>(
 	provider: TProvider,
 ): ImagesModel<ImageModelApi<TProvider, keyof (typeof IMAGE_MODELS)[TProvider]>>[] {

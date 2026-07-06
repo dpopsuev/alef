@@ -1,13 +1,31 @@
+/**
+ *
+ */
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+/**
+ *
+ */
 export type ToolExecutionMode = "sequential" | "parallel";
+/**
+ *
+ */
 export type AgentCapabilityKind = "tool" | "memory" | "session" | "model" | "supervisor";
+/**
+ *
+ */
 export type AgentCapabilityAvailability = "root" | "child" | "shared";
+/**
+ *
+ */
 export interface AgentActionMetadata {
 	kind: AgentCapabilityKind;
 	capability?: string;
 	availability?: AgentCapabilityAvailability;
 	description?: string;
 }
+/**
+ *
+ */
 export interface AgentCapabilityDefinition {
 	name: string;
 	kind: AgentCapabilityKind;
@@ -16,8 +34,14 @@ export interface AgentCapabilityDefinition {
 	actions: any[];
 }
 
+/**
+ *
+ */
 export type AgentRole = "root" | "child";
 
+/**
+ *
+ */
 export interface AgentModelSelector {
 	provider: string;
 	id: string;
@@ -31,18 +55,27 @@ export interface AgentModelSelector {
  */
 export type AgentAdapterName = string;
 
+/**
+ *
+ */
 export interface AgentDefinitionAdapterCacheInput {
 	enabled?: boolean;
 	ttlMs?: number;
 	maxEntries?: number;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionAdapterCacheConfig {
 	enabled: boolean;
 	ttlMs: number;
 	maxEntries: number;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionLectorRuntimeInput {
 	lsp?: {
 		enabled?: boolean;
@@ -56,6 +89,9 @@ export interface AgentDefinitionLectorRuntimeInput {
 	};
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionLectorRuntimeConfig {
 	lsp: {
 		enabled: boolean;
@@ -69,8 +105,14 @@ export interface AgentDefinitionLectorRuntimeConfig {
 	};
 }
 
+/**
+ *
+ */
 export type AdapterStability = "stable" | "beta" | "experimental";
 
+/**
+ *
+ */
 export interface AgentDefinitionAdapterInput {
 	/**
 	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-adapter").
@@ -93,6 +135,9 @@ export interface AgentDefinitionAdapterInput {
 	runtime?: AgentDefinitionLectorRuntimeInput;
 }
 
+/**
+ *
+ */
 export interface CompiledAgentAdapterDefinition {
 	/**
 	 * Adapter name as written in agent.yaml: an npm package specifier, a short
@@ -111,29 +156,50 @@ export interface CompiledAgentAdapterDefinition {
 	runtime?: AgentDefinitionLectorRuntimeConfig;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionChildReference {
 	name: string;
 	blueprint: string;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionHooks {
 	extensions: string[];
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionPolicies {
 	appendSystemPrompt: string[];
 }
 
+/**
+ *
+ */
 export type AgentLoopStrategy = "default" | "minimal" | "ablation";
 
+/**
+ *
+ */
 export type AgentLoopStopOnBudgetAction = "inform" | "warn" | "throttle" | "abort";
 
+/**
+ *
+ */
 export interface AgentDefinitionLoopAblationConfig {
 	disableSteering: boolean;
 	disableFollowUp: boolean;
 	forceSequentialTools: boolean;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionLoopConfig {
 	strategy?: AgentLoopStrategy;
 	steeringMode?: "all" | "one-at-a-time";
@@ -144,14 +210,26 @@ export interface AgentDefinitionLoopConfig {
 	ablation?: AgentDefinitionLoopAblationConfig;
 }
 
+/**
+ *
+ */
 export type AgentDelegationMode = "off" | "manual" | "auto";
 
+/**
+ *
+ */
 export interface AgentDefinitionDelegationConfig {
 	mode: AgentDelegationMode;
 }
 
+/**
+ *
+ */
 export type SupervisorUpgradePolicy = "rebuild_only" | "packages" | "self";
 
+/**
+ *
+ */
 export interface AgentDefinitionSupervisorPolicyInput {
 	heartbeatIntervalMs?: number;
 	heartbeatTimeoutMs?: number;
@@ -162,6 +240,9 @@ export interface AgentDefinitionSupervisorPolicyInput {
 	upgradePolicy?: SupervisorUpgradePolicy;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionSupervisorPolicyConfig {
 	heartbeatIntervalMs: number;
 	heartbeatTimeoutMs: number;
@@ -172,16 +253,25 @@ export interface AgentDefinitionSupervisorPolicyConfig {
 	upgradePolicy: SupervisorUpgradePolicy;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionCapabilities {
 	tools: string[];
 	orchestration: boolean;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionMemory {
 	session: "memory" | "persistent";
 	working: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionPackageSourceInput {
 	source: string;
 	extensions?: string[];
@@ -190,8 +280,14 @@ export interface AgentDefinitionPackageSourceInput {
 	themes?: string[];
 }
 
+/**
+ *
+ */
 export type AgentDefinitionPackageSource = string | AgentDefinitionPackageSourceInput;
 
+/**
+ *
+ */
 export interface AgentDefinitionDependenciesInput {
 	packages?: AgentDefinitionPackageSource[];
 	extensions?: string[];
@@ -200,6 +296,9 @@ export interface AgentDefinitionDependenciesInput {
 	themes?: string[];
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionDependenciesConfig {
 	packages: AgentDefinitionPackageSource[];
 	extensions: string[];
@@ -208,18 +307,27 @@ export interface AgentDefinitionDependenciesConfig {
 	themes: string[];
 }
 
+/**
+ *
+ */
 export interface AgentResourceMetadata {
 	name?: string;
 	labels: Record<string, string>;
 	annotations: Record<string, string>;
 }
 
+/**
+ *
+ */
 export interface AgentResourceConfig {
 	apiVersion: string;
 	kind: string;
 	metadata: AgentResourceMetadata;
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionSurfaceInput {
 	/** Transport type. Currently only 'sse' is supported (via RouterAdapter). */
 	type: "sse";
@@ -235,6 +343,9 @@ export interface AgentDefinitionSurfaceInput {
 	events?: string[];
 }
 
+/**
+ *
+ */
 export interface AgentDefinitionInput {
 	name: string;
 	model?: string | AgentModelSelector;
@@ -277,11 +388,17 @@ export interface AgentDefinitionInput {
 	children?: AgentDefinitionChildReference[];
 }
 
+/**
+ *
+ */
 export interface ResolvedAgentDefinitionChild {
 	name: string;
 	blueprint: string;
 }
 
+/**
+ *
+ */
 export interface CompiledAgentDefinition {
 	name: string;
 	sourcePath?: string;

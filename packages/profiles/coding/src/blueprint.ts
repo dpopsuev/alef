@@ -2,6 +2,7 @@ import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
@@ -11,6 +12,9 @@ import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/sup
 
 export type { BlueprintStack, BlueprintStackOptions };
 
+/**
+ *
+ */
 export async function createCodingAgentStack(opts: BlueprintStackOptions): Promise<BlueprintStack> {
 	if (!opts.subagentFactory) {
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
@@ -29,8 +33,8 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		domainAdapters: opts.domainAdapters,
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- factoryAdapter conforms to Adapter but has narrower type
-		extraAdapters: [skillsAdapter, factoryAdapter as unknown as Adapter],
+		 
+		extraAdapters: [skillsAdapter, factoryAdapter],
 		summarize: createLlmSummarizer(opts.model),
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		resolveService,

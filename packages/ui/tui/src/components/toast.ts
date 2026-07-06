@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface ToastTheme {
 	text: (s: string) => string;
 	dim: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface ToastOptions {
 	message?: string;
 	content?: Component;
@@ -14,6 +20,9 @@ export interface ToastOptions {
 	onExpire?: () => void;
 }
 
+/**
+ *
+ */
 export class Toast implements Component {
 	private message: string | undefined;
 	private content: Component | undefined;

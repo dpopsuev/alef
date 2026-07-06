@@ -12,6 +12,9 @@ const RECENCY_WEIGHT = 0.3;
 const VECTOR_SIMILARITY_SCALE = 0.5;
 const QUERY_TOKEN_MIN_LENGTH = 2;
 
+/**
+ *
+ */
 export interface ContextWindowPolicy {
 	/**
 	 * Fraction of model.contextWindow allocated to history.
@@ -47,6 +50,9 @@ export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
 	sessionRecencyWeight: RECENCY_WEIGHT,
 };
 
+/**
+ *
+ */
 function termOverlap(turn: Turn, queryTokens: string[]): number {
 	if (queryTokens.length === 0) return 0;
 	const haystack = turn.events
@@ -62,11 +68,17 @@ function termOverlap(turn: Turn, queryTokens: string[]): number {
 	return hits / queryTokens.length;
 }
 
+/**
+ *
+ */
 function normalize(value: number, max: number): number {
 	if (max <= 0) return 0;
 	return Math.min(1, value / max);
 }
 
+/**
+ *
+ */
 function scoreTurn(
 	turn: Turn,
 	queryTokens: string[],
@@ -89,6 +101,9 @@ function scoreTurn(
 	);
 }
 
+/**
+ *
+ */
 function tokenize(text: string): string[] {
 	return text
 		.toLowerCase()
@@ -96,6 +111,9 @@ function tokenize(text: string): string[] {
 		.filter((t) => t.length > QUERY_TOKEN_MIN_LENGTH);
 }
 
+/**
+ *
+ */
 export interface AssembleOptions {
 	query: string;
 	contextWindow: number;
@@ -104,6 +122,9 @@ export interface AssembleOptions {
 	vectorScores?: Map<string, number>;
 }
 
+/**
+ *
+ */
 export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	if (turns.length === 0) return [];
 

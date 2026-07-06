@@ -1,8 +1,14 @@
 import type { Component } from "../component.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export type BorderStyle = "single" | "double" | "rounded" | "none";
 
+/**
+ *
+ */
 export interface BoxOptions {
 	border?: BorderStyle;
 	title?: string;
@@ -17,6 +23,9 @@ const BORDERS = {
 	none: { tl: " ", tr: " ", bl: " ", br: " ", h: " ", v: " " },
 };
 
+/**
+ *
+ */
 export class Box implements Component {
 	private child: Component;
 	private opts: Required<BoxOptions>;

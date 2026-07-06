@@ -238,9 +238,13 @@ export class ProcessTerminal implements Terminal {
 			// on Windows for VT input support.
 			/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call -- yoga-wasm-web returns untyped API */
 			const koffi = cjsRequire("koffi");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			const k32 = koffi.load("kernel32.dll");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			const GetStdHandle = k32.func("void* __stdcall GetStdHandle(int)");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			const GetConsoleMode = k32.func("bool __stdcall GetConsoleMode(void*, _Out_ uint32_t*)");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			const SetConsoleMode = k32.func("bool __stdcall SetConsoleMode(void*, uint32_t)");
 
 			const STD_INPUT_HANDLE = -10;
@@ -248,7 +252,7 @@ export class ProcessTerminal implements Terminal {
 			const handle = GetStdHandle(STD_INPUT_HANDLE);
 			const mode = new Uint32Array(1);
 			GetConsoleMode(handle, mode);
-			SetConsoleMode(handle, mode[0]! | ENABLE_VIRTUAL_TERMINAL_INPUT);
+			SetConsoleMode(handle, mode[0] | ENABLE_VIRTUAL_TERMINAL_INPUT);
 			/* eslint-enable */
 		} catch {
 			// koffi not available — Shift+Tab won't be distinguishable from Tab

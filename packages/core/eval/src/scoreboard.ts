@@ -18,6 +18,9 @@ import { appendFile, readFile, writeFile } from "node:fs/promises";
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface EvalScore {
 	pass: boolean;
 	score: number;
@@ -27,6 +30,9 @@ export interface EvalScore {
 	durationMs?: number;
 }
 
+/**
+ *
+ */
 export interface RunRecord {
 	/** ISO 8601 timestamp. */
 	ts: string;
@@ -54,6 +60,9 @@ export interface RunRecord {
 // Building a record
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function buildRunRecord(
 	model: string,
 	provider: string,
@@ -93,10 +102,16 @@ export function buildRunRecord(
 // JSONL persistence
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export async function appendRunRecord(benchmarkPath: string, record: RunRecord): Promise<void> {
 	await appendFile(benchmarkPath, `${JSON.stringify(record)}\n`, "utf-8");
 }
 
+/**
+ *
+ */
 export async function loadRunHistory(benchmarkPath: string): Promise<RunRecord[]> {
 	try {
 		const raw = await readFile(benchmarkPath, "utf-8");
@@ -114,11 +129,17 @@ export async function loadRunHistory(benchmarkPath: string): Promise<RunRecord[]
 // Scoreboard generation
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export async function writeScoreboard(scoreboardPath: string, history: RunRecord[]): Promise<void> {
 	const md = generateScoreboard(history);
 	await writeFile(scoreboardPath, md, "utf-8");
 }
 
+/**
+ *
+ */
 export function generateScoreboard(history: RunRecord[]): string {
 	const lines: string[] = [
 		"# Eval Scoreboard",
@@ -202,6 +223,9 @@ export function generateScoreboard(history: RunRecord[]): string {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function gitCommitSha(): string {
 	try {
 		return execSync("git rev-parse --short HEAD", { encoding: "utf-8" }).trim();

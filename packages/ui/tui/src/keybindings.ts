@@ -67,14 +67,26 @@ export interface Keybindings {
 	"tui.select.cancel": true;
 }
 
+/**
+ *
+ */
 export type Keybinding = keyof Keybindings;
 
+/**
+ *
+ */
 export interface KeybindingDefinition {
 	defaultKeys: KeyId | KeyId[];
 	description?: string;
 }
 
+/**
+ *
+ */
 export type KeybindingDefinitions = Record<string, KeybindingDefinition>;
+/**
+ *
+ */
 export type KeybindingsConfig = Record<string, KeyId | KeyId[] | undefined>;
 
 /** App-level modal keybindings — Normal/Insert/Command mode transitions and Normal-mode actions. */
@@ -192,11 +204,17 @@ export const TUI_KEYBINDINGS = {
 	},
 } as const satisfies KeybindingDefinitions;
 
+/**
+ *
+ */
 export interface KeybindingConflict {
 	key: KeyId;
 	keybindings: string[];
 }
 
+/**
+ *
+ */
 function normalizeKeys(keys: KeyId | KeyId[] | undefined): KeyId[] {
 	if (keys === undefined) return [];
 	const keyList = Array.isArray(keys) ? keys : [keys];
@@ -211,6 +229,9 @@ function normalizeKeys(keys: KeyId | KeyId[] | undefined): KeyId[] {
 	return result;
 }
 
+/**
+ *
+ */
 export class KeyMap {
 	private definitions: KeybindingDefinitions;
 	private userBindings: KeybindingsConfig;
@@ -286,7 +307,7 @@ export class KeyMap {
 		for (const id of Object.keys(this.definitions)) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key validated by Object.keys iteration
 			const keys = this.keysById.get(id as Keybinding) ?? [];
-			resolved[id] = keys.length === 1 ? keys[0]! : [...keys];
+			resolved[id] = keys.length === 1 ? keys[0] : [...keys];
 		}
 		return resolved;
 	}
@@ -294,10 +315,16 @@ export class KeyMap {
 
 let globalKeybindings: KeyMap | null = null;
 
+/**
+ *
+ */
 export function setKeybindings(keybindings: KeyMap): void {
 	globalKeybindings = keybindings;
 }
 
+/**
+ *
+ */
 export function getKeybindings(): KeyMap {
 	globalKeybindings ??= new KeyMap(TUI_KEYBINDINGS);
 	return globalKeybindings;

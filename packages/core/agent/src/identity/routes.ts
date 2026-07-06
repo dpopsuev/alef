@@ -6,8 +6,14 @@
  * @mention messages to the right agent.
  */
 
+/**
+ *
+ */
 export type ActorRoute = (message: string, timeoutMs: number) => Promise<void>;
 
+/**
+ *
+ */
 export class ActorRouteTable {
 	private readonly _routes = new Map<string, ActorRoute>();
 	private _humanAddress: string | null = null;

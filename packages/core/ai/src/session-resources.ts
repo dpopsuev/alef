@@ -1,7 +1,13 @@
+/**
+ *
+ */
 export type SessionResourceCleanup = (sessionId?: string) => void;
 
 const sessionResourceCleanups = new Set<SessionResourceCleanup>();
 
+/**
+ *
+ */
 export function registerSessionResourceCleanup(cleanup: SessionResourceCleanup): () => void {
 	sessionResourceCleanups.add(cleanup);
 	return () => {
@@ -9,6 +15,9 @@ export function registerSessionResourceCleanup(cleanup: SessionResourceCleanup):
 	};
 }
 
+/**
+ *
+ */
 export function cleanupSessionResources(sessionId?: string): void {
 	const errors: unknown[] = [];
 	for (const cleanup of sessionResourceCleanups) {

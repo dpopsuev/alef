@@ -16,18 +16,30 @@ interface JsonSchemaObject {
 	oneOf?: JsonSchemaObject[];
 }
 
+/**
+ *
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+/**
+ *
+ */
 function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
 	return isRecord(value);
 }
 
+/**
+ *
+ */
 function hasTypeBoxMetadata(schema: unknown): boolean {
 	return isRecord(schema) && Object.getOwnPropertySymbols(schema).includes(TYPEBOX_KIND);
 }
 
+/**
+ *
+ */
 function getSchemaTypes(schema: JsonSchemaObject): string[] {
 	if (typeof schema.type === "string") {
 		return [schema.type];
@@ -38,6 +50,9 @@ function getSchemaTypes(schema: JsonSchemaObject): string[] {
 	return [];
 }
 
+/**
+ *
+ */
 function matchesJsonType(value: unknown, type: string): boolean {
 	switch (type) {
 		case "number":
@@ -59,10 +74,16 @@ function matchesJsonType(value: unknown, type: string): boolean {
 	}
 }
 
+/**
+ *
+ */
 function isValidatorSchema(value: unknown): value is Tool["parameters"] {
 	return isRecord(value);
 }
 
+/**
+ *
+ */
 function getSubSchemaValidator(schema: JsonSchemaObject): ReturnType<typeof Compile> | undefined {
 	if (!isValidatorSchema(schema)) {
 		return undefined;
@@ -74,6 +95,9 @@ function getSubSchemaValidator(schema: JsonSchemaObject): ReturnType<typeof Comp
 	}
 }
 
+/**
+ *
+ */
 function coercePrimitiveByType(value: unknown, type: string): unknown {
 	switch (type) {
 		case "number": {
@@ -148,6 +172,9 @@ function coercePrimitiveByType(value: unknown, type: string): unknown {
 	}
 }
 
+/**
+ *
+ */
 function applySchemaObjectCoercion(value: Record<string, unknown>, schema: JsonSchemaObject): void {
 	const properties = schema.properties;
 	const definedKeys = new Set<string>(properties ? Object.keys(properties) : []);
@@ -171,6 +198,9 @@ function applySchemaObjectCoercion(value: Record<string, unknown>, schema: JsonS
 	}
 }
 
+/**
+ *
+ */
 function applySchemaArrayCoercion(value: unknown[], schema: JsonSchemaObject): void {
 	if (Array.isArray(schema.items)) {
 		for (let index = 0; index < value.length; index++) {
@@ -191,6 +221,9 @@ function applySchemaArrayCoercion(value: unknown[], schema: JsonSchemaObject): v
 	}
 }
 
+/**
+ *
+ */
 function coerceWithUnionSchema(value: unknown, schemas: JsonSchemaObject[]): unknown {
 	for (const schema of schemas) {
 		const candidate = structuredClone(value);
@@ -203,6 +236,9 @@ function coerceWithUnionSchema(value: unknown, schemas: JsonSchemaObject[]): unk
 	return value;
 }
 
+/**
+ *
+ */
 function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown {
 	let nextValue = value;
 
@@ -244,8 +280,11 @@ function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown
 	return nextValue;
 }
 
+/**
+ *
+ */
 function getValidator(schema: Tool["parameters"]): ReturnType<typeof Compile> {
-	const key = schema as object;
+	const key = schema;
 	const cached = validatorCache.get(key);
 	if (cached) {
 		return cached;
@@ -255,10 +294,16 @@ function getValidator(schema: Tool["parameters"]): ReturnType<typeof Compile> {
 	return validator;
 }
 
+/**
+ *
+ */
 function instancePathToDot(instancePath: string): string {
 	return instancePath.replace(/^\//, "").replace(/\//g, ".");
 }
 
+/**
+ *
+ */
 function formatRequiredPath(error: TLocalizedValidationError): string | undefined {
 	if (error.keyword !== "required") return undefined;
 	const requiredProperties = (error.params as { requiredProperties?: string[] }).requiredProperties;
@@ -268,6 +313,9 @@ function formatRequiredPath(error: TLocalizedValidationError): string | undefine
 	return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
 }
 
+/**
+ *
+ */
 function formatValidationPath(error: TLocalizedValidationError): string {
 	return formatRequiredPath(error) ?? (instancePathToDot(error.instancePath) || "root");
 }
@@ -316,6 +364,9 @@ function applyJsonSchemaCoercion(
 	return args;
 }
 
+/**
+ *
+ */
 function formatValidationErrors(validator: ReturnType<typeof Compile>, args: unknown, toolCall: ToolCall): string {
 	const errors =
 		validator
@@ -326,6 +377,9 @@ function formatValidationErrors(validator: ReturnType<typeof Compile>, args: unk
 	return `Validation failed for tool "${toolCall.name}":\n${errors}\n\nReceived arguments:\n${JSON.stringify(toolCall.arguments, null, 2)}`;
 }
 
+/**
+ *
+ */
 export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
 	const args = structuredClone(toolCall.arguments);
 	Value.Convert(tool.parameters, args);

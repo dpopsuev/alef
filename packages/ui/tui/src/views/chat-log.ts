@@ -25,11 +25,17 @@ import { makeMarkdownTheme } from "./markdown-themes.js";
 import { color } from "./theme.js";
 import { makeToolOutputComponent } from "./tool-view.js";
 
+/**
+ *
+ */
 export interface ChatLogLabels {
 	humanLabel?: string;
 	agentLabel?: string;
 }
 
+/**
+ *
+ */
 export class ChatLog {
 	private readonly chat: Container;
 	private readonly t: ThemeTokens;

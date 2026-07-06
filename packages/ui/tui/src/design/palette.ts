@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export type SemanticColor = "success" | "warning" | "error" | "info" | "muted" | "accent" | "default";
 
 export const TRAFFIC_LIGHT = {
@@ -6,8 +9,14 @@ export const TRAFFIC_LIGHT = {
 	bad: "error" as SemanticColor,
 } as const;
 
+/**
+ *
+ */
 export type StatusLevel = "done" | "active" | "error" | "pending" | "pruned" | "deferred";
 
+/**
+ *
+ */
 export interface StatusStyle {
 	glyph: string;
 	color: SemanticColor;
@@ -22,10 +31,16 @@ const STATUS_MAP: Record<StatusLevel, StatusStyle> = {
 	deferred: { glyph: "◇", color: "muted" },
 };
 
+/**
+ *
+ */
 export function statusStyle(status: StatusLevel): StatusStyle {
 	return STATUS_MAP[status];
 }
 
+/**
+ *
+ */
 export function statusGlyph(status: StatusLevel): string {
 	return STATUS_MAP[status].glyph;
 }
@@ -37,6 +52,9 @@ export const DEPTH_SEPARATOR = {
 	3: "╌",
 } as const;
 
+/**
+ *
+ */
 export function separatorForDepth(depth: number): string {
 	if (depth <= 0) return DEPTH_SEPARATOR[0];
 	if (depth === 1) return DEPTH_SEPARATOR[1];

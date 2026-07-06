@@ -2,6 +2,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/**
+ *
+ */
 function resolveXdgConfigHome(): string {
 	const raw = process.env.XDG_CONFIG_HOME;
 	if (typeof raw === "string" && raw.trim() !== "") {
@@ -10,6 +13,9 @@ function resolveXdgConfigHome(): string {
 	return join(homedir(), ".config");
 }
 
+/**
+ *
+ */
 function expandTildePath(dir: string): string {
 	if (dir === "~") return homedir();
 	if (dir.startsWith("~/")) return homedir() + dir.slice(1);

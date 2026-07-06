@@ -100,6 +100,9 @@ interface CommentViolation {
 	reason: string;
 }
 
+/**
+ *
+ */
 function isWhatComment(commentText: string): boolean {
 	// Strip the // prefix and trim.
 	const body = commentText.replace(/^\/\/\s*/, "").trim();
@@ -118,6 +121,9 @@ function isWhatComment(commentText: string): boolean {
 	return false;
 }
 
+/**
+ *
+ */
 export interface CommentCheckOptions {
 	/** Seed SHA returned by initGitWorkspace(). Uses ctx.seedSha from PhaseEvaluationRunner when omitted. */
 	seedSha?: string;
@@ -125,6 +131,9 @@ export interface CommentCheckOptions {
 	fileGlob?: string;
 }
 
+/**
+ *
+ */
 export function commentCheck(opts?: Partial<CommentCheckOptions>): Checker {
 	return {
 		check({ workspace, seedSha: ctxSeedSha }: CheckerContext): CheckerResult {

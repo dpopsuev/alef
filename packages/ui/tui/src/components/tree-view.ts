@@ -1,6 +1,9 @@
 import type { Component } from "../component.js";
 import { TREE } from "../design/chars.js";
 
+/**
+ *
+ */
 export interface TreeNode {
 	label: string;
 	component?: Component;
@@ -9,11 +12,17 @@ export interface TreeNode {
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface TreeViewOptions {
 	nodes: TreeNode[];
 	defaultStyle?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class TreeView implements Component {
 	private nodes: TreeNode[];
 	private defaultStyle: (s: string) => string;

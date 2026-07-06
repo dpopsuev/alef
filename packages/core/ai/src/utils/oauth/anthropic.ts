@@ -27,6 +27,9 @@ const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const SCOPES =
 	"org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
 
+/**
+ *
+ */
 function formatErrorDetails(error: unknown): string {
 	if (error instanceof Error) {
 		const details: string[] = [`${error.name}: ${error.message}`];
@@ -44,6 +47,9 @@ function formatErrorDetails(error: unknown): string {
 	return String(error);
 }
 
+/**
+ *
+ */
 async function postJson(url: string, body: Record<string, string | number>): Promise<string> {
 	const response = await fetch(url, {
 		method: "POST",
@@ -64,6 +70,9 @@ async function postJson(url: string, body: Record<string, string | number>): Pro
 	return responseBody;
 }
 
+/**
+ *
+ */
 async function exchangeAuthorizationCode(
 	code: string,
 	state: string,

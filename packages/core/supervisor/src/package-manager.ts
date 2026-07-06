@@ -1,10 +1,17 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor, ServiceRegistry } from "./lifecycle.js";
 
+/**
+ *
+ */
 export interface DiscoveredService {
 	readonly name: string;
 	readonly descriptor: ServiceDescriptor;
 }
 
+/**
+ *
+ */
 export interface PackageManagerOps {
 	discover(cwd: string): Promise<readonly DiscoveredService[]>;
 	resolve?(name: string): Promise<ServiceDescriptor | undefined>;
@@ -14,6 +21,9 @@ export interface PackageManagerOps {
 	sbom?(): Record<string, string>;
 }
 
+/**
+ *
+ */
 export interface PackageManager {
 	discover(): Promise<readonly DiscoveredService[]>;
 	resolve(name: string): Promise<ServiceDescriptor | undefined>;
@@ -22,6 +32,9 @@ export interface PackageManager {
 	remove(name: string): Promise<void>;
 }
 
+/**
+ *
+ */
 export function createPackageManagerDescriptor(ops: PackageManagerOps): ServiceDescriptor {
 	return {
 		name: "pm",

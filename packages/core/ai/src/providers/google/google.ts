@@ -8,6 +8,7 @@ import {
 import { getEnvApiKey } from "../../env-api-keys.js";
 import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	Context,
@@ -34,6 +35,9 @@ import {
 } from "./shared.js";
 import { buildBaseOptions } from "../base-options.js";
 
+/**
+ *
+ */
 export interface GoogleOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";
 	thinking?: {
@@ -57,7 +61,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: "google-generative-ai" as Api,
+			api: "google-generative-ai",
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -89,6 +93,9 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
 
+			/**
+			 *
+			 */
 			function emitBlockEnd(block: TextContent | ThinkingContent): void {
 				if (block.type === "text") {
 					stream.push({
@@ -107,6 +114,9 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 				}
 			}
 
+			/**
+			 *
+			 */
 			function appendTextDelta(block: TextContent, text: string, thoughtSignature: string | undefined): void {
 				block.text += text;
 				block.textSignature = retainThoughtSignature(block.textSignature, thoughtSignature);
@@ -118,6 +128,9 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 				});
 			}
 
+			/**
+			 *
+			 */
 			function appendThinkingDelta(block: ThinkingContent, text: string, thoughtSignature: string | undefined): void {
 				block.thinking += text;
 				block.thinkingSignature = retainThoughtSignature(block.thinkingSignature, thoughtSignature);
@@ -279,7 +292,7 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 	const clampedReasoning = clampThinkingLevel(model, options.reasoning);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: clampThinkingLevel output narrowed to ClampedThinkingLevel after 'off' check
 	const effort = (clampedReasoning === "off" ? "high" : clampedReasoning) as ClampedThinkingLevel;
-	const googleModel = model as Model<"google-generative-ai">;
+	const googleModel = model;
 
 	if (isGemini3ProModel(googleModel) || isGemini3FlashModel(googleModel) || isGemma4Model(googleModel)) {
 		return streamGoogle(model, context, {
@@ -300,6 +313,9 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 	} satisfies GoogleOptions);
 };
 
+/**
+ *
+ */
 function createClient(
 	model: Model<"google-generative-ai">,
 	apiKey?: string,
@@ -320,6 +336,9 @@ function createClient(
 	});
 }
 
+/**
+ *
+ */
 function buildParams(
 	model: Model<"google-generative-ai">,
 	context: Context,
@@ -382,18 +401,30 @@ function buildParams(
 
 type ClampedThinkingLevel = Exclude<ThinkingLevel, "xhigh">;
 
+/**
+ *
+ */
 function isGemma4Model(model: Model<"google-generative-ai">): boolean {
 	return /gemma-?4/.test(model.id.toLowerCase());
 }
 
+/**
+ *
+ */
 function isGemini3ProModel(model: Model<"google-generative-ai">): boolean {
 	return /gemini-3(?:\.\d+)?-pro/.test(model.id.toLowerCase());
 }
 
+/**
+ *
+ */
 function isGemini3FlashModel(model: Model<"google-generative-ai">): boolean {
 	return /gemini-3(?:\.\d+)?-flash/.test(model.id.toLowerCase());
 }
 
+/**
+ *
+ */
 function getDisabledThinkingConfig(model: Model<"google-generative-ai">): ThinkingConfig {
 	// Google docs: Gemini 3.1 Pro cannot disable thinking, and Gemini 3 Flash / Flash-Lite
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
@@ -412,6 +443,9 @@ function getDisabledThinkingConfig(model: Model<"google-generative-ai">): Thinki
 	return { thinkingBudget: 0 };
 }
 
+/**
+ *
+ */
 function getThinkingLevel(effort: ClampedThinkingLevel, model: Model<"google-generative-ai">): GoogleThinkingLevel {
 	if (isGemini3ProModel(model)) {
 		switch (effort) {
@@ -445,6 +479,9 @@ function getThinkingLevel(effort: ClampedThinkingLevel, model: Model<"google-gen
 	}
 }
 
+/**
+ *
+ */
 function getGoogleBudget(
 	model: Model<"google-generative-ai">,
 	effort: ClampedThinkingLevel,

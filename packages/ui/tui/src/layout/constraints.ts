@@ -16,6 +16,9 @@
  *   // regions = [3, 154, 46, 27]  (for width=230)
  */
 
+/**
+ *
+ */
 export type Constraint =
 	| { type: "min"; value: number }
 	| { type: "max"; value: number }
@@ -29,6 +32,9 @@ export const Length = (value: number): Constraint => ({ type: "length", value })
 export const Percentage = (value: number): Constraint => ({ type: "percentage", value });
 export const Fill: Constraint = { type: "fill" };
 
+/**
+ *
+ */
 export function solveConstraints(constraints: readonly Constraint[], available: number): number[] {
 	const sizes = new Array<number>(constraints.length).fill(0);
 	let remaining = available;

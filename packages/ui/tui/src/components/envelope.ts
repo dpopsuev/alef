@@ -2,6 +2,9 @@ import type { Component } from "../component.js";
 import { BOX } from "../design/chars.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface EnvelopeOptions {
 	title: string;
 	collapsed?: boolean;
@@ -10,6 +13,9 @@ export interface EnvelopeOptions {
 	titleStyle?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class Envelope implements Component {
 	private _collapsed: boolean;
 	private title: string;

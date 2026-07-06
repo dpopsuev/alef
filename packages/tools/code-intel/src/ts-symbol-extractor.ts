@@ -27,19 +27,31 @@ import type { SymbolBlock, SymbolKind } from "./backend.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function hasExportModifier(node: ts.Node): boolean {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ts.getModifiers requires HasModifiers; callers pass declaration nodes
 	return (ts.getModifiers(node as ts.HasModifiers) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 
+/**
+ *
+ */
 function lineOf(source: ts.SourceFile, pos: number): number {
 	return source.getLineAndCharacterOfPosition(pos).line + 1; // 1-indexed
 }
 
+/**
+ *
+ */
 function characterOf(source: ts.SourceFile, pos: number): number {
 	return source.getLineAndCharacterOfPosition(pos).character; // 0-indexed
 }
 
+/**
+ *
+ */
 function endLineOf(source: ts.SourceFile, node: ts.Node): number {
 	return lineOf(source, node.getEnd());
 }
@@ -48,6 +60,9 @@ function endLineOf(source: ts.SourceFile, node: ts.Node): number {
 // Main extractor
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolBlock[] {
 	const source = ts.createSourceFile(
 		fileName,
@@ -59,6 +74,9 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 
 	const symbols: SymbolBlock[] = [];
 
+	/**
+	 *
+	 */
 	function visit(node: ts.Node): void {
 		// export function / async function
 		if (ts.isFunctionDeclaration(node) && node.name) {
@@ -194,6 +212,9 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 // File extension check
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function isTsFile(path: string): boolean {
 	return path.endsWith(".ts") || path.endsWith(".tsx") || path.endsWith(".mts") || path.endsWith(".cts");
 }

@@ -5,8 +5,14 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
+/**
+ *
+ */
 export type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
 
+/**
+ *
+ */
 export interface AgentServerOptions {
 	llm: Adapter;
 	adapters: readonly Adapter[];
@@ -19,12 +25,18 @@ export interface AgentServerOptions {
 	bus?: AgentBus;
 }
 
+/**
+ *
+ */
 export interface AgentServer {
 	readonly agent: Agent;
 	readonly controller: AgentController;
 	readonly observers: Set<(event: AgentEvent) => void>;
 }
 
+/**
+ *
+ */
 function isRecord(v: unknown): v is Record<string, unknown> {
 	return typeof v === "object" && v !== null;
 }
@@ -38,6 +50,9 @@ function busPayload(event: BusMessage): Record<string, unknown> {
 	return {};
 }
 
+/**
+ *
+ */
 export function signalToAgentEvent(
 	event: BusMessage,
 	signalMappers?: ReadonlyMap<string, SignalMapper>,
@@ -196,6 +211,9 @@ export function signalToAgentEvent(
 	}
 }
 
+/**
+ *
+ */
 export function connectObservers(
 	agent: Agent,
 	observers: Set<(event: AgentEvent) => void>,
@@ -220,6 +238,9 @@ export function connectObservers(
 	});
 }
 
+/**
+ *
+ */
 export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
 	const agent = new Agent({ bus: opts.bus });
 	const observers = new Set<(event: AgentEvent) => void>();

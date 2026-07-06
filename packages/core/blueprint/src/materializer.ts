@@ -71,17 +71,26 @@ interface ResolvedModule {
 	service?: unknown;
 }
 
+/**
+ *
+ */
 function resolveFactory(mod: Record<string, unknown>): ToolModule["createAdapter"] | undefined {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check
 	if (typeof mod.createAdapter === "function") return mod.createAdapter as ToolModule["createAdapter"];
 	return undefined;
 }
 
+/**
+ *
+ */
 function resolveServiceExport(mod: Record<string, unknown>): unknown | undefined {
 	if (mod.service && typeof mod.service === "object") return mod.service;
 	return undefined;
 }
 
+/**
+ *
+ */
 export interface MaterializerOptions {
 	cwd: string;
 	loggerFor?: (adapterName: string) => AdapterLogger;
@@ -113,6 +122,9 @@ export interface MaterializerOptions {
 	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
 }
 
+/**
+ *
+ */
 export interface MaterializerResult {
 	adapters: Adapter[];
 	modelId: string | undefined;
@@ -256,11 +268,17 @@ function normalizeAdapterEntry(entry: AdapterEntry): CompiledAgentDefinition["ad
 }
 
 let _jiti: ReturnType<typeof createJiti> | undefined;
+/**
+ *
+ */
 function getJiti(): ReturnType<typeof createJiti> {
 	_jiti ??= createJiti(import.meta.url, { moduleCache: false, tryNative: false });
 	return _jiti;
 }
 
+/**
+ *
+ */
 async function loadAdapterModule(
 	adapterDef: CompiledAgentDefinition["adapters"][number],
 	resolveExternalPath?: (name: string) => string | undefined,
@@ -346,6 +364,9 @@ async function resolveAdaptersForEntry(
 	return [await mod.createAdapter(factoryOpts)];
 }
 
+/**
+ *
+ */
 export async function materializeBlueprint(
 	definition: CompiledAgentDefinition,
 	opts: MaterializerOptions,

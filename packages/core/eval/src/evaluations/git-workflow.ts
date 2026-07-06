@@ -193,6 +193,9 @@ export const fixBugWithCleanCommit: PhaseEvaluation = {
 // The JudgePanelRunner seeds these into the workspace before booting each judge.
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function readSkill(name: string): string {
 	const path = join(new URL("../judge-skills", import.meta.url).pathname, name, "SKILL.md");
 	try {

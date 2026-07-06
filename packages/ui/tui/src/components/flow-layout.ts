@@ -4,18 +4,27 @@ import { FlowJunction, type FlowJunctionOptions } from "./flow-junction.js";
 import { FlowLoop, type FlowLoopOptions } from "./flow-loop.js";
 import { FlowNode, type FlowNodeOptions } from "./flow-node.js";
 
+/**
+ *
+ */
 export type FlowElement =
 	| { type: "node"; node: FlowNodeOptions }
 	| { type: "edge"; edge?: FlowEdgeOptions }
 	| { type: "loop"; loop: FlowLoopOptions }
 	| { type: "junction"; junction: FlowJunctionOptions };
 
+/**
+ *
+ */
 export interface FlowLayoutOptions {
 	elements: FlowElement[];
 	zoom?: 0 | 1 | 2 | 3;
 	activeId?: string;
 }
 
+/**
+ *
+ */
 export class FlowLayout implements Component {
 	private elements: FlowElement[];
 	private zoom: 0 | 1 | 2 | 3;

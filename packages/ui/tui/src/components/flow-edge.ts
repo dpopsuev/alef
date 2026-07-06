@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 
+/**
+ *
+ */
 export interface FlowEdgeOptions {
 	label?: string;
 	direction?: "down" | "up";
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class FlowEdge implements Component {
 	private opts: FlowEdgeOptions;
 

@@ -185,10 +185,13 @@ function parseUnmodifiedKittyPrintableCodepoint(sequence: string): number | unde
 	const match = sequence.match(/^\x1b\[(\d+)(?::\d*)?(?::\d+)?u$/);
 	if (!match) return undefined;
 
-	const codepoint = parseInt(match[1]!, 10);
+	const codepoint = parseInt(match[1], 10);
 	return codepoint >= 32 ? codepoint : undefined;
 }
 
+/**
+ *
+ */
 function extractCompleteSequences(buffer: string): { sequences: string[]; remainder: string } {
 	const sequences: string[] = [];
 	let pos = 0;
@@ -223,7 +226,7 @@ function extractCompleteSequences(buffer: string): { sequences: string[]; remain
 			}
 		} else {
 			// Not an escape sequence - take a single character
-			sequences.push(remaining[0]!);
+			sequences.push(remaining[0]);
 			pos++;
 		}
 	}
@@ -231,6 +234,9 @@ function extractCompleteSequences(buffer: string): { sequences: string[]; remain
 	return { sequences, remainder: "" };
 }
 
+/**
+ *
+ */
 export type StdinBufferOptions = {
 	/**
 	 * Maximum time to wait for sequence completion (default: 10ms)
@@ -239,6 +245,9 @@ export type StdinBufferOptions = {
 	timeout?: number;
 };
 
+/**
+ *
+ */
 export type StdinBufferEventMap = {
 	data: [string];
 	paste: [string];
@@ -272,8 +281,8 @@ export class StdinBuffer extends EventEmitter<StdinBufferEventMap> {
 		// If buffer has single byte > 127, convert to ESC + (byte - 128)
 		let str: string;
 		if (Buffer.isBuffer(data)) {
-			if (data.length === 1 && data[0]! > 127) {
-				const byte = data[0]! - 128;
+			if (data.length === 1 && data[0] > 127) {
+				const byte = data[0] - 128;
 				str = `\x1b${String.fromCharCode(byte)}`;
 			} else {
 				str = data.toString();

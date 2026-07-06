@@ -28,6 +28,9 @@ interface CoverageEntry {
 	branchPct: number;
 }
 
+/**
+ *
+ */
 function parseCoverage(output: string): CoverageEntry[] {
 	const entries: CoverageEntry[] = [];
 	// Lines look like: # path/to/file.ts | 85.00 | 90.00 | 100.00 |
@@ -44,6 +47,9 @@ function parseCoverage(output: string): CoverageEntry[] {
 	return entries;
 }
 
+/**
+ *
+ */
 function runCoverage(workspace: string): Promise<{ output: string; exitCode: number }> {
 	return new Promise((resolve) => {
 		// Find test files in workspace.
@@ -67,6 +73,9 @@ function runCoverage(workspace: string): Promise<{ output: string; exitCode: num
 	});
 }
 
+/**
+ *
+ */
 export interface CoverageCheckOptions {
 	/** Seed SHA from initGitWorkspace(). Uses ctx.seedSha when omitted. */
 	seedSha?: string;
@@ -74,6 +83,9 @@ export interface CoverageCheckOptions {
 	threshold?: number;
 }
 
+/**
+ *
+ */
 export function coverageCheck(opts?: Partial<CoverageCheckOptions>): Checker {
 	return {
 		async check({ workspace, seedSha: ctxSeedSha }: CheckerContext): Promise<CheckerResult> {

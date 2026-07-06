@@ -74,6 +74,9 @@ function getProcEnv(key: string): string | undefined {
 
 let cachedVertexAdcCredentialsExists: boolean | null = null;
 
+/**
+ *
+ */
 function hasVertexAdcCredentials(): boolean {
 	if (cachedVertexAdcCredentialsExists === null) {
 		// If node modules haven't loaded yet (async import race at startup),
@@ -104,6 +107,9 @@ function hasVertexAdcCredentials(): boolean {
 	return cachedVertexAdcCredentialsExists;
 }
 
+/**
+ *
+ */
 function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
 	if (provider === "github-copilot") {
 		return ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"];

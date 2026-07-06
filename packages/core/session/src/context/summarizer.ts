@@ -29,6 +29,9 @@ const MESSAGE_PREVIEW_MAX_CHARS = 500;
 const FALLBACK_MESSAGE_COUNT = 10;
 const FALLBACK_LINE_MAX_CHARS = 120;
 
+/**
+ *
+ */
 function formatConversation(messages: readonly unknown[]): string {
 	return messages
 		.map((m) => {
@@ -47,6 +50,9 @@ function formatConversation(messages: readonly unknown[]): string {
 		.join("\n");
 }
 
+/**
+ *
+ */
 function fallbackSummary(messages: readonly unknown[]): string {
 	return messages
 		.slice(0, FALLBACK_MESSAGE_COUNT)
@@ -58,6 +64,9 @@ function fallbackSummary(messages: readonly unknown[]): string {
 		.join("\n");
 }
 
+/**
+ *
+ */
 export function createLlmSummarizer(model: Model<Api>): (messages: readonly unknown[]) => Promise<string> {
 	return async (messages) => {
 		const conversation = formatConversation(messages);

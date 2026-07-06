@@ -8,12 +8,18 @@ import type { Api, Provider } from "./providers.js";
 import type { StopReason, Usage } from "./usage.js";
 import type { AssistantMessageDiagnostic } from "../utils/diagnostics.js";
 
+/**
+ *
+ */
 export interface UserMessage {
 	role: "user";
 	content: string | (TextContent | ImageContent)[];
 	timestamp: number; // Unix timestamp in milliseconds
 }
 
+/**
+ *
+ */
 export interface AssistantMessage {
 	role: "assistant";
 	content: (TextContent | ThinkingContent | ToolCall)[];
@@ -29,6 +35,9 @@ export interface AssistantMessage {
 	timestamp: number; // Unix timestamp in milliseconds
 }
 
+/**
+ *
+ */
 export interface ToolResultMessage<TDetails = any> {
 	role: "toolResult";
 	toolCallId: string;
@@ -39,14 +48,23 @@ export interface ToolResultMessage<TDetails = any> {
 	timestamp: number; // Unix timestamp in milliseconds
 }
 
+/**
+ *
+ */
 export type Message = UserMessage | AssistantMessage | ToolResultMessage;
 
+/**
+ *
+ */
 export interface Tool<TParameters extends TSchema = TSchema> {
 	name: string;
 	description: string;
 	parameters: TParameters;
 }
 
+/**
+ *
+ */
 export interface Context {
 	systemPrompt?: string;
 	messages: Message[];

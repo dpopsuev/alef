@@ -1,6 +1,9 @@
 import type { Component } from "../component.js";
 import { visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface ProgressBarOptions {
 	value: number;
 	max?: number;
@@ -11,6 +14,9 @@ export interface ProgressBarOptions {
 	style?: (text: string) => string;
 }
 
+/**
+ *
+ */
 export class ProgressBar implements Component {
 	private opts: ProgressBarOptions;
 

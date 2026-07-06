@@ -2,6 +2,8 @@ import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+	{ ignores: ["**/*.d.ts"] },
+
 	// ── JSDoc: require documentation on all exported symbols ────────────
 	// Enforces JSDoc on exported functions, classes, interfaces, type
 	// aliases, and enums. Set to "warn" — does not block CI, but surfaces

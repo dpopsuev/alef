@@ -1,21 +1,36 @@
+/**
+ *
+ */
 export type ImageProtocol = "kitty" | "iterm2" | null;
 
+/**
+ *
+ */
 export interface TerminalCapabilities {
 	images: ImageProtocol;
 	trueColor: boolean;
 	hyperlinks: boolean;
 }
 
+/**
+ *
+ */
 export interface CellDimensions {
 	widthPx: number;
 	heightPx: number;
 }
 
+/**
+ *
+ */
 export interface ImageDimensions {
 	widthPx: number;
 	heightPx: number;
 }
 
+/**
+ *
+ */
 export interface ImageRenderOptions {
 	maxWidthCells?: number;
 	maxHeightCells?: number;
@@ -31,14 +46,23 @@ let cachedCapabilities: TerminalCapabilities | null = null;
 // Default cell dimensions - updated by TUI when terminal responds to query
 let cellDimensions: CellDimensions = { widthPx: 9, heightPx: 18 };
 
+/**
+ *
+ */
 export function getCellDimensions(): CellDimensions {
 	return cellDimensions;
 }
 
+/**
+ *
+ */
 export function setCellDimensions(dims: CellDimensions): void {
 	cellDimensions = dims;
 }
 
+/**
+ *
+ */
 export function detectCapabilities(): TerminalCapabilities {
 	const termProgram = process.env.TERM_PROGRAM?.toLowerCase() ?? "";
 	const term = process.env.TERM?.toLowerCase() ?? "";
@@ -86,11 +110,17 @@ export function detectCapabilities(): TerminalCapabilities {
 	return { images: null, trueColor, hyperlinks: false };
 }
 
+/**
+ *
+ */
 export function getCapabilities(): TerminalCapabilities {
 	cachedCapabilities ??= detectCapabilities();
 	return cachedCapabilities;
 }
 
+/**
+ *
+ */
 export function resetCapabilitiesCache(): void {
 	cachedCapabilities = null;
 }
@@ -103,6 +133,9 @@ export function setCapabilities(caps: TerminalCapabilities): void {
 const KITTY_PREFIX = "\x1b_G";
 const ITERM2_PREFIX = "\x1b]1337;File=";
 
+/**
+ *
+ */
 export function isImageLine(line: string): boolean {
 	// Fast path: sequence at line start (single-row images)
 	if (line.startsWith(KITTY_PREFIX) || line.startsWith(ITERM2_PREFIX)) {
@@ -122,6 +155,9 @@ export function allocateImageId(): number {
 	return Math.floor(Math.random() * 0xfffffffe) + 1;
 }
 
+/**
+ *
+ */
 export function encodeKitty(
 	base64Data: string,
 	options: {
@@ -184,6 +220,9 @@ export function deleteAllKittyImages(): string {
 	return "\x1b_Ga=d,d=A,q=2\x1b\\";
 }
 
+/**
+ *
+ */
 export function encodeITerm2(
 	base64Data: string,
 	options: {
@@ -209,6 +248,9 @@ export function encodeITerm2(
 	return `\x1b]1337;File=${params.join(";")}:${base64Data}\x07`;
 }
 
+/**
+ *
+ */
 export function calculateImageRows(
 	imageDimensions: ImageDimensions,
 	targetWidthCells: number,
@@ -221,6 +263,9 @@ export function calculateImageRows(
 	return Math.max(1, rows);
 }
 
+/**
+ *
+ */
 export function getPngDimensions(base64Data: string): ImageDimensions | null {
 	try {
 		const buffer = Buffer.from(base64Data, "base64");
@@ -242,6 +287,9 @@ export function getPngDimensions(base64Data: string): ImageDimensions | null {
 	}
 }
 
+/**
+ *
+ */
 export function getJpegDimensions(base64Data: string): ImageDimensions | null {
 	try {
 		const buffer = Buffer.from(base64Data, "base64");
@@ -285,6 +333,9 @@ export function getJpegDimensions(base64Data: string): ImageDimensions | null {
 	}
 }
 
+/**
+ *
+ */
 export function getGifDimensions(base64Data: string): ImageDimensions | null {
 	try {
 		const buffer = Buffer.from(base64Data, "base64");
@@ -307,6 +358,9 @@ export function getGifDimensions(base64Data: string): ImageDimensions | null {
 	}
 }
 
+/**
+ *
+ */
 export function getWebpDimensions(base64Data: string): ImageDimensions | null {
 	try {
 		const buffer = Buffer.from(base64Data, "base64");
@@ -346,6 +400,9 @@ export function getWebpDimensions(base64Data: string): ImageDimensions | null {
 	}
 }
 
+/**
+ *
+ */
 export function getImageDimensions(base64Data: string, mimeType: string): ImageDimensions | null {
 	if (mimeType === "image/png") {
 		return getPngDimensions(base64Data);
@@ -362,6 +419,9 @@ export function getImageDimensions(base64Data: string, mimeType: string): ImageD
 	return null;
 }
 
+/**
+ *
+ */
 export function renderImage(
 	base64Data: string,
 	imageDimensions: ImageDimensions,
@@ -408,6 +468,9 @@ export function hyperlink(text: string, url: string): string {
 	return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
 }
 
+/**
+ *
+ */
 export function imageFallback(mimeType: string, dimensions?: ImageDimensions, filename?: string): string {
 	const parts: string[] = [];
 	if (filename) parts.push(filename);

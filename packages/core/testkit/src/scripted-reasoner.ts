@@ -23,11 +23,17 @@ import { randomUUID } from "node:crypto";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
 
+/**
+ *
+ */
 export interface ToolCallStart {
 	callId: string;
 	name: string;
 	args: Record<string, unknown>;
 }
+/**
+ *
+ */
 export interface ToolCallEnd {
 	callId: string;
 	elapsedMs: number;
@@ -37,6 +43,9 @@ export interface ToolCallEnd {
 	displayKind?: string;
 }
 
+/**
+ *
+ */
 function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
@@ -45,6 +54,9 @@ function payloadToText(payload: Record<string, unknown>, isError: boolean, error
 	return JSON.stringify(llm);
 }
 
+/**
+ *
+ */
 function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown _display to check .text property
@@ -57,6 +69,9 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 
 import type { ScriptStep } from "./script.js";
 
+/**
+ *
+ */
 export interface ScriptedReasonerOptions {
 	/**
 	 * Event type that triggers a reasoning step.
@@ -77,6 +92,9 @@ export interface ScriptedReasonerOptions {
 	onResponseChunk?: (chunk: string) => void;
 }
 
+/**
+ *
+ */
 export class ScriptedReasoner implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
@@ -195,6 +213,9 @@ export class ScriptedReasoner implements Adapter {
 // Utility — await an Event matching toolCallId + correlationId
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function waitForEvent(
 	bus: Bus,
 	eventType: string,

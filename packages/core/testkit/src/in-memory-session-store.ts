@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session/storage";
 import { TurnIndexer } from "@dpopsuev/alef-session/store";
 
+/**
+ *
+ */
 export class InMemorySessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;
@@ -45,6 +48,7 @@ export class InMemorySessionStore implements SessionStore {
 		return this._name;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async setName(n: string): Promise<void> {
 		this._name = n;
 	}

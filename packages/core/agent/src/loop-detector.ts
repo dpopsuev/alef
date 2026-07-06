@@ -30,6 +30,9 @@ const DEFAULT_REPEATED_INTERACTION_THRESHOLD = 3;
 const DEFAULT_TOTAL_CALL_THRESHOLD = 40;
 const RESULT_HASH_MAX_CHARS = 512;
 
+/**
+ *
+ */
 export interface LoopGuardOptions {
 	/**
 	 * How many times the same (tool, args, result) triple may appear
@@ -77,6 +80,9 @@ function hashResult(payload: Record<string, unknown>): string {
 	return JSON.stringify(rest).slice(0, RESULT_HASH_MAX_CHARS);
 }
 
+/**
+ *
+ */
 export class LoopGuard implements Adapter {
 	readonly name = "loop-detector";
 	readonly tools = [];

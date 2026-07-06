@@ -3,6 +3,9 @@ import { TurnIndexer } from "../store.js";
 
 const DEFAULT_EVICT_AFTER_TURN = 3;
 
+/**
+ *
+ */
 export interface TurnSnapshot {
 	turn: number;
 	correlationId: string;
@@ -18,6 +21,9 @@ export interface TurnSnapshot {
 	conversationHistory: unknown[] | undefined;
 }
 
+/**
+ *
+ */
 export interface SessionIndex {
 	turns: Turn[];
 	hitCounts: ReadonlyMap<string, number>;
@@ -26,6 +32,9 @@ export interface SessionIndex {
 	windowAssemblies: ReadonlyMap<number, { includedTurnIds: string[]; budgetUsed: number; budgetTotal: number }>;
 }
 
+/**
+ *
+ */
 export function buildSessionIndex(records: StorageRecord[]): SessionIndex {
 	const indexer = new TurnIndexer();
 	for (const r of records) indexer.index(r);
@@ -75,6 +84,9 @@ export function buildSessionIndex(records: StorageRecord[]): SessionIndex {
 	};
 }
 
+/**
+ *
+ */
 export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAfterTurn = DEFAULT_EVICT_AFTER_TURN): TurnSnapshot | undefined {
 	const turn = index.turnByNumber.get(turnNumber);
 	if (!turn) return undefined;
@@ -142,6 +154,9 @@ export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAf
 	};
 }
 
+/**
+ *
+ */
 export function reconstructAllTurns(records: StorageRecord[], evictAfterTurn = DEFAULT_EVICT_AFTER_TURN): TurnSnapshot[] {
 	const index = buildSessionIndex(records);
 	const snapshots: TurnSnapshot[] = [];
@@ -152,6 +167,9 @@ export function reconstructAllTurns(records: StorageRecord[], evictAfterTurn = D
 	return snapshots;
 }
 
+/**
+ *
+ */
 function namespaceOf(name: string): string {
 	return name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
 }

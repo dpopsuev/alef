@@ -15,9 +15,18 @@ export const WEBSOCKET_MESSAGE_TOO_BIG_CLOSE_CODE = 1009;
 // Types
 // ============================================================================
 
+/**
+ *
+ */
 export type WebSocketEventType = "open" | "message" | "error" | "close";
+/**
+ *
+ */
 export type WebSocketListener = (event: unknown) => void;
 
+/**
+ *
+ */
 export interface WebSocketLike {
 	close(code?: number, reason?: string): void;
 	send(data: string): void;
@@ -25,6 +34,9 @@ export interface WebSocketLike {
 	removeEventListener(type: WebSocketEventType, listener: WebSocketListener): void;
 }
 
+/**
+ *
+ */
 export interface CachedWebSocketContinuationState {
 	lastRequestBody: RequestBody;
 	lastResponseId: string;
@@ -32,6 +44,9 @@ export interface CachedWebSocketContinuationState {
 	lastResponseItems: import("openai/resources/responses/responses.js").ResponseInput;
 }
 
+/**
+ *
+ */
 export interface CachedWebSocketConnection {
 	socket: WebSocketLike;
 	busy: boolean;
@@ -39,11 +54,17 @@ export interface CachedWebSocketConnection {
 	continuation?: CachedWebSocketContinuationState;
 }
 
+/**
+ *
+ */
 export type WebSocketConstructor = new (
 	url: string,
 	protocols?: string | string[] | { headers?: Record<string, string> },
 ) => WebSocketLike;
 
+/**
+ *
+ */
 export interface OpenAICodexWebSocketDebugStats {
 	requests: number;
 	connectionsCreated: number;
@@ -73,6 +94,9 @@ export const websocketSseFallbackSessions = new Set<string>();
 // Telemetry
 // ============================================================================
 
+/**
+ *
+ */
 export function getOrCreateWebSocketDebugStats(sessionId: string): OpenAICodexWebSocketDebugStats {
 	let stats = websocketDebugStats.get(sessionId);
 	if (!stats) {
@@ -93,11 +117,17 @@ export function getOrCreateWebSocketDebugStats(sessionId: string): OpenAICodexWe
 	return stats;
 }
 
+/**
+ *
+ */
 export function getOpenAICodexWebSocketDebugStats(sessionId: string): OpenAICodexWebSocketDebugStats | undefined {
 	const stats = websocketDebugStats.get(sessionId);
 	return stats ? { ...stats } : undefined;
 }
 
+/**
+ *
+ */
 export function resetOpenAICodexWebSocketDebugStats(sessionId?: string): void {
 	if (sessionId) {
 		websocketDebugStats.delete(sessionId);
@@ -108,10 +138,16 @@ export function resetOpenAICodexWebSocketDebugStats(sessionId?: string): void {
 	websocketSseFallbackSessions.clear();
 }
 
+/**
+ *
+ */
 export function isWebSocketSseFallbackActive(sessionId: string | undefined): boolean {
 	return sessionId ? websocketSseFallbackSessions.has(sessionId) : false;
 }
 
+/**
+ *
+ */
 export function recordWebSocketSseFallback(sessionId: string | undefined): void {
 	if (!sessionId) return;
 	const stats = getOrCreateWebSocketDebugStats(sessionId);
@@ -119,6 +155,9 @@ export function recordWebSocketSseFallback(sessionId: string | undefined): void 
 	stats.websocketFallbackActive = isWebSocketSseFallbackActive(sessionId);
 }
 
+/**
+ *
+ */
 export function recordWebSocketFailure(sessionId: string | undefined, error: unknown): void {
 	if (!sessionId) return;
 	websocketSseFallbackSessions.add(sessionId);
@@ -133,6 +172,9 @@ export function recordWebSocketFailure(sessionId: string | undefined, error: unk
 // WebSocket Error Helpers
 // ============================================================================
 
+/**
+ *
+ */
 export class WebSocketCloseError extends Error {
 	readonly code?: number;
 	readonly reason?: string;
@@ -147,6 +189,9 @@ export class WebSocketCloseError extends Error {
 	}
 }
 
+/**
+ *
+ */
 export function extractWebSocketError(event: unknown): Error {
 	if (event && typeof event === "object") {
 		const message = "message" in event ? (event as { message?: unknown }).message : undefined;
@@ -168,6 +213,9 @@ export function extractWebSocketError(event: unknown): Error {
 	return new Error("WebSocket error");
 }
 
+/**
+ *
+ */
 export function extractWebSocketCloseError(event: unknown): Error {
 	if (event && typeof event === "object") {
 		const code = "code" in event ? (event as { code?: unknown }).code : undefined;
@@ -191,24 +239,36 @@ export function extractWebSocketCloseError(event: unknown): Error {
 // WebSocket Utility
 // ============================================================================
 
+/**
+ *
+ */
 export function getWebSocketReadyState(socket: WebSocketLike): number | undefined {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- accessing non-standard WebSocket property
 	const readyState = (socket as { readyState?: unknown }).readyState;
 	return typeof readyState === "number" ? readyState : undefined;
 }
 
+/**
+ *
+ */
 export function isWebSocketReusable(socket: WebSocketLike): boolean {
 	const readyState = getWebSocketReadyState(socket);
 	// If readyState is unavailable, assume the runtime keeps it open/reusable.
 	return readyState === undefined || readyState === 1;
 }
 
+/**
+ *
+ */
 export function closeWebSocketSilently(socket: WebSocketLike, code = 1000, reason = "done"): void {
 	try {
 		socket.close(code, reason);
 	} catch {}
 }
 
+/**
+ *
+ */
 export function scheduleSessionWebSocketExpiry(sessionId: string, entry: CachedWebSocketConnection): void {
 	if (entry.idleTimer) {
 		clearTimeout(entry.idleTimer);
@@ -224,6 +284,9 @@ export function scheduleSessionWebSocketExpiry(sessionId: string, entry: CachedW
 // WebSocket Connection
 // ============================================================================
 
+/**
+ *
+ */
 function getWebSocketConstructor(): WebSocketConstructor | null {
 	const ctor = (globalThis as { WebSocket?: unknown }).WebSocket;
 	if (typeof ctor !== "function") return null;
@@ -231,6 +294,9 @@ function getWebSocketConstructor(): WebSocketConstructor | null {
 	return ctor as unknown as WebSocketConstructor;
 }
 
+/**
+ *
+ */
 export async function connectWebSocket(url: string, headers: Headers, signal?: AbortSignal): Promise<WebSocketLike> {
 	const WebSocketCtor = getWebSocketConstructor();
 	if (!WebSocketCtor) {
@@ -297,6 +363,9 @@ export async function connectWebSocket(url: string, headers: Headers, signal?: A
 // WebSocket Pool
 // ============================================================================
 
+/**
+ *
+ */
 export async function acquireWebSocket(
 	url: string,
 	headers: Headers,
@@ -388,6 +457,9 @@ export async function acquireWebSocket(
 // WebSocket Parser
 // ============================================================================
 
+/**
+ *
+ */
 export async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSignal): AsyncGenerator<Record<string, unknown>> {
 	const queue: Record<string, unknown>[] = [];
 	let pending: (() => void) | null = null;
@@ -491,13 +563,16 @@ export async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSigna
 	}
 }
 
+/**
+ *
+ */
 export async function decodeWebSocketData(data: unknown): Promise<string | null> {
 	if (typeof data === "string") return data;
 	if (data instanceof ArrayBuffer) {
 		return new TextDecoder().decode(new Uint8Array(data));
 	}
 	if (ArrayBuffer.isView(data)) {
-		const view = data as ArrayBufferView;
+		const view = data;
 		return new TextDecoder().decode(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
 	}
 	if (data && typeof data === "object" && "arrayBuffer" in data) {
@@ -513,6 +588,9 @@ export async function decodeWebSocketData(data: unknown): Promise<string | null>
 // Session Cleanup Registration
 // ============================================================================
 
+/**
+ *
+ */
 export function closeOpenAICodexWebSocketSessions(sessionId?: string): void {
 	const closeEntry = (entry: CachedWebSocketConnection) => {
 		if (entry.idleTimer) clearTimeout(entry.idleTimer);

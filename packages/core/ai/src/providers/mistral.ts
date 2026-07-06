@@ -37,6 +37,9 @@ const MAX_MISTRAL_ERROR_BODY_CHARS = 4000;
  */
 type MistralReasoningEffort = "none" | "high";
 
+/**
+ *
+ */
 export interface MistralOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any" | "required" | { type: "function"; function: { name: string } };
 	promptMode?: "reasoning";
@@ -135,6 +138,9 @@ export const streamSimpleMistral: StreamFunction<"mistral-conversations", Simple
 	} satisfies MistralOptions);
 };
 
+/**
+ *
+ */
 function createOutput(model: Model<"mistral-conversations">): AssistantMessage {
 	return {
 		role: "assistant",
@@ -155,6 +161,9 @@ function createOutput(model: Model<"mistral-conversations">): AssistantMessage {
 	};
 }
 
+/**
+ *
+ */
 function createMistralToolCallIdNormalizer(): (id: string) => string {
 	const idMap = new Map<string, string>();
 	const reverseMap = new Map<string, string>();
@@ -177,6 +186,9 @@ function createMistralToolCallIdNormalizer(): (id: string) => string {
 	};
 }
 
+/**
+ *
+ */
 function deriveMistralToolCallId(id: string, attempt: number): string {
 	const normalized = id.replace(/[^a-zA-Z0-9]/g, "");
 	if (attempt === 0 && normalized.length === MISTRAL_TOOL_CALL_ID_LENGTH) return normalized;
@@ -187,6 +199,9 @@ function deriveMistralToolCallId(id: string, attempt: number): string {
 		.slice(0, MISTRAL_TOOL_CALL_ID_LENGTH);
 }
 
+/**
+ *
+ */
 function formatMistralError(error: unknown): string {
 	if (error instanceof Error) {
 		const sdkError = error as Error & { statusCode?: unknown; body?: unknown };
@@ -201,11 +216,17 @@ function formatMistralError(error: unknown): string {
 	return safeJsonStringify(error);
 }
 
+/**
+ *
+ */
 function truncateErrorText(text: string, maxChars: number): string {
 	if (text.length <= maxChars) return text;
 	return `${text.slice(0, maxChars)}... [truncated ${text.length - maxChars} chars]`;
 }
 
+/**
+ *
+ */
 function safeJsonStringify(value: unknown): string {
 	try {
 		return JSON.stringify(value);
@@ -214,6 +235,9 @@ function safeJsonStringify(value: unknown): string {
 	}
 }
 
+/**
+ *
+ */
 function buildRequestOptions(model: Model<"mistral-conversations">, options?: MistralOptions) {
 	const requestOptions: {
 		signal?: AbortSignal;
@@ -241,6 +265,9 @@ function buildRequestOptions(model: Model<"mistral-conversations">, options?: Mi
 	return requestOptions;
 }
 
+/**
+ *
+ */
 function buildChatPayload(
 	model: Model<"mistral-conversations">,
 	context: Context,
@@ -270,6 +297,9 @@ function buildChatPayload(
 	return payload;
 }
 
+/**
+ *
+ */
 async function consumeChatStream(
 	model: Model<"mistral-conversations">,
 	output: AssistantMessage,
@@ -370,7 +400,7 @@ async function consumeChatStream(
 		if (existingIndex !== undefined) {
 			const existing = output.content[existingIndex];
 			if (existing.type === "toolCall") {
-				block = existing as ToolCall & { partialArgs?: string };
+				block = existing;
 			}
 		}
 
@@ -459,6 +489,9 @@ async function consumeChatStream(
 	}
 }
 
+/**
+ *
+ */
 function toFunctionTools(tools: Tool[]): Array<FunctionTool & { type: "function" }> {
 	return tools.map((tool) => ({
 		type: "function",
@@ -472,6 +505,9 @@ function toFunctionTools(tools: Tool[]): Array<FunctionTool & { type: "function"
 	}));
 }
 
+/**
+ *
+ */
 function stripSymbolKeys(value: unknown): unknown {
 	if (Array.isArray(value)) {
 		return value.map((item) => stripSymbolKeys(item));
@@ -488,6 +524,9 @@ function stripSymbolKeys(value: unknown): unknown {
 	return value;
 }
 
+/**
+ *
+ */
 function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompletionStreamRequestMessage[] {
 	const result: ChatCompletionStreamRequestMessage[] = [];
 
@@ -605,6 +644,9 @@ function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompl
 	return result;
 }
 
+/**
+ *
+ */
 function buildToolResultText(text: string, hasImages: boolean, supportsImages: boolean, isError: boolean): string {
 	const trimmed = text.trim();
 	const errorPrefix = isError ? "[tool error] " : "";
@@ -626,14 +668,23 @@ function buildToolResultText(text: string, hasImages: boolean, supportsImages: b
 	return isError ? "[tool error] (no tool output)" : "(no tool output)";
 }
 
+/**
+ *
+ */
 function usesReasoningEffort(model: Model<"mistral-conversations">): boolean {
 	return model.id === "mistral-small-2603" || model.id === "mistral-small-latest" || model.id === "mistral-medium-3.5";
 }
 
+/**
+ *
+ */
 function usesPromptModeReasoning(model: Model<"mistral-conversations">): boolean {
 	return model.reasoning && !usesReasoningEffort(model);
 }
 
+/**
+ *
+ */
 function mapReasoningEffort(
 	model: Model<"mistral-conversations">,
 	level: Exclude<SimpleStreamOptions["reasoning"], undefined>,
@@ -642,13 +693,16 @@ function mapReasoningEffort(
 	return (model.thinkingLevelMap?.[level] ?? "high") as MistralReasoningEffort;
 }
 
+/**
+ *
+ */
 function mapToolChoice(
 	choice: MistralOptions["toolChoice"],
 ): "auto" | "none" | "any" | "required" | { type: "function"; function: { name: string } } | undefined {
 	if (!choice) return undefined;
 	if (choice === "auto" || choice === "none" || choice === "any" || choice === "required") {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-return -- boundary cast: Mistral SDK toolChoice union not fully compatible with our type
-		return choice as any;
+		 
+		return choice;
 	}
 	return {
 		type: "function",
@@ -664,6 +718,9 @@ const stopReasonMap: Record<string, StopReason> = {
 	error: "error",
 };
 
+/**
+ *
+ */
 function mapChatStopReason(reason: string | null): StopReason {
 	if (reason === null) return "stop";
 	return stopReasonMap[reason] ?? "stop";

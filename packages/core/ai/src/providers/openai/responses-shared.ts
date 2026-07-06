@@ -37,12 +37,18 @@ import { transformMessages } from "../normalize-messages.js";
 // Utilities
 // =============================================================================
 
+/**
+ *
+ */
 function encodeTextSignatureV1(id: string, phase?: TextSignatureV1["phase"]): string {
 	const payload: TextSignatureV1 = { v: 1, id };
 	if (phase) payload.phase = phase;
 	return JSON.stringify(payload);
 }
 
+/**
+ *
+ */
 function parseTextSignature(
 	signature: string | undefined,
 ): { id: string; phase?: TextSignatureV1["phase"] } | undefined {
@@ -64,6 +70,9 @@ function parseTextSignature(
 	return { id: signature };
 }
 
+/**
+ *
+ */
 export interface OpenAIResponsesStreamOptions {
 	serviceTier?: ResponseCreateParamsStreaming["service_tier"];
 	resolveServiceTier?: (
@@ -76,10 +85,16 @@ export interface OpenAIResponsesStreamOptions {
 	) => void;
 }
 
+/**
+ *
+ */
 export interface ConvertResponsesMessagesOptions {
 	includeSystemPrompt?: boolean;
 }
 
+/**
+ *
+ */
 export interface ConvertResponsesToolsOptions {
 	strict?: boolean | null;
 }
@@ -88,6 +103,9 @@ export interface ConvertResponsesToolsOptions {
 // Message conversion
 // =============================================================================
 
+/**
+ *
+ */
 export function convertResponsesMessages<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
@@ -162,7 +180,7 @@ export function convertResponsesMessages<TApi extends Api>(
 			}
 		} else if (msg.role === "assistant") {
 			const output: ResponseInput = [];
-			const assistantMsg = msg as AssistantMessage;
+			const assistantMsg = msg;
 			const isDifferentModel =
 				assistantMsg.model !== model.id &&
 				assistantMsg.provider === model.provider &&
@@ -176,7 +194,7 @@ export function convertResponsesMessages<TApi extends Api>(
 						output.push(reasoningItem);
 					}
 				} else if (block.type === "text") {
-					const textBlock = block as TextContent;
+					const textBlock = block;
 					const parsedSignature = parseTextSignature(textBlock.textSignature);
 					// OpenAI requires id to be max 64 characters
 					let msgId = parsedSignature?.id;
@@ -194,7 +212,7 @@ export function convertResponsesMessages<TApi extends Api>(
 						phase: parsedSignature?.phase,
 					} satisfies ResponseOutputMessage);
 				} else {
-					const toolCall = block as ToolCall;
+					const toolCall = block;
 					const [callId, itemIdRaw] = toolCall.id.split("|");
 					let itemId: string | undefined = itemIdRaw;
 
@@ -267,6 +285,9 @@ export function convertResponsesMessages<TApi extends Api>(
 // Tool conversion
 // =============================================================================
 
+/**
+ *
+ */
 export function convertResponsesTools(tools: Tool[], options?: ConvertResponsesToolsOptions): OpenAITool[] {
 	const strict = options?.strict === undefined ? false : options.strict;
 	return tools.map((tool) => ({
@@ -283,6 +304,9 @@ export function convertResponsesTools(tools: Tool[], options?: ConvertResponsesT
 // Stream processing
 // =============================================================================
 
+/**
+ *
+ */
 export async function processResponsesStream<TApi extends Api>(
 	openaiStream: AsyncIterable<ResponseStreamEvent>,
 	output: AssistantMessage,
@@ -297,10 +321,16 @@ export async function processResponsesStream<TApi extends Api>(
 
 	// -- Handler functions (closures capturing mutable state) ------------------
 
+	/**
+	 *
+	 */
 	function handleResponseCreated(event: Extract<ResponseStreamEvent, { type: "response.created" }>): void {
 		output.responseId = event.response.id;
 	}
 
+	/**
+	 *
+	 */
 	function handleOutputItemAdded(event: Extract<ResponseStreamEvent, { type: "response.output_item.added" }>): void {
 		const item = event.item;
 		if (item.type === "reasoning") {
@@ -327,6 +357,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleReasoningSummaryPartAdded(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_part.added" }>,
 	): void {
@@ -336,6 +369,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleReasoningSummaryTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_text.delta" }>,
 	): void {
@@ -355,6 +391,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleReasoningSummaryPartDone(
 		_event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_part.done" }>,
 	): void {
@@ -374,6 +413,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleReasoningTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_text.delta" }>,
 	): void {
@@ -388,6 +430,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleContentPartAdded(
 		event: Extract<ResponseStreamEvent, { type: "response.content_part.added" }>,
 	): void {
@@ -400,6 +445,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleOutputTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.output_text.delta" }>,
 	): void {
@@ -422,6 +470,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleRefusalDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.refusal.delta" }>,
 	): void {
@@ -444,6 +495,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleFunctionCallArgumentsDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.function_call_arguments.delta" }>,
 	): void {
@@ -459,6 +513,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleFunctionCallArgumentsDone(
 		event: Extract<ResponseStreamEvent, { type: "response.function_call_arguments.done" }>,
 	): void {
@@ -481,6 +538,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleOutputItemDone(
 		event: Extract<ResponseStreamEvent, { type: "response.output_item.done" }>,
 	): void {
@@ -536,6 +596,9 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleResponseCompleted(
 		event: Extract<ResponseStreamEvent, { type: "response.completed" }>,
 	): void {
@@ -575,10 +638,16 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 	}
 
+	/**
+	 *
+	 */
 	function handleError(event: Extract<ResponseStreamEvent, { type: "error" }>): void {
 		throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
 	}
 
+	/**
+	 *
+	 */
 	function handleResponseFailed(event: Extract<ResponseStreamEvent, { type: "response.failed" }>): void {
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- error/details may be absent in failed response
 		const error = event.response?.error;
@@ -621,6 +690,9 @@ export async function processResponsesStream<TApi extends Api>(
 	}
 }
 
+/**
+ *
+ */
 function mapStopReason(status: OpenAI.Responses.ResponseStatus | undefined): StopReason {
 	if (!status) return "stop";
 	switch (status) {

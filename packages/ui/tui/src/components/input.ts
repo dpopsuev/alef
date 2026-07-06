@@ -443,6 +443,7 @@ export class Input implements Component, Focusable {
 		const cursorGrapheme = graphemes[0];
 
 		const beforeCursor = visibleText.slice(0, cursorDisplay);
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 		const atCursor = cursorGrapheme?.segment ?? " ";
 		const afterCursor = visibleText.slice(cursorDisplay + atCursor.length);
 

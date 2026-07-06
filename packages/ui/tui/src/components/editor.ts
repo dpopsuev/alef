@@ -36,7 +36,7 @@ function segmentWithMarkers(text: string, validIds: Set<number>): Iterable<Intl.
 	// Find all marker spans with valid IDs.
 	const markers: Array<{ start: number; end: number }> = [];
 	for (const m of text.matchAll(PASTE_MARKER_REGEX)) {
-		const id = Number.parseInt(m[1]!, 10);
+		const id = Number.parseInt(m[1], 10);
 		if (!validIds.has(id)) continue;
 		markers.push({ start: m.index, end: m.index + m[0].length });
 	}
@@ -51,11 +51,11 @@ function segmentWithMarkers(text: string, validIds: Set<number>): Iterable<Intl.
 
 	for (const seg of baseSegments) {
 		// Skip past markers that are entirely before this segment.
-		while (markerIdx < markers.length && markers[markerIdx]!.end <= seg.index) {
+		while (markerIdx < markers.length && markers[markerIdx].end <= seg.index) {
 			markerIdx++;
 		}
 
-		const marker = markerIdx < markers.length ? markers[markerIdx]! : null;
+		const marker = markerIdx < markers.length ? markers[markerIdx] : null;
 
 		if (marker && seg.index >= marker.start && seg.index < marker.end) {
 			// This segment falls inside a marker.
@@ -120,7 +120,7 @@ export function wordWrapLine(line: string, maxWidth: number, preSegmented?: Intl
 	let wrapOppWidth = 0;
 
 	for (let i = 0; i < segments.length; i++) {
-		const seg = segments[i]!;
+		const seg = segments[i];
 		const grapheme = seg.segment;
 		const gWidth = visibleWidth(grapheme);
 		const charIndex = seg.index;
@@ -155,10 +155,10 @@ export function wordWrapLine(line: string, maxWidth: number, preSegmented?: Intl
 			// movement / editing — the split is purely visual for word-wrap layout.
 			const subChunks = wordWrapLine(grapheme, maxWidth);
 			for (let j = 0; j < subChunks.length - 1; j++) {
-				const sc = subChunks[j]!;
+				const sc = subChunks[j];
 				chunks.push({ text: sc.text, startIndex: charIndex + sc.startIndex, endIndex: charIndex + sc.endIndex });
 			}
-			const last = subChunks[subChunks.length - 1]!;
+			const last = subChunks[subChunks.length - 1];
 			chunkStart = charIndex + last.startIndex;
 			currentWidth = visibleWidth(last.text);
 			wrapOppIndex = -1;
@@ -198,11 +198,17 @@ interface LayoutLine {
 	cursorPos?: number;
 }
 
+/**
+ *
+ */
 export interface EditorTheme {
 	borderColor: (str: string) => string;
 	selectList: SelectListTheme;
 }
 
+/**
+ *
+ */
 export interface EditorOptions {
 	paddingX?: number;
 	autocompleteMaxVisible?: number;
@@ -215,6 +221,9 @@ const SLASH_COMMAND_SELECT_LIST_LAYOUT: SelectListLayoutOptions = {
 
 const ATTACHMENT_AUTOCOMPLETE_DEBOUNCE_MS = 20;
 
+/**
+ *
+ */
 export class Editor implements Component, Focusable {
 	private state: EditorState = {
 		lines: [""],
@@ -2040,7 +2049,7 @@ export class Editor implements Component, Focusable {
 		let firstPrefixIndex = -1;
 
 		for (let i = 0; i < items.length; i++) {
-			const value = items[i]!.value;
+			const value = items[i].value;
 			if (value === prefix) {
 				return i; // Exact match always wins
 			}
@@ -2180,7 +2189,7 @@ export class Editor implements Component, Focusable {
 		}
 
 		if (options.force && options.explicitTab && suggestions.items.length === 1) {
-			const item = suggestions.items[0]!;
+			const item = suggestions.items[0];
 			this.pushUndoSnapshot();
 			this.lastAction = null;
 			const result = this.autocompleteProvider.applyCompletion(

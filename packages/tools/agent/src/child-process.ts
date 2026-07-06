@@ -6,6 +6,9 @@ import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { stringify as stringifyYaml } from "yaml";
 
+/**
+ *
+ */
 export interface ChildEntry {
 	name: string;
 	endpoint: string;
@@ -18,6 +21,9 @@ export interface ChildEntry {
 
 const RUNNER_MAIN = new URL("../../../agent/src/entrypoint.ts", import.meta.url).pathname;
 
+/**
+ *
+ */
 function findTsxModule(): string {
 	let dir = new URL(".", import.meta.url).pathname;
 	for (let i = 0; i < 10; i++) {
@@ -31,10 +37,16 @@ function findTsxModule(): string {
 }
 const TSX_BIN = findTsxModule();
 
+/**
+ *
+ */
 export function resolvePath(p: string, base: string): string {
 	return isAbsolute(p) ? p : resolve(base, p);
 }
 
+/**
+ *
+ */
 function detectBwrap(): string | null {
 	try {
 		return (
@@ -49,6 +61,9 @@ function detectBwrap(): string | null {
 
 const BWRAP_PATH = detectBwrap();
 
+/**
+ *
+ */
 function wrapWithBwrap(cmd: string[]): [string, string[]] {
 	if (!BWRAP_PATH) throw new Error("sandbox: true requires bwrap (bubblewrap) — not found on PATH");
 	return [
@@ -71,6 +86,9 @@ function wrapWithBwrap(cmd: string[]): [string, string[]] {
 	];
 }
 
+/**
+ *
+ */
 export function waitForReady(
 	child: ChildProcess,
 	timeoutMs: number,
@@ -112,12 +130,18 @@ export function waitForReady(
 	});
 }
 
+/**
+ *
+ */
 export function healthCheck(endpoint: string): Promise<boolean> {
 	return new Promise((res) => {
 		http.get(`${endpoint}/health`, (resp) => res(resp.statusCode === 200)).on("error", () => res(false));
 	});
 }
 
+/**
+ *
+ */
 export interface SpawnChildOptions {
 	cwd: string;
 	blueprintPath?: string;
@@ -131,6 +155,9 @@ export interface SpawnChildOptions {
 	childDepth?: number;
 }
 
+/**
+ *
+ */
 export async function spawnChild(
 	opts: SpawnChildOptions,
 ): Promise<{ child: ChildProcess; endpoint: string; sessionId: string | undefined; tmpDir?: string }> {

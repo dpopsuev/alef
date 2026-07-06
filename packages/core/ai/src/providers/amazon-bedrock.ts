@@ -23,6 +23,7 @@ import {
 import type { DocumentType } from "@smithy/types";
 import { calculateCost } from "../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	CacheRetention,
@@ -46,8 +47,14 @@ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./base-options.js";
 import { transformMessages } from "./normalize-messages.js";
 
+/**
+ *
+ */
 export type BedrockThinkingDisplay = "summarized" | "omitted";
 
+/**
+ *
+ */
 export interface BedrockOptions extends StreamOptions {
 	region?: string;
 	profile?: string;
@@ -95,7 +102,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: "bedrock-converse-stream" as Api,
+			api: "bedrock-converse-stream",
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -378,6 +385,9 @@ export const streamSimpleBedrock: StreamFunction<"bedrock-converse-stream", Simp
 	} satisfies BedrockOptions);
 };
 
+/**
+ *
+ */
 function handleContentBlockStart(
 	event: ContentBlockStartEvent,
 	blocks: Block[],
@@ -401,6 +411,9 @@ function handleContentBlockStart(
 	}
 }
 
+/**
+ *
+ */
 function handleContentBlockDelta(
 	event: ContentBlockDeltaEvent,
 	blocks: Block[],
@@ -435,6 +448,9 @@ function handleContentBlockDelta(
 	}
 }
 
+/**
+ *
+ */
 function handleReasoningDelta(
 	reasoningContent: NonNullable<NonNullable<ContentBlockDeltaEvent["delta"]>["reasoningContent"]>,
 	contentBlockIndex: number,
@@ -472,6 +488,9 @@ function handleReasoningDelta(
 	}
 }
 
+/**
+ *
+ */
 function handleMetadata(
 	event: ConverseStreamMetadataEvent,
 	model: Model<"bedrock-converse-stream">,
@@ -487,6 +506,9 @@ function handleMetadata(
 	calculateCost(model, output.usage);
 }
 
+/**
+ *
+ */
 function handleContentBlockStop(
 	event: ContentBlockStopEvent,
 	blocks: Block[],
@@ -497,7 +519,7 @@ function handleContentBlockStop(
 	const block = blocks[index];
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; block can be undefined at runtime
 	if (!block) return;
-	delete (block as Block).index;
+	delete (block).index;
 
 	switch (block.type) {
 		case "text":
@@ -529,16 +551,25 @@ function getModelMatchCandidates(modelId: string, modelName?: string): string[] 
 	});
 }
 
+/**
+ *
+ */
 function supportsAdaptiveThinking(modelId: string, modelName?: string): boolean {
 	const candidates = getModelMatchCandidates(modelId, modelName);
 	return candidates.some((s) => s.includes("opus-4-6") || s.includes("opus-4-7") || s.includes("sonnet-4-6"));
 }
 
+/**
+ *
+ */
 function supportsNativeXhighEffort(model: Model<"bedrock-converse-stream">): boolean {
 	const candidates = getModelMatchCandidates(model.id, model.name);
 	return candidates.some((s) => s.includes("opus-4-7"));
 }
 
+/**
+ *
+ */
 function mapThinkingLevelToEffort(
 	model: Model<"bedrock-converse-stream">,
 	level: SimpleStreamOptions["reasoning"],
@@ -636,6 +667,9 @@ function supportsThinkingSignature(model: Model<"bedrock-converse-stream">): boo
 	return isAnthropicClaudeModel(model);
 }
 
+/**
+ *
+ */
 function buildSystemPrompt(
 	systemPrompt: string | undefined,
 	model: Model<"bedrock-converse-stream">,
@@ -655,6 +689,9 @@ function buildSystemPrompt(
 	return blocks;
 }
 
+/**
+ *
+ */
 function normalizeToolCallId(id: string): string {
 	const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, "_");
 	return sanitized.length > 64 ? sanitized.slice(0, 64) : sanitized;
@@ -695,6 +732,9 @@ function convertThinkingToContentBlock(
 	};
 }
 
+/**
+ *
+ */
 function convertMessages(
 	context: Context,
 	model: Model<"bedrock-converse-stream">,
@@ -818,7 +858,7 @@ function convertMessages(
 	if (cacheRetention !== "none" && supportsPromptCaching(model) && result.length > 0) {
 		const lastMessage = result[result.length - 1];
 		if (lastMessage.role === ConversationRole.USER && lastMessage.content) {
-			(lastMessage.content as ContentBlock[]).push({
+			(lastMessage.content).push({
 				cachePoint: {
 					type: CachePointType.DEFAULT,
 					...(cacheRetention === "long" ? { ttl: CacheTTL.ONE_HOUR } : {}),
@@ -830,6 +870,9 @@ function convertMessages(
 	return result;
 }
 
+/**
+ *
+ */
 function convertToolConfig(
 	tools: Tool[] | undefined,
 	toolChoice: BedrockOptions["toolChoice"],
@@ -862,6 +905,9 @@ function convertToolConfig(
 	return { tools: bedrockTools, toolChoice: bedrockToolChoice };
 }
 
+/**
+ *
+ */
 function mapStopReason(reason: string | undefined): StopReason {
 	switch (reason) {
 		case BedrockStopReason.END_TURN:
@@ -877,6 +923,9 @@ function mapStopReason(reason: string | undefined): StopReason {
 	}
 }
 
+/**
+ *
+ */
 function getConfiguredBedrockRegion(options: BedrockOptions): string | undefined {
 	if (typeof process === "undefined") {
 		return options.region;
@@ -886,6 +935,9 @@ function getConfiguredBedrockRegion(options: BedrockOptions): string | undefined
 	return options.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || undefined;
 }
 
+/**
+ *
+ */
 function hasConfiguredBedrockProfile(): boolean {
 	if (typeof process === "undefined") {
 		return false;
@@ -894,6 +946,9 @@ function hasConfiguredBedrockProfile(): boolean {
 	return Boolean(process.env.AWS_PROFILE);
 }
 
+/**
+ *
+ */
 function getStandardBedrockEndpointRegion(baseUrl: string | undefined): string | undefined {
 	if (!baseUrl) {
 		return undefined;
@@ -908,6 +963,9 @@ function getStandardBedrockEndpointRegion(baseUrl: string | undefined): string |
 	}
 }
 
+/**
+ *
+ */
 function shouldUseExplicitBedrockEndpoint(
 	baseUrl: string,
 	configuredRegion: string | undefined,
@@ -921,6 +979,9 @@ function shouldUseExplicitBedrockEndpoint(
 	return !configuredRegion && !hasConfiguredProfile;
 }
 
+/**
+ *
+ */
 function isGovCloudBedrockTarget(model: Model<"bedrock-converse-stream">, options: BedrockOptions): boolean {
 	const region = getConfiguredBedrockRegion(options);
 	if (region?.toLowerCase().startsWith("us-gov-")) {
@@ -931,6 +992,9 @@ function isGovCloudBedrockTarget(model: Model<"bedrock-converse-stream">, option
 	return modelId.startsWith("us-gov.") || modelId.startsWith("arn:aws-us-gov:");
 }
 
+/**
+ *
+ */
 function buildAdditionalModelRequestFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions,
@@ -942,6 +1006,9 @@ function buildAdditionalModelRequestFields(
 	return buildClaudeThinkingFields(model, options as BedrockOptions & { reasoning: ThinkingLevel });
 }
 
+/**
+ *
+ */
 function buildClaudeThinkingFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions & { reasoning: ThinkingLevel },
@@ -961,6 +1028,9 @@ function buildClaudeThinkingFields(
 	return result;
 }
 
+/**
+ *
+ */
 function buildAdaptiveThinkingFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions & { reasoning: ThinkingLevel },
@@ -972,6 +1042,9 @@ function buildAdaptiveThinkingFields(
 	};
 }
 
+/**
+ *
+ */
 function buildLegacyThinkingFields(
 	options: BedrockOptions & { reasoning: ThinkingLevel },
 	display: BedrockThinkingDisplay | undefined,
@@ -997,6 +1070,9 @@ function buildLegacyThinkingFields(
 	};
 }
 
+/**
+ *
+ */
 function createImageBlock(mimeType: string, data: string) {
 	let format: ImageFormat;
 	switch (mimeType) {

@@ -20,6 +20,9 @@ type ModelApi<
 	TModelId extends keyof (typeof MODELS)[TProvider],
 > = (typeof MODELS)[TProvider][TModelId] extends { api: infer TApi } ? (TApi extends Api ? TApi : never) : never;
 
+/**
+ *
+ */
 export function getModel<TProvider extends KnownProvider, TModelId extends keyof (typeof MODELS)[TProvider]>(
 	provider: TProvider,
 	modelId: TModelId,
@@ -29,11 +32,17 @@ export function getModel<TProvider extends KnownProvider, TModelId extends keyof
 	return providerModels?.get(modelId as string) as Model<ModelApi<TProvider, TModelId>>;
 }
 
+/**
+ *
+ */
 export function getProviders(): KnownProvider[] {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- registry keys are KnownProvider strings from MODELS
 	return Array.from(modelRegistry.keys()) as KnownProvider[];
 }
 
+/**
+ *
+ */
 export function getModels<TProvider extends KnownProvider>(
 	provider: TProvider,
 ): Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[] {
@@ -42,6 +51,9 @@ export function getModels<TProvider extends KnownProvider>(
 	return models ? (Array.from(models.values()) as Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[]) : [];
 }
 
+/**
+ *
+ */
 export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"] {
 	usage.cost.input = (model.cost.input / COST_PER_MILLION) * usage.input;
 	usage.cost.output = (model.cost.output / COST_PER_MILLION) * usage.output;
@@ -53,6 +65,9 @@ export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage
 
 const EXTENDED_THINKING_LEVELS: ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
+/**
+ *
+ */
 export function getSupportedThinkingLevels<TApi extends Api>(model: Model<TApi>): ModelThinkingLevel[] {
 	if (!model.reasoning) return ["off"];
 
@@ -64,6 +79,9 @@ export function getSupportedThinkingLevels<TApi extends Api>(model: Model<TApi>)
 	});
 }
 
+/**
+ *
+ */
 export function clampThinkingLevel<TApi extends Api>(
 	model: Model<TApi>,
 	level: ModelThinkingLevel,

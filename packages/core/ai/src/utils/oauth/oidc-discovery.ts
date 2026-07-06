@@ -5,6 +5,9 @@
  * Results are cached per issuer URL for the process lifetime.
  */
 
+/**
+ *
+ */
 export interface OIDCConfig {
 	issuer: string;
 	authorization_endpoint: string;
@@ -20,6 +23,9 @@ export interface OIDCConfig {
 
 const cache = new Map<string, OIDCConfig>();
 
+/**
+ *
+ */
 export async function discoverOIDC(issuerUrl: string): Promise<OIDCConfig> {
 	const cached = cache.get(issuerUrl);
 	if (cached) return cached;
@@ -45,14 +51,23 @@ export async function discoverOIDC(issuerUrl: string): Promise<OIDCConfig> {
 	return config;
 }
 
+/**
+ *
+ */
 export function clearOIDCCache(): void {
 	cache.clear();
 }
 
+/**
+ *
+ */
 export function supportsDeviceCode(config: OIDCConfig): boolean {
 	return !!config.device_authorization_endpoint;
 }
 
+/**
+ *
+ */
 export function supportsAuthorizationCode(config: OIDCConfig): boolean {
 	const grants = config.grant_types_supported ?? [];
 	return grants.length === 0 || grants.includes("authorization_code");

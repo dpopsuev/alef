@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface TuiState {
 	modelId: string;
 	thinkingLevel: string;
@@ -9,6 +12,9 @@ export interface TuiState {
 	costUsd: number;
 }
 
+/**
+ *
+ */
 export class TuiStateStore {
 	private state: TuiState;
 	private readonly listeners = new Set<() => void>();

@@ -2,6 +2,9 @@ import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
 import type { ModelConfig } from "./resolve.js";
 
+/**
+ *
+ */
 export interface ModelProfile {
 	name: string;
 	providers: string[];
@@ -9,12 +12,18 @@ export interface ModelProfile {
 	defaultModel?: string;
 }
 
+/**
+ *
+ */
 export interface ResolvedProfile {
 	name: string;
 	models: Array<{ provider: string; model: Model<Api> }>;
 	defaultModel?: string;
 }
 
+/**
+ *
+ */
 function matchesPattern(id: string, patterns: string[]): boolean {
 	return patterns.some((p) => {
 		if (p.includes("*")) {
@@ -25,6 +34,9 @@ function matchesPattern(id: string, patterns: string[]): boolean {
 	});
 }
 
+/**
+ *
+ */
 export function resolveProfile(cfg: ModelConfig): ResolvedProfile | null {
 	const profileName = cfg.profile;
 	if (!profileName || !cfg.profiles?.[profileName]) return null;
@@ -48,12 +60,21 @@ export function resolveProfile(cfg: ModelConfig): ResolvedProfile | null {
 	};
 }
 
+/**
+ *
+ */
 export function getProfileNames(cfg: ModelConfig): string[] {
 	return cfg.profiles ? Object.keys(cfg.profiles) : [];
 }
 
+/**
+ *
+ */
 export type ModelTier = "strong" | "default" | "fast";
 
+/**
+ *
+ */
 export function resolveTier(cfg: ModelConfig, tier: ModelTier): string | undefined {
 	const profileName = cfg.profile;
 	if (!profileName || !cfg.profiles?.[profileName]) return undefined;

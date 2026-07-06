@@ -12,6 +12,9 @@ import { buildLlm, type LlmBuildOptions } from "./build-llm.js";
 import type { Directives } from "./directives.js";
 import { createDefaultDirectives, registerAdapters } from "./prompt.js";
 
+/**
+ *
+ */
 export interface CreateAgentOptions {
 	cwd: string;
 	model: Model<Api>;
@@ -25,15 +28,21 @@ export interface CreateAgentOptions {
 	trackConcurrentOps?: boolean;
 }
 
+/**
+ *
+ */
 export interface AgentInstance {
 	agent: Agent;
 	controller: AgentController;
 	systemPrompt: string;
 }
 
+/**
+ *
+ */
 export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstance> {
 	const thinkingState = {
-		level: (opts.thinking ?? (opts.model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
+		level: (opts.thinking ?? (opts.model.reasoning ? "medium" : undefined)),
 	};
 
 	const directives = opts.directives ?? createDefaultDirectives({ tools: opts.adapters.flatMap((o) => o.tools), cwd: opts.cwd });

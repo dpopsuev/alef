@@ -190,6 +190,9 @@ type AgentDefinitionSchemaType = Static<typeof AgentDefinitionSchema>;
 
 const agentDefinitionValidator = Compile(AgentDefinitionSchema);
 
+/**
+ *
+ */
 function normalizeStringArray(values: string[] | undefined): string[] {
 	if (!values) {
 		return [];
@@ -213,10 +216,16 @@ type AgentResourceEnvelope = {
 	spec: Record<string, unknown>;
 };
 
+/**
+ *
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+/**
+ *
+ */
 function isAgentResourceEnvelope(value: unknown): value is AgentResourceEnvelope {
 	if (!isRecord(value)) {
 		return false;
@@ -229,6 +238,9 @@ function isAgentResourceEnvelope(value: unknown): value is AgentResourceEnvelope
 	);
 }
 
+/**
+ *
+ */
 function normalizeStringMap(value: unknown): Record<string, string> {
 	if (!isRecord(value)) {
 		return {};
@@ -245,12 +257,18 @@ function normalizeStringMap(value: unknown): Record<string, string> {
 	return normalized;
 }
 
+/**
+ *
+ */
 function setIfNonEmpty(target: AgentDefinitionPackageSourceInput, key: "extensions" | "skills" | "prompts" | "themes", values: string[]): void {
 	if (values.length > 0) {
 		target[key] = values;
 	}
 }
 
+/**
+ *
+ */
 function normalizePackageSources(
 	packages: NonNullable<AgentDefinitionSchemaType["dependencies"]>["packages"],
 ): AgentDefinitionDependenciesConfig["packages"] {
@@ -281,6 +299,9 @@ function normalizePackageSources(
 	return normalized;
 }
 
+/**
+ *
+ */
 function normalizeDependencies(
 	dependencies: AgentDefinitionSchemaType["dependencies"],
 ): CompiledAgentDefinition["dependencies"] | undefined {
@@ -306,6 +327,9 @@ function normalizeDependencies(
 	return normalized;
 }
 
+/**
+ *
+ */
 function normalizeResourceMetadata(metadata: Record<string, unknown> | undefined): AgentResourceMetadata {
 	const name =
 		typeof metadata?.name === "string" && metadata.name.trim().length > 0 ? metadata.name.trim() : undefined;
@@ -316,6 +340,9 @@ function normalizeResourceMetadata(metadata: Record<string, unknown> | undefined
 	};
 }
 
+/**
+ *
+ */
 function normalizeModelSelector(model: string | AgentModelSelector | undefined): AgentModelSelector | undefined {
 	if (!model) {
 		return undefined;
@@ -336,6 +363,9 @@ function normalizeModelSelector(model: string | AgentModelSelector | undefined):
 	};
 }
 
+/**
+ *
+ */
 function resolveChildBlueprints(
 	children: AgentDefinitionSchemaType["children"],
 	baseDir: string | undefined,
@@ -347,6 +377,9 @@ function resolveChildBlueprints(
 	}));
 }
 
+/**
+ *
+ */
 function normalizeAblationConfig(
 	ablation: NonNullable<AgentDefinitionSchemaType["loop"]>["ablation"],
 ): NonNullable<CompiledAgentDefinition["loop"]>["ablation"] {
@@ -358,6 +391,9 @@ function normalizeAblationConfig(
 	};
 }
 
+/**
+ *
+ */
 function normalizeLoopConfig(loop: AgentDefinitionSchemaType["loop"]): CompiledAgentDefinition["loop"] | undefined {
 	if (!loop) {
 		return undefined;
@@ -374,6 +410,9 @@ function normalizeLoopConfig(loop: AgentDefinitionSchemaType["loop"]): CompiledA
 	};
 }
 
+/**
+ *
+ */
 function normalizeDelegationConfig(
 	delegation: AgentDefinitionSchemaType["delegation"],
 ): CompiledAgentDefinition["delegation"] | undefined {
@@ -396,6 +435,9 @@ const DEFAULT_SUPERVISOR_POLICY: AgentDefinitionSupervisorPolicyConfig = {
 	upgradePolicy: "rebuild_only",
 };
 
+/**
+ *
+ */
 function normalizeSupervisorPolicy(
 	supervisor: AgentDefinitionSchemaType["supervisor"],
 ): CompiledAgentDefinition["supervisor"] | undefined {
@@ -416,6 +458,9 @@ function normalizeSupervisorPolicy(
 	};
 }
 
+/**
+ *
+ */
 function validateOrchestrationConsistency(
 	hasAdapter: boolean,
 	orchestrationFlag: boolean | undefined,
@@ -434,6 +479,9 @@ function validateOrchestrationConsistency(
 	);
 }
 
+/**
+ *
+ */
 export function compileAgentDefinition(
 	input: AgentDefinitionInput,
 	options: { sourcePath?: string; resource?: CompiledAgentDefinition["resource"] } = {},
@@ -493,6 +541,9 @@ export function compileAgentDefinition(
 	return compiled;
 }
 
+/**
+ *
+ */
 function migrateEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
 	if (envelope.apiVersion === AGENT_RESOURCE_API_VERSION) return envelope;
 
@@ -508,6 +559,9 @@ function migrateEnvelope(envelope: Record<string, unknown>): Record<string, unkn
 	return migrate(envelope);
 }
 
+/**
+ *
+ */
 function resolveSpecName(spec: Record<string, unknown>, metadata: AgentResourceMetadata): void {
 	if (typeof spec.name === "string" && spec.name.trim().length > 0) return;
 	if (metadata.name) {
@@ -517,6 +571,9 @@ function resolveSpecName(spec: Record<string, unknown>, metadata: AgentResourceM
 	throw new Error("Invalid agent resource: spec.name is required (or metadata.name must be set).");
 }
 
+/**
+ *
+ */
 function compileResourceEnvelope(
 	parsed: AgentResourceEnvelope,
 	options: { sourcePath?: string },
@@ -540,6 +597,9 @@ function compileResourceEnvelope(
 	});
 }
 
+/**
+ *
+ */
 export function parseAgentDefinitionYaml(
 	yamlText: string,
 	options: { sourcePath?: string } = {},
@@ -558,6 +618,9 @@ export function parseAgentDefinitionYaml(
 	return compileAgentDefinition(parsed as unknown as AgentDefinitionInput, options);
 }
 
+/**
+ *
+ */
 export function loadAgentDefinition(path: string): CompiledAgentDefinition {
 	const resolvedPath = resolve(path);
 	if (!existsSync(resolvedPath)) {
@@ -568,6 +631,9 @@ export function loadAgentDefinition(path: string): CompiledAgentDefinition {
 	return parseAgentDefinitionYaml(yamlText, { sourcePath: resolvedPath });
 }
 
+/**
+ *
+ */
 export function findAgentDefinitionPath(cwd: string): string | undefined {
 	const candidates = [
 		resolve(cwd, "agent.yaml"),
@@ -579,6 +645,9 @@ export function findAgentDefinitionPath(cwd: string): string | undefined {
 	return candidates.find((candidate) => existsSync(candidate));
 }
 
+/**
+ *
+ */
 export function resolveAgentChildDefinition(
 	definition: CompiledAgentDefinition | undefined,
 	reference: string,
@@ -637,6 +706,9 @@ function mergeAdapterLists(
 	return [...merged.values()];
 }
 
+/**
+ *
+ */
 export function mergeAgentDefinitions(
 	base: CompiledAgentDefinition,
 	overlay: CompiledAgentDefinition,

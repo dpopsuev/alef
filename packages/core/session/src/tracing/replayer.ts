@@ -3,6 +3,9 @@ import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { SessionTrace, TraceStep } from "./extractor.js";
 
+/**
+ *
+ */
 export class TraceReasonerAdapter implements Adapter {
 	readonly name = "trace-reasoner";
 	readonly tools: readonly ToolDefinition[] = [];
@@ -81,6 +84,9 @@ export class TraceReasonerAdapter implements Adapter {
 	}
 }
 
+/**
+ *
+ */
 export class TraceToolAdapter implements Adapter {
 	readonly name = "trace-tools";
 	readonly tools: readonly ToolDefinition[] = [];
@@ -133,6 +139,9 @@ export class TraceToolAdapter implements Adapter {
 	}
 }
 
+/**
+ *
+ */
 export function createReplayAdapters(trace: SessionTrace): { reasoner: TraceReasonerAdapter; tools: TraceToolAdapter } {
 	return {
 		reasoner: new TraceReasonerAdapter(trace),

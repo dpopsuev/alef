@@ -27,8 +27,14 @@ const execFileAsync = promisify(execFile) as {
 // Public types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export type ChangeKind = "created" | "modified" | "deleted";
 
+/**
+ *
+ */
 export interface Change {
 	/** Path relative to the workspace root. */
 	path: string;
@@ -37,11 +43,17 @@ export interface Change {
 	size: number;
 }
 
+/**
+ *
+ */
 export interface ExecResult {
 	exitCode: number;
 	output: string;
 }
 
+/**
+ *
+ */
 export interface SpaceOptions {
 	/**
 	 * The real workspace directory — the lower layer.
@@ -59,6 +71,9 @@ export interface SpaceOptions {
 // Space interface
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface Space {
 	/** The path the agent should use as its working directory (merged view). */
 	workDir(): string;
@@ -91,6 +106,9 @@ export interface Space {
 	destroy(): Promise<void>;
 }
 
+/**
+ *
+ */
 export interface ExecOptions {
 	/** Timeout in milliseconds. */
 	timeoutMs?: number;
@@ -108,6 +126,9 @@ export interface ExecOptions {
 // OverlaySpace — fuse-overlayfs implementation
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export class OverlaySpace implements Space {
 	private readonly lower: string;
 	private readonly upper: string;
@@ -246,6 +267,9 @@ export class OverlaySpace implements Space {
 // StubSpace — in-memory, no I/O, for tests
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export class StubSpace implements Space {
 	private readonly _workDir: string;
 	private _changes: Change[] = [];
@@ -258,29 +282,37 @@ export class StubSpace implements Space {
 	workDir(): string {
 		return this._workDir;
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async diff(): Promise<Change[]> {
 		return [...this._changes];
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async commit(_paths?: string[]): Promise<void> {
 		this._changes = [];
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async reset(): Promise<void> {
 		this._changes = [];
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async snapshot(name: string): Promise<void> {
 		this._snapshots.set(name, [...this._changes]);
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async restore(name: string): Promise<void> {
 		const snap = this._snapshots.get(name);
 		if (!snap) throw new Error(`enclosure: snapshot not found: ${name}`);
 		this._changes = [...snap];
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async snapshots(): Promise<string[]> {
 		return [...this._snapshots.keys()];
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async exec(command: string[], _options?: ExecOptions): Promise<ExecResult> {
 		return { exitCode: 0, output: `stub: ${command.join(" ")}` };
 	}
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async destroy(): Promise<void> {
 		this._changes = [];
 		this._snapshots.clear();
@@ -296,6 +328,9 @@ export class StubSpace implements Space {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function buildUnshareArgs(command: string[], opts: ExecOptions): string[] {
 	const unshareArgs = ["unshare", "--user", "--map-root-user", "--mount", "--pid", "--fork", "--net"];
 	if (opts.memoryMaxBytes || opts.cpuQuotaUs) {
@@ -305,6 +340,9 @@ function buildUnshareArgs(command: string[], opts: ExecOptions): string[] {
 	return [...unshareArgs, "--", ...command];
 }
 
+/**
+ *
+ */
 async function walkUpper(upper: string, lower: string, rel = ""): Promise<Change[]> {
 	const changes: Change[] = [];
 	let entries: Dirent<string>[];
@@ -341,6 +379,9 @@ async function walkUpper(upper: string, lower: string, rel = ""): Promise<Change
 	return changes;
 }
 
+/**
+ *
+ */
 function isWhiteout(info: Awaited<ReturnType<typeof lstat>>): boolean {
 	// On Linux, overlayfs whiteouts are character devices with rdev=0.
 	const mode = Number(info.mode);

@@ -21,6 +21,9 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 export const FindingSeveritySchema = z.enum(["critical", "major", "minor", "suggestion"]);
+/**
+ *
+ */
 export type FindingSeverity = z.infer<typeof FindingSeveritySchema>;
 
 export const JudgeFindingSchema = z.object({
@@ -29,9 +32,15 @@ export const JudgeFindingSchema = z.object({
 	location: z.string().optional(),
 	message: z.string().max(300),
 });
+/**
+ *
+ */
 export type JudgeFinding = z.infer<typeof JudgeFindingSchema>;
 
 export const JudgeVerdictSchema = z.enum(["approve", "request-changes", "comment"]);
+/**
+ *
+ */
 export type JudgeVerdict = z.infer<typeof JudgeVerdictSchema>;
 
 export const JudgeReportSchema = z.object({
@@ -43,6 +52,9 @@ export const JudgeReportSchema = z.object({
 	/** Up to 10 specific findings with severity and location. */
 	findings: z.array(JudgeFindingSchema).max(10),
 });
+/**
+ *
+ */
 export type JudgeReport = z.infer<typeof JudgeReportSchema>;
 
 const SUBMIT_TOOL: ToolDefinition = {
@@ -58,10 +70,16 @@ const SUBMIT_TOOL: ToolDefinition = {
 // Adapter
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface JudgingAdapterOptions {
 	onReport(report: JudgeReport): void;
 }
 
+/**
+ *
+ */
 export function createJudgingAdapter(opts: JudgingAdapterOptions): Adapter {
 	return defineAdapter(
 		"judging",

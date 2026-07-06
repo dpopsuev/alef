@@ -10,8 +10,14 @@
  * Users can remap leader keys via config.
  */
 
+/**
+ *
+ */
 export type DetectionRule = "beginning" | "anywhere";
 
+/**
+ *
+ */
 export interface InputPattern {
 	name: string;
 	leader: string;
@@ -20,6 +26,9 @@ export interface InputPattern {
 	handle: (text: string, remainder: string) => boolean | Promise<boolean>;
 }
 
+/**
+ *
+ */
 export class InputPatternRegistry {
 	private readonly _patterns: InputPattern[] = [];
 

@@ -6,6 +6,9 @@
 import http from "node:http";
 import type { TranscriptEvent } from "./types.js";
 
+/**
+ *
+ */
 export function postMessage(endpoint: string, text: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const body = JSON.stringify({ text });

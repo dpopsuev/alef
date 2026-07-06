@@ -104,6 +104,9 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 	}
 };
 
+/**
+ *
+ */
 function createClient(
 	model: ImagesModel<"openrouter-images">,
 	apiKey: string,
@@ -124,6 +127,9 @@ type OpenRouterImagesCreateParams = Omit<ChatCompletionCreateParamsNonStreaming,
 	modalities: Array<"image" | "text">;
 };
 
+/**
+ *
+ */
 function buildParams(model: ImagesModel<"openrouter-images">, context: ImagesContext): OpenRouterImagesCreateParams {
 	const content: ChatCompletionContentPart[] = context.input.map((item): ChatCompletionContentPart => {
 		if (item.type === "text") {
@@ -153,6 +159,9 @@ function buildParams(model: ImagesModel<"openrouter-images">, context: ImagesCon
 	};
 }
 
+/**
+ *
+ */
 function parseUsage(
 	rawUsage: {
 		prompt_tokens?: number;

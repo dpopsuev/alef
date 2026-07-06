@@ -1,5 +1,8 @@
 import type { Api, Model } from "../../types.js";
 
+/**
+ *
+ */
 export type OAuthCredentials = {
 	refresh: string;
 	access: string;
@@ -7,29 +10,47 @@ export type OAuthCredentials = {
 	[key: string]: unknown;
 };
 
+/**
+ *
+ */
 export type OAuthProviderId = string;
 
+/**
+ *
+ */
 export type OAuthPrompt = {
 	message: string;
 	placeholder?: string;
 	allowEmpty?: boolean;
 };
 
+/**
+ *
+ */
 export type OAuthAuthInfo = {
 	url: string;
 	instructions?: string;
 };
 
+/**
+ *
+ */
 export type OAuthSelectOption = {
 	id: string;
 	label: string;
 };
 
+/**
+ *
+ */
 export type OAuthSelectPrompt = {
 	message: string;
 	options: OAuthSelectOption[];
 };
 
+/**
+ *
+ */
 export interface OAuthLoginCallbacks {
 	onAuth: (info: OAuthAuthInfo) => void;
 	onPrompt: (prompt: OAuthPrompt) => Promise<string>;
@@ -40,6 +61,9 @@ export interface OAuthLoginCallbacks {
 	signal?: AbortSignal;
 }
 
+/**
+ *
+ */
 export interface OAuthProviderInterface {
 	readonly id: OAuthProviderId;
 	readonly name: string;

@@ -1,5 +1,8 @@
 import type { Component, TuiHandle } from "../component.js";
 
+/**
+ *
+ */
 export interface SlotMachineOptions<T> {
 	format: (value: T) => string;
 	interpolate: (from: T, to: T, progress: number) => T;
@@ -13,12 +16,18 @@ export interface SlotMachineOptions<T> {
 const DEFAULT_DURATION_MS = 400;
 const DEFAULT_FRAME_INTERVAL_MS = 50;
 
+/**
+ *
+ */
 export function numericInterpolator(from: number, to: number, progress: number): number {
 	const eased = easeOutCubic(progress);
 	const jitter = progress < 0.6 ? Math.round((Math.random() - 0.5) * Math.abs(to - from) * 0.3) : 0;
 	return Math.round(from + (to - from) * eased + jitter);
 }
 
+/**
+ *
+ */
 export function glyphInterpolator(alphabet: readonly string[]): (from: string, to: string, progress: number) => string {
 	return (_from, to, progress) => {
 		if (progress >= 0.8) return to;
@@ -26,6 +35,9 @@ export function glyphInterpolator(alphabet: readonly string[]): (from: string, t
 	};
 }
 
+/**
+ *
+ */
 export class SlotMachine<T> implements Component {
 	private value: T;
 	private targetValue: T;
@@ -119,6 +131,9 @@ export class SlotMachine<T> implements Component {
 	}
 }
 
+/**
+ *
+ */
 function easeOutCubic(t: number): number {
 	return 1 - (1 - t) ** 3;
 }

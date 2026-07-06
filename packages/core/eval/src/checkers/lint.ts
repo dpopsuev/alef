@@ -30,6 +30,9 @@ interface BiomeReport {
 	summary: { errors: number; warnings: number };
 }
 
+/**
+ *
+ */
 function runBiome(workspace: string, files: string[]): Promise<{ report: BiomeReport; ok: boolean }> {
 	return new Promise((resolve) => {
 		if (!existsSync(BIOME)) {
@@ -65,6 +68,9 @@ function runBiome(workspace: string, files: string[]): Promise<{ report: BiomeRe
 	});
 }
 
+/**
+ *
+ */
 export interface LintCheckOptions {
 	/** Seed SHA from initGitWorkspace(). Uses ctx.seedSha when omitted. */
 	seedSha?: string;
@@ -72,6 +78,9 @@ export interface LintCheckOptions {
 	extensions?: string[];
 }
 
+/**
+ *
+ */
 export function lintCheck(opts?: Partial<LintCheckOptions>): Checker {
 	return {
 		async check({ workspace, seedSha: ctxSeedSha }: CheckerContext): Promise<CheckerResult> {

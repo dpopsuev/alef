@@ -36,6 +36,9 @@ const MINIMAL_TSCONFIG = JSON.stringify({
 	exclude: ["node_modules"],
 });
 
+/**
+ *
+ */
 function runTsc(workspace: string): Promise<{ exitCode: number; output: string }> {
 	return new Promise((resolve) => {
 		const proc = spawn(TSC, ["--project", "tsconfig.json"], {
@@ -53,6 +56,9 @@ function runTsc(workspace: string): Promise<{ exitCode: number; output: string }
 	});
 }
 
+/**
+ *
+ */
 export function compileCheck(): Checker {
 	return {
 		async check({ workspace }: CheckerContext): Promise<CheckerResult> {

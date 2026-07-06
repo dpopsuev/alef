@@ -1,8 +1,14 @@
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { type Bus, buildEventResult, type CommandMessage } from "@dpopsuev/alef-kernel/bus";
 
+/**
+ *
+ */
 export type StubHandler = (type: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
 
+/**
+ *
+ */
 export function defineStubAdapter(name: string, tools: ToolDefinition[], handler: StubHandler): Adapter {
 	return {
 		name,

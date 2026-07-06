@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 import { badge as formatBadge } from "../design/typography.js";
 
+/**
+ *
+ */
 export interface BadgeOptions {
 	label?: string;
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class Badge implements Component {
 	private value = 0;
 	private label: string;

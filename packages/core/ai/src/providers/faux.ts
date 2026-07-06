@@ -50,6 +50,9 @@ const DEFAULT_USAGE: Usage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
+/**
+ *
+ */
 export interface FauxModelDefinition {
 	id: string;
 	name?: string;
@@ -60,6 +63,9 @@ export interface FauxModelDefinition {
 	maxTokens?: number;
 }
 
+/**
+ *
+ */
 function buildFauxModel(def: FauxModelDefinition, api: string, provider: string): Model<string> {
 	return {
 		id: def.id,
@@ -75,16 +81,28 @@ function buildFauxModel(def: FauxModelDefinition, api: string, provider: string)
 	};
 }
 
+/**
+ *
+ */
 export type FauxContentBlock = TextContent | ThinkingContent | ToolCall;
 
+/**
+ *
+ */
 export function fauxText(text: string): TextContent {
 	return { type: "text", text };
 }
 
+/**
+ *
+ */
 export function fauxThinking(thinking: string): ThinkingContent {
 	return { type: "thinking", thinking };
 }
 
+/**
+ *
+ */
 export function fauxToolCall(name: string, args: ToolCall["arguments"], options: { id?: string } = {}): ToolCall {
 	const id =
 		options.id ??
@@ -94,11 +112,17 @@ export function fauxToolCall(name: string, args: ToolCall["arguments"], options:
 	return { type: "toolCall", id, name, arguments: args };
 }
 
+/**
+ *
+ */
 function normalizeContent(content: string | FauxContentBlock | FauxContentBlock[]): FauxContentBlock[] {
 	if (typeof content === "string") return [fauxText(content)];
 	return Array.isArray(content) ? content : [content];
 }
 
+/**
+ *
+ */
 export function fauxAssistantMessage(
 	content: string | FauxContentBlock | FauxContentBlock[],
 	options: {
@@ -119,6 +143,9 @@ export function fauxAssistantMessage(
 	};
 }
 
+/**
+ *
+ */
 export type FauxResponseFactory = (
 	context: Context,
 	options: StreamOptions | undefined,
@@ -126,8 +153,14 @@ export type FauxResponseFactory = (
 	model: Model<string>,
 ) => AssistantMessage | Promise<AssistantMessage>;
 
+/**
+ *
+ */
 export type FauxResponseStep = AssistantMessage | FauxResponseFactory;
 
+/**
+ *
+ */
 export interface RegisterFauxProviderOptions {
 	/** Override the API identifier (default: auto-generated unique string). */
 	api?: string;
@@ -141,6 +174,9 @@ export interface RegisterFauxProviderOptions {
 	tokenSize?: { min?: number; max?: number };
 }
 
+/**
+ *
+ */
 export interface FauxProviderRegistration {
 	/** API identifier — use when registering with ModelRegistry. */
 	api: string;
@@ -154,10 +190,16 @@ export interface FauxProviderRegistration {
 	unregister(): void;
 }
 
+/**
+ *
+ */
 function estimateTokens(text: string): number {
 	return Math.ceil(text.length / 4);
 }
 
+/**
+ *
+ */
 function splitByTokenSize(text: string, min: number, max: number): string[] {
 	const chunks: string[] = [];
 	let i = 0;
@@ -170,11 +212,17 @@ function splitByTokenSize(text: string, min: number, max: number): string[] {
 	return chunks.length > 0 ? chunks : [""];
 }
 
+/**
+ *
+ */
 function contentToText(content: string | Array<TextContent | ImageContent>): string {
 	if (typeof content === "string") return content;
 	return content.map((b) => (b.type === "text" ? b.text : `[image:${b.mimeType}]`)).join("\n");
 }
 
+/**
+ *
+ */
 function messageToText(msg: Message): string {
 	if (msg.role === "user") return contentToText(msg.content);
 	if (msg.role === "assistant")
@@ -191,6 +239,9 @@ function messageToText(msg: Message): string {
 	return [tr.toolName, ...tr.content.map((b) => contentToText([b]))].join("\n");
 }
 
+/**
+ *
+ */
 function serializeContext(ctx: Context): string {
 	const parts: string[] = [];
 	if (ctx.systemPrompt) parts.push(`system:${ctx.systemPrompt}`);
@@ -199,6 +250,9 @@ function serializeContext(ctx: Context): string {
 	return parts.join("\n\n");
 }
 
+/**
+ *
+ */
 function commonPrefixLen(a: string, b: string): number {
 	const len = Math.min(a.length, b.length);
 	let i = 0;
@@ -206,6 +260,9 @@ function commonPrefixLen(a: string, b: string): number {
 	return i;
 }
 
+/**
+ *
+ */
 function withUsage(
 	msg: AssistantMessage,
 	ctx: Context,
@@ -246,12 +303,18 @@ function withUsage(
 	};
 }
 
+/**
+ *
+ */
 function scheduleChunk(chunk: string, tps: number | undefined): Promise<void> {
 	if (!tps || tps <= 0) return new Promise((r) => queueMicrotask(r));
 	const delayMs = (estimateTokens(chunk) / tps) * 1000;
 	return new Promise((r) => setTimeout(r, delayMs));
 }
 
+/**
+ *
+ */
 function cloneMsg(msg: AssistantMessage, api: string, provider: string, modelId: string): AssistantMessage {
 	return {
 		...structuredClone(msg),
@@ -263,6 +326,9 @@ function cloneMsg(msg: AssistantMessage, api: string, provider: string, modelId:
 	};
 }
 
+/**
+ *
+ */
 function errorMsg(err: unknown, api: string, provider: string, modelId: string): AssistantMessage {
 	return {
 		role: "assistant",
@@ -277,12 +343,18 @@ function errorMsg(err: unknown, api: string, provider: string, modelId: string):
 	};
 }
 
+/**
+ *
+ */
 function abortedMsg(partial: AssistantMessage): AssistantMessage {
 	return { ...partial, stopReason: "aborted", errorMessage: "Request was aborted", timestamp: Date.now() };
 }
 
 type Stream = ReturnType<typeof createAssistantMessageEventStream>;
 
+/**
+ *
+ */
 async function streamWithDeltas(
 	stream: Stream,
 	msg: AssistantMessage,
@@ -374,6 +446,9 @@ async function streamWithDeltas(
 	stream.end(msg);
 }
 
+/**
+ *
+ */
 export function registerFauxProvider(options: RegisterFauxProviderOptions = {}): FauxProviderRegistration {
 	const uuid = (): string =>
 		typeof globalThis.crypto.randomUUID === "function"
@@ -433,10 +508,13 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 		return outer;
 	};
 
-	registerApiProvider({ api, stream: streamFn, streamSimple: streamFn as typeof streamFn }, sourceId);
+	registerApiProvider({ api, stream: streamFn, streamSimple: streamFn }, sourceId);
 
 	function getModel(): Model<string>;
 	function getModel(id: string): Model<string> | undefined;
+	/**
+	 *
+	 */
 	function getModel(id?: string): Model<string> | undefined {
 		if (!id) return models[0];
 		return models.find((m) => m.id === id);

@@ -11,12 +11,18 @@ import type { ChildEntry } from "./child-process.js";
 import { healthCheck, resolvePath, spawnChild } from "./child-process.js";
 import { DEFAULT_ASK_MAX_MS, DEFAULT_ASK_STALL_MS, MIN_REMAINING_MS, SIGKILL_GRACE_MS } from "./constants.js";
 
+/**
+ *
+ */
 export interface ChildAgentService extends ManagedService {
 	readonly entry: ChildEntry;
 }
 
 let childSeq = 0;
 
+/**
+ *
+ */
 function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefined {
 	const svc = deps.supervisor.get(name);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by "entry" in svc guard
@@ -24,6 +30,9 @@ function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefine
 	return undefined;
 }
 
+/**
+ *
+ */
 function listChildren(deps: ChildLifecycleDeps): ChildEntry[] {
 	return deps.supervisor
 		.names()
@@ -32,6 +41,9 @@ function listChildren(deps: ChildLifecycleDeps): ChildEntry[] {
 		.filter((e): e is ChildEntry => e !== undefined);
 }
 
+/**
+ *
+ */
 export interface ChildLifecycleDeps {
 	cwd: string;
 	replyEvent: string;
@@ -46,6 +58,9 @@ export interface ChildLifecycleDeps {
 	parentAdapterNames?: ReadonlySet<string>;
 }
 
+/**
+ *
+ */
 export async function handleSpawn(
 	deps: ChildLifecycleDeps,
 	ctx: {
@@ -132,6 +147,9 @@ export async function handleSpawn(
 	);
 }
 
+/**
+ *
+ */
 export async function handleAsk(
 	deps: ChildLifecycleDeps,
 	ctx: {
@@ -173,6 +191,9 @@ export async function handleAsk(
 	return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
 }
 
+/**
+ *
+ */
 export async function handleRace(
 	deps: ChildLifecycleDeps,
 	ctx: {
@@ -221,6 +242,9 @@ export async function handleRace(
 	);
 }
 
+/**
+ *
+ */
 export async function handleConverse(
 	deps: ChildLifecycleDeps,
 	ctx: {
@@ -282,6 +306,9 @@ export async function handleConverse(
 	);
 }
 
+/**
+ *
+ */
 export async function handleKill(
 	deps: ChildLifecycleDeps,
 	ctx: { payload: { name: string } },
@@ -313,6 +340,9 @@ export async function handleKill(
 	);
 }
 
+/**
+ *
+ */
 export async function handleList(deps: ChildLifecycleDeps): Promise<Record<string, unknown>> {
 	const items = await Promise.all(
 		listChildren(deps).map(async (e) => ({
@@ -331,6 +361,9 @@ export async function handleList(deps: ChildLifecycleDeps): Promise<Record<strin
 	return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
 }
 
+/**
+ *
+ */
 export async function handleStatus(
 	deps: ChildLifecycleDeps,
 	ctx: { payload: { name: string } },
@@ -353,6 +386,10 @@ export async function handleStatus(
 	);
 }
 
+/**
+ *
+ */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function handlePromote(
 	deps: ChildLifecycleDeps,
 	ctx: { payload: { adapterPath: string; blueprintPath?: string } },

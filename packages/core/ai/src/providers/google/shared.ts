@@ -51,6 +51,9 @@ export function retainThoughtSignature(existing: string | undefined, incoming: s
 // Thought signatures must be base64 for Google APIs (TYPE_BYTES).
 const base64SignaturePattern = /^[A-Za-z0-9+/]+={0,2}$/;
 
+/**
+ *
+ */
 function isValidThoughtSignature(signature: string | undefined): boolean {
 	if (!signature) return false;
 	if (signature.length % 4 !== 0) return false;
@@ -71,12 +74,18 @@ export function requiresToolCallId(modelId: string): boolean {
 	return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
 }
 
+/**
+ *
+ */
 function getGeminiMajorVersion(modelId: string): number | undefined {
 	const match = modelId.toLowerCase().match(/^gemini(?:-live)?-(\d+)/);
 	if (!match) return undefined;
 	return Number.parseInt(match[1], 10);
 }
 
+/**
+ *
+ */
 function supportsMultimodalFunctionResponse(modelId: string): boolean {
 	const geminiMajorVersion = getGeminiMajorVersion(modelId);
 	if (geminiMajorVersion !== undefined) {

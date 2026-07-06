@@ -2,8 +2,14 @@ import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kern
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 
+/**
+ *
+ */
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 
+/**
+ *
+ */
 export interface ManagedLifecycle {
 	readonly name: string;
 	start(): Promise<void>;
@@ -12,6 +18,9 @@ export interface ManagedLifecycle {
 	readonly restart: RestartPolicy;
 }
 
+/**
+ *
+ */
 export interface ServiceRegistry {
 	register(descriptor: ServiceDescriptor): void;
 	stop(name: string): Promise<void>;
@@ -21,6 +30,9 @@ export interface ServiceRegistry {
 	names(): string[];
 }
 
+/**
+ *
+ */
 export interface ServiceCreateOpts {
 	cwd: string;
 	bus?: Bus;
@@ -28,6 +40,9 @@ export interface ServiceCreateOpts {
 	supervisor?: ServiceRegistry;
 }
 
+/**
+ *
+ */
 export interface ServiceDescriptor {
 	readonly name: string;
 	readonly restart: RestartPolicy;
@@ -36,6 +51,9 @@ export interface ServiceDescriptor {
 	create(opts: ServiceCreateOpts): Promise<ManagedService>;
 }
 
+/**
+ *
+ */
 export interface ManagedService extends ManagedLifecycle {
 	readonly adapters: readonly Adapter[];
 	readonly tools: readonly ToolDefinition[];

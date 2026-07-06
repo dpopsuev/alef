@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface BoxSet {
 	readonly horizontal: string;
 	readonly vertical: string;

@@ -3,6 +3,9 @@ import type { SessionSummary, SummaryStore } from "../interfaces.js";
 
 export type { SessionSummary };
 
+/**
+ *
+ */
 export class SqliteSummaryStore implements SummaryStore {
 	private readonly client: Client;
 

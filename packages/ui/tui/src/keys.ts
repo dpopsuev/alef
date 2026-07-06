@@ -353,10 +353,16 @@ const KITTY_FUNCTIONAL_KEY_EQUIVALENTS = new Map<number, number>([
 	[57426, FUNCTIONAL_CODEPOINTS.delete],
 ]);
 
+/**
+ *
+ */
 function normalizeKittyFunctionalCodepoint(codepoint: number): number {
 	return KITTY_FUNCTIONAL_KEY_EQUIVALENTS.get(codepoint) ?? codepoint;
 }
 
+/**
+ *
+ */
 function normalizeShiftedLetterIdentityCodepoint(codepoint: number, modifier: number): number {
 	const effectiveModifier = modifier & ~LOCK_MASK;
 	if ((effectiveModifier & MODIFIERS.shift) !== 0 && codepoint >= 65 && codepoint <= 90) {
@@ -576,6 +582,9 @@ export function isKeyRepeat(data: string): boolean {
 	return false;
 }
 
+/**
+ *
+ */
 function parseEventType(eventTypeStr: string | undefined): KeyEventType {
 	if (!eventTypeStr) return "press";
 	const eventType = parseInt(eventTypeStr, 10);
@@ -584,6 +593,9 @@ function parseEventType(eventTypeStr: string | undefined): KeyEventType {
 	return "press";
 }
 
+/**
+ *
+ */
 function parseKittySequence(data: string): ParsedKittySequence | null {
 	// CSI u format with alternate keys (flag 4):
 	// \x1b[<codepoint>u
@@ -597,7 +609,7 @@ function parseKittySequence(data: string): ParsedKittySequence | null {
 	// With flag 4, alternate keys are appended after codepoint with colons
 	const csiUMatch = data.match(/^\x1b\[(\d+)(?::(\d*))?(?::(\d+))?(?:;(\d+))?(?::(\d+))?u$/);
 	if (csiUMatch) {
-		const codepoint = parseInt(csiUMatch[1]!, 10);
+		const codepoint = parseInt(csiUMatch[1], 10);
 		const shiftedKey = csiUMatch[2] && csiUMatch[2].length > 0 ? parseInt(csiUMatch[2], 10) : undefined;
 		const baseLayoutKey = csiUMatch[3] ? parseInt(csiUMatch[3], 10) : undefined;
 		const modValue = csiUMatch[4] ? parseInt(csiUMatch[4], 10) : 1;
@@ -609,17 +621,17 @@ function parseKittySequence(data: string): ParsedKittySequence | null {
 	// Arrow keys with modifier: \x1b[1;<mod>A/B/C/D or \x1b[1;<mod>:<event>A/B/C/D
 	const arrowMatch = data.match(/^\x1b\[1;(\d+)(?::(\d+))?([ABCD])$/);
 	if (arrowMatch) {
-		const modValue = parseInt(arrowMatch[1]!, 10);
+		const modValue = parseInt(arrowMatch[1], 10);
 		const eventType = parseEventType(arrowMatch[2]);
 		const arrowCodes: Record<string, number> = { A: -1, B: -2, C: -3, D: -4 };
 		_lastEventType = eventType;
-		return { codepoint: arrowCodes[arrowMatch[3]!]!, modifier: modValue - 1, eventType };
+		return { codepoint: arrowCodes[arrowMatch[3]], modifier: modValue - 1, eventType };
 	}
 
 	// Functional keys: \x1b[<num>~ or \x1b[<num>;<mod>~ or \x1b[<num>;<mod>:<event>~
 	const funcMatch = data.match(/^\x1b\[(\d+)(?:;(\d+))?(?::(\d+))?~$/);
 	if (funcMatch) {
-		const keyNum = parseInt(funcMatch[1]!, 10);
+		const keyNum = parseInt(funcMatch[1], 10);
 		const modValue = funcMatch[2] ? parseInt(funcMatch[2], 10) : 1;
 		const eventType = parseEventType(funcMatch[3]);
 		const funcCodes: Partial<Record<number, number>> = {
@@ -640,7 +652,7 @@ function parseKittySequence(data: string): ParsedKittySequence | null {
 	// Home/End with modifier: \x1b[1;<mod>H/F or \x1b[1;<mod>:<event>H/F
 	const homeEndMatch = data.match(/^\x1b\[1;(\d+)(?::(\d+))?([HF])$/);
 	if (homeEndMatch) {
-		const modValue = parseInt(homeEndMatch[1]!, 10);
+		const modValue = parseInt(homeEndMatch[1], 10);
 		const eventType = parseEventType(homeEndMatch[2]);
 		const codepoint = homeEndMatch[3] === "H" ? FUNCTIONAL_CODEPOINTS.home : FUNCTIONAL_CODEPOINTS.end;
 		_lastEventType = eventType;
@@ -650,6 +662,9 @@ function parseKittySequence(data: string): ParsedKittySequence | null {
 	return null;
 }
 
+/**
+ *
+ */
 function matchesKittySequence(data: string, expectedCodepoint: number, expectedModifier: number): boolean {
 	const parsed = parseKittySequence(data);
 	if (!parsed) return false;
@@ -693,11 +708,14 @@ function matchesKittySequence(data: string, expectedCodepoint: number, expectedM
 	return false;
 }
 
+/**
+ *
+ */
 function parseModifyOtherKeysSequence(data: string): ParsedModifyOtherKeysSequence | null {
 	const match = data.match(/^\x1b\[27;(\d+);(\d+)~$/);
 	if (!match) return null;
-	const modValue = parseInt(match[1]!, 10);
-	const codepoint = parseInt(match[2]!, 10);
+	const modValue = parseInt(match[1], 10);
+	const codepoint = parseInt(match[2], 10);
 	return { codepoint, modifier: modValue - 1 };
 }
 
@@ -712,6 +730,9 @@ function matchesModifyOtherKeys(data: string, expectedKeycode: number, expectedM
 	return parsed.codepoint === expectedKeycode && parsed.modifier === expectedModifier;
 }
 
+/**
+ *
+ */
 function isWindowsTerminalSession(): boolean {
 	return (
 		Boolean(process.env.WT_SESSION) && !process.env.SSH_CONNECTION && !process.env.SSH_CLIENT && !process.env.SSH_TTY
@@ -759,10 +780,16 @@ function rawCtrlChar(key: string): string | null {
 	return null;
 }
 
+/**
+ *
+ */
 function isDigitKey(key: string): boolean {
 	return key >= "0" && key <= "9";
 }
 
+/**
+ *
+ */
 function matchesPrintableModifyOtherKeys(data: string, expectedKeycode: number, expectedModifier: number): boolean {
 	if (expectedModifier === 0) return false;
 	const parsed = parseModifyOtherKeysSequence(data);
@@ -773,6 +800,9 @@ function matchesPrintableModifyOtherKeys(data: string, expectedKeycode: number, 
 	);
 }
 
+/**
+ *
+ */
 function formatKeyNameWithModifiers(keyName: string, modifier: number): string | undefined {
 	const mods: string[] = [];
 	const effectiveMod = modifier & ~LOCK_MASK;
@@ -785,6 +815,9 @@ function formatKeyNameWithModifiers(keyName: string, modifier: number): string |
 	return mods.length > 0 ? `${mods.join("+")}+${keyName}` : keyName;
 }
 
+/**
+ *
+ */
 function parseKeyId(
 	keyId: string,
 ): { key: string; ctrl: boolean; shift: boolean; alt: boolean; super: boolean } | null {
@@ -804,6 +837,9 @@ function parseKeyId(
 // Key Matching - Special Keys
 // =============================================================================
 
+/**
+ *
+ */
 function matchesEscapeKey(data: string, modifier: number): boolean {
 	if (modifier !== 0) return false;
 	return (
@@ -813,6 +849,9 @@ function matchesEscapeKey(data: string, modifier: number): boolean {
 	);
 }
 
+/**
+ *
+ */
 function matchesSpaceKey(data: string, modifier: number): boolean {
 	if (!_kittyProtocolActive) {
 		if (modifier === MODIFIERS.ctrl && data === "\x00") return true;
@@ -830,6 +869,9 @@ function matchesSpaceKey(data: string, modifier: number): boolean {
 	);
 }
 
+/**
+ *
+ */
 function matchesTabKey(data: string, modifier: number): boolean {
 	if (modifier === MODIFIERS.shift) {
 		return (
@@ -846,6 +888,9 @@ function matchesTabKey(data: string, modifier: number): boolean {
 	);
 }
 
+/**
+ *
+ */
 function matchesEnterKey(data: string, modifier: number): boolean {
 	if (modifier === MODIFIERS.shift) {
 		// CSI u sequences (standard Kitty protocol)
@@ -902,6 +947,9 @@ function matchesEnterKey(data: string, modifier: number): boolean {
 	);
 }
 
+/**
+ *
+ */
 function matchesBackspaceKey(data: string, modifier: number): boolean {
 	if (modifier === MODIFIERS.alt) {
 		if (data === "\x1b\x7f" || data === "\x1b\b") return true;
@@ -937,6 +985,9 @@ function matchesBackspaceKey(data: string, modifier: number): boolean {
 // Key Matching - Functional Keys (Insert, Delete, Home, End, PageUp/Down)
 // =============================================================================
 
+/**
+ *
+ */
 function matchesFunctionalKey(data: string, modifier: number, keyName: LegacyModifierKey, codepoint: number): boolean {
 	if (modifier === 0) {
 		return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[keyName]) || matchesKittySequence(data, codepoint, 0);
@@ -947,6 +998,9 @@ function matchesFunctionalKey(data: string, modifier: number, keyName: LegacyMod
 	return matchesKittySequence(data, codepoint, modifier);
 }
 
+/**
+ *
+ */
 function matchesClearKey(data: string, modifier: number): boolean {
 	if (modifier === 0) {
 		return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.clear);
@@ -958,6 +1012,9 @@ function matchesClearKey(data: string, modifier: number): boolean {
 // Key Matching - Arrow Keys
 // =============================================================================
 
+/**
+ *
+ */
 function matchesArrowKey(
 	data: string,
 	modifier: number,
@@ -977,6 +1034,9 @@ function matchesArrowKey(
 	return matchesKittySequence(data, codepoint, modifier);
 }
 
+/**
+ *
+ */
 function matchesLeftKey(data: string, modifier: number): boolean {
 	if (modifier === MODIFIERS.alt) {
 		return (
@@ -1004,6 +1064,9 @@ function matchesLeftKey(data: string, modifier: number): boolean {
 	return matchesKittySequence(data, ARROW_CODEPOINTS.left, modifier);
 }
 
+/**
+ *
+ */
 function matchesRightKey(data: string, modifier: number): boolean {
 	if (modifier === MODIFIERS.alt) {
 		return (
@@ -1036,6 +1099,9 @@ function matchesRightKey(data: string, modifier: number): boolean {
 // Key Matching - Function Keys (F1-F12)
 // =============================================================================
 
+/**
+ *
+ */
 function matchesFunctionKey(data: string, modifier: number, key: keyof typeof LEGACY_KEY_SEQUENCES): boolean {
 	if (modifier !== 0) return false;
 	return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[key]);
@@ -1045,6 +1111,9 @@ function matchesFunctionKey(data: string, modifier: number, key: keyof typeof LE
 // Key Matching - Printable Keys (Letters, Digits, Symbols)
 // =============================================================================
 
+/**
+ *
+ */
 function matchesPrintableKey(data: string, key: string, modifier: number): boolean {
 	const codepoint = key.charCodeAt(0);
 	const rawCtrl = rawCtrlChar(key);
@@ -1178,7 +1247,7 @@ export function matchesKey(data: string, keyId: KeyId): boolean {
 		case "f10":
 		case "f11":
 		case "f12":
-			return matchesFunctionKey(data, modifier, key as keyof typeof LEGACY_KEY_SEQUENCES);
+			return matchesFunctionKey(data, modifier, key);
 	}
 
 	// Handle single letter/digit keys and symbols
@@ -1193,6 +1262,9 @@ export function matchesKey(data: string, keyId: KeyId): boolean {
 // Key Formatting - Convert codepoint to key name
 // =============================================================================
 
+/**
+ *
+ */
 function getKeyNameFromCodepoint(codepoint: number): string | undefined {
 	if (codepoint === CODEPOINTS.escape) return "escape";
 	if (codepoint === CODEPOINTS.tab) return "tab";
@@ -1241,6 +1313,9 @@ function formatParsedKey(codepoint: number, modifier: number, baseLayoutKey?: nu
 	return formatKeyNameWithModifiers(keyName, modifier);
 }
 
+/**
+ *
+ */
 export function parseKey(data: string): string | undefined {
 	const kitty = parseKittySequence(data);
 	if (kitty) {
@@ -1374,6 +1449,9 @@ export function decodeKittyPrintable(data: string): string | undefined {
 	}
 }
 
+/**
+ *
+ */
 function decodeModifyOtherKeysPrintable(data: string): string | undefined {
 	const parsed = parseModifyOtherKeysSequence(data);
 	if (!parsed) return undefined;
@@ -1388,6 +1466,9 @@ function decodeModifyOtherKeysPrintable(data: string): string | undefined {
 	}
 }
 
+/**
+ *
+ */
 export function decodePrintableKey(data: string): string | undefined {
 	return decodeKittyPrintable(data) ?? decodeModifyOtherKeysPrintable(data);
 }

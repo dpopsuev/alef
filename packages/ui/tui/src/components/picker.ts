@@ -3,12 +3,18 @@ import { fuzzyFilter } from "../fuzzy.js";
 import { matchesKey } from "../keys.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface PickerItem {
 	label: string;
 	description?: string;
 	preview?: string;
 }
 
+/**
+ *
+ */
 export interface PickerTheme {
 	border: (s: string) => string;
 	selected: (s: string) => string;
@@ -17,6 +23,9 @@ export interface PickerTheme {
 	title: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface PickerOptions<T extends PickerItem> {
 	items: T[];
 	title?: string;
@@ -27,6 +36,9 @@ export interface PickerOptions<T extends PickerItem> {
 	onCancel?: () => void;
 }
 
+/**
+ *
+ */
 export class Picker<T extends PickerItem = PickerItem> implements Component {
 	private items: T[];
 	private filtered: T[];

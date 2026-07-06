@@ -80,6 +80,9 @@ const ALLOWED_BUILTINS = new Set([
 export const DEFAULT_NODESH_TIMEOUT_S = 10;
 export const MAX_NODESH_TIMEOUT_S = 30;
 
+/**
+ *
+ */
 export interface NodeshAdapterOptions extends BaseAdapterOptions {
 	cwd: string;
 	/**
@@ -103,6 +106,9 @@ export interface NodeshAdapterOptions extends BaseAdapterOptions {
 // Sandboxed require
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
 	const nodeRequire =
 		typeof require !== "undefined"
@@ -123,6 +129,9 @@ function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
 // Handler
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 async function handleEval(
 	ctx: { payload: { code: string; timeout?: number } },
 	opts: NodeshAdapterOptions,
@@ -152,7 +161,7 @@ async function handleEval(
 			},
 		},
 		process: { cwd: () => opts.cwd, env: { ...process.env }, platform: process.platform },
-		result: undefined as unknown,
+		result: undefined,
 	};
 
 	const context = vm.createContext(sandbox);
@@ -200,6 +209,9 @@ function safeSerialize(value: unknown): unknown {
 // Factory
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function createNodeshAdapter(options: NodeshAdapterOptions): Adapter {
 	return defineAdapter(
 		"nodesh",

@@ -4,6 +4,9 @@ import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils.js";
 import { Input } from "./input.js";
 
+/**
+ *
+ */
 export interface SettingItem {
 	/** Unique identifier for this setting */
 	id: string;
@@ -19,6 +22,9 @@ export interface SettingItem {
 	submenu?: (currentValue: string, done: (selectedValue?: string) => void) => Component;
 }
 
+/**
+ *
+ */
 export interface SettingsListTheme {
 	label: (text: string, selected: boolean) => string;
 	value: (text: string, selected: boolean) => string;
@@ -27,10 +33,16 @@ export interface SettingsListTheme {
 	hint: (text: string) => string;
 }
 
+/**
+ *
+ */
 export interface SettingsListOptions {
 	enableSearch?: boolean;
 }
 
+/**
+ *
+ */
 export class SettingsList implements Component {
 	private items: SettingItem[];
 	private filteredItems: SettingItem[];

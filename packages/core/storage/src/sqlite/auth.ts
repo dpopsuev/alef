@@ -1,6 +1,9 @@
 import type { Client } from "@libsql/client";
 import type { AuthStore } from "../interfaces.js";
 
+/**
+ *
+ */
 export class SqliteAuthStore implements AuthStore {
 	private readonly client: Client;
 

@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface DiagnosticErrorInfo {
 	name?: string;
 	message: string;
@@ -5,6 +8,9 @@ export interface DiagnosticErrorInfo {
 	code?: string | number;
 }
 
+/**
+ *
+ */
 export interface AssistantMessageDiagnostic {
 	type: string;
 	timestamp: number;
@@ -12,12 +18,18 @@ export interface AssistantMessageDiagnostic {
 	details?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export function formatThrownValue(value: unknown): string {
 	if (value instanceof Error) return value.message || value.name;
 	if (typeof value === "string") return value;
 	return String(value);
 }
 
+/**
+ *
+ */
 export function extractDiagnosticError(error: unknown): DiagnosticErrorInfo {
 	if (!(error instanceof Error)) return { name: "ThrownValue", message: formatThrownValue(error) };
 	const code = (error as Error & { code?: unknown }).code;
@@ -29,6 +41,9 @@ export function extractDiagnosticError(error: unknown): DiagnosticErrorInfo {
 	};
 }
 
+/**
+ *
+ */
 export function createAssistantMessageDiagnostic(
 	type: string,
 	error: unknown,
@@ -37,6 +52,9 @@ export function createAssistantMessageDiagnostic(
 	return { type, timestamp: Date.now(), error: extractDiagnosticError(error), details };
 }
 
+/**
+ *
+ */
 export function appendAssistantMessageDiagnostic<T extends { diagnostics?: AssistantMessageDiagnostic[] }>(
 	message: T,
 	diagnostic: AssistantMessageDiagnostic,

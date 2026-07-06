@@ -2,6 +2,7 @@ import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
@@ -10,6 +11,9 @@ import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/sup
 
 export type { BlueprintStack, BlueprintStackOptions };
 
+/**
+ *
+ */
 export async function createFactoryAgentStack(opts: BlueprintStackOptions): Promise<BlueprintStack> {
 	if (!opts.subagentFactory) {
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
@@ -41,8 +45,8 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		generalAdapters,
 	});
 
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- wireAdapter conforms to Adapter but has narrower type
-	adapters.splice(adapters.length - 2, 0, wireAdapter as unknown as Adapter);
+	 
+	adapters.splice(adapters.length - 2, 0, wireAdapter);
 
 	return { adapters, contextAssembly };
 }

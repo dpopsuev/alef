@@ -2,6 +2,9 @@ import type { ApiProvider } from "./models/registry.js";
 import type { Api, Provider } from "./types/providers.js";
 import type { StreamOptions } from "./types/options.js";
 
+/**
+ *
+ */
 export interface ProviderModelDefinition {
 	id: string;
 	name: string;
@@ -13,11 +16,17 @@ export interface ProviderModelDefinition {
 	thinkingLevel?: string;
 }
 
+/**
+ *
+ */
 export interface ProviderRegistration<TApi extends Api = Api, TOptions extends StreamOptions = StreamOptions> {
 	providers: ApiProvider<TApi, TOptions>[];
 	models: ProviderModelDefinition[];
 }
 
+/**
+ *
+ */
 export type ProviderFactory<TApi extends Api = Api, TOptions extends StreamOptions = StreamOptions> = (opts: {
 	apiKey?: string;
 	baseUrl?: string;

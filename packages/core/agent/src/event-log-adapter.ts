@@ -24,6 +24,9 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { type BusKind, hashRecord, type StorageActor } from "@dpopsuev/alef-session/storage";
 import type { ActorIdentity } from "./identity/actor.js";
 
+/**
+ *
+ */
 export interface SessionSummary {
 	id: string;
 	model: string;
@@ -35,6 +38,9 @@ export interface SessionSummary {
 	errors: number;
 }
 
+/**
+ *
+ */
 export class SessionLog implements Adapter {
 	readonly name = "event-log";
 	readonly tools = [] as const;

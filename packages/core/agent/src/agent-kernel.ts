@@ -6,6 +6,9 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
 
+/**
+ *
+ */
 export interface AgentKernelOptions {
 	llm: Adapter;
 	session?: SessionStore;
@@ -17,6 +20,9 @@ export interface AgentKernelOptions {
 	bus?: AgentBus;
 }
 
+/**
+ *
+ */
 export function buildAgent(opts: AgentKernelOptions): Agent {
 	const agent = new Agent({ bus: opts.bus });
 

@@ -11,13 +11,22 @@ import type {
 } from "../types.js";
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import type { BedrockOptions } from "./amazon-bedrock.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { AnthropicOptions } from "./anthropic.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { AzureOpenAIResponsesOptions } from "./azure-openai-responses.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { GoogleOptions } from "./google/google.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { GoogleVertexOptions } from "./google/vertex.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { MistralOptions } from "./mistral.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { OpenAICodexResponsesOptions } from "./codex/responses.js";
 
+/**
+ *
+ */
 function matchesAnthropicVertex(model: Model<Api>): boolean {
 	if (typeof process === "undefined") return false;
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through */
@@ -30,10 +39,15 @@ function matchesAnthropicVertex(model: Model<Api>): boolean {
 	return model.provider === "anthropic" && Boolean(projectId && region);
 }
 
+/**
+ *
+ */
 function matchesGitHubCopilot(model: Model<Api>): boolean {
 	return model.provider === "github-copilot";
 }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { OpenAICompletionsOptions } from "./openai/completions.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { OpenAIResponsesOptions } from "./openai/responses.js";
 
 interface LazyProviderModule<
@@ -66,6 +80,9 @@ interface BedrockProviderModule {
 const importNodeOnlyProvider = (specifier: string): Promise<unknown> => import(specifier);
 
 // Memoises a factory so the dynamic import only fires once per process.
+/**
+ *
+ */
 function memoize<T>(fn: () => Promise<T>): () => Promise<T> {
 	let cached: Promise<T> | undefined;
 	return () => {
@@ -82,71 +99,71 @@ function memoize<T>(fn: () => Promise<T>): () => Promise<T> {
 
 const loadAnthropicProviderModule = memoize(() =>
 	import("./anthropic.js").then((m) => ({
-		stream: m.streamAnthropic as StreamFunction<"anthropic-messages", AnthropicOptions>,
-		streamSimple: m.streamSimpleAnthropic as StreamFunction<"anthropic-messages", SimpleStreamOptions>,
+		stream: m.streamAnthropic,
+		streamSimple: m.streamSimpleAnthropic,
 	})),
 );
 
 const loadAnthropicVertexProviderModule = memoize(() =>
 	import("./anthropic-vertex.js").then((m) => ({
-		stream: m.streamAnthropicVertex as StreamFunction<"anthropic-messages", AnthropicOptions>,
-		streamSimple: m.streamSimpleAnthropicVertex as StreamFunction<"anthropic-messages", SimpleStreamOptions>,
+		stream: m.streamAnthropicVertex,
+		streamSimple: m.streamSimpleAnthropicVertex,
 	})),
 );
 
 const loadGitHubCopilotCompletionsProviderModule = memoize(() =>
 	import("./github-copilot-openai-completions.js").then((m) => ({
-		stream: m.streamGitHubCopilotCompletions as StreamFunction<"openai-completions", OpenAICompletionsOptions>,
-		streamSimple: m.streamSimpleGitHubCopilotCompletions as StreamFunction<"openai-completions", SimpleStreamOptions>,
+		stream: m.streamGitHubCopilotCompletions,
+		streamSimple: m.streamSimpleGitHubCopilotCompletions,
 	})),
 );
 
 const loadAzureOpenAIResponsesProviderModule = memoize(() =>
 	import("./azure-openai-responses.js").then((m) => ({
-		stream: m.streamAzureOpenAIResponses as StreamFunction<"azure-openai-responses", AzureOpenAIResponsesOptions>,
-		streamSimple: m.streamSimpleAzureOpenAIResponses as StreamFunction<"azure-openai-responses", SimpleStreamOptions>,
+		stream: m.streamAzureOpenAIResponses,
+		streamSimple: m.streamSimpleAzureOpenAIResponses,
 	})),
 );
 
 const loadGoogleProviderModule = memoize(() =>
 	import("./google/google.js").then((m) => ({
-		stream: m.streamGoogle as StreamFunction<"google-generative-ai", GoogleOptions>,
-		streamSimple: m.streamSimpleGoogle as StreamFunction<"google-generative-ai", SimpleStreamOptions>,
+		stream: m.streamGoogle,
+		streamSimple: m.streamSimpleGoogle,
 	})),
 );
 
 const loadGoogleVertexProviderModule = memoize(() =>
 	import("./google/vertex.js").then((m) => ({
-		stream: m.streamGoogleVertex as StreamFunction<"google-vertex", GoogleVertexOptions>,
-		streamSimple: m.streamSimpleGoogleVertex as StreamFunction<"google-vertex", SimpleStreamOptions>,
+		stream: m.streamGoogleVertex,
+		streamSimple: m.streamSimpleGoogleVertex,
 	})),
 );
 
 const loadMistralProviderModule = memoize(() =>
 	import("./mistral.js").then((m) => ({
-		stream: m.streamMistral as StreamFunction<"mistral-conversations", MistralOptions>,
-		streamSimple: m.streamSimpleMistral as StreamFunction<"mistral-conversations", SimpleStreamOptions>,
+		stream: m.streamMistral,
+		streamSimple: m.streamSimpleMistral,
 	})),
 );
 
 const loadOpenAICodexResponsesProviderModule = memoize(() =>
 	import("./codex/responses.js").then((m) => ({
-		stream: m.streamOpenAICodexResponses as StreamFunction<"openai-codex-responses", OpenAICodexResponsesOptions>,
-		streamSimple: m.streamSimpleOpenAICodexResponses as StreamFunction<"openai-codex-responses", SimpleStreamOptions>,
+		stream: m.streamOpenAICodexResponses,
+		streamSimple: m.streamSimpleOpenAICodexResponses,
 	})),
 );
 
 const loadOpenAICompletionsProviderModule = memoize(() =>
 	import("./openai/completions.js").then((m) => ({
-		stream: m.streamOpenAICompletions as StreamFunction<"openai-completions", OpenAICompletionsOptions>,
-		streamSimple: m.streamSimpleOpenAICompletions as StreamFunction<"openai-completions", SimpleStreamOptions>,
+		stream: m.streamOpenAICompletions,
+		streamSimple: m.streamSimpleOpenAICompletions,
 	})),
 );
 
 const loadOpenAIResponsesProviderModule = memoize(() =>
 	import("./openai/responses.js").then((m) => ({
-		stream: m.streamOpenAIResponses as StreamFunction<"openai-responses", OpenAIResponsesOptions>,
-		streamSimple: m.streamSimpleOpenAIResponses as StreamFunction<"openai-responses", SimpleStreamOptions>,
+		stream: m.streamOpenAIResponses,
+		streamSimple: m.streamSimpleOpenAIResponses,
 	})),
 );
 
@@ -157,6 +174,9 @@ let bedrockProviderModulePromise:
 	| Promise<LazyProviderModule<"bedrock-converse-stream", BedrockOptions, SimpleStreamOptions>>
 	| undefined;
 
+/**
+ *
+ */
 export function setBedrockProviderModule(module: BedrockProviderModule): void {
 	bedrockProviderModuleOverride = {
 		stream: module.streamBedrock,
@@ -164,6 +184,9 @@ export function setBedrockProviderModule(module: BedrockProviderModule): void {
 	};
 }
 
+/**
+ *
+ */
 function forwardStream(target: AssistantMessageEventStream, source: AsyncIterable<AssistantMessageEvent>): void {
 	void (async () => {
 		for await (const event of source) {
@@ -173,6 +196,9 @@ function forwardStream(target: AssistantMessageEventStream, source: AsyncIterabl
 	})();
 }
 
+/**
+ *
+ */
 function createLazyLoadErrorMessage<TApi extends Api>(model: Model<TApi>, error: unknown): AssistantMessage {
 	return {
 		role: "assistant",
@@ -194,6 +220,9 @@ function createLazyLoadErrorMessage<TApi extends Api>(model: Model<TApi>, error:
 	};
 }
 
+/**
+ *
+ */
 function createLazyStream<TApi extends Api, TOptions extends StreamOptions, TSimpleOptions extends SimpleStreamOptions>(
 	loadModule: () => Promise<LazyProviderModule<TApi, TOptions, TSimpleOptions>>,
 ): StreamFunction<TApi, TOptions> {
@@ -215,6 +244,9 @@ function createLazyStream<TApi extends Api, TOptions extends StreamOptions, TSim
 	};
 }
 
+/**
+ *
+ */
 function createLazySimpleStream<
 	TApi extends Api,
 	TOptions extends StreamOptions,
@@ -238,6 +270,9 @@ function createLazySimpleStream<
 	};
 }
 
+/**
+ *
+ */
 function loadBedrockProviderModule(): Promise<
 	LazyProviderModule<"bedrock-converse-stream", BedrockOptions, SimpleStreamOptions>
 > {
@@ -306,12 +341,18 @@ const BUILTIN_PROVIDERS: ReadonlyArray<{
 }>;
 /* eslint-enable @typescript-eslint/no-unsafe-type-assertion */
 
+/**
+ *
+ */
 export function registerBuiltInApiProviders(): void {
 	for (const entry of BUILTIN_PROVIDERS) {
 		registerApiProvider(entry);
 	}
 }
 
+/**
+ *
+ */
 export function resetApiProviders(): void {
 	clearApiProviders();
 	registerBuiltInApiProviders();

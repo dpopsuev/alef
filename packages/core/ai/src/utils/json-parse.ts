@@ -2,11 +2,17 @@ import { parse as partialParse } from "partial-json";
 
 const VALID_JSON_ESCAPES = new Set(['"', "\\", "/", "b", "f", "n", "r", "t", "u"]);
 
+/**
+ *
+ */
 function isControlCharacter(char: string): boolean {
 	const codePoint = char.codePointAt(0);
 	return codePoint !== undefined && codePoint >= 0x00 && codePoint <= 0x1f;
 }
 
+/**
+ *
+ */
 function escapeControlCharacter(char: string): string {
 	switch (char) {
 		case "\b":
@@ -83,6 +89,9 @@ export function repairJson(json: string): string {
 	return repaired;
 }
 
+/**
+ *
+ */
 export function parseJsonWithRepair<T>(json: string): T {
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, caller provides expected type T

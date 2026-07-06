@@ -15,6 +15,9 @@ const PRESET_CONTRACTS: Record<string, Contract<z.ZodTypeAny>> = {
 	implement: ImplementContract,
 };
 
+/**
+ *
+ */
 function buildStationPrompt(station: StationDef, contract: Contract<z.ZodTypeAny>): string {
 	return [
 		`You are the "${station.name}" station in a workflow pipeline.`,
@@ -33,6 +36,9 @@ function buildStationPrompt(station: StationDef, contract: Contract<z.ZodTypeAny
 	].join("\n");
 }
 
+/**
+ *
+ */
 export class ImplStationRunner implements StationRunner {
 	constructor(
 		private readonly model: Model<Api>,

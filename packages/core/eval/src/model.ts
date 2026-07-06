@@ -11,10 +11,16 @@
 
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 
+/**
+ *
+ */
 function hasAnthropicDirect(): boolean {
 	return !!process.env.ANTHROPIC_API_KEY;
 }
 
+/**
+ *
+ */
 function hasAnthropicVertex(): boolean {
 	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var means not set, must fall through
 	return !!(process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT);
@@ -22,6 +28,9 @@ function hasAnthropicVertex(): boolean {
 
 export const SKIP_REAL_LLM = !hasAnthropicDirect() && !hasAnthropicVertex();
 
+/**
+ *
+ */
 export function getEvalModel(): Model<Api> {
 	// On the direct Anthropic API "claude-sonnet-4-5" is an alias that resolves
 	// to claude-sonnet-4-5-20250929. On Vertex AI the model path must include the
@@ -54,6 +63,9 @@ export function getEvalModel(): Model<Api> {
 	};
 }
 
+/**
+ *
+ */
 function base() {
 	return {
 		reasoning: false,

@@ -12,11 +12,17 @@ import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model/index.js";
 
+/**
+ *
+ */
 export type LlmAdapterFactory = (opts: { model: Model<Api>; systemPrompt?: string }) => Adapter;
 
 const defaultLlmFactory: LlmAdapterFactory = (opts) =>
 	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, phaseTimeoutMs: PHASE_TIMEOUT_MS });
 
+/**
+ *
+ */
 export interface SubagentSessionOptions {
 	model: Model<Api>;
 	baseSystemPrompt?: string;
@@ -28,6 +34,9 @@ export interface SubagentSessionOptions {
 	llmFactory?: LlmAdapterFactory;
 }
 
+/**
+ *
+ */
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
 	return (callOpts) => {
 		const { adapters, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;

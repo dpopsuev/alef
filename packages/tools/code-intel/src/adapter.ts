@@ -95,6 +95,9 @@ export const ANNOTATION_SCHEMA = z.object({
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	if (diagnostics.length === 0) return "✓ No errors or warnings";
 
@@ -114,6 +117,9 @@ function formatDiagnostics(diagnostics: Diagnostic[]): string {
 // Adapter factory
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface CodeIntelAdapterOptions extends BaseAdapterOptions {
 	/**
 	 * Workspace root. All relative paths resolve against this.
@@ -130,6 +136,9 @@ export interface CodeIntelAdapterOptions extends BaseAdapterOptions {
 	backend?: CodeIntelBackend;
 }
 
+/**
+ *
+ */
 export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 	const backend: CodeIntelBackend =
 		opts.backend ??

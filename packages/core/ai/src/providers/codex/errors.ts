@@ -9,6 +9,9 @@ import { formatThrownValue } from "../../utils/diagnostics.js";
 export const MAX_RETRIES = 3;
 export const BASE_DELAY_MS = 1000;
 
+/**
+ *
+ */
 export type CodexResponseStatus = "completed" | "incomplete" | "failed" | "cancelled" | "queued" | "in_progress";
 
 export const CODEX_RESPONSE_STATUSES = new Set<CodexResponseStatus>([
@@ -24,6 +27,9 @@ export const CODEX_RESPONSE_STATUSES = new Set<CodexResponseStatus>([
 // Error Classes
 // ============================================================================
 
+/**
+ *
+ */
 export class CodexApiError extends Error {
 	readonly code?: string;
 	readonly payload?: Record<string, unknown>;
@@ -37,6 +43,9 @@ export class CodexApiError extends Error {
 	}
 }
 
+/**
+ *
+ */
 export class CodexProtocolError extends Error {
 	readonly payload?: unknown;
 
@@ -48,6 +57,9 @@ export class CodexProtocolError extends Error {
 	}
 }
 
+/**
+ *
+ */
 export function isCodexNonTransportError(error: unknown): boolean {
 	return error instanceof CodexApiError || error instanceof CodexProtocolError;
 }
@@ -56,6 +68,9 @@ export function isCodexNonTransportError(error: unknown): boolean {
 // Retry Helpers
 // ============================================================================
 
+/**
+ *
+ */
 export function isRetryableError(status: number, errorText: string): boolean {
 	if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
 		return true;
@@ -63,6 +78,9 @@ export function isRetryableError(status: number, errorText: string): boolean {
 	return /rate.?limit|overloaded|service.?unavailable|upstream.?connect|connection.?refused/i.test(errorText);
 }
 
+/**
+ *
+ */
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 	return new Promise((resolve, reject) => {
 		if (signal?.aborted) {
@@ -81,6 +99,9 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 // SSE Parsing
 // ============================================================================
 
+/**
+ *
+ */
 export async function* parseSSE(response: Response): AsyncGenerator<Record<string, unknown>> {
 	if (!response.body) return;
 
@@ -137,6 +158,9 @@ export async function* parseSSE(response: Response): AsyncGenerator<Record<strin
 // Error Response Parsing
 // ============================================================================
 
+/**
+ *
+ */
 export async function parseErrorResponse(response: Response): Promise<{ message: string; friendlyMessage?: string }> {
 	const raw = await response.text();
 	let message = raw || response.statusText || "Request failed";
@@ -171,6 +195,9 @@ export async function parseErrorResponse(response: Response): Promise<{ message:
 // Event Mapping
 // ============================================================================
 
+/**
+ *
+ */
 export async function* mapCodexEvents(events: AsyncIterable<Record<string, unknown>>): AsyncGenerator<ResponseStreamEvent> {
 	for await (const event of events) {
 		const type = typeof event.type === "string" ? event.type : undefined;
@@ -207,6 +234,9 @@ export async function* mapCodexEvents(events: AsyncIterable<Record<string, unkno
 	}
 }
 
+/**
+ *
+ */
 export function normalizeCodexStatus(status: unknown): CodexResponseStatus | undefined {
 	if (typeof status !== "string") return undefined;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by Set.has check above

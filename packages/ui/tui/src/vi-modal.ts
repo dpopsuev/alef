@@ -1,12 +1,21 @@
 import { matchesKey } from "./keys.js";
 
+/**
+ *
+ */
 export type ViMode = "normal" | "insert";
 
+/**
+ *
+ */
 export interface ViModalOptions {
 	onModeChange?: (mode: ViMode) => void;
 	insertTriggers?: string[];
 }
 
+/**
+ *
+ */
 export class ViModal {
 	private _mode: ViMode = "normal";
 	private onModeChange?: (mode: ViMode) => void;

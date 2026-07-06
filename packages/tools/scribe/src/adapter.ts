@@ -7,6 +7,9 @@ import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 
+/**
+ *
+ */
 export interface ScribeAdapterOptions {
 	binary?: string;
 	dbPath?: string;
@@ -18,6 +21,9 @@ const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
 const REFRESH_INTERVAL = 10;
 
+/**
+ *
+ */
 export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
@@ -29,6 +35,9 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 	let turnsSinceRefresh = 0;
 	let refreshInFlight = false;
 
+	/**
+	 *
+	 */
 	function queryScribe(
 		bus: Bus,
 		action: string,
@@ -50,6 +59,9 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 		});
 	}
 
+	/**
+	 *
+	 */
 	function refreshSummary(bus: Bus): void {
 		if (refreshInFlight || !inner) return;
 		refreshInFlight = true;
@@ -76,6 +88,7 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 		);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		turnsSinceRefresh++;
 		if (turnsSinceRefresh >= REFRESH_INTERVAL) {
@@ -164,7 +177,7 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 			return () => {
 				innerCleanup?.();
 				if (inner && "close" in inner && typeof inner.close === "function") {
-					(inner.close as () => Promise<void>)().catch(() => {});
+					(inner.close)().catch(() => {});
 				}
 				inner = null;
 				innerCleanup = null;
@@ -175,6 +188,9 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 	return adapter;
 }
 
+/**
+ *
+ */
 function buildContextBlock(dashboard: string, notes: string): string {
 	if (!dashboard && !notes) return "";
 	const parts = [

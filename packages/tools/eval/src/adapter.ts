@@ -24,6 +24,9 @@ import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
 import { runValidators } from "./validators.js";
 
+/**
+ *
+ */
 export interface EvalAdapterOptions extends BaseAdapterOptions {
 	/** Model to use for LLM-as-judge. Defaults to ALEF_MODEL or autoDetect. */
 	judgeModel?: string;
@@ -63,6 +66,9 @@ const EVAL_TOOL = {
 	}),
 };
 
+/**
+ *
+ */
 async function runLLMJudge(
 	transcript: TranscriptEvent[],
 	rubric: string,
@@ -71,7 +77,7 @@ async function runLLMJudge(
 	const modelPath = "../../../agent/src/model/index.js";
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic import boundary
 	const imported: { autoDetectModel?: () => Parameters<typeof streamSimple>[0] | undefined } = await import(/* @vite-ignore */ modelPath).catch(() => ({
-		autoDetectModel: () => undefined as unknown,
+		autoDetectModel: () => undefined,
 	}));
 	const model = imported.autoDetectModel?.();
 	if (!model) return { score: 0, reasoning: "No model available for LLM judge" };
@@ -110,11 +116,17 @@ async function runLLMJudge(
 	};
 }
 
+/**
+ *
+ */
 export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		bus?.notification.publish({ type, payload, correlationId: "" });
 
+	/**
+	 *
+	 */
 	async function handleEval(ctx: CommandHandlerCtx): Promise<Record<string, unknown>> {
 		const endpoint = getString(ctx.payload, "endpoint") ?? "";
 		if (!endpoint) throw new Error("eval.run: endpoint is required");

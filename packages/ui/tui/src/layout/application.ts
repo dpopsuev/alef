@@ -3,11 +3,17 @@ import { computeLayout, type LayoutNode } from "./engine.js";
 import { FocusRing } from "./panel.js";
 import { type ViewDefinition, type ViewMode, ViewRouter } from "./view-router.js";
 
+/**
+ *
+ */
 export interface ApplicationOptions {
 	views: Partial<Record<ViewMode, ViewDefinition>>;
 	initialView?: ViewMode;
 }
 
+/**
+ *
+ */
 export class Application implements Component {
 	readonly router: ViewRouter;
 	readonly focus: FocusRing;
@@ -20,8 +26,8 @@ export class Application implements Component {
 
 		for (const [mode, def] of Object.entries(opts.views)) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ViewMode validated by Object.entries over Partial<Record<ViewMode, …>>
-			this.router.register(mode as ViewMode, def as ViewDefinition);
-			for (const slot of (def as ViewDefinition).slots) {
+			this.router.register(mode as ViewMode, def);
+			for (const slot of (def).slots) {
 				this.focus.register(slot.panel);
 			}
 		}

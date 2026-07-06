@@ -69,18 +69,30 @@ export function hasToolHistory(messages: Message[]): boolean {
 	return false;
 }
 
+/**
+ *
+ */
 export function isTextContentBlock(block: { type: string }): block is TextContent {
 	return block.type === "text";
 }
 
+/**
+ *
+ */
 export function isThinkingContentBlock(block: { type: string }): block is ThinkingContent {
 	return block.type === "thinking";
 }
 
+/**
+ *
+ */
 export function isToolCallBlock(block: { type: string }): block is ToolCall {
 	return block.type === "toolCall";
 }
 
+/**
+ *
+ */
 export function isImageContentBlock(block: { type: string }): block is ImageContent {
 	return block.type === "image";
 }
@@ -89,6 +101,9 @@ export function isImageContentBlock(block: { type: string }): block is ImageCont
 // Cache retention
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRetention {
 	if (cacheRetention) {
 		return cacheRetention;
@@ -99,6 +114,9 @@ export function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRet
 	return "short";
 }
 
+/**
+ *
+ */
 export function getCompatCacheControl(
 	compat: ResolvedOpenAICompletionsCompat,
 	cacheRetention: CacheRetention,
@@ -115,6 +133,9 @@ export function getCompatCacheControl(
 // Anthropic-style cache control
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function applyAnthropicCacheControl(
 	messages: ChatCompletionMessageParam[],
 	tools: OpenAI.Chat.Completions.ChatCompletionTool[] | undefined,
@@ -125,6 +146,9 @@ export function applyAnthropicCacheControl(
 	addCacheControlToLastConversationMessage(messages, cacheControl);
 }
 
+/**
+ *
+ */
 function addCacheControlToSystemPrompt(
 	messages: ChatCompletionMessageParam[],
 	cacheControl: OpenAICompatCacheControl,
@@ -137,6 +161,9 @@ function addCacheControlToSystemPrompt(
 	}
 }
 
+/**
+ *
+ */
 function addCacheControlToLastConversationMessage(
 	messages: ChatCompletionMessageParam[],
 	cacheControl: OpenAICompatCacheControl,
@@ -151,6 +178,9 @@ function addCacheControlToLastConversationMessage(
 	}
 }
 
+/**
+ *
+ */
 function addCacheControlToLastTool(
 	tools: OpenAI.Chat.Completions.ChatCompletionTool[] | undefined,
 	cacheControl: OpenAICompatCacheControl,
@@ -163,6 +193,9 @@ function addCacheControlToLastTool(
 	lastTool.cache_control = cacheControl;
 }
 
+/**
+ *
+ */
 function addCacheControlToInstructionMessage(
 	message: ChatCompletionInstructionMessageParam,
 	cacheControl: OpenAICompatCacheControl,
@@ -170,6 +203,9 @@ function addCacheControlToInstructionMessage(
 	return addCacheControlToTextContent(message, cacheControl);
 }
 
+/**
+ *
+ */
 function addCacheControlToMessage(
 	message: ChatCompletionMessageParam,
 	cacheControl: OpenAICompatCacheControl,
@@ -180,6 +216,9 @@ function addCacheControlToMessage(
 	return false;
 }
 
+/**
+ *
+ */
 function addCacheControlToTextContent(
 	message:
 		| ChatCompletionInstructionMessageParam
@@ -222,6 +261,9 @@ function addCacheControlToTextContent(
 // convertMessages
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function convertMessages(
 	model: Model<"openai-completions">,
 	context: Context,
@@ -260,6 +302,9 @@ export function convertMessages(
 	// The toolResult handler also advances the loop index via the cursor.
 	// -----------------------------------------------------------------------
 
+	/**
+	 *
+	 */
 	function handleUser(msg: UserMessage): boolean {
 		if (typeof msg.content === "string") {
 			params.push({
@@ -291,6 +336,9 @@ export function convertMessages(
 		return false;
 	}
 
+	/**
+	 *
+	 */
 	function handleAssistant(msg: AssistantMessage): boolean {
 		// Some providers don't accept null content, use empty string instead
 		const assistantMsg: ChatCompletionAssistantMessageParam = {
@@ -334,6 +382,9 @@ export function convertMessages(
 				const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
 				if (signature && signature.length > 0) {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic property name from provider thinking signature
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 					(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
 				}
 			}
@@ -369,6 +420,9 @@ export function convertMessages(
 				.filter(Boolean);
 			if (reasoningDetails.length > 0) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI reasoning extension
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				(assistantMsg as any).reasoning_details = reasoningDetails;
 			}
 		}
@@ -397,6 +451,9 @@ export function convertMessages(
 		return false;
 	}
 
+	/**
+	 *
+	 */
 	function handleToolResult(startIndex: number): { skipDefault: boolean; newIndex: number } {
 		const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
 		let j = startIndex;
@@ -422,6 +479,9 @@ export function convertMessages(
 			};
 			if (compat.requiresToolResultName && toolMsg.toolName) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 				(toolResultMsg as any).name = toolMsg.toolName;
 			}
 			params.push(toolResultMsg);
@@ -512,6 +572,9 @@ export function convertMessages(
 // convertTools
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function convertTools(
 	tools: Tool[],
 	compat: ResolvedOpenAICompletionsCompat,

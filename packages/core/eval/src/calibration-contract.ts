@@ -16,8 +16,14 @@
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export type ContractFieldType = "string" | "number" | "boolean" | "array" | "object";
 
+/**
+ *
+ */
 export interface ContractField {
 	/** Dotted path into the Event payload, e.g. "output.defect_type" or "files[].path". */
 	field: string;
@@ -27,6 +33,9 @@ export interface ContractField {
 	type: ContractFieldType;
 }
 
+/**
+ *
+ */
 export interface CalibrationContract {
 	inputs?: ContractField[];
 	outputs: ContractField[];
@@ -90,6 +99,9 @@ export function foldContracts(contracts: Record<string, CalibrationContract>): C
 // Path resolution \u2014 dotted paths + array projections
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function resolvePath(path: string, root: unknown): unknown {
 	const parts = path.split(".");
 	let current = root;
@@ -114,6 +126,9 @@ function resolvePath(path: string, root: unknown): unknown {
 	return current;
 }
 
+/**
+ *
+ */
 function getKey(obj: unknown, key: string): unknown {
 	if (obj !== null && typeof obj === "object" && !Array.isArray(obj)) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed to non-array object above

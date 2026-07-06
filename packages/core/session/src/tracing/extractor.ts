@@ -3,6 +3,9 @@ import type { StorageRecord } from "../contracts/storage.js";
 const SCRIPT_REPLY_PREVIEW_CHARS = 80;
 const SCRIPT_MESSAGE_PREVIEW_CHARS = 60;
 
+/**
+ *
+ */
 export interface ToolExecution {
 	callId: string;
 	toolName: string;
@@ -11,6 +14,9 @@ export interface ToolExecution {
 	elapsed: number;
 }
 
+/**
+ *
+ */
 export interface TraceStep {
 	turn: number;
 	correlationId: string;
@@ -20,8 +26,14 @@ export interface TraceStep {
 	finalReply: string;
 }
 
+/**
+ *
+ */
 export type SessionTrace = TraceStep[];
 
+/**
+ *
+ */
 export function extractTrace(records: StorageRecord[]): SessionTrace {
 	const turnGroups = new Map<string, StorageRecord[]>();
 	const turnOrder: string[] = [];
@@ -115,6 +127,9 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 	return steps;
 }
 
+/**
+ *
+ */
 export function traceToScript(trace: SessionTrace): string {
 	const lines: string[] = [];
 	for (const step of trace) {

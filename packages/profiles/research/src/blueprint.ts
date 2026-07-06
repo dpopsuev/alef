@@ -9,12 +9,18 @@ import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 
+/**
+ *
+ */
 export interface ResearchAgentOptions extends BlueprintStackOptions {
 	scribeBinary?: string;
 	scribeDbPath?: string;
 	locusBinary?: string;
 }
 
+/**
+ *
+ */
 function mcpServiceDescriptor(
 	name: string,
 	binary: string,
@@ -44,6 +50,9 @@ function mcpServiceDescriptor(
 	};
 }
 
+/**
+ *
+ */
 export async function createResearchAgentStack(
 	opts: ResearchAgentOptions,
 ): Promise<BlueprintStack & { supervisor: Supervisor }> {

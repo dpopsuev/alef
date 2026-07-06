@@ -8,6 +8,9 @@ const BUS_INTERNAL = "internal";
 const EVENT_SESSION_NAME = "session.name";
 const CORRELATION_META = "meta";
 
+/**
+ *
+ */
 export class InMemorySessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;
@@ -21,11 +24,13 @@ export class InMemorySessionStore implements SessionStore {
 		this.path = `${MEMORY_PATH_PREFIX}${this.id}`;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async append(record: StorageRecord): Promise<void> {
 		this._records.push(record);
 		this._indexer.index(record);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async events(): Promise<StorageRecord[]> {
 		return this._records.slice();
 	}
@@ -45,14 +50,17 @@ export class InMemorySessionStore implements SessionStore {
 		});
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async turns(): Promise<Turn[]> {
 		return Array.from(this._indexer.turnMap.values());
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async hitCounts(): Promise<Map<string, number>> {
 		return new Map(this._indexer.hitCountsMap);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async adapterHistory(adapterName: string): Promise<StorageRecord[]> {
 		const prefix = `${adapterName}.`;
 		return this._records.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix));

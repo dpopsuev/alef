@@ -2,15 +2,24 @@ import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kern
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor, ServiceRegistry } from "./lifecycle.js";
 
+/**
+ *
+ */
 export function isServiceDescriptor(v: unknown): v is ServiceDescriptor {
 	return typeof v === "object" && v !== null && "name" in v && "create" in v && typeof (v as { create: unknown }).create === "function";
 }
 
+/**
+ *
+ */
 export interface ServiceResolverOpts {
 	cwd: string;
 	logger?: AdapterLogger;
 }
 
+/**
+ *
+ */
 export function createServiceResolver(
 	supervisor: Supervisor,
 ): (service: unknown, opts: ServiceResolverOpts) => Promise<readonly Adapter[] | undefined> {
@@ -33,11 +42,17 @@ interface RunningService {
 	healthTimer?: ReturnType<typeof setInterval>;
 }
 
+/**
+ *
+ */
 function topoSort(descriptors: ServiceDescriptor[]): ServiceDescriptor[] {
 	const byName = new Map(descriptors.map((d) => [d.name, d]));
 	const visited = new Set<string>();
 	const sorted: ServiceDescriptor[] = [];
 
+	/**
+	 *
+	 */
 	function visit(name: string, stack: Set<string>): void {
 		if (visited.has(name)) return;
 		if (stack.has(name)) throw new Error(`Circular dependency: ${[...stack, name].join(" → ")}`);
@@ -54,6 +69,9 @@ function topoSort(descriptors: ServiceDescriptor[]): ServiceDescriptor[] {
 	return sorted;
 }
 
+/**
+ *
+ */
 export class Supervisor implements ServiceRegistry {
 	private readonly descriptors = new Map<string, ServiceDescriptor>();
 	private readonly running = new Map<string, RunningService>();

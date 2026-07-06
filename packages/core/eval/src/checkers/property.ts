@@ -28,6 +28,9 @@ import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
 
 const MONOREPO_NODE_MODULES = new URL("../../../../node_modules", import.meta.url).pathname;
 
+/**
+ *
+ */
 export interface Property {
 	/** Human-readable name used in error messages. */
 	name: string;
@@ -47,11 +50,17 @@ export interface Property {
 	body: string;
 }
 
+/**
+ *
+ */
 function buildPropertyFile(properties: Property[]): string {
 	const blocks = properties.map((p) => `test(${JSON.stringify(p.name)}, () => {\n${p.body}\n});`);
 	return [`import { test } from 'node:test';`, `import assert from 'node:assert';`, ``, ...blocks].join("\n");
 }
 
+/**
+ *
+ */
 function runPropertyTests(workspace: string): Promise<{ passed: number; failed: number; output: string }> {
 	return new Promise((resolve) => {
 		let output = "";
@@ -73,6 +82,9 @@ function runPropertyTests(workspace: string): Promise<{ passed: number; failed: 
 	});
 }
 
+/**
+ *
+ */
 export function propertyCheck(properties: Property[]): Checker {
 	return {
 		async check({ workspace }: CheckerContext): Promise<CheckerResult> {

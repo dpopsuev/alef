@@ -60,10 +60,16 @@ Never:
 - Never \`git reset --hard\`, \`git stash\`, or \`git commit --no-verify\`.
 `;
 
+/**
+ *
+ */
 function git(cmd: string, cwd: string): string {
 	return execSync(cmd, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
+/**
+ *
+ */
 export interface GitWorkspaceOptions {
 	/** Content for AGENTS.md. Defaults to standard project rules. */
 	agentsMd?: string;

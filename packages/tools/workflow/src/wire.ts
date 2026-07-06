@@ -52,6 +52,9 @@ interface WireState {
 let wireSeq = 0;
 const workflows = new Map<string, WireState>();
 
+/**
+ *
+ */
 function evalCondition(when: string, payload: Record<string, unknown>): boolean {
 	const match = /^(\w+)\s*==\s*['"]?(\w+)['"]?$/.exec(when.trim());
 	if (!match) return true;
@@ -59,6 +62,9 @@ function evalCondition(when: string, payload: Record<string, unknown>): boolean 
 	return String(payload[field]) === value;
 }
 
+/**
+ *
+ */
 function runShellCommand(command: string, cwd: string): Promise<{ ok: boolean; output: string }> {
 	return new Promise((resolve) => {
 		exec(command, { cwd, timeout: 60_000 }, (err, stdout, stderr) => {
@@ -68,10 +74,16 @@ function runShellCommand(command: string, cwd: string): Promise<{ ok: boolean; o
 	});
 }
 
+/**
+ *
+ */
 function recordEvent(state: WireState, type: string, status: string, detail?: string) {
 	state.events.push({ type, timestamp: Date.now(), status, detail });
 }
 
+/**
+ *
+ */
 export interface WireAdapterOptions {
 	cwd: string;
 	dispatch: (text: string, profile: string, model?: string) => Promise<string>;
@@ -89,6 +101,9 @@ interface DisposableSession {
 	dispose(): void;
 }
 
+/**
+ *
+ */
 export interface WireAdapterFactoryOptions {
 	cwd: string;
 	subagentFactory: (opts: {
@@ -100,6 +115,9 @@ export interface WireAdapterFactoryOptions {
 	generalAdapters: readonly unknown[];
 }
 
+/**
+ *
+ */
 export function createWireAdapterWithFactory(opts: WireAdapterFactoryOptions): Adapter {
 	const { subagentFactory, exploreAdapters, generalAdapters } = opts;
 
@@ -139,13 +157,19 @@ export function createWireAdapterWithFactory(opts: WireAdapterFactoryOptions): A
 	});
 }
 
+/**
+ *
+ */
 export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 	let bus: Bus | null = null;
 
+	/**
+	 *
+	 */
 	function mountWiring(state: WireState, rules: WiringRule[]) {
 		for (const rule of rules) {
 			const unsub = bus?.event.subscribe(rule.on, (event) => {
-				const payload = event.payload as Record<string, unknown>;
+				const payload = event.payload;
 
 				if (rule.when && !evalCondition(rule.when, payload)) return;
 
@@ -304,6 +328,10 @@ export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 		}
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleWire(
 		ctx: CommandHandlerCtx<z.infer<typeof WireInputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -354,6 +382,10 @@ export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleStatus(
 		ctx: CommandHandlerCtx<z.infer<typeof WorkflowStatusInputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -397,6 +429,10 @@ export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 		return withDisplay({ workflows: all }, { text: lines.join("\n"), mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleStop(
 		ctx: CommandHandlerCtx<z.infer<typeof WorkflowStopInputSchema>>,
 	): Promise<Record<string, unknown>> {

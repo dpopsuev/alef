@@ -2,6 +2,9 @@
  * Provider and API type definitions
  */
 
+/**
+ *
+ */
 export type KnownApi =
 	| "openai-completions"
 	| "mistral-conversations"
@@ -13,12 +16,24 @@ export type KnownApi =
 	| "google-generative-ai"
 	| "google-vertex";
 
+/**
+ *
+ */
 export type Api = KnownApi | (string & {});
 
+/**
+ *
+ */
 export type KnownImagesApi = "openrouter-images";
 
+/**
+ *
+ */
 export type ImagesApi = KnownImagesApi | (string & {});
 
+/**
+ *
+ */
 export type KnownProvider =
 	| "amazon-bedrock"
 	| "anthropic"
@@ -52,8 +67,17 @@ export type KnownProvider =
 	| "xiaomi-token-plan-cn"
 	| "xiaomi-token-plan-ams"
 	| "xiaomi-token-plan-sgp";
+/**
+ *
+ */
 export type Provider = KnownProvider | string;
 
+/**
+ *
+ */
 export type KnownImagesProvider = "openrouter";
 
+/**
+ *
+ */
 export type ImagesProvider = KnownImagesProvider | string;

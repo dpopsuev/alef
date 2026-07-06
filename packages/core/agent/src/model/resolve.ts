@@ -2,6 +2,9 @@ import { findEnvKeys, getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
 
+/**
+ *
+ */
 export interface ModelLogger {
 	warn(msg: string): void;
 	error(msg: string): void;
@@ -12,15 +15,24 @@ let _logger: ModelLogger = {
 	error: (msg) => process.stderr.write(`[model] error: ${msg}\n`),
 };
 
+/**
+ *
+ */
 export function setModelLogger(l: ModelLogger): void {
 	_logger = l;
 }
 
+/**
+ *
+ */
 export interface ModelResolutionInput {
 	modelId: string | undefined;
 	debug: boolean;
 }
 
+/**
+ *
+ */
 export interface ModelConfig {
 	model?: string;
 	profile?: string;
@@ -39,6 +51,9 @@ export interface ModelConfig {
 }
 
 let _configProvider: () => ModelConfig = () => ({});
+/**
+ *
+ */
 export function setModelConfigProvider(fn: () => ModelConfig): void {
 	_configProvider = fn;
 }
@@ -79,6 +94,9 @@ const DEFAULT_MODEL_PER_PROVIDER: Partial<Record<KnownProvider, string>> = {
 	together: "meta-llama/Llama-3-70b-chat-hf",
 };
 
+/**
+ *
+ */
 function lookupModel(provider: string, modelId: string): Model<Api> | undefined {
 	const providers: readonly string[] = getProviders();
 	if (!providers.includes(provider)) return undefined;
@@ -87,6 +105,9 @@ function lookupModel(provider: string, modelId: string): Model<Api> | undefined 
 	return (models as Model<Api>[]).find((m) => m.id === modelId);
 }
 
+/**
+ *
+ */
 function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: string): Model<Api> {
 	return {
 		id: modelId,
@@ -102,6 +123,9 @@ function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: st
 	};
 }
 
+/**
+ *
+ */
 export function buildModel(id: string): Model<Api> {
 	if (id.startsWith("ollama/")) {
 		const modelId = id.slice("ollama/".length);
@@ -154,6 +178,9 @@ const PROVIDER_API_MAP: Record<string, Api> = {
 	azure: "azure-openai-responses",
 };
 
+/**
+ *
+ */
 function inferApi(provider: string): Api {
 	return PROVIDER_API_MAP[provider] ?? "openai-completions";
 }
@@ -172,10 +199,16 @@ const PROVIDER_BASE_URL: Record<string, string> = {
 	huggingface: "https://api-inference.huggingface.co/models",
 };
 
+/**
+ *
+ */
 function inferBaseUrl(provider: string): string {
 	return PROVIDER_BASE_URL[provider] ?? "";
 }
 
+/**
+ *
+ */
 export function autoDetectModel(): Model<Api> | undefined {
 	// Anthropic-on-Vertex: project + region configured, no API key needed.
 	if (hasAnthropicOnVertex() && !getEnvApiKey("anthropic")) {
@@ -225,6 +258,9 @@ export function hasCredentials(): boolean {
 	return false;
 }
 
+/**
+ *
+ */
 function validateApiKey(model: Model<Api>): void {
 	const provider = model.provider;
 	if (provider === "ollama") return;
@@ -237,6 +273,9 @@ function validateApiKey(model: Model<Api>): void {
 	}
 }
 
+/**
+ *
+ */
 export function resolveStartupModel(
 	args: ModelResolutionInput,
 	blueprintModelId: string | undefined,
@@ -266,6 +305,9 @@ export function resolveStartupModel(
 	process.exit(1);
 }
 
+/**
+ *
+ */
 export function detectedProviders(): string[] {
 	const found: string[] = [];
 	if (process.env.OLLAMA_HOST) found.push("ollama");

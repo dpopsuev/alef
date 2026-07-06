@@ -4,6 +4,9 @@ import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, DEFAULT_RECENT_GUARANTEE,
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
+/**
+ *
+ */
 export interface SessionContextStageOptions {
 	sessionStore: () => SessionStore | undefined;
 	contextWindow?: number;
@@ -11,6 +14,9 @@ export interface SessionContextStageOptions {
 
 type RawMsg = { role: string; content: unknown };
 
+/**
+ *
+ */
 export function createSessionContextStage(opts: SessionContextStageOptions): ContextAssemblyHandler {
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 

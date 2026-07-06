@@ -76,6 +76,9 @@ const MIGRATIONS: Record<number, string[]> = {
 	],
 };
 
+/**
+ *
+ */
 export async function applySchema(client: Client): Promise<void> {
 	const version = await getSchemaVersion(client);
 	if (version >= CURRENT_SCHEMA_VERSION) return;
@@ -105,6 +108,9 @@ export async function applySchema(client: Client): Promise<void> {
 	await client.execute({ sql: "UPDATE schema_version SET version = ?", args: [CURRENT_SCHEMA_VERSION] });
 }
 
+/**
+ *
+ */
 async function getSchemaVersion(client: Client): Promise<number> {
 	try {
 		const result = await client.execute("SELECT version FROM schema_version LIMIT 1");

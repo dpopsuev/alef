@@ -15,6 +15,9 @@
  *   store.update({ name: "alef" });     // same microtask — one notify
  */
 
+/**
+ *
+ */
 export class Store<T extends Record<string, unknown>> {
 	private state: T;
 	private readonly listeners = new Set<() => void>();

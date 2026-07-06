@@ -4,6 +4,9 @@ import type { StatusLevel } from "../design/palette.js";
 import { statusGlyph } from "../design/palette.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface FlowNodeOptions {
 	id: string;
 	title: string;
@@ -15,6 +18,9 @@ export interface FlowNodeOptions {
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class FlowNode implements Component {
 	private opts: FlowNodeOptions;
 

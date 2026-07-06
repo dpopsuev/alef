@@ -1,5 +1,8 @@
 import type { Component } from "../component.js";
 
+/**
+ *
+ */
 export interface FlowJunctionOptions {
 	type: "split" | "merge";
 	branches: number;
@@ -7,6 +10,9 @@ export interface FlowJunctionOptions {
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class FlowJunction implements Component {
 	private opts: FlowJunctionOptions;
 

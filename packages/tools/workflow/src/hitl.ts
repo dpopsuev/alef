@@ -3,24 +3,39 @@ import { type ValidateRequest, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsu
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
+/**
+ *
+ */
 export interface HitlEvaluateInput {
 	output: unknown;
 	context?: string;
 	kind?: string;
 }
 
+/**
+ *
+ */
 export interface HitlEvaluateResult {
 	approved: boolean;
 	feedback?: string;
 }
 
+/**
+ *
+ */
 export type OnEvaluate = (input: HitlEvaluateInput) => Promise<HitlEvaluateResult>;
 
+/**
+ *
+ */
 export interface HitlAdapterOptions {
 	name?: string;
 	onEvaluate: OnEvaluate;
 }
 
+/**
+ *
+ */
 export function createHitlAdapter(opts: HitlAdapterOptions): Adapter {
 	const adapterName = opts.name ?? "hitl";
 

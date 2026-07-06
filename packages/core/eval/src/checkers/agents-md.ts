@@ -11,6 +11,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
 
+/**
+ *
+ */
 export function agentsMdCheck(): Checker {
 	return {
 		check({ workspace }: CheckerContext): CheckerResult {

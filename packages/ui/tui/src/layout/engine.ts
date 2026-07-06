@@ -1,12 +1,21 @@
 import type { PanelSlot } from "./panel.js";
 
+/**
+ *
+ */
 export type SplitDirection = "vertical" | "horizontal";
 
+/**
+ *
+ */
 export interface LayoutNode {
 	slots: PanelSlot[];
 	direction: SplitDirection;
 }
 
+/**
+ *
+ */
 export interface LayoutResult {
 	panelId: string;
 	x: number;
@@ -15,6 +24,9 @@ export interface LayoutResult {
 	height: number;
 }
 
+/**
+ *
+ */
 export function computeLayout(node: LayoutNode, width: number, height: number): LayoutResult[] {
 	const visible = node.slots.filter((s) => s.panel.visible);
 	if (visible.length === 0) return [];

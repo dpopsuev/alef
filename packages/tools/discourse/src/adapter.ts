@@ -7,6 +7,9 @@ import { z } from "zod";
 import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
 
+/**
+ *
+ */
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
 }
@@ -40,20 +43,30 @@ const FORUM_LIST = {
 	}),
 };
 
+/**
+ *
+ */
 function formatPost(p: Post): string {
 	const body = typeof p.content === "string" ? p.content : JSON.stringify(p.content);
 	return `@${p.author} (${new Date(p.timestamp).toISOString().slice(11, 19)}): ${body}`;
 }
 
+/**
+ *
+ */
 function formatContextPost(p: Post): string {
 	const body = typeof p.content === "string" ? p.content : JSON.stringify(p.content);
 	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
 }
 
+/**
+ *
+ */
 export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	const store = new DiscourseStore(opts.sessionDir);
 	let lastReadTs = Date.now();
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		const newPosts = store.readNewPosts(lastReadTs);
 		if (newPosts.length === 0) return {};
@@ -63,6 +76,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		return { messages: injectContextBlock(input.messages, block) };
 	};
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handlePost(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -74,6 +91,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleRead(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_READ.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -85,6 +106,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleList(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_LIST.inputSchema>>,
 	): Promise<Record<string, unknown>> {

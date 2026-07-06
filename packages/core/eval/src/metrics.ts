@@ -22,6 +22,9 @@ export interface BusEvent {
 	elapsedMs?: number;
 }
 
+/**
+ *
+ */
 export interface SpanRecord {
 	name: string;
 	attributes: Record<string, unknown>;
@@ -125,6 +128,9 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 	return turns;
 }
 
+/**
+ *
+ */
 export interface RunMetrics {
 	/** Scenario identifier. */
 	scenario: string;
@@ -289,6 +295,9 @@ export const WRITE_RULES: ScoringRule[] = [
 	{ match: "alef.command/fs.edit", points: 10 },
 ];
 
+/**
+ *
+ */
 export function scoreSpans(spans: SpanRecord[], rules: ScoringRule[]): number {
 	let total = 0;
 	for (const span of spans) {

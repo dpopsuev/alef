@@ -6,13 +6,25 @@ import type { ImageContent, TextContent } from "./content.js";
 import type { ImagesApi, ImagesProvider } from "./providers.js";
 import type { ImagesStopReason, Usage } from "./usage.js";
 
+/**
+ *
+ */
 export type ImagesInputContent = TextContent | ImageContent;
+/**
+ *
+ */
 export type ImagesOutputContent = TextContent | ImageContent;
 
+/**
+ *
+ */
 export interface ImagesContext {
 	input: ImagesInputContent[];
 }
 
+/**
+ *
+ */
 export interface AssistantImages {
 	api: ImagesApi;
 	provider: ImagesProvider;
@@ -25,6 +37,9 @@ export interface AssistantImages {
 	timestamp: number; // Unix timestamp in milliseconds
 }
 
+/**
+ *
+ */
 export interface ImagesModel<TApi extends ImagesApi> {
 	id: string;
 	name: string;

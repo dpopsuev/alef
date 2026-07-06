@@ -2,13 +2,22 @@ const HASH_HEX_LENGTH = 16;
 
 import { createHash } from "node:crypto";
 
+/**
+ *
+ */
 export type BusKind = "command" | "event" | "notification" | "internal";
 
+/**
+ *
+ */
 export interface StorageActor {
 	address: string;
 	type: "human" | "agent";
 }
 
+/**
+ *
+ */
 export interface StorageRecord {
 	bus: BusKind;
 	type: string;
@@ -23,6 +32,9 @@ export interface StorageRecord {
 	actor?: StorageActor;
 }
 
+/**
+ *
+ */
 export function hashRecord(record: Omit<StorageRecord, "hash">): string {
 	const data = JSON.stringify({
 		bus: record.bus,
@@ -34,6 +46,9 @@ export function hashRecord(record: Omit<StorageRecord, "hash">): string {
 	return createHash("sha256").update(data).digest("hex").slice(0, HASH_HEX_LENGTH);
 }
 
+/**
+ *
+ */
 export interface WindowAssembledRecord extends StorageRecord {
 	bus: "internal";
 	type: "window.assembled";
@@ -47,6 +62,9 @@ export interface WindowAssembledRecord extends StorageRecord {
 	};
 }
 
+/**
+ *
+ */
 export interface Turn {
 	id: string;
 	events: StorageRecord[];
@@ -55,6 +73,9 @@ export interface Turn {
 	typeWeight: number;
 }
 
+/**
+ *
+ */
 export interface SessionStore {
 	readonly id: string;
 	readonly path: string;

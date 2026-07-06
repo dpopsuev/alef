@@ -22,6 +22,9 @@ const SCRIPTS: readonly string[][] = SCRIPT_RANGES.map((r) =>
 let counter = 0;
 const indexMap = new Map<string, number>();
 
+/**
+ *
+ */
 function indexFor(id: string): number {
 	let idx = indexMap.get(id);
 	if (idx === undefined) {
@@ -31,6 +34,9 @@ function indexFor(id: string): number {
 	return idx;
 }
 
+/**
+ *
+ */
 function hueShiftColorize(token: ColorToken, hueDeg: number): (text: string) => string {
 	if (colorDepth() !== "truecolor" || !token.truecolor) {
 		return (text) => color(text, token);
@@ -66,6 +72,9 @@ function hueShiftColorize(token: ColorToken, hueDeg: number): (text: string) => 
 	return (text) => chalk.rgb(Math.round(fr * 255), Math.round(fg2 * 255), Math.round(fb * 255))(text);
 }
 
+/**
+ *
+ */
 function hueToAnsi256(hue: number): number {
 	const h = ((hue % 360) + 360) % 360;
 	const sector = Math.floor(h / 60);
@@ -74,6 +83,9 @@ function hueToAnsi256(hue: number): number {
 	return Math.round(colors[sector % 6] + (colors[(sector + 1) % 6] - colors[sector % 6]) * f);
 }
 
+/**
+ *
+ */
 export function spinnerFrame(id: string, elapsedMs: number): string {
 	const idx = indexFor(id);
 	const chars = SCRIPTS[idx % SCRIPTS.length];
@@ -82,6 +94,9 @@ export function spinnerFrame(id: string, elapsedMs: number): string {
 	return chalk.ansi256(hueToAnsi256(hue))(chars[frameIdx]);
 }
 
+/**
+ *
+ */
 export function accentColorize(token: ColorToken, elapsedMs: number): (text: string) => string {
 	return hueShiftColorize(token, (elapsedMs / 20) % 360);
 }

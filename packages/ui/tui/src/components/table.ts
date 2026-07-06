@@ -1,6 +1,9 @@
 import type { Component } from "../component.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface TableColumn {
 	header: string;
 	key: string;
@@ -8,6 +11,9 @@ export interface TableColumn {
 	align?: "left" | "right";
 }
 
+/**
+ *
+ */
 export interface TableOptions {
 	columns: TableColumn[];
 	rows: Record<string, string>[];
@@ -15,12 +21,18 @@ export interface TableOptions {
 	cellStyle?: (text: string, key: string) => string;
 }
 
+/**
+ *
+ */
 function padCell(text: string, width: number, align: "left" | "right"): string {
 	const w = visibleWidth(text);
 	const gap = Math.max(0, width - w);
 	return align === "right" ? " ".repeat(gap) + text : text + " ".repeat(gap);
 }
 
+/**
+ *
+ */
 export class Table implements Component {
 	private opts: TableOptions;
 

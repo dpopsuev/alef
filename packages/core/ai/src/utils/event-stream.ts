@@ -1,6 +1,9 @@
 import type { AssistantMessage, AssistantMessageEvent } from "../types.js";
 
 // Generic event stream class for async iteration
+/**
+ *
+ */
 export class EventStream<T, R = T> implements AsyncIterable<T> {
 	private queue: T[] = [];
 	private waiting: ((value: IteratorResult<T>) => void)[] = [];
@@ -42,8 +45,8 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 		// Notify all waiting consumers that we're done
 		while (this.waiting.length > 0) {
 			const waiter = this.waiting.shift()!;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- IteratorResult requires a value even when done:true
-			waiter({ value: undefined as unknown as T, done: true });
+			 
+			waiter({ value: undefined, done: true });
 		}
 	}
 
@@ -67,6 +70,9 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 	}
 }
 
+/**
+ *
+ */
 export class AssistantMessageEventStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
 	constructor() {
 		super(

@@ -26,6 +26,9 @@ import type { Change, ExecOptions, ExecResult, Space } from "./space.js";
 
 const CONTAINER_WORKDIR = "/workspace";
 
+/**
+ *
+ */
 export interface DockerSpaceOptions {
 	/** Docker image to use. Default: "ubuntu:22.04". */
 	image?: string;
@@ -41,6 +44,9 @@ export interface DockerSpaceOptions {
 	startupTimeoutMs?: number;
 }
 
+/**
+ *
+ */
 export class DockerSpace implements Space {
 	private readonly _snapshots = new Map<string, string>(); // name → image id
 
@@ -201,6 +207,7 @@ export class DockerSpace implements Space {
 		await this.reset();
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async snapshots(): Promise<string[]> {
 		return [...this._snapshots.keys()];
 	}

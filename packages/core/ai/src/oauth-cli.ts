@@ -9,10 +9,16 @@ const AUTH_FILE = "auth.json";
 const PROVIDER_COLUMN_WIDTH = 20;
 const PROVIDERS = getOAuthProviders();
 
+/**
+ *
+ */
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
 	return new Promise((resolve) => rl.question(question, resolve));
 }
 
+/**
+ *
+ */
 function loadAuth(): Record<string, { type: "oauth" } & OAuthCredentials> {
 	if (!existsSync(AUTH_FILE)) return {};
 	try {
@@ -23,10 +29,16 @@ function loadAuth(): Record<string, { type: "oauth" } & OAuthCredentials> {
 	}
 }
 
+/**
+ *
+ */
 function saveAuth(auth: Record<string, { type: "oauth" } & OAuthCredentials>): void {
 	writeFileSync(AUTH_FILE, JSON.stringify(auth, null, 2), "utf-8");
 }
 
+/**
+ *
+ */
 async function login(providerId: OAuthProviderId): Promise<void> {
 	const provider = getOAuthProvider(providerId);
 	if (!provider) {
@@ -60,6 +72,9 @@ async function login(providerId: OAuthProviderId): Promise<void> {
 	}
 }
 
+/**
+ *
+ */
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	const command = args[0];

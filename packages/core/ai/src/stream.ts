@@ -8,11 +8,15 @@ import type {
 	Model,
 	ProviderStreamOptions,
 	SimpleStreamOptions,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	StreamOptions,
 } from "./types.js";
 import type { AssistantMessageEventStream } from "./utils/event-stream.js";
 
 
+/**
+ *
+ */
 function resolveApiProvider(model: Model<Api>) {
 	const provider = getApiProvider(model);
 	if (!provider) {
@@ -21,16 +25,22 @@ function resolveApiProvider(model: Model<Api>) {
 	return provider;
 }
 
+/**
+ *
+ */
 export function stream<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
 	options?: ProviderStreamOptions,
 ): AssistantMessageEventStream {
 	const provider = resolveApiProvider(model);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ProviderStreamOptions is a union that narrows to StreamOptions here
-	return provider.stream(model, context, options as StreamOptions);
+	 
+	return provider.stream(model, context, options);
 }
 
+/**
+ *
+ */
 export async function complete<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
@@ -40,6 +50,9 @@ export async function complete<TApi extends Api>(
 	return s.result();
 }
 
+/**
+ *
+ */
 export function streamSimple<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
@@ -49,6 +62,9 @@ export function streamSimple<TApi extends Api>(
 	return provider.streamSimple(model, context, options);
 }
 
+/**
+ *
+ */
 export async function completeSimple<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,

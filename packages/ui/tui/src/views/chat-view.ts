@@ -8,6 +8,9 @@ import { fmtMs } from "./ansi-utils.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { bold, color, glyph } from "./theme.js";
 
+/**
+ *
+ */
 export function appendUserMsg(
 	chat: Container,
 	text: string,
@@ -21,21 +24,33 @@ export function appendUserMsg(
 	chat.addChild(pad);
 }
 
+/**
+ *
+ */
 export function appendBatchTiming(chat: Container, ms: number, t: ThemeTokens): void {
 	chat.addChild(new Text(color(`  ${glyph("state:batch")} · ${fmtMs(ms)}`, t.mutedFg), 0, 0));
 }
 
+/**
+ *
+ */
 export function appendTokenFooter(chat: Container): Text {
 	const node = new Text("", 1, 0);
 	chat.addChild(node);
 	return node;
 }
 
+/**
+ *
+ */
 export function appendNotice(chat: Container, text: string, t: ThemeTokens): void {
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	chat.addChild(new Text(color(text, t.mutedFg), INDENT.BLOCK, 0));
 }
 
+/**
+ *
+ */
 export function appendCompletedToolBlock(
 	parent: { addChild(c: Component): void } | { addContent(c: Component): void },
 	name: string,
@@ -61,6 +76,9 @@ export function appendCompletedToolBlock(
 	}
 }
 
+/**
+ *
+ */
 export class AgentBlock {
 	private open = false;
 	private contentPad: Pad | null = null;

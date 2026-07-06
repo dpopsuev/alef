@@ -28,6 +28,7 @@ export function stubSessionFactory(modelId: string, contextWindow: number) {
 		setThinking: () => {},
 		setTurnController: () => {},
 		subscribe: () => () => {},
+		// eslint-disable-next-line @typescript-eslint/require-await
 		send: async () => "",
 		dispose: () => {},
 	});

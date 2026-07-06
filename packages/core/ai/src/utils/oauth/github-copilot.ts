@@ -32,6 +32,9 @@ type DeviceCodeResponse = {
 };
 
 
+/**
+ *
+ */
 export function normalizeDomain(input: string): string | null {
 	const trimmed = input.trim();
 	if (!trimmed) return null;
@@ -43,6 +46,9 @@ export function normalizeDomain(input: string): string | null {
 	}
 }
 
+/**
+ *
+ */
 function getUrls(domain: string): {
 	deviceCodeUrl: string;
 	accessTokenUrl: string;
@@ -69,6 +75,9 @@ function getBaseUrlFromToken(token: string): string | null {
 	return `https://${apiHost}`;
 }
 
+/**
+ *
+ */
 export function getGitHubCopilotBaseUrl(token?: string, enterpriseDomain?: string): string {
 	// If we have a token, extract the base URL from proxy-ep
 	if (token) {
@@ -80,6 +89,9 @@ export function getGitHubCopilotBaseUrl(token?: string, enterpriseDomain?: strin
 	return "https://api.individual.githubcopilot.com";
 }
 
+/**
+ *
+ */
 async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
 	const response = await fetch(url, init);
 	if (!response.ok) {
@@ -89,6 +101,9 @@ async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
 	return response.json();
 }
 
+/**
+ *
+ */
 async function startDeviceFlow(domain: string): Promise<DeviceCodeResponse> {
 	const urls = getUrls(domain);
 	const data = await fetchJson(urls.deviceCodeUrl, {
@@ -158,6 +173,9 @@ function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
 	});
 }
 
+/**
+ *
+ */
 async function pollForGitHubAccessToken(
 	domain: string,
 	deviceCode: string,

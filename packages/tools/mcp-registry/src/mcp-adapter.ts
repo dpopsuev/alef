@@ -18,6 +18,9 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 type ExecuteFn = (args: unknown, opts: unknown) => Promise<unknown>;
 
+/**
+ *
+ */
 class McpAdapterImpl implements Adapter {
 	readonly name: string;
 	readonly description: string;
@@ -97,6 +100,9 @@ class McpAdapterImpl implements Adapter {
 	}
 }
 
+/**
+ *
+ */
 function adapterToolName(adapterName: string, mcpName: string): string {
 	return `${adapterName}.${mcpName}`;
 }

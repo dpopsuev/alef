@@ -8,6 +8,9 @@ interface StoredPost {
 	timestamp: number;
 }
 
+/**
+ *
+ */
 export class DiscourseStore {
 	private readonly root: string;
 

@@ -6,6 +6,9 @@ const PROMPTS_DIR = join(fileURLToPath(import.meta.url), "..", "prompts");
 
 const cache = new Map<string, string>();
 
+/**
+ *
+ */
 export function loadPrompt(name: string, vars?: Record<string, string>): string {
 	let text = cache.get(name);
 	if (!text) {
@@ -21,6 +24,9 @@ export function loadPrompt(name: string, vars?: Record<string, string>): string 
 	return text;
 }
 
+/**
+ *
+ */
 export function listPromptTemplates(): string[] {
 	try {
 		return readdirSync(PROMPTS_DIR)

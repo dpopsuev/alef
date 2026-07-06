@@ -9,6 +9,7 @@ import {
 } from "@google/genai";
 import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	Context,
@@ -35,6 +36,9 @@ import {
 } from "./shared.js";
 import { buildBaseOptions } from "../base-options.js";
 
+/**
+ *
+ */
 export interface GoogleVertexOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";
 	thinking?: {
@@ -71,7 +75,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: "google-vertex" as Api,
+			api: "google-vertex",
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -105,6 +109,9 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
 
+			/**
+			 *
+			 */
 			function emitBlockEnd(block: TextContent | ThinkingContent): void {
 				if (block.type === "text") {
 					stream.push({
@@ -310,6 +317,9 @@ export const streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStr
 	} satisfies GoogleVertexOptions);
 };
 
+/**
+ *
+ */
 function createClient(
 	model: Model<"google-vertex">,
 	project: string,
@@ -325,6 +335,9 @@ function createClient(
 	});
 }
 
+/**
+ *
+ */
 function createClientWithApiKey(
 	model: Model<"google-vertex">,
 	apiKey: string,
@@ -338,6 +351,9 @@ function createClientWithApiKey(
 	});
 }
 
+/**
+ *
+ */
 function buildHttpOptions(
 	model: Model<"google-vertex">,
 	optionsHeaders?: Record<string, string>,
@@ -359,6 +375,9 @@ function buildHttpOptions(
 	return Object.keys(httpOptions).length > 0 ? httpOptions : undefined;
 }
 
+/**
+ *
+ */
 function resolveCustomBaseUrl(baseUrl: string): string | undefined {
 	const trimmed = baseUrl.trim();
 	if (!trimmed || trimmed.includes("{location}")) {
@@ -367,6 +386,9 @@ function resolveCustomBaseUrl(baseUrl: string): string | undefined {
 	return trimmed;
 }
 
+/**
+ *
+ */
 function baseUrlIncludesApiVersion(baseUrl: string): boolean {
 	try {
 		const url = new URL(baseUrl);
@@ -376,6 +398,9 @@ function baseUrlIncludesApiVersion(baseUrl: string): boolean {
 	}
 }
 
+/**
+ *
+ */
 function resolveApiKey(options?: GoogleVertexOptions): string | undefined {
 	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty trimmed API key should fall through
 	const apiKey = options?.apiKey?.trim() || process.env.GOOGLE_CLOUD_API_KEY?.trim();
@@ -385,10 +410,16 @@ function resolveApiKey(options?: GoogleVertexOptions): string | undefined {
 	return apiKey;
 }
 
+/**
+ *
+ */
 function isPlaceholderApiKey(apiKey: string): boolean {
 	return /^<[^>]+>$/.test(apiKey);
 }
 
+/**
+ *
+ */
 function resolveProject(options?: GoogleVertexOptions): string {
 	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty project string should fall through
 	const project = options?.project || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
@@ -400,6 +431,9 @@ function resolveProject(options?: GoogleVertexOptions): string {
 	return project;
 }
 
+/**
+ *
+ */
 function resolveLocation(options?: GoogleVertexOptions): string {
 	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty location string should fall through
 	const location = options?.location || process.env.GOOGLE_CLOUD_LOCATION;
@@ -409,6 +443,9 @@ function resolveLocation(options?: GoogleVertexOptions): string {
 	return location;
 }
 
+/**
+ *
+ */
 function buildParams(
 	model: Model<"google-vertex">,
 	context: Context,
@@ -470,14 +507,23 @@ function buildParams(
 
 type ClampedThinkingLevel = Exclude<PiThinkingLevel, "xhigh">;
 
+/**
+ *
+ */
 function isGemini3ProModel(model: Model<"google-generative-ai">): boolean {
 	return /gemini-3(?:\.\d+)?-pro/.test(model.id.toLowerCase());
 }
 
+/**
+ *
+ */
 function isGemini3FlashModel(model: Model<"google-generative-ai">): boolean {
 	return /gemini-3(?:\.\d+)?-flash/.test(model.id.toLowerCase());
 }
 
+/**
+ *
+ */
 function getDisabledThinkingConfig(model: Model<"google-vertex">): ThinkingConfig {
 	// Google docs: Gemini 3.1 Pro cannot disable thinking, and Gemini 3 Flash / Flash-Lite
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
@@ -509,6 +555,9 @@ const GEMINI3_DEFAULT_THINKING_LEVEL: Record<ClampedThinkingLevel, GoogleThinkin
 	high: "HIGH",
 };
 
+/**
+ *
+ */
 function getGemini3ThinkingLevel(
 	effort: ClampedThinkingLevel,
 	model: Model<"google-generative-ai">,
@@ -519,6 +568,9 @@ function getGemini3ThinkingLevel(
 	return GEMINI3_DEFAULT_THINKING_LEVEL[effort];
 }
 
+/**
+ *
+ */
 function getGoogleBudget(
 	model: Model<"google-generative-ai">,
 	effort: ClampedThinkingLevel,

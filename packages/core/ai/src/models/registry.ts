@@ -8,18 +8,27 @@ import type {
 } from "../types.js";
 import type { AssistantMessageEventStream } from "../utils/event-stream.js";
 
+/**
+ *
+ */
 export type ApiStreamFunction = (
 	model: Model<Api>,
 	context: Context,
 	options?: StreamOptions,
 ) => AssistantMessageEventStream;
 
+/**
+ *
+ */
 export type ApiStreamSimpleFunction = (
 	model: Model<Api>,
 	context: Context,
 	options?: SimpleStreamOptions,
 ) => AssistantMessageEventStream;
 
+/**
+ *
+ */
 export interface ApiProvider<TApi extends Api = Api, TOptions extends StreamOptions = StreamOptions> {
 	api: TApi;
 	stream: StreamFunction<TApi, TOptions>;
@@ -52,6 +61,9 @@ type RegisteredApiProvider = {
 // multiple strategies per api key can coexist.
 const apiProviderRegistry: RegisteredApiProvider[] = [];
 
+/**
+ *
+ */
 function wrapStream<TApi extends Api, TOptions extends StreamOptions>(
 	api: TApi,
 	stream: StreamFunction<TApi, TOptions>,
@@ -65,6 +77,9 @@ function wrapStream<TApi extends Api, TOptions extends StreamOptions>(
 	};
 }
 
+/**
+ *
+ */
 function wrapStreamSimple<TApi extends Api>(
 	api: TApi,
 	streamSimple: StreamFunction<TApi, SimpleStreamOptions>,
@@ -78,6 +93,9 @@ function wrapStreamSimple<TApi extends Api>(
 	};
 }
 
+/**
+ *
+ */
 export function registerApiProvider<TApi extends Api, TOptions extends StreamOptions>(
 	provider: ApiProvider<TApi, TOptions>,
 	sourceId?: string,
@@ -87,7 +105,7 @@ export function registerApiProvider<TApi extends Api, TOptions extends StreamOpt
 			api: provider.api,
 			stream: wrapStream(provider.api, provider.stream),
 			streamSimple: wrapStreamSimple(provider.api, provider.streamSimple),
-			match: provider.match as ((model: Model<Api>) => boolean) | undefined,
+			match: provider.match,
 		},
 		sourceId,
 	});
@@ -107,10 +125,16 @@ export function getApiProvider(model: Model<Api>): ApiProviderInternal | undefin
 	return undefined;
 }
 
+/**
+ *
+ */
 export function getApiProviders(): ApiProviderInternal[] {
 	return apiProviderRegistry.map((entry) => entry.provider);
 }
 
+/**
+ *
+ */
 export function unregisterApiProviders(sourceId: string): void {
 	let i = apiProviderRegistry.length;
 	while (i-- > 0) {
@@ -120,6 +144,9 @@ export function unregisterApiProviders(sourceId: string): void {
 	}
 }
 
+/**
+ *
+ */
 export function clearApiProviders(): void {
 	apiProviderRegistry.length = 0;
 }

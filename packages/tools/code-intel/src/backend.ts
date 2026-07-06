@@ -16,8 +16,14 @@
 // Symbol types (used internally by symbol extractors)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export type SymbolKind = "function" | "class" | "interface" | "type" | "const" | "variable" | "method" | "property";
 
+/**
+ *
+ */
 export interface SymbolBlock {
 	/** Symbol name as declared in source. */
 	name: string;
@@ -37,6 +43,9 @@ export interface SymbolBlock {
 // Result types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface CallSite {
 	path: string;
 	line: number;
@@ -44,6 +53,9 @@ export interface CallSite {
 	context: string;
 }
 
+/**
+ *
+ */
 export interface Diagnostic {
 	severity: number; // 1=error, 2=warning, 3=info, 4=hint
 	message: string;
@@ -53,11 +65,17 @@ export interface Diagnostic {
 	source?: string;
 }
 
+/**
+ *
+ */
 export interface HoverInfo {
 	contents: string;
 	range?: { start: { line: number; character: number }; end: { line: number; character: number } };
 }
 
+/**
+ *
+ */
 export interface WorkspaceSymbol {
 	name: string;
 	kind: string; // "function", "class", "interface", etc.
@@ -70,6 +88,9 @@ export interface WorkspaceSymbol {
 // Options types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface CallersOptions {
 	/** Restrict search to this file or directory. Default: cwd. */
 	path?: string;
@@ -81,6 +102,9 @@ export interface CallersOptions {
 // Backend interface
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface CodeIntelBackend {
 	/**
 	 * Find call sites that reference the given symbol name.

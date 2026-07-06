@@ -1,11 +1,20 @@
 import type { PanelSlot } from "./panel.js";
 
+/**
+ *
+ */
 export type ViewMode = "conversation" | "plan" | "agents" | "debug" | "dashboard";
 
+/**
+ *
+ */
 export interface ViewDefinition {
 	slots: PanelSlot[];
 }
 
+/**
+ *
+ */
 export class ViewRouter {
 	private views = new Map<ViewMode, ViewDefinition>();
 	private active: ViewMode = "conversation";

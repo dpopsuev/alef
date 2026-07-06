@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import type { PlanUpdateEvent } from "@dpopsuev/alef-kernel/adapter";
 
+/**
+ *
+ */
 export type Phase =
 	| "intention"
 	| "inception"
@@ -45,6 +48,9 @@ const BLOCK_MAP: Record<Phase, string> = {
 	closed: "closed",
 };
 
+/**
+ *
+ */
 export interface PlanNode {
 	id: string;
 	parent: string | null;
@@ -66,6 +72,9 @@ export interface PlanNode {
 	scopeRoot?: string;
 }
 
+/**
+ *
+ */
 export interface PlanData {
 	id: string;
 	phase: Phase;
@@ -84,6 +93,9 @@ export interface PlanData {
 	rootNodeId?: string;
 }
 
+/**
+ *
+ */
 export class PlanGraph {
 	private data: PlanData;
 	private diskPath: string | null;

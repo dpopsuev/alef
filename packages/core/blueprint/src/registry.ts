@@ -4,6 +4,9 @@ import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
+/**
+ *
+ */
 export interface SubagentFactoryOptions {
 	adapters: readonly Adapter[];
 	onChunk?: (chunk: string) => void;
@@ -15,10 +18,19 @@ export interface SubagentFactoryOptions {
 	modelOverride?: string;
 }
 
+/**
+ *
+ */
 export type SubagentSession = Session;
 
+/**
+ *
+ */
 export type SubagentFactory = (opts: SubagentFactoryOptions) => SubagentSession;
 
+/**
+ *
+ */
 export interface BlueprintStackOptions {
 	cwd: string;
 	model: Model<Api>;
@@ -44,13 +56,22 @@ export interface BlueprintStackOptions {
 	writableRoots?: readonly string[];
 }
 
+/**
+ *
+ */
 export interface BlueprintStack {
 	adapters: Adapter[];
 	contextAssembly: ReturnType<typeof createContextAssembler>;
 }
 
+/**
+ *
+ */
 export type BlueprintFactory = (opts: BlueprintStackOptions) => Promise<BlueprintStack>;
 
+/**
+ *
+ */
 class BlueprintRegistry {
 	private readonly _factories = new Map<string, BlueprintFactory>();
 	private _default: BlueprintFactory | undefined;

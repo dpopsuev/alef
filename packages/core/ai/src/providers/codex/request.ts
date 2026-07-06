@@ -37,6 +37,9 @@ export const OPENAI_BETA_RESPONSES_WEBSOCKETS = "responses_websockets=2026-02-06
 // Request Body
 // ============================================================================
 
+/**
+ *
+ */
 export interface RequestBody {
 	model: string;
 	store?: boolean;
@@ -60,6 +63,9 @@ export interface RequestBody {
 // Auth & Headers
 // ============================================================================
 
+/**
+ *
+ */
 export function extractAccountId(token: string): string {
 	try {
 		const parts = token.split(".");
@@ -67,6 +73,7 @@ export function extractAccountId(token: string): string {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT parse boundary
 		const payload = JSON.parse(atob(parts[1]));
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT claim access
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		const accountId = payload?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
 		if (!accountId) throw new Error("No account ID in token");
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JWT claim value
@@ -76,6 +83,9 @@ export function extractAccountId(token: string): string {
 	}
 }
 
+/**
+ *
+ */
 export function createCodexRequestId(): string {
 	if (typeof globalThis.crypto.randomUUID === "function") {
 		return globalThis.crypto.randomUUID();
@@ -83,6 +93,9 @@ export function createCodexRequestId(): string {
 	return `codex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ *
+ */
 function buildBaseCodexHeaders(
 	initHeaders: Record<string, string> | undefined,
 	additionalHeaders: Record<string, string> | undefined,
@@ -101,6 +114,9 @@ function buildBaseCodexHeaders(
 	return headers;
 }
 
+/**
+ *
+ */
 export function buildSSEHeaders(
 	initHeaders: Record<string, string> | undefined,
 	additionalHeaders: Record<string, string> | undefined,
@@ -121,6 +137,9 @@ export function buildSSEHeaders(
 	return headers;
 }
 
+/**
+ *
+ */
 export function buildWebSocketHeaders(
 	initHeaders: Record<string, string> | undefined,
 	additionalHeaders: Record<string, string> | undefined,
@@ -143,6 +162,9 @@ export function buildWebSocketHeaders(
 // URL Resolution
 // ============================================================================
 
+/**
+ *
+ */
 export function resolveCodexUrl(baseUrl?: string): string {
 	const raw = baseUrl && baseUrl.trim().length > 0 ? baseUrl : DEFAULT_CODEX_BASE_URL;
 	const normalized = raw.replace(/\/+$/, "");
@@ -151,6 +173,9 @@ export function resolveCodexUrl(baseUrl?: string): string {
 	return `${normalized}/codex/responses`;
 }
 
+/**
+ *
+ */
 export function resolveCodexWebSocketUrl(baseUrl?: string): string {
 	const url = new URL(resolveCodexUrl(baseUrl));
 	if (url.protocol === "https:") url.protocol = "wss:";
@@ -162,6 +187,9 @@ export function resolveCodexWebSocketUrl(baseUrl?: string): string {
 // Service Tier Pricing
 // ============================================================================
 
+/**
+ *
+ */
 export function getServiceTierCostMultiplier(
 	model: Pick<Model<"openai-codex-responses">, "id">,
 	serviceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,
@@ -176,6 +204,9 @@ export function getServiceTierCostMultiplier(
 	}
 }
 
+/**
+ *
+ */
 export function applyServiceTierPricing(
 	usage: Usage,
 	serviceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,
@@ -191,6 +222,9 @@ export function applyServiceTierPricing(
 	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
 }
 
+/**
+ *
+ */
 export function resolveCodexServiceTier(
 	responseServiceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,
 	requestServiceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,
@@ -213,6 +247,9 @@ interface BuildRequestBodyOptions extends StreamOptions {
 	textVerbosity?: "low" | "medium" | "high";
 }
 
+/**
+ *
+ */
 export function buildRequestBody(
 	model: Model<"openai-codex-responses">,
 	context: Context,

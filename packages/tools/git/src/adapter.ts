@@ -5,6 +5,9 @@ import { z } from "zod";
 
 const DEFAULT_FORGE_URL = "http://localhost:3000";
 
+/**
+ *
+ */
 export interface GitAdapterOptions {
 	cwd: string;
 	forgeUrl?: string;
@@ -12,6 +15,9 @@ export interface GitAdapterOptions {
 	actions?: readonly string[];
 }
 
+/**
+ *
+ */
 async function forgeApi(opts: GitAdapterOptions, method: string, path: string, body?: unknown): Promise<unknown> {
 	const url = `${opts.forgeUrl ?? DEFAULT_FORGE_URL}/api/v1${path}`;
 	const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -69,6 +75,9 @@ const PR_MERGE = {
 	}),
 };
 
+/**
+ *
+ */
 export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 	return defineAdapter(
 		"git",
@@ -136,6 +145,9 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 	);
 }
 
+/**
+ *
+ */
 export function createAdapter(opts: { cwd: string; actions?: string[] }): Adapter {
 	return createGitAdapter({
 		cwd: opts.cwd,

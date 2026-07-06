@@ -35,6 +35,9 @@ const LSP_BIN = fileURLToPath(import.meta.resolve("typescript-language-server/li
 // JSON-RPC framing
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function encode(msg: object): Buffer {
 	const body = JSON.stringify(msg);
 	const header = `Content-Length: ${Buffer.byteLength(body, "utf-8")}\r\n\r\n`;
@@ -50,6 +53,9 @@ interface PendingRequest {
 	reject: (err: Error) => void;
 }
 
+/**
+ *
+ */
 export class LspClient {
 	private readonly proc: ReturnType<typeof spawn>;
 	private readonly pending = new Map<number, PendingRequest>();

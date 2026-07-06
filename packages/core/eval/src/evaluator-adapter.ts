@@ -13,6 +13,9 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 
+/**
+ *
+ */
 export interface EvaluatorAdapterOptions {
 	/**
 	 * How many times the same command event type on the same correlationId
@@ -23,6 +26,9 @@ export interface EvaluatorAdapterOptions {
 	onLoop?: (eventType: string, correlationId: string, count: number) => void;
 }
 
+/**
+ *
+ */
 export interface EvaluatorAdapterState {
 	commandCount: number;
 	eventCount: number;
@@ -30,6 +36,9 @@ export interface EvaluatorAdapterState {
 	loopEventType?: string;
 }
 
+/**
+ *
+ */
 export class EvaluatorAdapter implements Adapter {
 	readonly name = "evaluator";
 	readonly tools = [] as const;

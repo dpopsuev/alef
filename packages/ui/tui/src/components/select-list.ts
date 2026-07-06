@@ -11,12 +11,18 @@ const MIN_DESCRIPTION_WIDTH = 10;
 const normalizeToSingleLine = (text: string): string => text.replace(/[\r\n]+/g, " ").trim();
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(value, max));
 
+/**
+ *
+ */
 export interface SelectItem {
 	value: string;
 	label: string;
 	description?: string;
 }
 
+/**
+ *
+ */
 export interface SelectListTheme {
 	selectedPrefix: (text: string) => string;
 	selectedText: (text: string) => string;
@@ -25,6 +31,9 @@ export interface SelectListTheme {
 	noMatch: (text: string) => string;
 }
 
+/**
+ *
+ */
 export interface SelectListTruncatePrimaryContext {
 	text: string;
 	maxWidth: number;
@@ -33,12 +42,18 @@ export interface SelectListTruncatePrimaryContext {
 	isSelected: boolean;
 }
 
+/**
+ *
+ */
 export interface SelectListLayoutOptions {
 	minPrimaryColumnWidth?: number;
 	maxPrimaryColumnWidth?: number;
 	truncatePrimary?: (context: SelectListTruncatePrimaryContext) => string;
 }
 
+/**
+ *
+ */
 export class SelectList implements Component {
 	private items: SelectItem[] = [];
 	private filteredItems: SelectItem[] = [];

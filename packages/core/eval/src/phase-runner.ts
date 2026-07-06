@@ -23,6 +23,9 @@ const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_PASS_THRESHOLD = 0.7;
 const DEFAULT_PHASE_PASS_THRESHOLD = 1.0;
 
+/**
+ *
+ */
 function buildCorrectivePrompt(phase: Phase, violations: string[], attempt: number): string {
 	const total = (phase.maxRetries ?? DEFAULT_MAX_RETRIES) + 1;
 	const header = phase.retryPrompt
@@ -34,6 +37,9 @@ function buildCorrectivePrompt(phase: Phase, violations: string[], attempt: numb
 	);
 }
 
+/**
+ *
+ */
 function computeWeights(phases: readonly Phase[]): number[] {
 	const explicit = phases.filter((p) => p.weight !== undefined);
 	const implicit = phases.filter((p) => p.weight === undefined);
@@ -51,10 +57,16 @@ function computeWeights(phases: readonly Phase[]): number[] {
 	return phases.map((p) => p.weight ?? implicitWeight);
 }
 
+/**
+ *
+ */
 export interface PhaseRunnerOptions extends Partial<HarnessOptions> {
 	/** Extra harness options forwarded to EvalHarness.boot(). */
 }
 
+/**
+ *
+ */
 export class PhaseEvaluationRunner {
 	private readonly harness: EvalHarness;
 	private readonly harnessOptions: PhaseRunnerOptions;

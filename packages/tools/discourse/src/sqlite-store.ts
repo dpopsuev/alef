@@ -1,6 +1,9 @@
 import type { Client } from "@libsql/client";
 import type { Post, ThreadInfo, TopicSummary } from "./types.js";
 
+/**
+ *
+ */
 export class SqliteDiscourseStore {
 	private readonly client: Client;
 	private readonly sessionId: string;

@@ -34,6 +34,9 @@ import {
 	searchSessions,
 } from "./session-queries.js";
 
+/**
+ *
+ */
 export interface DirectiveAdapter {
 	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[]; contentPreview: string }>;
 	enable(id: string): void;
@@ -44,12 +47,18 @@ export interface DirectiveAdapter {
 	remove(id: string): void;
 }
 
+/**
+ *
+ */
 export interface AgentPrototypeAdapter {
 	load(adapter: Adapter): void;
 	unload(name: string): boolean;
 	readonly adapters: readonly Adapter[];
 }
 
+/**
+ *
+ */
 export interface MetaAdapterOptions {
 	getDirective?: () => DirectiveAdapter | undefined;
 	/** Agent adapter for prototype.plug/unplug/list. Omit to disable prototype tools. */
@@ -67,6 +76,9 @@ export interface MetaAdapterOptions {
 const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 const WORKER_BOOTSTRAP = fileURLToPath(new URL("./prototype-worker.ts", import.meta.url));
 
+/**
+ *
+ */
 function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter> {
 	return new Promise((resolveP, rejectP) => {
 		const worker = new Worker(WORKER_BOOTSTRAP, {
@@ -253,6 +265,9 @@ const FORBIDDEN_CODE_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }
 	},
 ];
 
+/**
+ *
+ */
 function validateAdapterCode(code: string): string | null {
 	for (const { pattern, reason } of FORBIDDEN_CODE_PATTERNS) {
 		if (pattern.test(code)) return reason;
@@ -310,11 +325,17 @@ const PROTOTYPE_LIST = {
 	inputSchema: z.object({}),
 } as const;
 
+/**
+ *
+ */
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
 	loadAdapter: NonNullable<MetaAdapterOptions["loadAdapter"]>,
 	cwd: string,
 ): ActionMap {
+	/**
+	 *
+	 */
 	async function handlePrototypePlug(
 		ctx: CommandHandlerCtx<z.infer<typeof PROTOTYPE_PLUG.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -351,6 +372,10 @@ function buildPrototypeTools(
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handlePrototypeUnplug(
 		ctx: CommandHandlerCtx<z.infer<typeof PROTOTYPE_UNPLUG.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -374,6 +399,9 @@ function buildPrototypeTools(
 		);
 	}
 
+	/**
+	 *
+	 */
 	function handlePrototypeList(): Promise<Record<string, unknown>> {
 		const adapters = agent.adapters.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
 		return Promise.resolve(
@@ -437,12 +465,23 @@ const DIRECTIVE_REMOVE = {
 	inputSchema: z.object({ id: z.string().min(1) }),
 } as const;
 
+/**
+ *
+ */
 function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>): ActionMap {
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveList(): Promise<Record<string, unknown>> {
 		const blocks = g()?.list() ?? [];
 		return withDisplay({ blocks }, { text: `${blocks.length} directive block(s)`, mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveEnable(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_ENABLE.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -453,6 +492,10 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveDisable(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_DISABLE.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -463,6 +506,10 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveToggle(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_TOGGLE.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -473,6 +520,10 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveReplace(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_REPLACE.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -483,6 +534,10 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveAdd(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_ADD.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -496,6 +551,10 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleDirectiveRemove(
 		ctx: CommandHandlerCtx<z.infer<typeof DIRECTIVE_REMOVE.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -576,12 +635,21 @@ const ALEF_REBUILD = {
 	inputSchema: z.object({}),
 } as const;
 
+/**
+ *
+ */
 function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
+	/**
+	 *
+	 */
 	async function handleSessionsList(): Promise<Record<string, unknown>> {
 		const sessions = await listAllSessions(opts.dialogEventType);
 		return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
 	async function handleSessionsSearch(
 		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_SEARCH.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -592,6 +660,9 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 		);
 	}
 
+	/**
+	 *
+	 */
 	async function handleSessionsRename(
 		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_RENAME.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -604,6 +675,9 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 		});
 	}
 
+	/**
+	 *
+	 */
 	async function handleSessionsRead(
 		ctx: CommandHandlerCtx<z.infer<typeof SESSIONS_READ.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -614,16 +688,25 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 		);
 	}
 
+	/**
+	 *
+	 */
 	async function handleConfigGet(): Promise<Record<string, unknown>> {
 		const config = await getConfig();
 		return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
 	async function handleAdaptersList(): Promise<Record<string, unknown>> {
 		const adapters = await listAdapters();
 		return withDisplay({ adapters }, { text: "adapters.yaml loaded", mimeType: "text/plain" });
 	}
 
+	/**
+	 *
+	 */
 	async function handlePmHistory(): Promise<Record<string, unknown>> {
 		const history = await pmHistory();
 		return withDisplay(
@@ -632,6 +715,10 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 		);
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleRebuild(
 		ctx: CommandHandlerCtx<z.infer<typeof ALEF_REBUILD.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -667,6 +754,9 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 	};
 }
 
+/**
+ *
+ */
 export function createMetaAdapter(opts: MetaAdapterOptions) {
 	const { agent, loadAdapter, cwd = process.cwd(), getDirective } = opts;
 	return defineAdapter(

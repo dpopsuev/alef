@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+/**
+ *
+ */
 export interface Contract<T extends z.ZodTypeAny> {
 	readonly schema: T;
 	readonly intent: string;
 	readonly validator?: "human" | "agent" | "machine" | string;
 }
 
+/**
+ *
+ */
 export function defineContract<T extends z.ZodTypeAny>(
 	intent: string,
 	schema: T,
@@ -66,11 +72,29 @@ export const PlannerContract = defineContract(
 	PlannerSchema,
 );
 
+/**
+ *
+ */
 export type PlannerOutput = z.infer<typeof PlannerSchema>;
+/**
+ *
+ */
 export type MetadataOutput = z.infer<typeof MetadataSchema>;
+/**
+ *
+ */
 export type IntentOutput = z.infer<typeof IntentSchema>;
+/**
+ *
+ */
 export type GoalOutput = z.infer<typeof GoalSchema>;
+/**
+ *
+ */
 export type ImplementOutput = z.infer<typeof ImplementSchema>;
+/**
+ *
+ */
 export type ExitOutput = z.infer<typeof ExitSchema>;
 
 // ---------------------------------------------------------------------------

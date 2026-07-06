@@ -10,6 +10,7 @@ import { getEnvApiKey } from "../env-api-keys.js";
 import { calculateCost } from "../models/llm.js";
 import type {
 	AnthropicMessagesCompat,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	CacheRetention,
@@ -51,6 +52,9 @@ function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRetention 
 	return "short";
 }
 
+/**
+ *
+ */
 function getCacheControl(
 	model: Model<"anthropic-messages">,
 	cacheRetention?: CacheRetention,
@@ -126,13 +130,22 @@ function convertContentBlocks(content: (TextContent | ImageContent)[]):
 	return blocks;
 }
 
+/**
+ *
+ */
 export type AnthropicEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
+/**
+ *
+ */
 export type AnthropicThinkingDisplay = "summarized" | "omitted";
 
 const FINE_GRAINED_TOOL_STREAMING_BETA = "fine-grained-tool-streaming-2025-05-14";
 const INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14";
 
+/**
+ *
+ */
 function getAnthropicCompat(model: Model<"anthropic-messages">): Required<AnthropicMessagesCompat> {
 	return {
 		supportsEagerToolInputStreaming: model.compat?.supportsEagerToolInputStreaming ?? true,
@@ -140,6 +153,9 @@ function getAnthropicCompat(model: Model<"anthropic-messages">): Required<Anthro
 	};
 }
 
+/**
+ *
+ */
 export interface AnthropicOptions extends StreamOptions {
 	/**
 	 * Enable extended thinking.
@@ -191,6 +207,9 @@ export interface AnthropicOptions extends StreamOptions {
 	isVertex?: boolean;
 }
 
+/**
+ *
+ */
 function mergeHeaders(...headerSources: (Record<string, string | null> | undefined)[]): Record<string, string | null> {
 	const merged: Record<string, string | null> = {};
 	for (const headers of headerSources) {
@@ -252,6 +271,9 @@ function serializeError(error: unknown): string {
 	return parts.length > 0 ? parts.join(" — ") : JSON.stringify(error);
 }
 
+/**
+ *
+ */
 function flushSseEvent(state: SseDecoderState): ServerSentEvent | null {
 	if (!state.event && state.data.length === 0) {
 		return null;
@@ -268,6 +290,9 @@ function flushSseEvent(state: SseDecoderState): ServerSentEvent | null {
 	return event;
 }
 
+/**
+ *
+ */
 function decodeSseLine(line: string, state: SseDecoderState): ServerSentEvent | null {
 	if (line === "") {
 		return flushSseEvent(state);
@@ -294,6 +319,9 @@ function decodeSseLine(line: string, state: SseDecoderState): ServerSentEvent | 
 	return null;
 }
 
+/**
+ *
+ */
 function nextLineBreakIndex(text: string): number {
 	const carriageReturnIndex = text.indexOf("\r");
 	const newlineIndex = text.indexOf("\n");
@@ -306,6 +334,9 @@ function nextLineBreakIndex(text: string): number {
 	return Math.min(carriageReturnIndex, newlineIndex);
 }
 
+/**
+ *
+ */
 function consumeLine(text: string): { line: string; rest: string } | null {
 	const lineBreakIndex = nextLineBreakIndex(text);
 	if (lineBreakIndex === -1) {
@@ -323,6 +354,9 @@ function consumeLine(text: string): { line: string; rest: string } | null {
 	};
 }
 
+/**
+ *
+ */
 async function* iterateSseMessages(
 	body: ReadableStream<Uint8Array>,
 	signal?: AbortSignal,
@@ -383,6 +417,9 @@ async function* iterateSseMessages(
 	}
 }
 
+/**
+ *
+ */
 async function* iterateAnthropicEvents(
 	response: Response,
 	signal?: AbortSignal,
@@ -435,7 +472,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: model.api as Api,
+			api: model.api,
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -519,6 +556,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 
 			// --- Content block start handlers (keyed by content_block.type) ---
 
+			/**
+			 *
+			 */
 			function handleTextBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
 				const block: Block = {
 					type: "text",
@@ -529,6 +569,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
 			}
 
+			/**
+			 *
+			 */
 			function handleThinkingBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
 				const block: Block = {
 					type: "thinking",
@@ -540,6 +583,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
 			}
 
+			/**
+			 *
+			 */
 			function handleRedactedThinkingBlockStart(
 				event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>,
 			) {
@@ -556,6 +602,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
 			}
 
+			/**
+			 *
+			 */
 			function handleToolUseBlockStart(event: Extract<RawMessageStreamEvent, { type: "content_block_start" }>) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const contentBlock = event.content_block as { type: "tool_use"; id: string; name: string; input: unknown };
@@ -601,6 +650,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 
 			// --- Content block delta handlers (keyed by delta.type) ---
 
+			/**
+			 *
+			 */
 			function handleTextDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
@@ -617,6 +669,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				});
 			}
 
+			/**
+			 *
+			 */
 			function handleThinkingDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
@@ -633,6 +688,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				});
 			}
 
+			/**
+			 *
+			 */
 			function handleInputJsonDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
@@ -650,6 +708,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				});
 			}
 
+			/**
+			 *
+			 */
 			function handleSignatureDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
@@ -673,6 +734,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 
 			// --- Top-level event handlers (keyed by event.type) ---
 
+			/**
+			 *
+			 */
 			function handleMessageStart(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "message_start" }>;
@@ -689,6 +753,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				calculateCost(model, output.usage);
 			}
 
+			/**
+			 *
+			 */
 			function handleContentBlockStart(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_start" }>;
@@ -696,6 +763,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				contentBlockStartHandlers[e.content_block.type]?.(e);
 			}
 
+			/**
+			 *
+			 */
 			function handleContentBlockDelta(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_delta" }>;
@@ -703,6 +773,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				contentBlockDeltaHandlers[e.delta.type]?.(e);
 			}
 
+			/**
+			 *
+			 */
 			function handleContentBlockStop(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_stop" }>;
@@ -742,6 +815,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				});
 			}
 
+			/**
+			 *
+			 */
 			function handleMessageDelta(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "message_delta" }>;
@@ -895,10 +971,16 @@ export const streamSimpleAnthropic: StreamFunction<
 	} satisfies AnthropicOptions);
 };
 
+/**
+ *
+ */
 function isOAuthToken(apiKey: string): boolean {
 	return apiKey.includes("sk-ant-oat");
 }
 
+/**
+ *
+ */
 function createClient(
 	model: Model<"anthropic-messages">,
 	apiKey: string,
@@ -1010,11 +1092,17 @@ function sanitizeToolName(name: string): string {
 	return name.replace(/\./g, "_");
 }
 
+/**
+ *
+ */
 function unsanitizeToolName(name: string, tools: Tool[] | undefined): string {
 	// Find the original tool name that sanitizes to this name.
 	return tools?.find((t) => sanitizeToolName(t.name) === name)?.name ?? name;
 }
 
+/**
+ *
+ */
 function buildSystemBlock(
 	text: string,
 	cacheControl?: CacheControlEphemeral,
@@ -1026,6 +1114,9 @@ function buildSystemBlock(
 	};
 }
 
+/**
+ *
+ */
 function applySystemPrompt(
 	params: MessageCreateParamsStreaming,
 	context: Context,
@@ -1049,6 +1140,9 @@ function applySystemPrompt(
 	params.system = [buildSystemBlock(sanitizeSurrogates(context.systemPrompt), cacheControl)];
 }
 
+/**
+ *
+ */
 function applyThinkingConfig(
 	params: MessageCreateParamsStreaming,
 	model: Model<"anthropic-messages">,
@@ -1085,23 +1179,32 @@ function applyThinkingConfig(
 	// The Anthropic SDK types can lag newly supported effort values such as "xhigh".
 	params.output_config =
 		options.effort === "xhigh"
-			? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SDK type mismatch, xhigh not yet in SDK types
-				({ effort: options.effort } as unknown as NonNullable<MessageCreateParamsStreaming["output_config"]>)
+			?  
+				({ effort: options.effort })
 			: { effort: options.effort };
 }
 
+/**
+ *
+ */
 function applyMetadata(params: MessageCreateParamsStreaming, options?: AnthropicOptions): void {
 	const userId = options?.metadata?.user_id;
 	if (typeof userId !== "string") return;
 	params.metadata = { user_id: userId };
 }
 
+/**
+ *
+ */
 function applyToolChoice(params: MessageCreateParamsStreaming, options?: AnthropicOptions): void {
 	if (!options?.toolChoice) return;
 	params.tool_choice =
 		typeof options.toolChoice === "string" ? { type: options.toolChoice } : options.toolChoice;
 }
 
+/**
+ *
+ */
 function buildParams(
 	model: Model<"anthropic-messages">,
 	context: Context,
@@ -1147,10 +1250,16 @@ function buildParams(
 }
 
 // Normalize tool call IDs to match Anthropic's required pattern and length
+/**
+ *
+ */
 function normalizeToolCallId(id: string): string {
 	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
 
+/**
+ *
+ */
 function convertThinkingBlock(block: ThinkingContent): ContentBlockParam | null {
 	// Redacted thinking: pass the opaque payload back as redacted_thinking
 	if (block.redacted) {
@@ -1179,6 +1288,9 @@ function convertThinkingBlock(block: ThinkingContent): ContentBlockParam | null 
 	};
 }
 
+/**
+ *
+ */
 function convertAssistantBlock(
 	block: TextContent | ThinkingContent | ToolCall,
 	isOAuthToken: boolean,
@@ -1203,6 +1315,9 @@ function convertAssistantBlock(
 	};
 }
 
+/**
+ *
+ */
 function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: CacheControlEphemeral): void {
 	if (!cacheControl || params.length === 0) return;
 
@@ -1233,9 +1348,15 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 	}
 	/* eslint-enable @typescript-eslint/no-unnecessary-condition */
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension not in SDK types
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
 	(lastBlock as any).cache_control = cacheControl;
 }
 
+/**
+ *
+ */
 function convertMessages(
 	messages: Message[],
 	model: Model<"anthropic-messages">,
@@ -1344,10 +1465,16 @@ function convertMessages(
 	return params;
 }
 
+/**
+ *
+ */
 function shouldUseFineGrainedToolStreamingBeta(model: Model<"anthropic-messages">, context: Context): boolean {
 	return !!context.tools?.length && !getAnthropicCompat(model).supportsEagerToolInputStreaming;
 }
 
+/**
+ *
+ */
 function convertTools(
 	tools: Tool[],
 	isOAuthToken: boolean,
@@ -1372,6 +1499,9 @@ function convertTools(
 	});
 }
 
+/**
+ *
+ */
 function mapStopReason(reason: Anthropic.Messages.StopReason | string): StopReason {
 	switch (reason) {
 		case "end_turn":

@@ -27,6 +27,15 @@ export const WorkflowDefSchema = z.object({
 	edges: z.array(EdgeDefSchema),
 });
 
+/**
+ *
+ */
 export type StationDef = z.infer<typeof StationDefSchema>;
+/**
+ *
+ */
 export type EdgeDef = z.infer<typeof EdgeDefSchema>;
+/**
+ *
+ */
 export type WorkflowDef = z.infer<typeof WorkflowDefSchema>;

@@ -6,6 +6,9 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
+/**
+ *
+ */
 export interface LocusAdapterOptions {
 	/** Workspace root(s) to analyze. Defaults to cwd. */
 	workspaces?: string[];
@@ -22,6 +25,9 @@ const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share
 const DEFAULT_CACHE_DIR = join(XDG_DATA_HOME, "alef", "locus", "cache");
 const DEFAULT_HISTORY_DIR = join(XDG_DATA_HOME, "alef", "locus", "history");
 
+/**
+ *
+ */
 export function createLocusAdapter(opts: LocusAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const cacheDir = opts.cacheDir ?? DEFAULT_CACHE_DIR;
@@ -101,7 +107,7 @@ export function createLocusAdapter(opts: LocusAdapterOptions = {}): Adapter {
 			return () => {
 				innerCleanup?.();
 				if (inner && "close" in inner && typeof inner.close === "function") {
-					(inner.close as () => Promise<void>)().catch(() => {});
+					(inner.close)().catch(() => {});
 				}
 				inner = null;
 				innerCleanup = null;

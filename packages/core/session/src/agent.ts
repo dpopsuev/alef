@@ -2,6 +2,9 @@ import type { AgentEvent, Session, SessionState } from "./contracts/session.js";
 
 const DEFAULT_SEND_TIMEOUT_MS = 300_000;
 
+/**
+ *
+ */
 export interface AgentSessionDeps {
 	state: SessionState;
 	send: (text: string, sender: string, timeoutMs?: number) => Promise<string>;
@@ -10,6 +13,9 @@ export interface AgentSessionDeps {
 	observers?: Set<(event: AgentEvent) => void>;
 }
 
+/**
+ *
+ */
 export class AgentSession implements Session {
 	readonly state: SessionState;
 	private readonly _observers: Set<(event: AgentEvent) => void>;

@@ -8,10 +8,16 @@ import {
 	renderImage,
 } from "../terminal-image.js";
 
+/**
+ *
+ */
 export interface ImageTheme {
 	fallbackColor: (str: string) => string;
 }
 
+/**
+ *
+ */
 export interface ImageOptions {
 	maxWidthCells?: number;
 	maxHeightCells?: number;
@@ -20,6 +26,9 @@ export interface ImageOptions {
 	imageId?: number;
 }
 
+/**
+ *
+ */
 export class Image implements Component {
 	private base64Data: string;
 	private mimeType: string;

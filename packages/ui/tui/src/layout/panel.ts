@@ -1,5 +1,8 @@
 import type { Component } from "../component.js";
 
+/**
+ *
+ */
 export interface Panel extends Component {
 	readonly id: string;
 	readonly visible: boolean;
@@ -9,6 +12,9 @@ export interface Panel extends Component {
 	readonly focused: boolean;
 }
 
+/**
+ *
+ */
 export interface PanelSlot {
 	panel: Panel;
 	flex: number;
@@ -18,6 +24,9 @@ export interface PanelSlot {
 	group?: string;
 }
 
+/**
+ *
+ */
 export class FocusRing {
 	private panels: Panel[] = [];
 	private activeIndex = 0;

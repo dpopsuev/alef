@@ -9,6 +9,9 @@
 
 import { oauthErrorHtml, oauthSuccessHtml } from "./oauth-page.js";
 
+/**
+ *
+ */
 export interface CallbackServerConfig {
 	port: number;
 	path: string;
@@ -17,6 +20,9 @@ export interface CallbackServerConfig {
 	successMessage?: string;
 }
 
+/**
+ *
+ */
 export interface CallbackServerHandle {
 	close(): void;
 	cancelWait(): void;
@@ -27,7 +33,11 @@ export interface CallbackServerHandle {
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _createServer: typeof import("node:http").createServer | null = null;
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
+ 
+/**
+ *
+ */
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 async function ensureHttp(): Promise<typeof import("node:http").createServer> {
 	if (_createServer) return _createServer;
 	const http = await import("node:http");
@@ -35,6 +45,9 @@ async function ensureHttp(): Promise<typeof import("node:http").createServer> {
 	return _createServer;
 }
 
+/**
+ *
+ */
 export async function startCallbackServer(config: CallbackServerConfig): Promise<CallbackServerHandle> {
 	const createServer = await ensureHttp();
 	const host = config.host ?? process.env.ALEF_OAUTH_CALLBACK_HOST ?? "127.0.0.1";

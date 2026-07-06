@@ -12,6 +12,9 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ChatLog } from "./chat-log.js";
 
+/**
+ *
+ */
 export interface SessionHistoryOptions {
 	/** Maximum number of prior turns to load eagerly. Default: 5. */
 	maxTurns?: number;

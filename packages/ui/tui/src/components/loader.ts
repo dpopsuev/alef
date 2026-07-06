@@ -1,6 +1,9 @@
 import type { TuiHandle } from "../component.js";
 import { Text } from "./text.js";
 
+/**
+ *
+ */
 export interface LoaderIndicatorOptions {
 	/** Animation frames. Use an empty array to hide the indicator. */
 	frames?: string[];

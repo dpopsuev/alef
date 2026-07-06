@@ -4,12 +4,18 @@
 // but session.ts must not depend on adapter packages.
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface ToolStarted {
 	callId: string;
 	name: string;
 	args: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface ToolEnded {
 	callId: string;
 	elapsedMs: number;
@@ -18,6 +24,9 @@ export interface ToolEnded {
 	displayKind?: string;
 }
 
+/**
+ *
+ */
 export interface TokensConsumed {
 	input: number;
 	output: number;
@@ -25,6 +34,9 @@ export interface TokensConsumed {
 	costUsd?: number;
 }
 
+/**
+ *
+ */
 export type AgentEvent =
 	| { type: "chunk"; text: string }
 	| { type: "thinking"; text: string }
@@ -57,6 +69,9 @@ export type AgentEvent =
 // Callers never see DirectiveAdapter from adapter-alef.
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface DirectiveView {
 	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[] }>;
 	enable(id: string): void;
@@ -68,6 +83,9 @@ export interface DirectiveView {
 // SessionState — stable identity, serialisable, survives attach/detach
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface SessionState {
 	readonly id: string;
 	readonly modelId: string;
@@ -78,6 +96,9 @@ export interface SessionState {
 // Session — Strategy interface
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface Session {
 	readonly state: SessionState;
 
@@ -109,10 +130,16 @@ export interface Session {
 // Type-narrowing helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function canSend(session: Session): session is Session & { send: NonNullable<Session["send"]> } {
 	return typeof session.send === "function";
 }
 
+/**
+ *
+ */
 export function canManageAdapters(session: Session): session is Session & {
 	loadAdapter: NonNullable<Session["loadAdapter"]>;
 	unloadAdapter: NonNullable<Session["unloadAdapter"]>;

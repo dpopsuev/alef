@@ -2,6 +2,9 @@ import type { Component } from "../component.js";
 import { matchesKey } from "../keys.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface MenuItem {
 	label: string;
 	key?: string;
@@ -9,6 +12,9 @@ export interface MenuItem {
 	action: () => void;
 }
 
+/**
+ *
+ */
 export interface MenuTheme {
 	border: (s: string) => string;
 	selected: (s: string) => string;
@@ -17,6 +23,9 @@ export interface MenuTheme {
 	title: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface MenuOptions {
 	items: MenuItem[];
 	title?: string;
@@ -24,6 +33,9 @@ export interface MenuOptions {
 	onClose?: () => void;
 }
 
+/**
+ *
+ */
 export class Menu implements Component {
 	private selectedIndex = 0;
 	private readonly items: MenuItem[];

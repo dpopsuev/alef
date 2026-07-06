@@ -19,12 +19,18 @@ import type { AssistantMessageEventStream } from "../utils/event-stream.js";
 //   returned stream, not thrown.
 // - Error termination must produce an AssistantMessage with stopReason
 //   "error" or "aborted" and errorMessage, emitted via the stream protocol.
+/**
+ *
+ */
 export type StreamFunction<TApi extends Api = Api, TOptions extends StreamOptions = StreamOptions> = (
 	model: Model<TApi>,
 	context: Context,
 	options?: TOptions,
 ) => AssistantMessageEventStream;
 
+/**
+ *
+ */
 export type ImagesFunction<TApi extends ImagesApi = ImagesApi, TOptions extends ImagesOptions = ImagesOptions> = (
 	model: ImagesModel<TApi>,
 	context: ImagesContext,

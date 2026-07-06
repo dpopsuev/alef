@@ -1,5 +1,8 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
+/**
+ *
+ */
 export interface DaemonEntry {
 	port: number;
 	host: string;
@@ -11,6 +14,9 @@ export interface DaemonEntry {
 	token?: string;
 }
 
+/**
+ *
+ */
 export interface SessionSummary {
 	id: string;
 	model: string;
@@ -22,6 +28,9 @@ export interface SessionSummary {
 	errors: number;
 }
 
+/**
+ *
+ */
 export interface DaemonRegistry {
 	register(entry: DaemonEntry): Promise<void>;
 	unregister(sessionId: string): Promise<void>;
@@ -33,12 +42,18 @@ export interface DaemonRegistry {
 	prune(ttlMs?: number): Promise<number>;
 }
 
+/**
+ *
+ */
 export interface SummaryStore {
 	write(summary: SessionSummary): Promise<void>;
 	get(sessionId: string): Promise<SessionSummary | undefined>;
 	latest(): Promise<SessionSummary | undefined>;
 }
 
+/**
+ *
+ */
 export interface AuthStore {
 	get(provider: string): Promise<string | undefined>;
 	set(provider: string, key: string): Promise<void>;
@@ -46,6 +61,9 @@ export interface AuthStore {
 	list(): Promise<Array<{ provider: string; type: string }>>;
 }
 
+/**
+ *
+ */
 export interface SessionStoreFactory {
 	create(cwd: string): Promise<SessionStore>;
 	resume(cwd: string, id: string): Promise<SessionStore>;
@@ -54,11 +72,17 @@ export interface SessionStoreFactory {
 	prune(cwd: string): Promise<number>;
 }
 
+/**
+ *
+ */
 export interface SessionPreviewProvider {
 	getSessionName(sessionId: string): Promise<string | undefined>;
 	getSessionPreview(sessionId: string, maxLines: number): Promise<string[]>;
 }
 
+/**
+ *
+ */
 export interface StorageFactory {
 	daemonRegistry(): DaemonRegistry;
 	summaryStore(): SummaryStore;

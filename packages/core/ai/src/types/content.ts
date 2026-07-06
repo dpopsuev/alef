@@ -2,18 +2,27 @@
  * Message content type definitions
  */
 
+/**
+ *
+ */
 export interface TextSignatureV1 {
 	v: 1;
 	id: string;
 	phase?: "commentary" | "final_answer";
 }
 
+/**
+ *
+ */
 export interface TextContent {
 	type: "text";
 	text: string;
 	textSignature?: string; // e.g., for OpenAI responses, message metadata (legacy id string or TextSignatureV1 JSON)
 }
 
+/**
+ *
+ */
 export interface ThinkingContent {
 	type: "thinking";
 	thinking: string;
@@ -24,12 +33,18 @@ export interface ThinkingContent {
 	redacted?: boolean;
 }
 
+/**
+ *
+ */
 export interface ImageContent {
 	type: "image";
 	data: string; // base64 encoded image data
 	mimeType: string; // e.g., "image/jpeg", "image/png"
 }
 
+/**
+ *
+ */
 export interface ToolCall {
 	type: "toolCall";
 	id: string;

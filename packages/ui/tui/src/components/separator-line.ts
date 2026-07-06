@@ -10,12 +10,18 @@ const WEIGHT_CHARS: Record<SeparatorWeight, string> = {
 	dashed: SEPARATOR.dashed,
 };
 
+/**
+ *
+ */
 export interface SeparatorLineOptions {
 	weight?: SeparatorWeight;
 	label?: string;
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class SeparatorLine implements Component {
 	private weight: SeparatorWeight;
 	private label: string;

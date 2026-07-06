@@ -1,12 +1,18 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface DialogAction {
 	label: string;
 	key: string;
 	action: () => void;
 }
 
+/**
+ *
+ */
 export interface DialogTheme {
 	border: (s: string) => string;
 	title: (s: string) => string;
@@ -14,6 +20,9 @@ export interface DialogTheme {
 	dim: (s: string) => string;
 }
 
+/**
+ *
+ */
 export interface DialogOptions {
 	title: string;
 	body: string;
@@ -21,6 +30,9 @@ export interface DialogOptions {
 	theme: DialogTheme;
 }
 
+/**
+ *
+ */
 export class Dialog implements Component {
 	private readonly title: string;
 	private readonly body: string;

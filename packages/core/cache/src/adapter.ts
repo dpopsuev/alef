@@ -8,6 +8,9 @@ import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { type Bus, type BusMiddleware, buildEventResult } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 
+/**
+ *
+ */
 export interface CacheAdapterOptions {
 	/** TTL in milliseconds (default: 5 minutes) */
 	ttl?: number;
@@ -26,6 +29,9 @@ const DEFAULT_CACHED_TOOLS = ["command/fs.read", "command/fs.grep", "command/fs.
 const DEFAULT_INVALIDATING_TOOLS = ["command/fs.write", "command/fs.edit", "command/fs.patch"];
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
+/**
+ *
+ */
 function createTtlCache(ttl: number): CacheStrategy & { stats: () => CacheStats } {
 	const store = new Map<string, CacheEntry>();
 
@@ -95,6 +101,9 @@ const STATS_TOOL = {
 	inputSchema: z.object({}),
 };
 
+/**
+ *
+ */
 export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 	const ttl = opts.ttl ?? DEFAULT_TTL;
 	const cachedTools = new Set(opts.cachedTools ?? DEFAULT_CACHED_TOOLS);
@@ -140,6 +149,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 
 						if (!senseEvent.isError) {
 							// biome-ignore lint/correctness/noUnusedVariables: destructuring to filter out fields
+							// eslint-disable-next-line @typescript-eslint/no-unused-vars
 							const { isFinal, _display, toolCallId, ...result } = senseEvent.payload;
 							if (isFinal) {
 								cache.set(cacheKey, result);
@@ -208,6 +218,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 		"cache",
 		{
 			command: {
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"cache.invalidate": typedAction(INVALIDATE_TOOL, async (ctx) => {
 					const { tools } = ctx.payload;
 
@@ -234,6 +245,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 					);
 				}),
 
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"cache.stats": typedAction(STATS_TOOL, async () => {
 					const stats = cache.stats();
 					const total = hits + misses;

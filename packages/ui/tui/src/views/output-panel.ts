@@ -7,12 +7,18 @@ import { ReplyBlock } from "./reply-block.js";
 import { prependSessionHistory } from "./session-history.js";
 import { Typewriter } from "./typewriter.js";
 
+/**
+ *
+ */
 export interface OutputPanelOptions {
 	tui: TUI;
 	t: ThemeTokens;
 	labels: ChatLogLabels;
 }
 
+/**
+ *
+ */
 export class OutputPanel {
 	readonly writer: ChatLog;
 	readonly replyBlock: ReplyBlock;

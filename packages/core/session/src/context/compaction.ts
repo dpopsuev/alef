@@ -1,7 +1,13 @@
 import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/alef-kernel/context-assembly";
 
+/**
+ *
+ */
 export type SummarizeFn = (messages: readonly unknown[]) => Promise<string> | string;
 
+/**
+ *
+ */
 export interface CompactionResult {
 	compactedTurns: number;
 	preservedTurns: number;
@@ -9,6 +15,9 @@ export interface CompactionResult {
 	estimatedAfter: number;
 }
 
+/**
+ *
+ */
 export interface CompactionStageOptions {
 	contextWindow?: number;
 	threshold?: number;
@@ -28,6 +37,9 @@ const DEFAULT_PRESERVE_RECENT = 4;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 const SCRATCHPAD_PREFIX = "[Scratchpad";
 
+/**
+ *
+ */
 function estimateTokens(messages: readonly unknown[]): number {
 	let chars = 0;
 	for (const msg of messages) {
@@ -44,6 +56,9 @@ function estimateTokens(messages: readonly unknown[]): number {
 	return Math.ceil(chars / CHARS_PER_TOKEN);
 }
 
+/**
+ *
+ */
 function defaultSummarize(messages: readonly unknown[]): string {
 	const lines: string[] = ["[Context compacted — earlier turns summarized]", ""];
 	for (const msg of messages) {
@@ -66,6 +81,9 @@ function defaultSummarize(messages: readonly unknown[]): string {
 	return lines.join("\n");
 }
 
+/**
+ *
+ */
 function injectPriorSummary(messages: readonly unknown[], summary: string): ContextAssemblyOutput {
 	const result = [...messages];
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role check
@@ -75,6 +93,9 @@ function injectPriorSummary(messages: readonly unknown[], summary: string): Cont
 	return { messages: result };
 }
 
+/**
+ *
+ */
 export function createCompactionStage(opts: CompactionStageOptions = {}): ContextAssemblyHandler {
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 	const threshold = opts.threshold ?? DEFAULT_COMPACTION_THRESHOLD;

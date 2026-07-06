@@ -24,10 +24,16 @@ import { isTsFile } from "./ts-symbol-extractor.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function isWithin(normAbs: string, normRoot: string): boolean {
 	return normAbs === normRoot || normAbs.startsWith(`${normRoot}/`);
 }
 
+/**
+ *
+ */
 function resolvePath(cwd: string, p: string, writableRoots?: readonly string[]): string {
 	const abs = resolve(cwd, p);
 	if (writableRoots) {
@@ -40,6 +46,9 @@ function resolvePath(cwd: string, p: string, writableRoots?: readonly string[]):
 	return abs;
 }
 
+/**
+ *
+ */
 function spawnCollect(
 	cmd: string,
 	args: string[],
@@ -61,6 +70,9 @@ function spawnCollect(
 // LocalCodeIntelBackend
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface LocalCodeIntelBackendOptions {
 	/** Workspace root. All relative paths resolve against this. */
 	cwd: string;
@@ -84,6 +96,9 @@ interface CallersStrategy {
 const DEFAULT_MAX_RESULTS_CALLERS = 100;
 const DEFAULT_MAX_RESULTS_SEARCH = 200;
 
+/**
+ *
+ */
 export class LocalCodeIntelBackend implements CodeIntelBackend {
 	private readonly cwd: string;
 	private readonly writableRoots: readonly string[] | undefined;
@@ -249,6 +264,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 	// LSP-backed methods (diagnostics, hover, workspace symbols)
 	// -------------------------------------------------------------------------
 
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 	async getDiagnostics(path: string): Promise<import("./backend.js").Diagnostic[]> {
 		if (!isTsFile(path)) return [];
 
@@ -281,6 +297,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 	async getHover(path: string, line: number, character: number): Promise<import("./backend.js").HoverInfo | null> {
 		if (!isTsFile(path)) return null;
 
@@ -299,6 +316,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 	async workspaceSymbols(query: string): Promise<import("./backend.js").WorkspaceSymbol[]> {
 		try {
 			const lsp = await this.getLsp();

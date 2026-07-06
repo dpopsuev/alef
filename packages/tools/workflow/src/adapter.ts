@@ -13,23 +13,38 @@ import { z } from "zod";
 import type { Contract } from "./contract.js";
 import type { StationDef, WorkflowDef } from "./schema.js";
 
+/**
+ *
+ */
 export type StationStatus = "fulfilled" | "budget_exhausted" | "error";
 
+/**
+ *
+ */
 export interface StationResult {
 	status: StationStatus;
 	output: unknown;
 	questions: Array<{ question: string; answer: string }>;
 }
 
+/**
+ *
+ */
 export interface StationRunner {
 	run(station: StationDef, artifact: unknown): Promise<StationResult>;
 }
 
+/**
+ *
+ */
 export interface WorkflowAdapterOptions extends BaseAdapterOptions {
 	def: WorkflowDef;
 	runner: StationRunner;
 }
 
+/**
+ *
+ */
 export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
@@ -48,7 +63,7 @@ export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 	async function handleWorkflowRun(
 		ctx: CommandHandlerCtx<z.infer<typeof WORKFLOW_RUN_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {
-		const stationName = ctx.payload.station as string;
+		const stationName = ctx.payload.station;
 		const artifact = ctx.payload.artifact;
 
 		const stationDef = opts.def.stations.find((s) => s.name === stationName);
@@ -104,6 +119,9 @@ export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 
 const AUTO_APPROVE_MS = 5_000;
 
+/**
+ *
+ */
 export function createContractTool<T extends z.ZodTypeAny>(
 	contract: Contract<T>,
 	onSubmit: (data: z.infer<T>) => void,
@@ -219,6 +237,9 @@ export function createContractTool<T extends z.ZodTypeAny>(
 	);
 }
 
+/**
+ *
+ */
 export function createQuestionTool(
 	onQuestion: (question: string) => Promise<string>,
 	log: Array<{ question: string; answer: string }>,
@@ -233,7 +254,7 @@ export function createQuestionTool(
 	async function handleQuestionAsk(
 		ctx: CommandHandlerCtx<z.infer<typeof QUESTION_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {
-		const question = ctx.payload.question as string;
+		const question = ctx.payload.question;
 		const answer = await onQuestion(question);
 		log.push({ question, answer });
 		return withDisplay({ answer }, { text: `Q: ${question}\nA: ${answer}`, mimeType: "text/plain" });

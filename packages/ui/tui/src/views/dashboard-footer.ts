@@ -5,6 +5,9 @@ import { numericInterpolator, SlotMachine } from "../components/slot-machine.js"
 import { truncateToWidth, visibleWidth } from "../utils.js";
 import type { TuiStateStore } from "./state.js";
 
+/**
+ *
+ */
 export interface DashboardFooterOptions {
 	sessionId: string;
 	cwd: string;
@@ -17,6 +20,9 @@ export interface DashboardFooterOptions {
 	buildInfo?: { version: string; gitHash: string };
 }
 
+/**
+ *
+ */
 function fmtTokens(n: number): string {
 	if (n === 0) return "0";
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -25,12 +31,18 @@ function fmtTokens(n: number): string {
 	return String(n);
 }
 
+/**
+ *
+ */
 function shortPath(cwd: string): string {
 	const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
 	if (home && cwd.startsWith(home)) return `~${cwd.slice(home.length)}`;
 	return cwd;
 }
 
+/**
+ *
+ */
 function getGitBranch(cwd: string): string | undefined {
 	try {
 		return execSync("git rev-parse --abbrev-ref HEAD 2>/dev/null", { cwd, encoding: "utf-8" }).trim() || undefined;
@@ -44,6 +56,10 @@ const CONTEXT_FILL_ERROR = 0.9;
 const CONTEXT_FILL_WARN = 0.7;
 const CONTEXT_FILL_ACCENT = 0.5;
 
+/**
+ *
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function renderContextBar(
 	used: number,
 	total: number,
@@ -69,8 +85,14 @@ function renderContextBar(
 	return `ctx ${colorFn(bar)} ${dimStyle(label)}`;
 }
 
+/**
+ *
+ */
 export type FooterPanel = DashboardFooter;
 
+/**
+ *
+ */
 export class DashboardFooter implements Component {
 	private readonly opts: DashboardFooterOptions;
 	private readonly branch: string | undefined;

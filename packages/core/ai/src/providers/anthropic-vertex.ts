@@ -39,4 +39,4 @@ export const streamSimpleAnthropicVertex = (
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream =>
-	streamSimpleAnthropic(model, context, { ...options, isVertex: true } as SimpleStreamOptions & { isVertex: boolean });
+	streamSimpleAnthropic(model, context, { ...options, isVertex: true });

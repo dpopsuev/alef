@@ -46,6 +46,9 @@ const BUILT_IN_ADAPTERS = new Set([
 	"factory",
 ]);
 
+/**
+ *
+ */
 function buildBlueprint(
 	name: string,
 	description: string,
@@ -98,6 +101,9 @@ const ADAPTER_TOOL = {
 	}),
 };
 
+/**
+ *
+ */
 function buildAdapterScaffold(
 	_name: string,
 	toolName: string,
@@ -147,10 +153,16 @@ function buildAdapterScaffold(
 
 const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 
+/**
+ *
+ */
 export interface FactoryAdapterOptions {
 	cwd?: string;
 }
 
+/**
+ *
+ */
 export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapter {
 	const cwd = options.cwd ?? process.cwd();
 
@@ -158,6 +170,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 		"factory",
 		{
 			command: {
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"factory.adapter": typedAction(ADAPTER_TOOL, async (ctx) => {
 					const { name, toolName, description, inputFields } = ctx.payload;
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from tool schema
@@ -178,6 +191,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 						{ text: `Adapter scaffold written: ${targetPath}`, mimeType: "text/plain" },
 					);
 				}),
+				// eslint-disable-next-line @typescript-eslint/require-await
 				"factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
 					const { name, description, adapters, model, outputPath } = ctx.payload;
 

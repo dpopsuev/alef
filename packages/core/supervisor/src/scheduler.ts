@@ -1,5 +1,8 @@
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 
+/**
+ *
+ */
 export interface ScheduledTask {
 	readonly id: string;
 	readonly type: "defer" | "repeat";
@@ -7,6 +10,9 @@ export interface ScheduledTask {
 	readonly event: { type: string; payload: Record<string, unknown>; correlationId: string };
 }
 
+/**
+ *
+ */
 export interface Scheduler {
 	defer(delayMs: number, event: ScheduledTask["event"]): string;
 	repeat(intervalMs: number, event: ScheduledTask["event"]): string;
@@ -17,6 +23,9 @@ export interface Scheduler {
 
 let nextId = 0;
 
+/**
+ *
+ */
 export function createSchedulerDescriptor(): ServiceDescriptor {
 	return {
 		name: "scheduler",

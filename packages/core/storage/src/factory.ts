@@ -1,4 +1,5 @@
 import type { Client } from "@libsql/client";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
@@ -6,6 +7,9 @@ import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFac
 import { SqliteSessionStore } from "./sqlite/session.js";
 import { SqliteSummaryStore } from "./sqlite/summary.js";
 
+/**
+ *
+ */
 export class SqliteStorageFactory implements StorageFactory {
 	private readonly client: Client;
 	readonly sessions: SessionStoreFactory;

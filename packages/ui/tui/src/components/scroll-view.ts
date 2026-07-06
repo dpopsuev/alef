@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface ScrollViewOptions {
 	maxHeight?: number;
 	showScrollbar?: boolean;
 }
 
+/**
+ *
+ */
 export class ScrollView implements Component {
 	private child: Component;
 	private scrollOffset = 0;

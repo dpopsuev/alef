@@ -16,6 +16,9 @@ No emojis. No filler openers ("Great!", "Certainly!"). No preamble ("Let me chec
 
 Stage only changed files with \`git add <path>\`. Pre-commit hooks are mandatory. If a hook fails, fix the underlying error — do not work around it.`;
 
+/**
+ *
+ */
 export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
 	const lines = tools.map((t) => {
 		const desc = t.description ? ` — ${t.description.split(".")[0]}` : "";
@@ -24,6 +27,9 @@ export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
 	return lines.length > 0 ? lines.join("\n") : "(no tools loaded)";
 }
 
+/**
+ *
+ */
 export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string {
 	return [
 		"Read files before describing them. Never state what a file contains without first reading the source.",
@@ -34,6 +40,9 @@ export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string 
 		.join("\n");
 }
 
+/**
+ *
+ */
 export function buildEnvironmentBlock(cwd: string): string {
 	const date = new Date().toISOString().split("T")[0];
 	const pid = process.pid;
@@ -48,6 +57,9 @@ export function buildEnvironmentBlock(cwd: string): string {
 	].join("\n");
 }
 
+/**
+ *
+ */
 export interface CreateScrollOptions {
 	tools: readonly ToolDefinition[];
 	cwd: string;
@@ -62,10 +74,16 @@ const PRIORITY_GUIDELINES = 200;
 const PRIORITY_ADAPTER = 600;
 const PRIORITY_ENVIRONMENT = 1000;
 
+/**
+ *
+ */
 function b(id: string, priority: number, content: Directive["content"], ...tags: string[]): Directive {
 	return { id, priority, content, enabled: true, tags: ["core", ...tags] };
 }
 
+/**
+ *
+ */
 export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	const { tools, cwd } = opts;
 	const directives = new Directives();
@@ -83,6 +101,9 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	return directives;
 }
 
+/**
+ *
+ */
 export function buildPrepareStep(
 	directives: Directives,
 	budgetChars: number,
@@ -94,6 +115,9 @@ export function buildPrepareStep(
 	};
 }
 
+/**
+ *
+ */
 export function registerAdapters(directives: Directives, adapters: readonly Adapter[]): void {
 	for (const adapter of adapters) {
 		if (!adapter.directives?.length) continue;

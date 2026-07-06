@@ -14,6 +14,9 @@
  * See: https://github.com/vitest-dev/vitest/issues/8766
  */
 
+/**
+ *
+ */
 export default class ForceExitReporter {
 	onProcessTimeout(): void {
 		process.exitCode = 1;

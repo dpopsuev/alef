@@ -21,14 +21,23 @@ const MATCH_SCORE_RULES: ReadonlyArray<{
 /** Bonus applied on top of match score when the entry is a directory. */
 const DIRECTORY_BONUS = 10;
 
+/**
+ *
+ */
 function toDisplayPath(value: string): string {
 	return value.replace(/\\/g, "/");
 }
 
+/**
+ *
+ */
 function escapeRegex(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ *
+ */
 function buildFdPathQuery(query: string): string {
 	const normalized = toDisplayPath(query);
 	if (!normalized.includes("/")) {
@@ -57,6 +66,9 @@ function buildFdPathQuery(query: string): string {
 	return pattern;
 }
 
+/**
+ *
+ */
 function findLastDelimiter(text: string): number {
 	for (let i = text.length - 1; i >= 0; i -= 1) {
 		if (PATH_DELIMITERS.has(text[i] ?? "")) {
@@ -66,6 +78,9 @@ function findLastDelimiter(text: string): number {
 	return -1;
 }
 
+/**
+ *
+ */
 function findUnclosedQuoteStart(text: string): number | null {
 	let inQuotes = false;
 	let quoteStart = -1;
@@ -82,10 +97,16 @@ function findUnclosedQuoteStart(text: string): number | null {
 	return inQuotes ? quoteStart : null;
 }
 
+/**
+ *
+ */
 function isTokenStart(text: string, index: number): boolean {
 	return index === 0 || PATH_DELIMITERS.has(text[index - 1] ?? "");
 }
 
+/**
+ *
+ */
 function extractQuotedPrefix(text: string): string | null {
 	const quoteStart = findUnclosedQuoteStart(text);
 	if (quoteStart === null) {
@@ -123,6 +144,9 @@ interface FileMentionPrefix {
 	wrap(value: string): string;
 }
 
+/**
+ *
+ */
 function parsePathPrefix(prefix: string): FileMentionPrefix {
 	// wrap() only prepends the trigger character; quoting is already applied by buildCompletionValue.
 	if (prefix.startsWith('/"')) {
@@ -137,6 +161,9 @@ function parsePathPrefix(prefix: string): FileMentionPrefix {
 	return { trigger: null, rawQuery: prefix, isQuoted: false, wrap: (v) => v };
 }
 
+/**
+ *
+ */
 function buildCompletionValue(path: string, options: { isQuotedPrefix: boolean }): string {
 	const needsQuotes = options.isQuotedPrefix || path.includes(" ");
 
@@ -148,6 +175,9 @@ function buildCompletionValue(path: string, options: { isQuotedPrefix: boolean }
 }
 
 // Use fd to walk directory tree (fast, respects .gitignore)
+/**
+ *
+ */
 async function walkDirectoryWithFd(
 	baseDir: string,
 	fdPath: string,
@@ -243,6 +273,9 @@ async function walkDirectoryWithFd(
 	});
 }
 
+/**
+ *
+ */
 export interface AutocompleteItem {
 	value: string;
 	label: string;
@@ -251,6 +284,9 @@ export interface AutocompleteItem {
 
 type Awaitable<T> = T | Promise<T>;
 
+/**
+ *
+ */
 export interface SlashCommand {
 	name: string;
 	description?: string;
@@ -258,11 +294,17 @@ export interface SlashCommand {
 	getArgumentCompletions?(argumentPrefix: string): Awaitable<AutocompleteItem[] | null>;
 }
 
+/**
+ *
+ */
 export interface AutocompleteSuggestions {
 	items: AutocompleteItem[];
 	prefix: string; // What we're matching against (e.g., "/" or "src/")
 }
 
+/**
+ *
+ */
 export interface AutocompleteProvider {
 	getSuggestions(
 		lines: string[],
@@ -286,6 +328,9 @@ export interface AutocompleteProvider {
 	shouldTriggerFileCompletion?(lines: string[], cursorLine: number, cursorCol: number): boolean;
 }
 
+/**
+ *
+ */
 export class CombinedAutocompleteProvider implements AutocompleteProvider {
 	private commands: (SlashCommand | AutocompleteItem)[];
 	private basePath: string;

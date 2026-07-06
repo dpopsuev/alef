@@ -10,6 +10,9 @@ import { bold, color, dim, glyph } from "./theme.js";
 
 const KEY_ARG_FIELDS = ["command", "path", "url", "pattern", "glob", "query", "text", "prompt", "name"] as const;
 
+/**
+ *
+ */
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0, callId?: string): string {
 	const elapsed = fmtMs(elapsedMs);
 	const spinner = callId ? spinnerFrame(callId, elapsedMs) : color(glyph("state:active"), t.warnFg);
@@ -57,6 +60,9 @@ export class ToolCallRow implements Component {
 	}
 }
 
+/**
+ *
+ */
 export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean, t: ThemeTokens): string {
 	const elapsed = fmtMs(elapsedMs);
 	const g = ok ? glyph("state:done") : glyph("state:error");
@@ -65,6 +71,9 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
 	return `${indent}${color(g, fg)} ${color(name, t.primaryFg)}  ${color(keyArg, t.secondaryFg)}  ${color(elapsed, t.mutedFg)}`;
 }
 
+/**
+ *
+ */
 export function keyArgFromPayload(args: Record<string, unknown>): string {
 	for (const key of KEY_ARG_FIELDS) {
 		const v = args[key];
@@ -76,6 +85,9 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 	return "";
 }
 
+/**
+ *
+ */
 export function truncateToolOutput(text: string): string {
 	const lines = text.split("\n");
 	const capped = lines.length > 20 ? lines.slice(0, 20) : lines;
@@ -85,6 +97,9 @@ export function truncateToolOutput(text: string): string {
 	return out;
 }
 
+/**
+ *
+ */
 export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
 	const lines = diffText.split("\n");
 	return lines
@@ -114,12 +129,18 @@ export function makeToolOutputComponent(
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t));
 }
 
+/**
+ *
+ */
 export function formatCompact(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
 	return String(n);
 }
 
+/**
+ *
+ */
 export function formatTokenUsage(
 	input: number,
 	output: number,

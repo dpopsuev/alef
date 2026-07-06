@@ -2,6 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Client } from "@libsql/client";
 
+/**
+ *
+ */
 export async function ensureMigrationTable(client: Client): Promise<void> {
 	await client.execute(`CREATE TABLE IF NOT EXISTS _plugin_migrations (
 		plugin TEXT NOT NULL,
@@ -11,6 +14,9 @@ export async function ensureMigrationTable(client: Client): Promise<void> {
 	)`);
 }
 
+/**
+ *
+ */
 export async function getPluginVersion(client: Client, plugin: string): Promise<number> {
 	const r = await client.execute({
 		sql: "SELECT MAX(version) as v FROM _plugin_migrations WHERE plugin = ?",
@@ -20,6 +26,9 @@ export async function getPluginVersion(client: Client, plugin: string): Promise<
 	return v != null ? Number(v) : 0;
 }
 
+/**
+ *
+ */
 export async function runPluginMigrations(client: Client, plugin: string, migrationsDir: string): Promise<number> {
 	await ensureMigrationTable(client);
 	const current = await getPluginVersion(client, plugin);

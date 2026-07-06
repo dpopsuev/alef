@@ -4,8 +4,17 @@
 
 import type { Api, Provider } from "./providers.js";
 
+/**
+ *
+ */
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
+/**
+ *
+ */
 export type ModelThinkingLevel = "off" | ThinkingLevel;
+/**
+ *
+ */
 export type ThinkingLevelMap = Partial<Record<ModelThinkingLevel, string | null>>;
 
 /** Token budgets for each thinking level (token-based providers only) */
@@ -167,6 +176,9 @@ export interface VercelGatewayRouting {
 }
 
 // Model interface for the unified model system
+/**
+ *
+ */
 export interface Model<TApi extends Api> {
 	id: string;
 	name: string;

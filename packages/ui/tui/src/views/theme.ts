@@ -40,8 +40,14 @@ const GLYPHS = {
 	dot: { nerd: "·", ascii: "." },
 } satisfies Record<string, GlyphPair>;
 
+/**
+ *
+ */
 export type GlyphKey = keyof typeof GLYPHS;
 
+/**
+ *
+ */
 export function glyph(key: GlyphKey): string {
 	const pair = GLYPHS[key];
 	return nerdFontsAvailable() ? pair.nerd : pair.ascii;

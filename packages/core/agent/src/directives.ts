@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface Directive {
 	id: string;
 	priority: number;
@@ -8,19 +11,34 @@ export interface Directive {
 	meta?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface ResolvedDirective extends Omit<Directive, "content"> {
 	content: string;
 }
 
+/**
+ *
+ */
 export interface DirectivesState {
 	blocks: Array<Omit<Directive, "content"> & { content: string }>;
 }
 
+/**
+ *
+ */
 export type DirectiveRenderer = (blocks: ReadonlyArray<ResolvedDirective>) => string;
+/**
+ *
+ */
 export type DirectiveBudgetStrategy = (
 	blocks: ReadonlyArray<ResolvedDirective>,
 	budget: number,
 ) => ReadonlyArray<ResolvedDirective>;
+/**
+ *
+ */
 export type DirectiveComparator = (a: Directive, b: Directive) => number;
 
 const defaultRenderer: DirectiveRenderer = (blocks) => blocks.map((b) => b.content).join("\n\n");
@@ -40,6 +58,9 @@ const defaultBudgetStrategy: DirectiveBudgetStrategy = (blocks, budget) => {
 
 const defaultComparator: DirectiveComparator = (a, b) => a.priority - b.priority;
 
+/**
+ *
+ */
 export class Directives {
 	private readonly _blocks = new Map<string, Directive>();
 

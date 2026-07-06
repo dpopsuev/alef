@@ -1,11 +1,17 @@
 import type { Component } from "../component.js";
 
+/**
+ *
+ */
 export interface FlowLoopOptions {
 	span: number;
 	label?: string;
 	style?: (s: string) => string;
 }
 
+/**
+ *
+ */
 export class FlowLoop implements Component {
 	private opts: FlowLoopOptions;
 

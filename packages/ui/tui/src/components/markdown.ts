@@ -5,6 +5,9 @@ import { applyBackgroundToLine, visibleWidth, wrapTextWithAnsi } from "../utils.
 
 const STRICT_STRIKETHROUGH_REGEX = /^(~~)(?=[^\s~])((?:\\.|[^\\])*?(?:\\.|[^\s~\\]))\1(?=[^~]|$)/;
 
+/**
+ *
+ */
 class StrictStrikethroughTokenizer extends Tokenizer {
 	override del(src: string): Tokens.Del | undefined {
 		const match = STRICT_STRIKETHROUGH_REGEX.exec(src);
@@ -75,6 +78,9 @@ interface InlineStyleContext {
 	stylePrefix: string;
 }
 
+/**
+ *
+ */
 export class Markdown implements Component {
 	private text: string;
 	private paddingX: number; // Left/right padding
@@ -446,6 +452,7 @@ export class Markdown implements Component {
 			lines.push("");
 		};
 
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const renderDefault = (): void => {
 			// Handle any other token types as plain text
 			if ("text" in token && typeof token.text === "string") {
@@ -560,6 +567,7 @@ export class Markdown implements Component {
 			result += applyTextWithNewlines(html.raw);
 		};
 
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const renderInlineDefault = (tk: Token): void => {
 			// Handle any other inline token types as plain text
 			if ("text" in tk && typeof tk.text === "string") {

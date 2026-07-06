@@ -3,6 +3,9 @@ const EMBEDDING_DIMENSION = 384;
 
 export { EMBEDDING_DIMENSION };
 
+/**
+ *
+ */
 export interface RecallResult {
 	correlationId: string;
 	type: string;
@@ -10,6 +13,9 @@ export interface RecallResult {
 	timestamp: number;
 }
 
+/**
+ *
+ */
 export interface SessionRecallResult {
 	sessionId: string;
 	model: string;
@@ -18,6 +24,9 @@ export interface SessionRecallResult {
 	similarity: number;
 }
 
+/**
+ *
+ */
 export class RecallStore {
 	private readonly client: Client;
 

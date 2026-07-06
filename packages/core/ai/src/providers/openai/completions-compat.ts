@@ -1,6 +1,9 @@
 import type { OpenAICompletionsCompat } from "../../types.js";
 import type { Model } from "../../types.js";
 
+/**
+ *
+ */
 export type ResolvedOpenAICompletionsCompat = Omit<Required<OpenAICompletionsCompat>, "cacheControlFormat"> & {
 	cacheControlFormat?: OpenAICompletionsCompat["cacheControlFormat"];
 };

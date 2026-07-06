@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { userInfo } from "node:os";
 import { ALL_COLORS } from "./palette.js";
 
+/**
+ *
+ */
 export interface ActorIdentity {
 	type: "human" | "agent";
 	/** The color or username — without the @ prefix. */

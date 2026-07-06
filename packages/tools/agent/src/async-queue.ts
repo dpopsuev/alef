@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export class AsyncQueue {
 	private readonly queue: string[] = [];
 	private resolve: (() => void) | undefined;

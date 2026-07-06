@@ -16,6 +16,9 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 
+/**
+ *
+ */
 export interface BaselineEntry {
 	pass: boolean;
 	score: number;
@@ -25,12 +28,18 @@ export interface BaselineEntry {
 	passStreak: number;
 }
 
+/**
+ *
+ */
 export interface RegressionReport {
 	evaluationId: string;
 	previousScore: number;
 	currentScore: number;
 }
 
+/**
+ *
+ */
 export class EvalBaseline {
 	private readonly entries: Map<string, BaselineEntry>;
 

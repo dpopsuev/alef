@@ -1,6 +1,9 @@
 const WRITE_PATTERN =
 	/\b(write|create|edit|modify|delete|remove|install|run|execute|build|deploy|fix|refactor|update|change|add|implement|spawn|generate)\b/i;
 
+/**
+ *
+ */
 function extractKeywords(text: string): Set<string> {
 	return new Set(
 		text
@@ -11,6 +14,9 @@ function extractKeywords(text: string): Set<string> {
 	);
 }
 
+/**
+ *
+ */
 export function checkRelevance(
 	prompt: string,
 	reply: string,
@@ -26,6 +32,9 @@ export function checkRelevance(
 	return { relevant: overlap > 0.1, overlap, shallow };
 }
 
+/**
+ *
+ */
 export function needsWriteAccess(text: string): boolean {
 	return WRITE_PATTERN.test(text);
 }

@@ -4,15 +4,27 @@
 
 import type { ThinkingBudgets, ThinkingLevel } from "./models.js";
 
+/**
+ *
+ */
 export type CacheRetention = "none" | "short" | "long";
 
+/**
+ *
+ */
 export type Transport = "sse" | "websocket" | "websocket-cached" | "auto";
 
+/**
+ *
+ */
 export interface ProviderResponse {
 	status: number;
 	headers: Record<string, string>;
 }
 
+/**
+ *
+ */
 export interface StreamOptions {
 	temperature?: number;
 	maxTokens?: number;
@@ -76,8 +88,14 @@ export interface StreamOptions {
 	metadata?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export type ProviderStreamOptions = StreamOptions & Record<string, unknown>;
 
+/**
+ *
+ */
 export interface ImagesOptions {
 	signal?: AbortSignal;
 	apiKey?: string;
@@ -118,9 +136,15 @@ export interface ImagesOptions {
 	metadata?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export type ProviderImagesOptions = ImagesOptions & Record<string, unknown>;
 
 // Unified options with reasoning passed to streamSimple() and completeSimple()
+/**
+ *
+ */
 export interface SimpleStreamOptions extends StreamOptions {
 	reasoning?: ThinkingLevel;
 	/** Custom token budgets for thinking levels (token-based providers only) */

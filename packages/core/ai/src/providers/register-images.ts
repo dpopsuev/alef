@@ -8,6 +8,9 @@ interface OpenRouterImagesProviderModule {
 
 let openRouterImagesProviderModulePromise: Promise<OpenRouterImagesProviderModule> | undefined;
 
+/**
+ *
+ */
 function createLazyLoadErrorImages(model: ImagesModel<"openrouter-images">, error: unknown): AssistantImages {
 	return {
 		api: model.api,
@@ -20,6 +23,9 @@ function createLazyLoadErrorImages(model: ImagesModel<"openrouter-images">, erro
 	};
 }
 
+/**
+ *
+ */
 function loadOpenRouterImagesProviderModule(): Promise<OpenRouterImagesProviderModule> {
 	openRouterImagesProviderModulePromise ??= import("./openrouter-images.js").then(
 		(module) => module as OpenRouterImagesProviderModule,
@@ -40,6 +46,9 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 	}
 };
 
+/**
+ *
+ */
 export function registerBuiltInImagesApiProviders(): void {
 	registerImagesApiProvider({
 		api: "openrouter-images",

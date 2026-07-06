@@ -42,6 +42,9 @@ export const DEFAULT_SENSITIVE_KEYS: readonly string[] = [
 	"x-api-key",
 ];
 
+/**
+ *
+ */
 function buildSensitiveSet(): Set<string> {
 	const keys = new Set(DEFAULT_SENSITIVE_KEYS);
 	const extra = process.env.ALEF_AUDIT_SENSITIVE_KEYS;
@@ -56,6 +59,9 @@ function buildSensitiveSet(): Set<string> {
 // Build once at module load — keys are environment-configured.
 const sensitiveKeys = buildSensitiveSet();
 
+/**
+ *
+ */
 function isSensitiveKey(key: string): boolean {
 	const lower = key.toLowerCase();
 	for (const sensitive of sensitiveKeys) {

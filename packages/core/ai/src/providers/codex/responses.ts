@@ -7,6 +7,7 @@ import type {
 import { getEnvApiKey } from "../../env-api-keys.js";
 import { clampThinkingLevel } from "../../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	Context,
@@ -55,8 +56,11 @@ import {
 	recordWebSocketFailure,
 	recordWebSocketSseFallback,
 	isWebSocketSseFallbackActive,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	closeOpenAICodexWebSocketSessions,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	getOpenAICodexWebSocketDebugStats,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	resetOpenAICodexWebSocketDebugStats,
 } from "./websocket.js";
 import type {
@@ -68,6 +72,9 @@ import type {
 // Types
 // ============================================================================
 
+/**
+ *
+ */
 export interface OpenAICodexResponsesOptions extends StreamOptions {
 	reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 	reasoningSummary?: "auto" | "concise" | "detailed" | "off" | "on" | null;
@@ -99,7 +106,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: "openai-codex-responses" as Api,
+			api: "openai-codex-responses",
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -314,6 +321,9 @@ export const streamSimpleOpenAICodexResponses: StreamFunction<"openai-codex-resp
 // Response Processing
 // ============================================================================
 
+/**
+ *
+ */
 async function processStream(
 	response: Response,
 	output: AssistantMessage,
@@ -332,19 +342,31 @@ async function processStream(
 // WebSocket Continuation
 // ============================================================================
 
+/**
+ *
+ */
 function requestBodyWithoutInput(body: RequestBody): RequestBody {
 	const { input: _input, previous_response_id: _previousResponseId, ...rest } = body;
 	return rest;
 }
 
+/**
+ *
+ */
 function responseInputsEqual(a: ResponseInput | undefined, b: ResponseInput | undefined): boolean {
 	return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 }
 
+/**
+ *
+ */
 function requestBodiesMatchExceptInput(a: RequestBody, b: RequestBody): boolean {
 	return JSON.stringify(requestBodyWithoutInput(a)) === JSON.stringify(requestBodyWithoutInput(b));
 }
 
+/**
+ *
+ */
 function getCachedWebSocketInputDelta(
 	body: RequestBody,
 	continuation: CachedWebSocketContinuationState,
@@ -367,6 +389,9 @@ function getCachedWebSocketInputDelta(
 	return currentInput.slice(baseline.length);
 }
 
+/**
+ *
+ */
 function buildCachedWebSocketRequestBody(entry: CachedWebSocketConnection, body: RequestBody): RequestBody {
 	const continuation = entry.continuation;
 	if (!continuation) {
@@ -386,6 +411,9 @@ function buildCachedWebSocketRequestBody(entry: CachedWebSocketConnection, body:
 	};
 }
 
+/**
+ *
+ */
 async function* startWebSocketOutputOnFirstEvent(
 	events: AsyncIterable<ResponseStreamEvent>,
 	output: AssistantMessage,
@@ -403,6 +431,9 @@ async function* startWebSocketOutputOnFirstEvent(
 	}
 }
 
+/**
+ *
+ */
 async function processWebSocketStream(
 	url: string,
 	body: RequestBody,

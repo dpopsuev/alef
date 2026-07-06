@@ -19,6 +19,9 @@ const PERCENT = 100;
 const COST_PRECISION = 10000;
 const MS_PER_SECOND = 1000;
 
+/**
+ *
+ */
 export function createResourceMeter(): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
 	const cost = 0;
@@ -27,6 +30,9 @@ export function createResourceMeter(): Adapter {
 	const toolStats = new Map<string, ToolStats>();
 	const latencies: number[] = [];
 
+	/**
+	 *
+	 */
 	function recordToolEnd(name: string, elapsedMs: number, ok: boolean) {
 		const existing = toolStats.get(name) ?? { calls: 0, errors: 0, totalMs: 0, maxMs: 0 };
 		existing.calls++;
@@ -37,12 +43,18 @@ export function createResourceMeter(): Adapter {
 		latencies.push(elapsedMs);
 	}
 
+	/**
+	 *
+	 */
 	function percentile(sorted: number[], p: number): number {
 		if (sorted.length === 0) return 0;
 		const idx = Math.ceil((p / PERCENT) * sorted.length) - 1;
 		return sorted[Math.max(0, idx)];
 	}
 
+	/**
+	 *
+	 */
 	function summary() {
 		const elapsed = Date.now() - startedAt;
 		const sortedLatencies = [...latencies].sort((a, b) => a - b);

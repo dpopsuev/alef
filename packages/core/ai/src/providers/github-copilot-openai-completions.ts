@@ -40,6 +40,6 @@ export const streamSimpleGitHubCopilotCompletions = (
 	const copilotHeaders = buildCopilotDynamicHeaders({ messages: context.messages, hasImages });
 	return streamSimpleOpenAICompletions(model, context, {
 		...options,
-		headers: { ...(options as { headers?: Record<string, string> } | undefined)?.headers, ...copilotHeaders },
-	} as SimpleStreamOptions);
+		headers: { ...(options)?.headers, ...copilotHeaders },
+	});
 };

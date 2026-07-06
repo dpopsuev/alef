@@ -14,6 +14,9 @@
 import { Text } from "../components/text.js";
 import { Container } from "../tui.js";
 
+/**
+ *
+ */
 export class AgentForum {
 	private readonly forums = new Map<string, Container>();
 	private activeForum = "main";

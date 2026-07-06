@@ -4,14 +4,20 @@ type PipelineFn = (text: string, opts: { pooling: string; normalize: boolean }) 
 
 let cached: PipelineFn | undefined;
 
+/**
+ *
+ */
 async function getPipeline(): Promise<PipelineFn> {
 	if (cached) return cached;
 	const { pipeline } = await import("@xenova/transformers");
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- transformers pipeline returns generic type; narrowing to PipelineFn
-	cached = (await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2")) as unknown as PipelineFn;
+	 
+	cached = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
 	return cached;
 }
 
+/**
+ *
+ */
 export class LocalEmbedder implements Embedder {
 	async embed(text: string): Promise<number[]> {
 		const fn = await getPipeline();

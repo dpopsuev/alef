@@ -5,6 +5,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
 import { type Component, CURSOR_MARKER, isFocusable, type RenderMeta } from "./component.js";
 import { isKeyRelease, matchesKey } from "./keys.js";
@@ -29,6 +30,9 @@ function renderLog(msg: string): void {
 
 const KITTY_SEQUENCE_PREFIX = "\x1b_G";
 
+/**
+ *
+ */
 function extractKittyImageIds(line: string): number[] {
 	const sequenceStart = line.indexOf(KITTY_SEQUENCE_PREFIX);
 	if (sequenceStart === -1) return [];
@@ -95,6 +99,9 @@ function parseSizeValue(value: SizeValue | undefined, referenceSize: number): nu
 	return undefined;
 }
 
+/**
+ *
+ */
 function isTermuxSession(): boolean {
 	return Boolean(process.env.TERMUX_VERSION);
 }

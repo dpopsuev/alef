@@ -21,10 +21,16 @@ import type { Skill, SkillFrontmatter } from "./types.js";
 
 const SKILL_FILENAME = "SKILL.md";
 
+/**
+ *
+ */
 function xdgConfig(): string {
 	return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
 }
 
+/**
+ *
+ */
 export function standardSkillPaths(cwd: string): string[] {
 	const dirs: string[] = [];
 	if (process.env.ALEF_SKILLS_DIR) dirs.push(process.env.ALEF_SKILLS_DIR);
@@ -39,6 +45,9 @@ export function standardSkillPaths(cwd: string): string[] {
 	return [...new Set(dirs)];
 }
 
+/**
+ *
+ */
 function parseSkillMd(filePath: string, content: string): Skill | null {
 	// YAML frontmatter between --- delimiters.
 	const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -61,6 +70,9 @@ function parseSkillMd(filePath: string, content: string): Skill | null {
 	}
 }
 
+/**
+ *
+ */
 function scanDir(dir: string): Skill[] {
 	if (!existsSync(dir)) return [];
 	const skills: Skill[] = [];
@@ -87,6 +99,9 @@ function scanDir(dir: string): Skill[] {
 	return skills;
 }
 
+/**
+ *
+ */
 export function discoverSkills(cwd: string, extraPaths: string[] = []): Skill[] {
 	const allPaths = [...standardSkillPaths(cwd), ...extraPaths.map((p) => resolve(cwd, p))];
 	const seen = new Set<string>();

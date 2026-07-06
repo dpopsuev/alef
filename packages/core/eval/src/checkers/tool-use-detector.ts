@@ -7,6 +7,9 @@ const TOOL_CALL_JSON_PATTERNS = [
 	/await\s+[a-z]+\.(read|write|exec|search|find|run|fetch)\s*\(/,
 ];
 
+/**
+ *
+ */
 export function toolCallsAreReal(expectedToolPrefix?: string): Checker {
 	return {
 		check({ lastReply, spans }: CheckerContext): CheckerResult {

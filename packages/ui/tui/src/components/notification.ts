@@ -1,17 +1,26 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface NotificationEntry {
 	message: string;
 	level: "info" | "success" | "warning" | "error";
 	expiresAt: number;
 }
 
+/**
+ *
+ */
 export interface NotificationOptions {
 	maxVisible?: number;
 	styles?: Record<NotificationEntry["level"], (s: string) => string>;
 }
 
+/**
+ *
+ */
 export class NotificationQueue implements Component {
 	private queue: NotificationEntry[] = [];
 	private maxVisible: number;

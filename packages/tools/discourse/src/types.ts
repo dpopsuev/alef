@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface Post {
 	readonly topic: string;
 	readonly thread: string;
@@ -6,6 +9,9 @@ export interface Post {
 	readonly timestamp: number;
 }
 
+/**
+ *
+ */
 export interface ThreadInfo {
 	readonly name: string;
 	readonly posts: number;
@@ -13,6 +19,9 @@ export interface ThreadInfo {
 	readonly lastActivity: number;
 }
 
+/**
+ *
+ */
 export interface TopicSummary {
 	readonly topic: string;
 	readonly threads: readonly string[];

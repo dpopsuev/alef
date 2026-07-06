@@ -5,8 +5,14 @@ import { ViModal, type ViMode } from "../vi-modal.js";
 import type { SelectItem, SelectListLayoutOptions, SelectListTheme } from "./select-list.js";
 import { SelectList } from "./select-list.js";
 
+/**
+ *
+ */
 export type PickerMode = ViMode;
 
+/**
+ *
+ */
 export interface PreviewSelectListOptions {
 	items: SelectItem[];
 	maxVisible: number;
@@ -18,11 +24,17 @@ export interface PreviewSelectListOptions {
 	onModeChange?: (mode: PickerMode) => void;
 }
 
+/**
+ *
+ */
 function padLine(line: string, targetWidth: number): string {
 	const w = visibleWidth(line);
 	return w >= targetWidth ? line : line + " ".repeat(targetWidth - w);
 }
 
+/**
+ *
+ */
 export class PreviewSelectList implements Component {
 	readonly list: SelectList;
 	private previewFn: (item: SelectItem | undefined) => string[];

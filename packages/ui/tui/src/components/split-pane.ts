@@ -1,6 +1,9 @@
 import type { Component } from "../component.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
+/**
+ *
+ */
 export interface SplitPaneOptions {
 	ratio?: number;
 	borderChar?: string;
@@ -8,11 +11,17 @@ export interface SplitPaneOptions {
 	minRightWidth?: number;
 }
 
+/**
+ *
+ */
 function padLine(line: string, targetWidth: number): string {
 	const w = visibleWidth(line);
 	return w >= targetWidth ? line : line + " ".repeat(targetWidth - w);
 }
 
+/**
+ *
+ */
 export class SplitPane implements Component {
 	private left: Component;
 	private right: Component;

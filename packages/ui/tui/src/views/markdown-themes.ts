@@ -11,6 +11,9 @@ import type { MarkdownTheme } from "../components/markdown.js";
 import type { ThemeTokens } from "../theme-types.js";
 import { bold, color, dim, italic } from "./theme.js";
 
+/**
+ *
+ */
 function terminalHighlight(code: string, lang?: string): string[] {
 	try {
 		const highlighted = highlight(code, { language: lang, ignoreIllegals: true });
@@ -20,6 +23,9 @@ function terminalHighlight(code: string, lang?: string): string[] {
 	}
 }
 
+/**
+ *
+ */
 export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
 		heading: (s) => bold(s),
@@ -40,6 +46,9 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	};
 }
 
+/**
+ *
+ */
 export function makeThinkingMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	const wrap = (s: string): string => color(s, t.secondaryFg);
 	return {
@@ -60,6 +69,9 @@ export function makeThinkingMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	};
 }
 
+/**
+ *
+ */
 export function makeToolOutputMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
 		heading: (s) => bold(s),

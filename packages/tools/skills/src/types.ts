@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export interface SkillFrontmatter {
 	name: string;
 	description: string;
@@ -9,6 +12,9 @@ export interface SkillFrontmatter {
 	compatibility?: string;
 }
 
+/**
+ *
+ */
 export interface Skill {
 	name: string;
 	description: string;

@@ -1,11 +1,17 @@
 // eslint-disable-next-line no-restricted-imports -- workflow types belong in core; refactor pending
 import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-tool-workflow";
 
+/**
+ *
+ */
 export interface PipelineResult {
 	stations: Record<string, StationResult>;
 	final: StationResult | undefined;
 }
 
+/**
+ *
+ */
 export async function runPipeline(
 	def: WorkflowDef,
 	runner: StationRunner,
@@ -36,6 +42,9 @@ export async function runPipeline(
 	return { stations: results, final };
 }
 
+/**
+ *
+ */
 function evalCondition(when: string, artifact: unknown): boolean {
 	if (!when) return true;
 	if (typeof artifact !== "object" || artifact === null) return true;

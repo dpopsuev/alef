@@ -3,6 +3,9 @@ import "./providers/register-llm.js";
 import { getImagesApiProvider } from "./models/images-registry.js";
 import type { AssistantImages, ImagesApi, ImagesContext, ImagesModel, ProviderImagesOptions } from "./types.js";
 
+/**
+ *
+ */
 function resolveImagesApiProvider(api: ImagesApi) {
 	const provider = getImagesApiProvider(api);
 	if (!provider) {
@@ -11,6 +14,9 @@ function resolveImagesApiProvider(api: ImagesApi) {
 	return provider;
 }
 
+/**
+ *
+ */
 export async function generateImages<TApi extends ImagesApi>(
 	model: ImagesModel<TApi>,
 	context: ImagesContext,

@@ -21,17 +21,26 @@
 // Core types
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface FuzzyMatch {
 	matches: boolean;
 	score: number;
 }
 
+/**
+ *
+ */
 export type MatchStrategy = (query: string, text: string) => FuzzyMatch;
 
 // ---------------------------------------------------------------------------
 // Strategy: Subsequence (fzf default)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function fuzzyMatch(query: string, text: string): FuzzyMatch {
 	const queryLower = query.toLowerCase();
 	const textLower = text.toLowerCase();
@@ -47,7 +56,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch {
 
 		for (let i = 0; i < textLower.length && queryIndex < normalizedQuery.length; i++) {
 			if (textLower[i] === normalizedQuery[queryIndex]) {
-				const isWordBoundary = i === 0 || /[\s\-_./:]/.test(textLower[i - 1]!);
+				const isWordBoundary = i === 0 || /[\s\-_./:]/.test(textLower[i - 1]);
 
 				if (lastMatchIndex === i - 1) {
 					consecutiveMatches++;
@@ -91,6 +100,9 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch {
 // Strategy: Exact (contiguous substring)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function exactMatch(query: string, text: string): FuzzyMatch {
 	const idx = text.toLowerCase().indexOf(query.toLowerCase());
 	if (idx === -1) return { matches: false, score: 0 };
@@ -101,6 +113,9 @@ export function exactMatch(query: string, text: string): FuzzyMatch {
 // Strategy: Prefix
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function prefixMatch(query: string, text: string): FuzzyMatch {
 	const matches = text.toLowerCase().startsWith(query.toLowerCase());
 	return { matches, score: matches ? -query.length : 0 };
@@ -110,6 +125,9 @@ export function prefixMatch(query: string, text: string): FuzzyMatch {
 // Strategy: Suffix
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function suffixMatch(query: string, text: string): FuzzyMatch {
 	const matches = text.toLowerCase().endsWith(query.toLowerCase());
 	return { matches, score: matches ? -query.length : 0 };
@@ -119,6 +137,9 @@ export function suffixMatch(query: string, text: string): FuzzyMatch {
 // Strategy: Regex
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function regexMatch(pattern: string, text: string): FuzzyMatch {
 	try {
 		const re = new RegExp(pattern, "i");
@@ -134,12 +155,18 @@ export function regexMatch(pattern: string, text: string): FuzzyMatch {
 // Extended search token parser (fzf syntax)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface SearchToken {
 	strategy: "fuzzy" | "exact" | "prefix" | "suffix" | "regex";
 	query: string;
 	inverse: boolean;
 }
 
+/**
+ *
+ */
 export function parseSearchTokens(input: string): SearchToken[][] {
 	const trimmed = input.trim();
 	if (!trimmed) return [];
@@ -151,6 +178,9 @@ export function parseSearchTokens(input: string): SearchToken[][] {
 	});
 }
 
+/**
+ *
+ */
 function parseOneToken(raw: string): SearchToken {
 	let inverse = false;
 	let s = raw;
@@ -183,6 +213,9 @@ const STRATEGY_MAP: Record<SearchToken["strategy"], MatchStrategy> = {
 	regex: regexMatch,
 };
 
+/**
+ *
+ */
 function evaluateToken(token: SearchToken, text: string): FuzzyMatch {
 	const result = STRATEGY_MAP[token.strategy](token.query, text);
 	if (token.inverse) {
@@ -195,6 +228,9 @@ function evaluateToken(token: SearchToken, text: string): FuzzyMatch {
 // Extended search filter (fzf-style)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function extendedFilter<T>(items: T[], query: string, getText: (item: T) => string): T[] {
 	const orGroups = parseSearchTokens(query);
 	if (orGroups.length === 0) return items;
@@ -237,6 +273,9 @@ export function extendedFilter<T>(items: T[], query: string, getText: (item: T) 
 // Simple multi-token fuzzy filter (backward compatible)
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function fuzzyFilter<T>(items: T[], query: string, getText: (item: T) => string): T[] {
 	if (!query.trim()) return items;
 

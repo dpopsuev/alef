@@ -37,6 +37,9 @@ type JwtPayload = {
 	[key: string]: unknown;
 };
 
+/**
+ *
+ */
 function createState(): string {
 	if (!_randomBytes) {
 		throw new Error("OpenAI Codex OAuth is only available in Node.js environments");
@@ -44,6 +47,9 @@ function createState(): string {
 	return _randomBytes(16).toString("hex");
 }
 
+/**
+ *
+ */
 function decodeJwt(token: string): JwtPayload | null {
 	try {
 		const parts = token.split(".");
@@ -57,6 +63,9 @@ function decodeJwt(token: string): JwtPayload | null {
 	}
 }
 
+/**
+ *
+ */
 async function exchangeAuthorizationCode(
 	code: string,
 	verifier: string,
@@ -105,6 +114,9 @@ async function exchangeAuthorizationCode(
 	};
 }
 
+/**
+ *
+ */
 async function refreshAccessToken(refreshToken: string): Promise<TokenResult> {
 	try {
 		const response = await fetch(TOKEN_URL, {
@@ -154,6 +166,9 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResult> {
 	}
 }
 
+/**
+ *
+ */
 async function createAuthorizationFlow(
 	originator: string = "alef",
 ): Promise<{ verifier: string; state: string; url: string }> {
@@ -175,6 +190,9 @@ async function createAuthorizationFlow(
 	return { verifier, state, url: url.toString() };
 }
 
+/**
+ *
+ */
 function getAccountId(accessToken: string): string | null {
 	const payload = decodeJwt(accessToken);
 	const auth = payload?.[JWT_CLAIM_PATH];

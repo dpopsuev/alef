@@ -88,6 +88,9 @@ const DESTROY_TOOL = {
 // Options
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface EnclosureAdapterOptions {
 	/**
 	 * Space backend to use. Default: 'overlay' (fuse-overlayfs, Linux).
@@ -106,6 +109,9 @@ export interface EnclosureAdapterOptions {
 // Adapter
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): Adapter {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
@@ -119,9 +125,11 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 			command: {
 				"enclosure.create": typedAction(CREATE_TOOL, async (ctx) => {
 					const { spaceId, workDir } = await handleCreate(ctx, spaces, options);
+					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 					emitSignal("enclosure.status", { text: `space: ${spaceId}`, active: true });
 					return withDisplay(
 						{ spaceId, workDir },
+						// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 						{ text: `Created enclosure ${spaceId} at ${workDir}`, mimeType: "text/plain" },
 					);
 				}),
@@ -139,6 +147,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 					return withDisplay(
 						{ committed },
 						{
+							// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 							text: `Committed ${committed} path(s) for enclosure ${ctx.payload.spaceId}`,
 							mimeType: "text/plain",
 						},
@@ -155,6 +164,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 					const { name } = await handleSnapshot(ctx, spaces);
 					return withDisplay(
 						{ ok: true, name },
+						// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 						{ text: `Snapshot "${name}" saved for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
 					);
 				}),
@@ -162,6 +172,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 					const { name } = await handleRestore(ctx, spaces);
 					return withDisplay(
 						{ ok: true, name },
+						// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 						{ text: `Restored snapshot "${name}" for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
 					);
 				}),
@@ -169,6 +180,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 					const { exitCode, output } = await handleExec(ctx, spaces);
 					return withDisplay(
 						{ exitCode, output },
+						// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 						{ text: `exec exit ${exitCode}: ${ctx.payload.command.join(" ")}`, mimeType: "text/plain" },
 					);
 				}),
@@ -235,12 +247,18 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 // Handlers — return payloads or throw; framework handles Event publishing
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space {
 	const space = typeof spaceId === "string" ? spaces.get(spaceId) : undefined;
 	if (!space) throw new Error(`enclosure: unknown spaceId: ${String(spaceId)}`);
 	return space;
 }
 
+/**
+ *
+ */
 async function handleCreate(
 	ctx: { payload: { workspace: string } },
 	spaces: Map<string, Space>,
@@ -264,6 +282,9 @@ async function handleCreate(
 	return { spaceId, workDir: space.workDir() };
 }
 
+/**
+ *
+ */
 async function handleDiff(
 	ctx: { payload: { spaceId: string } },
 	spaces: Map<string, Space>,
@@ -273,6 +294,9 @@ async function handleDiff(
 	return { changes };
 }
 
+/**
+ *
+ */
 async function handleCommit(
 	ctx: { payload: { spaceId: string; paths?: string[] } },
 	spaces: Map<string, Space>,
@@ -283,6 +307,9 @@ async function handleCommit(
 	return { committed: paths?.length ?? "all" };
 }
 
+/**
+ *
+ */
 async function handleReset(
 	ctx: { payload: { spaceId: string } },
 	spaces: Map<string, Space>,
@@ -292,6 +319,9 @@ async function handleReset(
 	return { ok: true };
 }
 
+/**
+ *
+ */
 async function handleSnapshot(
 	ctx: { payload: { spaceId: string; name: string } },
 	spaces: Map<string, Space>,
@@ -303,6 +333,9 @@ async function handleSnapshot(
 	return { ok: true, name };
 }
 
+/**
+ *
+ */
 async function handleRestore(
 	ctx: { payload: { spaceId: string; name: string } },
 	spaces: Map<string, Space>,
@@ -314,6 +347,9 @@ async function handleRestore(
 	return { ok: true, name };
 }
 
+/**
+ *
+ */
 async function handleExec(
 	ctx: {
 		payload: {
@@ -336,6 +372,9 @@ async function handleExec(
 	return { exitCode: result.exitCode, output: result.output };
 }
 
+/**
+ *
+ */
 async function handleDestroy(
 	ctx: { payload: { spaceId: string } },
 	spaces: Map<string, Space>,

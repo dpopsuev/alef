@@ -12,6 +12,9 @@
 
 import { bold as ansiBold, color as ansiColor, dim as ansiDim, italic as ansiItalic, type ColorToken } from "../ansi.js";
 
+/**
+ *
+ */
 export interface Style {
 	fg?: ColorToken;
 	bg?: ColorToken;
@@ -21,10 +24,16 @@ export interface Style {
 	padding?: number;
 }
 
+/**
+ *
+ */
 export function style(s: Style): Style {
 	return s;
 }
 
+/**
+ *
+ */
 export function mergeStyles(...styles: (Style | undefined)[]): Style {
 	const result: Style = {};
 	for (const s of styles) {
@@ -39,6 +48,9 @@ export function mergeStyles(...styles: (Style | undefined)[]): Style {
 	return result;
 }
 
+/**
+ *
+ */
 export function applyStyle(text: string, s: Style): string {
 	let result = text;
 	if (s.fg) result = ansiColor(result, s.fg);
@@ -49,6 +61,9 @@ export function applyStyle(text: string, s: Style): string {
 	return result;
 }
 
+/**
+ *
+ */
 export function styleToFn(s: Style): (text: string) => string {
 	return (text) => applyStyle(text, s);
 }

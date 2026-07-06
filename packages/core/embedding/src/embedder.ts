@@ -1,27 +1,42 @@
 import type { Client } from "@libsql/client";
 import { RecallStore } from "./recall.js";
 
+/**
+ *
+ */
 export interface Embedder {
 	embed(text: string): Promise<number[]>;
 }
 
 let _embedder: Embedder | undefined;
 
+/**
+ *
+ */
 export function setEmbedder(embedder: Embedder): void {
 	_embedder = embedder;
 }
 
+/**
+ *
+ */
 export function getEmbedder(): Embedder | undefined {
 	return _embedder;
 }
 
 const EMBEDDABLE_PREFIXES = ["fs.", "shell.", "code.", "llm.", "web.", "agent."];
 
+/**
+ *
+ */
 function shouldEmbed(bus: string, type: string): boolean {
 	if (bus !== "command" && bus !== "event") return false;
 	return EMBEDDABLE_PREFIXES.some((p) => type.startsWith(p));
 }
 
+/**
+ *
+ */
 function extractText(payload: Record<string, unknown>): string {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown _display to extract optional text
 	const display = (payload._display as { text?: string } | undefined)?.text;
@@ -37,6 +52,9 @@ function extractText(payload: Record<string, unknown>): string {
 const pendingEmbeddings: Array<{ rowid: number; text: string }> = [];
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
+/**
+ *
+ */
 export function queueEmbedding(
 	client: Client,
 	rowid: number,
@@ -57,6 +75,9 @@ export function queueEmbedding(
 	}, 500);
 }
 
+/**
+ *
+ */
 async function flushEmbeddings(client: Client): Promise<void> {
 	flushTimer = undefined;
 	if (!_embedder || pendingEmbeddings.length === 0) return;

@@ -55,7 +55,7 @@ export class AdapterHarness {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
-				resolve(event as EventMessage);
+				resolve(event);
 			});
 
 			this.bus.publish("command", { type, payload, correlationId });

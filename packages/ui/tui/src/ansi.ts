@@ -8,14 +8,23 @@
 
 import chalk from "chalk";
 
+/**
+ *
+ */
 export type ColorDepth = "truecolor" | "256" | "16";
 
+/**
+ *
+ */
 export interface ColorToken {
 	truecolor?: string;
 	ansi256?: number;
 	ansi16?: number;
 }
 
+/**
+ *
+ */
 export function colorDepth(): ColorDepth {
 	const ct = (process.env.COLORTERM ?? "").toLowerCase();
 	if (ct === "truecolor" || ct === "24bit") return "truecolor";
@@ -27,11 +36,17 @@ export function colorDepth(): ColorDepth {
 /** Resets foreground only — preserves background set by outer Pad/bgFn. */
 export const FG_RESET = "\x1b[39m";
 
+/**
+ *
+ */
 export function hexToRgb(hex: string): [number, number, number] {
 	const h = hex.replace("#", "");
 	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
+/**
+ *
+ */
 export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	if (depth === "truecolor" && token.truecolor) {
 		const [r, g, b] = hexToRgb(token.truecolor);
@@ -44,11 +59,17 @@ export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	return "";
 }
 
+/**
+ *
+ */
 export function color(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
 	return c ? `${c}${text}${FG_RESET}` : text;
 }
 
+/**
+ *
+ */
 export function bg(text: string, token: ColorToken): string {
 	const depth = colorDepth();
 	if (depth === "truecolor" && token.truecolor) {
@@ -70,6 +91,9 @@ export const italic = (text: string): string => chalk.italic(text);
 
 const _nerdFonts = process.env.ALEF_NERD_FONTS === "1";
 
+/**
+ *
+ */
 export function nerdFontsAvailable(): boolean {
 	return _nerdFonts;
 }

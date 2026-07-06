@@ -18,6 +18,9 @@
  * or turn ends so the animation completes before structural changes.
  */
 
+/**
+ *
+ */
 export interface TypewriterConfig {
 	tickMs?: number;
 	maxCharsPerTick?: number;
@@ -26,6 +29,9 @@ export interface TypewriterConfig {
 const DEFAULT_TICK_MS = 16;
 const DEFAULT_MAX_CHARS = 8;
 
+/**
+ *
+ */
 export class Typewriter {
 	private pending = "";
 	private revealed = 0;

@@ -18,6 +18,9 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
 
+/**
+ *
+ */
 function runScript(
 	script: string,
 	workspace: string,

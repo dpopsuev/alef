@@ -12,6 +12,9 @@ import type {
 const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
 const NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
 
+/**
+ *
+ */
 function replaceImagesWithPlaceholder(content: (TextContent | ImageContent)[], placeholder: string): TextContent[] {
 	const result: TextContent[] = [];
 	let previousWasPlaceholder = false;
@@ -32,6 +35,9 @@ function replaceImagesWithPlaceholder(content: (TextContent | ImageContent)[], p
 	return result;
 }
 
+/**
+ *
+ */
 function downgradeUnsupportedImages<TApi extends Api>(messages: Message[], model: Model<TApi>): Message[] {
 	if (model.input.includes("image")) {
 		return messages;
@@ -87,7 +93,7 @@ export function transformMessages<TApi extends Api>(
 		}
 
 		// Assistant messages need transformation check
-		const assistantMsg = msg as AssistantMessage;
+		const assistantMsg = msg;
 		const isSameModel =
 			assistantMsg.provider === model.provider &&
 			assistantMsg.api === model.api &&
@@ -121,7 +127,7 @@ export function transformMessages<TApi extends Api>(
 			}
 
 			// toolCall — only remaining variant in the discriminated union
-			const toolCall = block as ToolCall;
+			const toolCall = block;
 			let normalizedToolCall: ToolCall = toolCall;
 
 			if (!isSameModel && toolCall.thoughtSignature) {
@@ -182,13 +188,13 @@ export function transformMessages<TApi extends Api>(
 			// - May have partial content (reasoning without message, incomplete tool calls)
 			// - Replaying them can cause API errors (e.g., OpenAI "reasoning without following item")
 			// - The model should retry from the last valid state
-			const assistantMsg = msg as AssistantMessage;
+			const assistantMsg = msg;
 			if (assistantMsg.stopReason === "error" || assistantMsg.stopReason === "aborted") {
 				continue;
 			}
 
 			// Track tool calls from this assistant message
-			const toolCalls = assistantMsg.content.filter((b) => b.type === "toolCall") as ToolCall[];
+			const toolCalls = assistantMsg.content.filter((b) => b.type === "toolCall");
 			if (toolCalls.length > 0) {
 				pendingToolCalls = toolCalls;
 				existingToolResultIds = new Set();

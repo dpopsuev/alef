@@ -4,6 +4,9 @@ import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import { McpAdapter } from "./mcp-adapter.js";
 
+/**
+ *
+ */
 export interface McpRegistryAdapterOptions {
 	cwd: string;
 	agent?: {
@@ -87,9 +90,15 @@ const LIST_TOOL = {
 	inputSchema: z.object({}),
 };
 
+/**
+ *
+ */
 export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 	const loadedAdapters = new Map<string, Adapter>();
 
+	/**
+	 *
+	 */
 	async function handleSearch(
 		ctx: CommandHandlerCtx<z.infer<typeof SEARCH_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -152,6 +161,9 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 		}
 	}
 
+	/**
+	 *
+	 */
 	async function handleInstall(
 		ctx: CommandHandlerCtx<z.infer<typeof INSTALL_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {
@@ -219,6 +231,10 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 		}
 	}
 
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async function handleList(
 		_ctx: CommandHandlerCtx<z.infer<typeof LIST_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {

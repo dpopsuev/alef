@@ -1,5 +1,8 @@
 import { SEPARATOR } from "./chars.js";
 
+/**
+ *
+ */
 export type SeparatorWeight = "thick" | "thin" | "dotted" | "dashed";
 
 const WEIGHT_MAP: Record<SeparatorWeight, string> = {
@@ -9,10 +12,16 @@ const WEIGHT_MAP: Record<SeparatorWeight, string> = {
 	dashed: SEPARATOR.dashed,
 };
 
+/**
+ *
+ */
 export function separator(width: number, weight: SeparatorWeight = "thin"): string {
 	return WEIGHT_MAP[weight].repeat(width);
 }
 
+/**
+ *
+ */
 export function labeledSeparator(label: string, width: number, weight: SeparatorWeight = "thin"): string {
 	const char = WEIGHT_MAP[weight];
 	const text = ` ${label} `;
@@ -20,6 +29,9 @@ export function labeledSeparator(label: string, width: number, weight: Separator
 	return `${char}${text}${char.repeat(remaining)}`;
 }
 
+/**
+ *
+ */
 export function badge(n: number): string {
 	if (n === 0) return "0";
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -28,12 +40,18 @@ export function badge(n: number): string {
 	return String(n);
 }
 
+/**
+ *
+ */
 export function progressBar(ratio: number, width: number): string {
 	const clamped = Math.max(0, Math.min(1, ratio));
 	const filled = Math.round(clamped * width);
 	return "█".repeat(filled) + "░".repeat(width - filled);
 }
 
+/**
+ *
+ */
 export function sparkline(values: number[], width: number): string {
 	if (values.length === 0) return " ".repeat(width);
 	const max = Math.max(...values);

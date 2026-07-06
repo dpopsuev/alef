@@ -4,6 +4,9 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 
+/**
+ *
+ */
 export interface LlmBuildOptions {
 	model: Model<Api>;
 	getModel: () => Model<Api>;
@@ -20,6 +23,9 @@ export interface LlmBuildOptions {
 	};
 }
 
+/**
+ *
+ */
 export function buildLlm(opts: LlmBuildOptions): Adapter {
 	const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 

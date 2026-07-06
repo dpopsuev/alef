@@ -1,5 +1,8 @@
 import type { Terminal } from "./terminal.js";
 
+/**
+ *
+ */
 export class MockTerminal implements Terminal {
 	readonly output: string[] = [];
 	private _columns: number;

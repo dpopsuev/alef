@@ -3,6 +3,7 @@ import type { ResponseCreateParamsStreaming } from "openai/resources/responses/r
 import { getEnvApiKey } from "../env-api-keys.js";
 import { clampThinkingLevel } from "../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	Context,
@@ -19,6 +20,9 @@ import { buildBaseOptions } from "./base-options.js";
 const DEFAULT_AZURE_API_VERSION = "v1";
 const AZURE_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode", "azure-openai-responses"]);
 
+/**
+ *
+ */
 function parseDeploymentNameMap(value: string | undefined): Map<string, string> {
 	const map = new Map<string, string>();
 	if (!value) return map;
@@ -32,6 +36,9 @@ function parseDeploymentNameMap(value: string | undefined): Map<string, string> 
 	return map;
 }
 
+/**
+ *
+ */
 function resolveDeploymentName(model: Model<"azure-openai-responses">, options?: AzureOpenAIResponsesOptions): string {
 	if (options?.azureDeploymentName) {
 		return options.azureDeploymentName;
@@ -42,6 +49,9 @@ function resolveDeploymentName(model: Model<"azure-openai-responses">, options?:
 }
 
 // Azure OpenAI Responses-specific options
+/**
+ *
+ */
 export interface AzureOpenAIResponsesOptions extends StreamOptions {
 	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
 	reasoningSummary?: "auto" | "detailed" | "concise" | null;
@@ -68,7 +78,7 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: "azure-openai-responses" as Api,
+			api: "azure-openai-responses",
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -154,6 +164,9 @@ export const streamSimpleAzureOpenAIResponses: StreamFunction<"azure-openai-resp
 	} satisfies AzureOpenAIResponsesOptions);
 };
 
+/**
+ *
+ */
 function normalizeAzureBaseUrl(baseUrl: string): string {
 	const trimmed = baseUrl.trim().replace(/\/+$/, "");
 	let url: URL;
@@ -177,10 +190,16 @@ function normalizeAzureBaseUrl(baseUrl: string): string {
 	return url.toString().replace(/\/+$/, "");
 }
 
+/**
+ *
+ */
 function buildDefaultBaseUrl(resourceName: string): string {
 	return `https://${resourceName}.openai.azure.com/openai/v1`;
 }
 
+/**
+ *
+ */
 function resolveAzureConfig(
 	model: Model<"azure-openai-responses">,
 	options?: AzureOpenAIResponsesOptions,
@@ -215,6 +234,9 @@ function resolveAzureConfig(
 	};
 }
 
+/**
+ *
+ */
 function createClient(model: Model<"azure-openai-responses">, apiKey: string, options?: AzureOpenAIResponsesOptions) {
 	if (!apiKey) {
 		if (!process.env.AZURE_OPENAI_API_KEY) {
@@ -242,6 +264,9 @@ function createClient(model: Model<"azure-openai-responses">, apiKey: string, op
 	});
 }
 
+/**
+ *
+ */
 function buildParams(
 	model: Model<"azure-openai-responses">,
 	context: Context,

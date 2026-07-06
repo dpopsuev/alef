@@ -3,6 +3,7 @@ import type { ResponseCreateParamsStreaming } from "openai/resources/responses/r
 import { getEnvApiKey } from "../../env-api-keys.js";
 import { clampThinkingLevel } from "../../models/llm.js";
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,
 	AssistantMessage,
 	CacheRetention,
@@ -37,6 +38,9 @@ function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRetention 
 	return "short";
 }
 
+/**
+ *
+ */
 function getCompat(model: Model<"openai-responses">): Required<OpenAIResponsesCompat> {
 	return {
 		sendSessionIdHeader: model.compat?.sendSessionIdHeader ?? true,
@@ -44,6 +48,9 @@ function getCompat(model: Model<"openai-responses">): Required<OpenAIResponsesCo
 	};
 }
 
+/**
+ *
+ */
 function getPromptCacheRetention(
 	compat: Required<OpenAIResponsesCompat>,
 	cacheRetention: CacheRetention,
@@ -52,6 +59,9 @@ function getPromptCacheRetention(
 }
 
 // OpenAI Responses-specific options
+/**
+ *
+ */
 export interface OpenAIResponsesOptions extends StreamOptions {
 	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
 	reasoningSummary?: "auto" | "detailed" | "concise" | null;
@@ -73,7 +83,7 @@ export const streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIRes
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
-			api: model.api as Api,
+			api: model.api,
 			provider: model.provider,
 			model: model.id,
 			usage: {
@@ -164,6 +174,9 @@ export const streamSimpleOpenAIResponses: StreamFunction<"openai-responses", Sim
 	} satisfies OpenAIResponsesOptions);
 };
 
+/**
+ *
+ */
 function createClient(
 	model: Model<"openai-responses">,
 	context: Context,
@@ -221,6 +234,9 @@ function createClient(
 	});
 }
 
+/**
+ *
+ */
 function buildParams(model: Model<"openai-responses">, context: Context, options?: OpenAIResponsesOptions) {
 	const messages = convertResponsesMessages(model, context, OPENAI_TOOL_CALL_PROVIDERS);
 
@@ -273,6 +289,9 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 	return params;
 }
 
+/**
+ *
+ */
 function getServiceTierCostMultiplier(
 	model: Pick<Model<"openai-responses">, "id">,
 	serviceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,
@@ -287,6 +306,9 @@ function getServiceTierCostMultiplier(
 	}
 }
 
+/**
+ *
+ */
 function applyServiceTierPricing(
 	usage: Usage,
 	serviceTier: ResponseCreateParamsStreaming["service_tier"] | undefined,

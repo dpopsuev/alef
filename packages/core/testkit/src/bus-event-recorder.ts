@@ -1,6 +1,9 @@
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import type { BusObserver } from "@dpopsuev/alef-engine/agent";
 
+/**
+ *
+ */
 export class BusEventRecorder implements BusObserver {
 	private readonly _motor: BusMessage[] = [];
 	private readonly _sense: BusMessage[] = [];

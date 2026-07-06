@@ -6,11 +6,17 @@
  * All shade names sourced from real color vocabulary.
  */
 
+/**
+ *
+ */
 export interface PaletteColor {
 	name: string;
 	hex: string;
 }
 
+/**
+ *
+ */
 export interface PaletteFamily {
 	family: string;
 	colors: PaletteColor[];

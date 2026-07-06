@@ -11,6 +11,9 @@ import { ExportResultCode } from "@opentelemetry/core";
 import type { ReadableSpan, SpanExporter } from "@opentelemetry/sdk-trace-base";
 import type { Client } from "@libsql/client";
 
+/**
+ *
+ */
 export class SqliteSpanExporter implements SpanExporter {
 	private readonly db: Client;
 	private _stopped = false;
@@ -30,6 +33,7 @@ export class SqliteSpanExporter implements SpanExporter {
 			.catch(() => resultCallback({ code: ExportResultCode.FAILED }));
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	async shutdown(): Promise<void> {
 		this._stopped = true;
 	}

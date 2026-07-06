@@ -27,8 +27,14 @@ import type { BusObserver } from "@dpopsuev/alef-engine/agent";
 // TraceEvent \u2014 one JSONL line
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export type TraceLevel = "info" | "debug" | "warn";
 
+/**
+ *
+ */
 export interface TraceEvent {
 	/** RFC3339Nano timestamp. */
 	ts: string;
@@ -55,6 +61,9 @@ export interface TraceEvent {
 // TraceRecorder
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export class TraceRecorder implements BusObserver {
 	private readonly stream: WriteStream;
 	private readonly motorTimes = new Map<string, number>(); // correlationId \u2192 ms
@@ -109,7 +118,7 @@ export class TraceRecorder implements BusObserver {
 
 		const payload = p.payload ?? {};
 		if (typeof payload["alef.cache.hit"] === "boolean") {
-			te.cacheHit = payload["alef.cache.hit"] as boolean;
+			te.cacheHit = payload["alef.cache.hit"];
 		}
 
 		this.write(te);
@@ -151,6 +160,9 @@ export class TraceRecorder implements BusObserver {
 // LoadTrace \u2014 read JSONL back from disk
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export async function loadTrace(path: string): Promise<TraceEvent[]> {
 	const raw = await readFile(path, "utf-8");
 	const events: TraceEvent[] = [];
@@ -170,6 +182,9 @@ export async function loadTrace(path: string): Promise<TraceEvent[]> {
 // TraceSummary + Summarize
 // ---------------------------------------------------------------------------
 
+/**
+ *
+ */
 export interface ToolSummary {
 	name: string;
 	calls: number;
@@ -179,6 +194,9 @@ export interface ToolSummary {
 	meanElapsedMs: number;
 }
 
+/**
+ *
+ */
 export interface TraceSummary {
 	totalEvents: number;
 	/** Command tool calls in execution order. */
@@ -189,6 +207,9 @@ export interface TraceSummary {
 	durationMs: number;
 }
 
+/**
+ *
+ */
 export function summarizeTrace(events: TraceEvent[]): TraceSummary {
 	const path: string[] = [];
 	const toolMap = new Map<string, { calls: number; errors: number; hits: number; totalMs: number; count: number }>();

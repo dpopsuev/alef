@@ -21,6 +21,9 @@ const VITEST = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_m
 
 const MONOREPO_NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_modules");
 
+/**
+ *
+ */
 function runVitest(workspace: string): Promise<{ exitCode: number; output: string }> {
 	return new Promise((resolve) => {
 		const proc = spawn(VITEST, ["run", "--root", workspace, "--reporter", "verbose"], {
@@ -38,6 +41,9 @@ function runVitest(workspace: string): Promise<{ exitCode: number; output: strin
 	});
 }
 
+/**
+ *
+ */
 function parseTestCounts(output: string): { passed: number; failed: number; total: number } {
 	const passMatch = output.match(/Tests\s+(\d+) passed/);
 	const failMatch = output.match(/(\d+) failed/);
@@ -46,6 +52,9 @@ function parseTestCounts(output: string): { passed: number; failed: number; tota
 	return { passed, failed, total: passed + failed };
 }
 
+/**
+ *
+ */
 export function testCheck(globPattern = "**/*.test.ts"): Checker {
 	void globPattern; // reserved for future filter support
 	return {

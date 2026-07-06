@@ -19,7 +19,7 @@ export const service: ServiceDescriptor = {
 
 			async stop() {
 				if ("close" in adapter && typeof adapter.close === "function") {
-					await (adapter.close as () => Promise<void>)();
+					await (adapter.close)();
 				}
 			},
 

@@ -24,8 +24,10 @@ export interface CallbackServerHandle {
 	redirectUri: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _createServer: typeof import("node:http").createServer | null = null;
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 async function ensureHttp(): Promise<typeof import("node:http").createServer> {
 	if (_createServer) return _createServer;
 	const http = await import("node:http");

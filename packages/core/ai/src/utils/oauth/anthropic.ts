@@ -151,7 +151,7 @@ export async function loginAnthropic(options: {
 					manualInput = input;
 					server.cancelWait();
 				})
-				.catch((err) => {
+				.catch((err: unknown) => {
 					manualError = err instanceof Error ? err : new Error(String(err));
 					server.cancelWait();
 				});
@@ -179,6 +179,7 @@ export async function loginAnthropic(options: {
 				await manualPromise;
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- manualError may be set asynchronously by manualPromise
 				if (manualError) {
+					// eslint-disable-next-line @typescript-eslint/only-throw-error -- manualError set asynchronously, always Error
 					throw manualError;
 				}
 				if (manualInput) {

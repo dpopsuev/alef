@@ -62,7 +62,7 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 	const stream = new AssistantMessageEventStream();
 
 	// Start async processing
-	(async () => {
+	void (async () => {
 		const deploymentName = resolveDeploymentName(model, options);
 
 		const output: AssistantMessage = {

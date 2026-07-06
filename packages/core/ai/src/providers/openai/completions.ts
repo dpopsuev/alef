@@ -47,7 +47,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
@@ -227,6 +227,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
 				if (!chunk.usage && (choice as any).usage) {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- non-standard provider usage field
 					output.usage = parseChunkUsage((choice as any).usage, model);
 				}
 
@@ -310,6 +311,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				}
 
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- non-standard reasoning_details field
 				const reasoningDetails = (choice.delta as any).reasoning_details;
 				if (reasoningDetails && Array.isArray(reasoningDetails)) {
 					for (const detail of reasoningDetails) {
@@ -356,7 +358,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
 			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			// Some providers via OpenRouter give additional information in this field.
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider error metadata
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- non-standard provider error metadata
 			const rawMetadata = (error as any)?.error?.metadata?.raw;
 			if (rawMetadata) output.errorMessage += `\n${rawMetadata}`;
 			stream.push({ type: "error", reason: output.stopReason, error: output });

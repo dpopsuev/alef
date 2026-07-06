@@ -273,7 +273,7 @@ export function convertResponsesTools(tools: Tool[], options?: ConvertResponsesT
 		type: "function",
 		name: tool.name,
 		description: tool.description,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox JSON Schema boundary
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- TypeBox JSON Schema boundary
 		parameters: tool.parameters as any,
 		strict,
 	}));
@@ -605,7 +605,7 @@ export async function processResponsesStream<TApi extends Api>(
 
 	// -- Dispatch table ---------------------------------------------------------
 
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table: each key guarantees the correct Extract<> subtype
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-assertions -- dispatch table: each key guarantees the correct Extract<> subtype
 	const eventHandlers = {
 		"response.created": handleResponseCreated,
 		"response.output_item.added": handleOutputItemAdded,
@@ -626,6 +626,7 @@ export async function processResponsesStream<TApi extends Api>(
 
 	for await (const event of openaiStream) {
 		const handler = eventHandlers[event.type];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all event types have handlers in dispatch table
 		if (handler) handler(event);
 	}
 }
@@ -646,7 +647,7 @@ function mapStopReason(status: OpenAI.Responses.ResponseStatus | undefined): Sto
 			return "stop";
 		default: {
 			const _exhaustive: never = status;
-			throw new Error(`Unhandled stop reason: ${_exhaustive}`);
+			throw new Error(`Unhandled stop reason: ${String(_exhaustive)}`);
 		}
 	}
 }

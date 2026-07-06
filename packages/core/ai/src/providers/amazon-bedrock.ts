@@ -91,7 +91,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],

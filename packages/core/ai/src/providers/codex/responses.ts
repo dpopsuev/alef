@@ -95,7 +95,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],

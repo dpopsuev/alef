@@ -331,7 +331,7 @@ export function mapStopReason(reason: FinishReason): StopReason {
 			return "error";
 		default: {
 			const _exhaustive: never = reason;
-			throw new Error(`Unhandled stop reason: ${_exhaustive}`);
+			throw new Error(`Unhandled stop reason: ${String(_exhaustive)}`);
 		}
 	}
 }

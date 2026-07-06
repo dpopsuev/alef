@@ -409,6 +409,7 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 		const outer = createAssistantMessageEventStream();
 		const step = pendingResponses.shift();
 		state.callCount++;
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async callback in queueMicrotask, errors caught internally
 		queueMicrotask(async () => {
 			try {
 				await opts?.onResponse?.({ status: 200, headers: {} }, requestModel);

@@ -16,6 +16,7 @@ function prompt(rl: ReturnType<typeof createInterface>, question: string): Promi
 function loadAuth(): Record<string, { type: "oauth" } & OAuthCredentials> {
 	if (!existsSync(AUTH_FILE)) return {};
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JSON.parse returns any
 		return JSON.parse(readFileSync(AUTH_FILE, "utf-8"));
 	} catch {
 		return {};
@@ -128,7 +129,7 @@ Examples:
 	process.exit(1);
 }
 
-main().catch((err) => {
-	console.error("Error:", err.message);
+main().catch((err: unknown) => {
+	console.error("Error:", err instanceof Error ? err.message : String(err));
 	process.exit(1);
 });

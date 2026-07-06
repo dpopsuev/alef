@@ -17,7 +17,7 @@ const dynamicImport: DynamicImport = (specifier) => import(specifier);
 const NODE_OS_SPECIFIER = "node:" + "os";
 
 if (typeof process !== "undefined" && (process.versions.node || process.versions.bun)) {
-	dynamicImport(NODE_OS_SPECIFIER).then((m) => {
+	void dynamicImport(NODE_OS_SPECIFIER).then((m) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import boundary
 		_os = m as typeof NodeOs;
 	});
@@ -64,9 +64,12 @@ export function extractAccountId(token: string): string {
 	try {
 		const parts = token.split(".");
 		if (parts.length !== 3) throw new Error("Invalid token");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT parse boundary
 		const payload = JSON.parse(atob(parts[1]));
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT claim access
 		const accountId = payload?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
 		if (!accountId) throw new Error("No account ID in token");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JWT claim value
 		return accountId;
 	} catch {
 		throw new Error("Failed to extract accountId from token");

@@ -360,6 +360,7 @@ export function convertMessages(
 				.filter((tc) => tc.thoughtSignature)
 				.map((tc) => {
 					try {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JSON.parse boundary
 						return JSON.parse(tc.thoughtSignature!);
 					} catch {
 						return null;

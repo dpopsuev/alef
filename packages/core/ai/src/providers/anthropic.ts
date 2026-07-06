@@ -431,7 +431,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
@@ -563,6 +563,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				let parsedInput: Record<string, any>;
 				if (typeof contentBlock.input === "string") {
 					try {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse boundary
 						parsedInput = JSON.parse(contentBlock.input);
 					} catch {
 						parsedInput = {};
@@ -1209,7 +1210,7 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 	if (lastMessage.role !== "user") return;
 
 	if (typeof lastMessage.content === "string") {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control content type workaround
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- Anthropic cache_control content type workaround
 		lastMessage.content = [
 			{
 				type: "text",

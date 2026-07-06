@@ -1,6 +1,9 @@
 // NEVER convert to top-level imports - breaks browser/Vite builds (web-ui)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _existsSync: typeof import("node:fs").existsSync | null = null;
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _homedir: typeof import("node:os").homedir | null = null;
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _join: typeof import("node:path").join | null = null;
 
 type DynamicImport = (specifier: string) => Promise<unknown>;
@@ -14,15 +17,15 @@ const NODE_PATH_SPECIFIER = "node:" + "path";
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
 if (typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun)) {
 	void dynamicImport(NODE_FS_SPECIFIER).then((m) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-imports -- dynamic import returns unknown, narrowing to known Node module
 		_existsSync = (m as typeof import("node:fs")).existsSync;
 	});
 	void dynamicImport(NODE_OS_SPECIFIER).then((m) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-imports -- dynamic import returns unknown, narrowing to known Node module
 		_homedir = (m as typeof import("node:os")).homedir;
 	});
 	void dynamicImport(NODE_PATH_SPECIFIER).then((m) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-imports -- dynamic import returns unknown, narrowing to known Node module
 		_join = (m as typeof import("node:path")).join;
 	});
 }
@@ -52,7 +55,7 @@ function getProcEnv(key: string): string | undefined {
 	if (_procEnvCache === null) {
 		_procEnvCache = new Map();
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-require-imports -- require() needed for sync fs in Bun fallback path
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- require() needed for sync fs in Bun fallback path
 			const { readFileSync } = require("node:fs") as typeof import("node:fs");
 			const data = readFileSync(PROC_ENVIRON_PATH, "utf-8");
 			for (const entry of data.split("\0")) {

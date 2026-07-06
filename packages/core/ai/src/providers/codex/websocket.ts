@@ -28,6 +28,7 @@ export interface WebSocketLike {
 export interface CachedWebSocketContinuationState {
 	lastRequestBody: RequestBody;
 	lastResponseId: string;
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() references openai SDK type
 	lastResponseItems: import("openai/resources/responses/responses.js").ResponseInput;
 }
 
@@ -475,6 +476,7 @@ export async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSigna
 
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by async callbacks between yields
 		if (failed) {
+			// eslint-disable-next-line @typescript-eslint/only-throw-error -- async callback mutation, type is Error | undefined
 			throw failed;
 		}
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by async callbacks between yields

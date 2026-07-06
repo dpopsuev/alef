@@ -67,7 +67,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
@@ -111,6 +111,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 						stream.push({
 							type: "text_end",
 							contentIndex: blockIndex(),
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "text"
 							content: (block as TextContent).text,
 							partial: output,
 						}),
@@ -118,6 +119,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 						stream.push({
 							type: "thinking_end",
 							contentIndex: blockIndex(),
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "thinking"
 							content: (block as ThinkingContent).thinking,
 							partial: output,
 						}),

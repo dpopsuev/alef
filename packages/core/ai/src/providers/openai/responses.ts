@@ -69,7 +69,7 @@ export const streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIRes
 	const stream = new AssistantMessageEventStream();
 
 	// Start async processing
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],

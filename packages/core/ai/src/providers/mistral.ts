@@ -53,7 +53,7 @@ export const streamMistral: StreamFunction<"mistral-conversations", MistralOptio
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output = createOutput(model);
 
 		try {
@@ -647,7 +647,7 @@ function mapToolChoice(
 ): "auto" | "none" | "any" | "required" | { type: "function"; function: { name: string } } | undefined {
 	if (!choice) return undefined;
 	if (choice === "auto" || choice === "none" || choice === "any" || choice === "required") {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Mistral SDK toolChoice union not fully compatible with our type
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-return -- boundary cast: Mistral SDK toolChoice union not fully compatible with our type
 		return choice as any;
 	}
 	return {

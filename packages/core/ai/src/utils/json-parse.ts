@@ -106,7 +106,7 @@ export function parseJsonWithRepair<T>(json: string): T {
  */
 export function parseStreamingJson<T = Record<string, unknown>>(partialJson: string | undefined): T {
 	if (!partialJson || partialJson.trim() === "") {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- empty fallback for streaming parse, T defaults to Record<string, unknown>
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-assertions -- empty fallback for streaming parse, T defaults to Record<string, unknown>
 		return {} as T;
 	}
 
@@ -123,7 +123,7 @@ export function parseStreamingJson<T = Record<string, unknown>>(partialJson: str
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- partial-json returns unknown, caller provides expected type T
 				return (result ?? {}) as T;
 			} catch {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- empty fallback for streaming parse, T defaults to Record<string, unknown>
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-assertions -- empty fallback for streaming parse, T defaults to Record<string, unknown>
 				return {} as T;
 			}
 		}

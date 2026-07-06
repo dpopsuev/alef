@@ -91,8 +91,10 @@ export async function* parseSSE(response: Response): AsyncGenerator<Record<strin
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- stream reader loop exits via break
 		while (true) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- ReadableStream reader boundary
 			const { done, value } = await reader.read();
 			if (done) break;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- ReadableStream value boundary
 			buffer += decoder.decode(value, { stream: true });
 
 			let idx = buffer.indexOf("\n\n");
@@ -196,6 +198,7 @@ export async function* mapCodexEvents(events: AsyncIterable<Record<string, unkno
 				? { ...response, status: normalizeCodexStatus(response.status) }
 				: response;
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Codex event type mapping
+			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Codex event type mapping
 			yield { ...event, type: "response.completed", response: normalizedResponse } as ResponseStreamEvent;
 			return;
 		}

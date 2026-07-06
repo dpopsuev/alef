@@ -6,6 +6,7 @@
  */
 
 // NEVER convert to top-level imports - breaks browser/Vite builds (web-ui)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- inline import() needed: @types/node not in tsconfig
 let _randomBytes: typeof import("node:crypto").randomBytes | null = null;
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
 if (typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun)) {
@@ -221,7 +222,7 @@ export async function loginOpenAICodex(options: {
 					manualCode = input;
 					server.cancelWait();
 				})
-				.catch((err) => {
+				.catch((err: unknown) => {
 					manualError = err instanceof Error ? err : new Error(String(err));
 					server.cancelWait();
 				});
@@ -250,6 +251,7 @@ export async function loginOpenAICodex(options: {
 				await manualPromise;
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- manualError may be set asynchronously by manualPromise
 				if (manualError) {
+					// eslint-disable-next-line @typescript-eslint/only-throw-error -- manualError set asynchronously, always Error
 					throw manualError;
 				}
 				if (manualCode) {

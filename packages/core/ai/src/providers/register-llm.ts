@@ -165,7 +165,7 @@ export function setBedrockProviderModule(module: BedrockProviderModule): void {
 }
 
 function forwardStream(target: AssistantMessageEventStream, source: AsyncIterable<AssistantMessageEvent>): void {
-	(async () => {
+	void (async () => {
 		for await (const event of source) {
 			target.push(event);
 		}
@@ -205,7 +205,7 @@ function createLazyStream<TApi extends Api, TOptions extends StreamOptions, TSim
 				const inner = module.stream(model, context, options);
 				forwardStream(outer, inner);
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				const message = createLazyLoadErrorMessage(model, error);
 				outer.push({ type: "error", reason: "error", error: message });
 				outer.end(message);
@@ -228,7 +228,7 @@ function createLazySimpleStream<
 				const inner = module.streamSimple(model, context, options);
 				forwardStream(outer, inner);
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				const message = createLazyLoadErrorMessage(model, error);
 				outer.push({ type: "error", reason: "error", error: message });
 				outer.end(message);
@@ -287,6 +287,7 @@ const BUILTIN_PROVIDERS: ReadonlyArray<{
 	match?: (model: Model<Api>) => boolean;
 }> = [
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowly-typed providers widen to Api union for registry iteration
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- widening readonly tuple to mutable array
 	{ api: "anthropic-messages", stream: streamAnthropicVertex, streamSimple: streamSimpleAnthropicVertex, match: matchesAnthropicVertex },
 	{ api: "anthropic-messages", stream: streamAnthropic, streamSimple: streamSimpleAnthropic },
 	{ api: "openai-completions", stream: streamGitHubCopilotCompletions, streamSimple: streamSimpleGitHubCopilotCompletions, match: matchesGitHubCopilot },

@@ -52,7 +52,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	(async () => {
+	void (async () => {
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
@@ -94,6 +94,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 						stream.push({
 							type: "text_end",
 							contentIndex: blockIndex(),
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "text"
 							content: (block as TextContent).text,
 							partial: output,
 						}),
@@ -101,10 +102,12 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 						stream.push({
 							type: "thinking_end",
 							contentIndex: blockIndex(),
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "thinking"
 							content: (block as ThinkingContent).thinking,
 							partial: output,
 						}),
 				};
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all block types have emitters
 				emitters[block.type]?.();
 			}
 
@@ -162,6 +165,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 									stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
 								}
 							}
+							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all block types have delta appenders
 							deltaAppenders[currentBlock.type]?.(currentBlock, part.text, part.thoughtSignature);
 						}
 
@@ -354,7 +358,7 @@ function buildParams(
 	if (options.thinking?.enabled && model.reasoning) {
 		const thinkingConfig: ThinkingConfig = { includeThoughts: true };
 		if (options.thinking.level !== undefined) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: GoogleThinkingLevel mirrors Google SDK's ThinkingLevel enum values
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: GoogleThinkingLevel mirrors Google SDK's ThinkingLevel enum values
 			thinkingConfig.thinkingLevel = options.thinking.level as any;
 		} else if (options.thinking.budgetTokens !== undefined) {
 			thinkingConfig.thinkingBudget = options.thinking.budgetTokens;
@@ -399,15 +403,15 @@ function getDisabledThinkingConfig(model: Model<"google-generative-ai">): Thinki
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
 	// thinkingLevel without includeThoughts so hidden thinking remains invisible to pi.
 	if (isGemini3ProModel(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemini 3.1 Pro requires LOW as minimum thinking level
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemini 3.1 Pro requires LOW as minimum thinking level
 		return { thinkingLevel: "LOW" as any };
 	}
 	if (isGemini3FlashModel(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemini 3 Flash requires MINIMAL as minimum thinking level
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemini 3 Flash requires MINIMAL as minimum thinking level
 		return { thinkingLevel: "MINIMAL" as any };
 	}
 	if (isGemma4Model(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemma 4 requires MINIMAL as minimum thinking level
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemma 4 requires MINIMAL as minimum thinking level
 		return { thinkingLevel: "MINIMAL" as any };
 	}
 

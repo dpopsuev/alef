@@ -42,9 +42,11 @@ export class SqliteSpanExporter implements SpanExporter {
 		const stmts = spans.map((span) => {
 			const ctx = span.spanContext();
 			const parentId = span.parentSpanContext?.spanId ?? null;
+			const rawSessionAttr = span.attributes["alef.session.id"];
+			const rawCorrelationAttr = span.attributes["alef.correlation.id"];
 			const sessionId =
-				(span.attributes["alef.session.id"] as string) ??
-				(span.attributes["alef.correlation.id"] as string)?.slice(0, 8) ??
+				(typeof rawSessionAttr === "string" ? rawSessionAttr : undefined) ??
+				(typeof rawCorrelationAttr === "string" ? rawCorrelationAttr.slice(0, 8) : undefined) ??
 				null;
 
 			return {

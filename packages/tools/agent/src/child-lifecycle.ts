@@ -19,6 +19,7 @@ let childSeq = 0;
 
 function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefined {
 	const svc = deps.supervisor.get(name);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by "entry" in svc guard
 	if (svc && "entry" in svc) return (svc as ChildAgentService).entry;
 	return undefined;
 }
@@ -375,7 +376,7 @@ export async function handlePromote(
 	}
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spec is an untyped YAML section
 	const spec = (doc.spec ?? {}) as Record<string, unknown>;
-	const adapters = Array.isArray(spec.adapters) ? [...spec.adapters] : [];
+	const adapters = Array.isArray(spec.adapters) ? [...(spec.adapters as unknown[])] : [];
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- adapter entries are untyped YAML objects
 	if (!adapters.some((o) => (o as { path?: string }).path === adapterPath)) adapters.push({ path: adapterPath });
 	spec.adapters = adapters;

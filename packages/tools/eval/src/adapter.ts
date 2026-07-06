@@ -69,10 +69,11 @@ async function runLLMJudge(
 ): Promise<{ score: number; reasoning: string }> {
 	const { streamSimple } = await import("@dpopsuev/alef-ai/stream");
 	const modelPath = "../../../agent/src/model/index.js";
-	const { autoDetectModel } = await import(/* @vite-ignore */ modelPath).catch(() => ({
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic import boundary
+	const imported: { autoDetectModel?: () => Parameters<typeof streamSimple>[0] | undefined } = await import(/* @vite-ignore */ modelPath).catch(() => ({
 		autoDetectModel: () => undefined as unknown,
 	}));
-	const model = autoDetectModel?.();
+	const model = imported.autoDetectModel?.();
 	if (!model) return { score: 0, reasoning: "No model available for LLM judge" };
 
 	const transcriptText = transcript

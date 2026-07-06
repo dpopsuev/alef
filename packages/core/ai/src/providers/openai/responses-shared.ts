@@ -193,7 +193,7 @@ export function convertResponsesMessages<TApi extends Api>(
 						id: msgId,
 						phase: parsedSignature?.phase,
 					} satisfies ResponseOutputMessage);
-				} else { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- toolCall branch
+				} else {
 					const toolCall = block as ToolCall;
 					const [callId, itemIdRaw] = toolCall.id.split("|");
 					let itemId: string | undefined = itemIdRaw;
@@ -201,7 +201,7 @@ export function convertResponsesMessages<TApi extends Api>(
 					// For different-model messages, set id to undefined to avoid pairing validation.
 					// OpenAI tracks which fc_xxx IDs were paired with rs_xxx reasoning items.
 					// By omitting the id, we avoid triggering that validation (like cross-provider does).
-					if (isDifferentModel && itemId.startsWith("fc_")) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- itemId from split can be undefined
+					if (isDifferentModel && itemId.startsWith("fc_")) {
 						itemId = undefined;
 					}
 
@@ -216,7 +216,7 @@ export function convertResponsesMessages<TApi extends Api>(
 			}
 			if (output.length === 0) continue;
 			messages.push(...output);
-		} else { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- toolResult branch
+		} else {
 			const textResult = msg.content
 				.filter((c): c is TextContent => c.type === "text")
 				.map((c) => c.text)
@@ -330,7 +330,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleReasoningSummaryPartAdded(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_part.added" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem is nullable at runtime
 		if (currentItem && currentItem.type === "reasoning") {
 			currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 			currentItem.summary.push(event.part);
@@ -340,7 +339,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleReasoningSummaryTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_text.delta" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 		if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 			currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 			const lastPart = currentItem.summary[currentItem.summary.length - 1];
@@ -360,7 +358,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleReasoningSummaryPartDone(
 		_event: Extract<ResponseStreamEvent, { type: "response.reasoning_summary_part.done" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 		if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 			currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 			const lastPart = currentItem.summary[currentItem.summary.length - 1];
@@ -380,7 +377,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleReasoningTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.reasoning_text.delta" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 		if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 			currentBlock.thinking += event.delta;
 			stream.push({
@@ -395,7 +391,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleContentPartAdded(
 		event: Extract<ResponseStreamEvent, { type: "response.content_part.added" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem nullable at runtime
 		if (currentItem?.type === "message") {
 			currentItem.content = currentItem.content ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- content may not be initialized
 			// Filter out ReasoningText, only accept output_text and refusal
@@ -408,7 +403,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleOutputTextDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.output_text.delta" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock nullable at runtime
 		if (currentItem?.type === "message" && currentBlock?.type === "text") {
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- content may not be set yet
 			if (!currentItem.content || currentItem.content.length === 0) {
@@ -431,7 +425,6 @@ export async function processResponsesStream<TApi extends Api>(
 	function handleRefusalDelta(
 		event: Extract<ResponseStreamEvent, { type: "response.refusal.delta" }>,
 	): void {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock nullable at runtime
 		if (currentItem?.type === "message" && currentBlock?.type === "text") {
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- content may not be set yet
 			if (!currentItem.content || currentItem.content.length === 0) {
@@ -493,9 +486,8 @@ export async function processResponsesStream<TApi extends Api>(
 	): void {
 		const item = event.item;
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentBlock nullable at runtime
 		if (item.type === "reasoning" && currentBlock?.type === "thinking") {
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- summary may be undefined; empty string fallthrough
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- summary may be undefined
 			const summaryText = item.summary?.map((s) => s.text).join("\n\n") || "";
 			const contentText = item.content?.map((c) => c.text).join("\n\n") ?? "";
 			currentBlock.thinking = summaryText || contentText || currentBlock.thinking;
@@ -507,7 +499,6 @@ export async function processResponsesStream<TApi extends Api>(
 				partial: output,
 			});
 			currentBlock = null;
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentBlock nullable at runtime
 		} else if (item.type === "message" && currentBlock?.type === "text") {
 			currentBlock.text = item.content.map((c) => (c.type === "output_text" ? c.text : c.refusal)).join("");
 			currentBlock.textSignature = encodeTextSignatureV1(item.id, item.phase ?? undefined);
@@ -555,7 +546,7 @@ export async function processResponsesStream<TApi extends Api>(
 		}
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- usage may be absent in streaming
 		if (response?.usage) {
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- details may be absent
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- details may be absent
 			const cachedTokens = response.usage.input_tokens_details?.cached_tokens || 0;
 			output.usage = {
 				// OpenAI includes cached tokens in input_tokens, so subtract to get non-cached input
@@ -593,9 +584,8 @@ export async function processResponsesStream<TApi extends Api>(
 		const error = event.response?.error;
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- incomplete_details may be absent
 		const details = event.response?.incomplete_details;
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- error may be null at runtime
 		const msg = error
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- always truthy template; empty string fallthrough
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- always truthy template
 			? `${error.code || "unknown"}: ${error.message || "no message"}`
 			: details?.reason
 				? `incomplete: ${details.reason}`

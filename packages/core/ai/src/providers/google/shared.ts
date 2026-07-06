@@ -212,7 +212,6 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 			// Cloud Code Assist API requires all function responses to be in a single user turn.
 			// Check if the last content is already a user turn with function responses and merge.
 			const lastContent = contents[contents.length - 1];
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- parts may be undefined at runtime
 			if (lastContent.role === "user" && lastContent.parts?.some((p) => p.functionResponse)) {
 				lastContent.parts.push(functionResponsePart);
 			} else {

@@ -7,6 +7,7 @@ import { EvalHarness } from "./harness.js";
 import { getEvalModel, SKIP_REAL_LLM } from "./model.js";
 import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "./scoreboard.js";
 
+/** Configuration for defining an evaluation suite. */
 export interface EvalSuiteOptions {
 	name: string;
 	evals: Evaluation[];
@@ -17,6 +18,7 @@ export interface EvalSuiteOptions {
 	tags?: string[];
 }
 
+/** Create a stub session factory for eval harness bootstrapping without a real LLM. */
 export function stubSessionFactory(modelId: string, contextWindow: number) {
 	return () => ({
 		state: { id: "eval", modelId, contextWindow },
@@ -31,6 +33,7 @@ export function stubSessionFactory(modelId: string, contextWindow: number) {
 	});
 }
 
+/** Print a formatted results table to stdout. */
 function formatResultTable(results: EvaluationResult[]): void {
 	const disclosure = process.env.ALEF_TOOL_DISCLOSURE ?? "full";
 	const passed = results.filter((r) => r.pass).length;
@@ -61,11 +64,12 @@ function formatResultTable(results: EvaluationResult[]): void {
 	);
 }
 
+/** Register a vitest eval suite with scoreboard tracking and result reporting. */
 export function defineEvalSuite(opts: EvalSuiteOptions): void {
 	const allResults: EvaluationResult[] = [];
 	const timeoutMs = opts.timeoutMs ?? 300_000;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion -- vitest describe options type is too narrow for tags
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument -- vitest describe options type is too narrow for tags
 	describe.skipIf(SKIP_REAL_LLM)(opts.name, { tags: opts.tags ?? ["real-llm"] } as any, () => {
 		beforeAll(() => {
 			console.log(`${opts.name}: model=${getEvalModel().id}`);

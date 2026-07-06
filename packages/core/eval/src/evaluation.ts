@@ -28,8 +28,12 @@
  */
 
 import type { WorkspaceFile } from "./harness.js";
+import type { JudgePanelResult } from "./judge-panel-runner.js";
+import type { SpanRecord } from "./metrics.js";
 
+/** Tool surface level available to the agent during evaluation. */
 export type ToolLevel = "ReadOnly" | "ReadWrite";
+/** Template category controlling evaluation topology. */
 export type Template = "ReadOnly" | "Write" | "MultiTurn";
 
 /**
@@ -76,6 +80,7 @@ export interface ToolCall {
 	produces?: string | RegExp;
 }
 
+/** A single evaluation scenario — pure data driving one agent run. */
 export interface Evaluation {
 	/** Unique identifier — used in metrics and test names. */
 	readonly id: string;
@@ -128,6 +133,7 @@ export interface Evaluation {
 // Checker
 // ---------------------------------------------------------------------------
 
+/** Outcome of a Checker.check() call with graduated scoring. */
 export interface CheckerResult {
 	pass: boolean;
 	/** Graduated score 0–1. */
@@ -136,17 +142,19 @@ export interface CheckerResult {
 	errors: string[];
 }
 
+/** Runtime context passed to a Checker for post-run verification. */
 export interface CheckerContext {
 	/** Absolute path to the workspace directory. */
 	workspace: string;
 	/** OTel spans from the run. */
-	spans: import("./metrics.js").SpanRecord[];
+	spans: SpanRecord[];
 	/** Agent's last reply text (if available). */
 	lastReply?: string;
 	/** Baseline git SHA before the agent's work (set by PhaseEvaluationRunner when seedGitRepo: true). */
 	seedSha?: string;
 }
 
+/** Deterministic verifier that scores an agent's workspace after a run. */
 export interface Checker {
 	check(ctx: CheckerContext): CheckerResult | Promise<CheckerResult>;
 }
@@ -155,6 +163,7 @@ export interface Checker {
 // FixtureSet
 // ---------------------------------------------------------------------------
 
+/** Known-good file set used to self-test a Checker without an LLM. */
 export interface FixtureSet {
 	/** Files to write for the fixture test (relative path → content). */
 	files: Record<string, string>;
@@ -164,6 +173,7 @@ export interface FixtureSet {
 // PhaseEvaluation — multi-phase evaluation with retry and weighted scoring
 // ---------------------------------------------------------------------------
 
+/** A single phase in a multi-phase evaluation with retry and decay scoring. */
 export interface Phase {
 	/** Human-readable name — appears in PhaseResult and corrective prompts. */
 	readonly name: string;
@@ -198,6 +208,7 @@ export interface Phase {
 	readonly passThreshold?: number;
 }
 
+/** Result of executing a single Phase including retry attempts and decay. */
 export interface PhaseResult {
 	readonly name: string;
 	readonly weight: number;
@@ -215,6 +226,7 @@ export interface PhaseResult {
 	readonly skipped: boolean;
 }
 
+/** Aggregate result of all phases in a PhaseEvaluation run. */
 export interface PhaseEvaluationResult {
 	readonly id: string;
 	readonly phases: PhaseResult[];
@@ -246,9 +258,10 @@ export interface EvalReport {
 	/** Score 1: deterministic phase results. */
 	readonly phase: PhaseEvaluationResult;
 	/** Score 2: stochastic LLM judge panel. Undefined when judges were not run. */
-	readonly judgePanel?: import("./judge-panel-runner.js").JudgePanelResult;
+	readonly judgePanel?: JudgePanelResult;
 }
 
+/** Multi-phase evaluation definition with ordered phases and scoring thresholds. */
 export interface PhaseEvaluation {
 	readonly id: string;
 	readonly toolLevel: ToolLevel;

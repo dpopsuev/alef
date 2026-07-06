@@ -521,7 +521,7 @@ export function convertTools(
 		function: {
 			name: tool.name,
 			description: tool.description,
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox generates JSON Schema compatible with OpenAI
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- TypeBox generates JSON Schema compatible with OpenAI
 			parameters: tool.parameters as any, // TypeBox already generates JSON Schema
 			// Only include strict if provider supports it. Some reject unknown fields.
 			...(compat.supportsStrictMode !== false && { strict: false }),

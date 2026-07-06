@@ -104,7 +104,6 @@ export interface NodeshAdapterOptions extends BaseAdapterOptions {
 // ---------------------------------------------------------------------------
 
 function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate dynamic require inside sandbox
 	const nodeRequire =
 		typeof require !== "undefined"
 			? require
@@ -116,7 +115,7 @@ function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
 		if (!allowed.has(normalized) && !allowed.has(`node:${normalized}`)) {
 			throw new Error(`nodesh.eval: module '${mod}' is not in the allowlist`);
 		}
-		return nodeRequire(mod.startsWith("node:") ? mod : `node:${mod.replace(/^node:/, "")}`);
+		return nodeRequire(mod.startsWith("node:") ? mod : `node:${mod.replace(/^node:/, "")}`) as unknown;
 	};
 }
 

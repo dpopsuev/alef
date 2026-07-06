@@ -3,23 +3,26 @@ import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { createRouterAdapter, type RouterAdapter } from "@dpopsuev/alef-engine/http";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { connectObservers, signalToAgentEvent } from "@dpopsuev/alef-agent/assemble";
+import { connectObservers } from "@dpopsuev/alef-agent/assemble";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 
+/** Options for creating a remote session test harness. */
 export interface RemoteSessionHarnessOptions {
 	agent: Agent;
 	adapters?: readonly Adapter[];
 	port?: number;
 }
 
+/** Test harness providing a RouterAdapter and AgentController for HTTP tests. */
 export interface RemoteSessionHarness {
 	readonly router: RouterAdapter;
 	readonly controller: AgentController;
 	readonly host: string;
 	readonly port: number;
-	dispose(): void;
+	dispose(): void | Promise<void>;
 }
 
+/** Create a remote session harness with HTTP router for integration testing. */
 export async function createRemoteHarness(opts: RemoteSessionHarnessOptions): Promise<RemoteSessionHarness> {
 	const { agent } = opts;
 	const adapters = opts.adapters ?? [];
@@ -36,7 +39,7 @@ export async function createRemoteHarness(opts: RemoteSessionHarnessOptions): Pr
 		onReply: () => {},
 	});
 
-	const forward = (event: AgentEvent) => router.notifyAgent(event as unknown as Record<string, unknown>);
+	const forward = (event: AgentEvent) => router.notifyAgent(event);
 
 	const router = createRouterAdapter({
 		port: opts.port ?? 0,

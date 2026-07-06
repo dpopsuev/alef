@@ -11,6 +11,7 @@
  */
 
 import { parentPort, workerData } from "node:worker_threads";
+import type { ZodTypeAny } from "zod";
 import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel/adapter";
 import {
 	type Bus,
@@ -94,7 +95,7 @@ const factory = mod.createAdapter as (opts: { cwd: string }) => unknown | Promis
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- adapter shape validated by mount protocol
 const adapter = (await factory({ cwd })) as {
 	name: string;
-	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;
+	tools: Array<{ name: string; description: string; inputSchema: ZodTypeAny }>;
 	subscriptions: { command: readonly string[]; event: readonly string[]; notification: readonly string[] };
 	mount(bus: Bus): () => void;
 };

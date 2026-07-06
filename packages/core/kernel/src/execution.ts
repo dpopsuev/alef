@@ -40,5 +40,5 @@ export interface SendRequest {
 /** Pluggable strategy that drives the LLM conversation loop for a single send/reply cycle. */
 export interface ExecutionStrategy {
 	send(req: SendRequest): Promise<string>;
-	dispose?(): void;
+	dispose?(): void | Promise<void>;
 }

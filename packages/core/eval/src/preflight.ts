@@ -17,6 +17,7 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { type AgentBus, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { runAdapterContract } from "@dpopsuev/alef-testkit";
 
+/** Configuration for the preflight adapter validation run. */
 export interface PreflightConfig {
 	/** Adapters to validate. At least one required. */
 	adapters: Adapter[];
@@ -26,6 +27,7 @@ export interface PreflightConfig {
 	busFactory?: () => AgentBus;
 }
 
+/** A single error found during preflight validation. */
 export interface PreflightError {
 	phase: "validate" | "components" | "tools" | "probe";
 	adapter?: string;
@@ -33,6 +35,7 @@ export interface PreflightError {
 	detail: string;
 }
 
+/** Structured result of a preflight validation run. */
 export interface PreflightReport {
 	passed: string[];
 	warnings: string[];
@@ -93,7 +96,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 				unmount();
 			}
 		} catch (e) {
-			fail({ phase: "components", adapter: adapter.name, detail: `mount() threw: ${e}` });
+			fail({ phase: "components", adapter: adapter.name, detail: `mount() threw: ${String(e)}` });
 		}
 	}
 
@@ -112,7 +115,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 					phase: "tools",
 					adapter: adapter.name,
 					tool: tool.name,
-					detail: `inputSchema.safeParse threw: ${e}`,
+					detail: `inputSchema.safeParse threw: ${String(e)}`,
 				});
 			}
 		}

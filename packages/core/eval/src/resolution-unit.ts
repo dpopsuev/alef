@@ -14,7 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import { type Adapter, gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
+import { type AgentBus, type Bus, type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned command payload for one tool
@@ -42,6 +42,7 @@ export interface PortStub {
 // UnitMetric \u2014 per-case result
 // ---------------------------------------------------------------------------
 
+/** Result of probing a single PortStub against the adapter under test. */
 export interface UnitCaseResult {
 	tool: string;
 	label: string;
@@ -63,6 +64,7 @@ export interface UnitCaseResult {
 // UnitScorer \u2014 plug-in scoring
 // ---------------------------------------------------------------------------
 
+/** Plug-in scoring function for unit evaluation cases. */
 export type UnitScorer = (
 	sensePayload: Record<string, unknown> | undefined,
 	groundTruth: Record<string, unknown> | undefined,
@@ -78,6 +80,7 @@ export const defaultUnitScorer: UnitScorer = (sensePayload, _groundTruth, _stub)
 // UnitEvalConfig
 // ---------------------------------------------------------------------------
 
+/** Configuration for a single-adapter unit evaluation run. */
 export interface UnitEvalConfig {
 	/** The adapter under test. */
 	adapter: Adapter;
@@ -88,13 +91,14 @@ export interface UnitEvalConfig {
 	/** Timeout per command\u2192event probe in ms. Default: 5000. */
 	timeoutMs?: number;
 	/** Bus factory. Default: new InProcessBus(). */
-	busFactory?: () => import("@dpopsuev/alef-kernel/bus").AgentBus;
+	busFactory?: () => AgentBus;
 }
 
 // ---------------------------------------------------------------------------
 // UnitEvalReport
 // ---------------------------------------------------------------------------
 
+/** Report from running a set of PortStubs against one adapter. */
 export interface UnitEvalReport {
 	adapter: string;
 	resolution: "unit";
@@ -162,7 +166,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 			const durationMs = Date.now() - caseStart;
 
 			const { score, detail } = scorer(
-				sense?.payload as Record<string, unknown> | undefined,
+				sense?.payload,
 				stub.groundTruth,
 				stub,
 			);
@@ -215,8 +219,9 @@ export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEval
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Send a command to the bus and wait for the matching event response. */
 function probeMotor(
-	bus: { asBus(): import("@dpopsuev/alef-kernel/bus").Bus },
+	bus: { asBus(): Bus },
 	toolName: string,
 	payload: Record<string, unknown>,
 	correlationId: string,

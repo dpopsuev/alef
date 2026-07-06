@@ -27,7 +27,7 @@ import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage, CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
-import { Agent, type BusObserver } from "@dpopsuev/alef-engine/agent";
+import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import type { ScriptStep } from "./script.js";
@@ -37,6 +37,7 @@ import { ScriptedReasoner } from "./scripted-reasoner.js";
 // BlueprintHarness
 // ---------------------------------------------------------------------------
 
+/** Configuration for creating a BlueprintHarness. */
 export interface BlueprintHarnessOptions {
 	/** Working directory for adapters. Required. */
 	cwd: string;
@@ -48,11 +49,13 @@ export interface BlueprintHarnessOptions {
 	timeoutMs?: number;
 }
 
+/** Function that converts a compiled agent definition into adapter instances. */
 export type MaterializeFn = (
 	definition: CompiledAgentDefinition,
 	opts: { cwd: string },
 ) => Promise<{ adapters: Adapter[] }>;
 
+/** Options for loading a BlueprintHarness from a YAML file. */
 export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	/** Extra adapters to load beyond what the blueprint declares. */
 	extraAdapters?: Adapter[];
@@ -64,6 +67,7 @@ export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	materialize: MaterializeFn;
 }
 
+/** Deterministic blueprint test harness with scripted LLM and assertions. */
 export class BlueprintHarness implements ExecutionStrategy {
 	private readonly agent: Agent;
 	private readonly controller: AgentController;
@@ -121,7 +125,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 			agent.load(adapter);
 		}
 
-		agent.observe(recorder as BusObserver);
+		agent.observe(recorder);
 		agent.validate();
 
 		const controller = new AgentController(agent);
@@ -162,7 +166,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 			const unsub = this.agent.subscribeCommand(waitFor, (event) => {
 				clearTimeout(timer);
 				unsub();
-				resolve(event.payload as Record<string, unknown>);
+				resolve(event.payload);
 			});
 		});
 		this.agent.publishEvent({

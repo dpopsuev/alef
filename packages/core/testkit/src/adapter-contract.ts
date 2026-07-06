@@ -16,26 +16,30 @@
 
 import { randomUUID } from "node:crypto";
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
+import { type Bus, type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
+/** A single captured log entry from the spy logger. */
 export interface CapturedLog {
 	level: "debug" | "info" | "warn" | "error";
 	obj: Record<string, unknown>;
 	msg: string;
 }
 
+/** Options for the adapter contract compliance check. */
 export interface AdapterContractOptions {
 	/** Timeout per Command→Event probe in ms. Default: 2000. */
 	timeoutMs?: number;
 }
 
+/** A single contract violation found during compliance check. */
 export interface AdapterContractViolation {
 	check: string;
 	detail: string;
 }
 
+/** Report from running the adapter contract compliance suite. */
 export interface AdapterContractReport {
 	adapter: string;
 	passed: string[];
@@ -69,18 +73,20 @@ export async function runAdapterContract(
 			ok("mount-returns-function");
 		}
 	} catch (e) {
-		fail("mount-returns-function", `mount() threw: ${e}`);
+		fail("mount-returns-function", `mount() threw: ${String(e)}`);
 		return { adapter: adapter.name, passed, violations, ok: false };
 	}
 
 	// 2. unmount is idempotent
 	if (typeof unmount === "function") {
 		try {
-			unmount();
-			unmount();
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof guard above
+			const fn = unmount as () => void;
+			fn();
+			fn();
 			ok("unmount-idempotent");
 		} catch (e) {
-			fail("unmount-idempotent", `second unmount() threw: ${e}`);
+			fail("unmount-idempotent", `second unmount() threw: ${String(e)}`);
 		}
 	}
 
@@ -164,6 +170,7 @@ export async function assertAdapterContract(adapter: Adapter, opts?: AdapterCont
 // makeSpyLogger — captures log calls for compliance assertions
 // ---------------------------------------------------------------------------
 
+/** Create a spy logger that captures all log calls for assertion. */
 function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): AdapterLogger {
 	return {
 		debug(obj, msg) {
@@ -188,6 +195,7 @@ function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): 
 // adapterComplianceSuite — vitest-integrated adapter compliance harness
 // ---------------------------------------------------------------------------
 
+/** Configuration for testing a streaming tool's chunk emission. */
 export interface StreamingToolConfig {
 	/** A valid payload that will cause the tool to run for > thresholdMs. */
 	validPayload: Record<string, unknown>;
@@ -197,6 +205,7 @@ export interface StreamingToolConfig {
 	minChunks?: number;
 }
 
+/** Options for the vitest-integrated adapter compliance suite. */
 export interface AdapterComplianceOptions {
 	/**
 	 * Per-tool streaming config — required for every tool whose ToolDefinition
@@ -271,7 +280,7 @@ export function adapterComplianceSuite(
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- vitest tags API expects branded array type
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unnecessary-type-assertion -- vitest tags API expects branded array type
 	describe("adapter framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
 		let adapter: Adapter;
 		let unmount: (() => void) | undefined;
@@ -359,8 +368,9 @@ export function adapterComplianceSuite(
 // Internals
 // ---------------------------------------------------------------------------
 
+/** Send a command to the bus and wait for the matching event response. */
 function probeCommand(
-	bus: import("@dpopsuev/alef-kernel/bus").Bus,
+	bus: Bus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
@@ -388,6 +398,7 @@ function probeCommand(
 // runSchemaContract — schema rejection contract
 // ---------------------------------------------------------------------------
 
+/** Result of schema rejection validation for a single tool. */
 export interface SchemaContractResult {
 	tool: string;
 	violations: string[];

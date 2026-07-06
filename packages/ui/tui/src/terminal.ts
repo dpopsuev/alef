@@ -236,6 +236,7 @@ export class ProcessTerminal implements Terminal {
 			// Dynamic require to avoid bundling koffi's 74MB of cross-platform
 			// native binaries into every compiled binary. Koffi is only needed
 			// on Windows for VT input support.
+			/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call -- yoga-wasm-web returns untyped API */
 			const koffi = cjsRequire("koffi");
 			const k32 = koffi.load("kernel32.dll");
 			const GetStdHandle = k32.func("void* __stdcall GetStdHandle(int)");
@@ -248,6 +249,7 @@ export class ProcessTerminal implements Terminal {
 			const mode = new Uint32Array(1);
 			GetConsoleMode(handle, mode);
 			SetConsoleMode(handle, mode[0]! | ENABLE_VIRTUAL_TERMINAL_INPUT);
+			/* eslint-enable */
 		} catch {
 			// koffi not available — Shift+Tab won't be distinguishable from Tab
 		}

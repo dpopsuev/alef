@@ -9,6 +9,7 @@
  */
 
 import { execFile } from "node:child_process";
+import type { Dirent } from "node:fs";
 import { cp, lstat, mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -306,7 +307,7 @@ function buildUnshareArgs(command: string[], opts: ExecOptions): string[] {
 
 async function walkUpper(upper: string, lower: string, rel = ""): Promise<Change[]> {
 	const changes: Change[] = [];
-	let entries: import("node:fs").Dirent<string>[];
+	let entries: Dirent<string>[];
 	try {
 		entries = await readdir(join(upper, rel), { withFileTypes: true, encoding: "utf-8" });
 	} catch {

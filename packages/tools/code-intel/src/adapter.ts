@@ -15,7 +15,7 @@ import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter"
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
-import type { CodeIntelBackend } from "./backend.js";
+import type { CodeIntelBackend, Diagnostic } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";
 
 // ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ export const ANNOTATION_SCHEMA = z.object({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDiagnostics(diagnostics: import("./backend.js").Diagnostic[]): string {
+function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	if (diagnostics.length === 0) return "✓ No errors or warnings";
 
 	const severityLabel = (s: number) => {
@@ -272,6 +272,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 				},
 			},
 			ready: backend instanceof LocalCodeIntelBackend ? () => backend.warmUp() : undefined,
+			// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async cleanup is intentional
 			onUnmount: backend instanceof LocalCodeIntelBackend ? () => backend.stopLsp() : undefined,
 		},
 	);

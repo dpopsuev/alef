@@ -115,7 +115,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			receive: (text) => controller.receive(text, "human"),
 			dispose: () => {
 				opts.actorRoutes?.unregister(subActor.color);
-				agent.dispose();
+					void agent.dispose();
 			},
 			observers,
 		});

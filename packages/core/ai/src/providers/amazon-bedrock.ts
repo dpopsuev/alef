@@ -426,7 +426,6 @@ function handleContentBlockDelta(
 			block.text += delta.text;
 			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
 		}
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- delta may be undefined at runtime
 	} else if (delta?.toolUse && block.type === "toolCall") {
 		block.partialJson = (block.partialJson ?? "") + (delta.toolUse.input ?? "");
 		block.arguments = parseStreamingJson(block.partialJson);

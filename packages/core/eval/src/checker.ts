@@ -20,6 +20,7 @@ import type { Checker, CheckerContext, CheckerResult } from "./evaluation.js";
 // FileExistsReferee — checks a file was created
 // ---------------------------------------------------------------------------
 
+/** Create a checker that verifies a file was created at the given path. */
 export function fileExists(relativePath: string): Checker {
 	return {
 		async check({ workspace }: CheckerContext): Promise<CheckerResult> {
@@ -37,6 +38,7 @@ export function fileExists(relativePath: string): Checker {
 // FileContentReferee — checks file contains required strings
 // ---------------------------------------------------------------------------
 
+/** Create a checker that verifies a file contains all required strings. */
 export function fileContains(relativePath: string, ...required: string[]): Checker {
 	return {
 		async check({ workspace }: CheckerContext): Promise<CheckerResult> {
@@ -66,6 +68,7 @@ export function fileContains(relativePath: string, ...required: string[]): Check
 // ReplyContainsReferee — checks agent reply includes keywords
 // ---------------------------------------------------------------------------
 
+/** Create a checker that verifies the agent reply includes all required keywords. */
 export function replyContains(...required: string[]): Checker {
 	return {
 		check({ lastReply }: CheckerContext): CheckerResult {
@@ -87,10 +90,11 @@ export function replyContains(...required: string[]): Checker {
 // AllReferee — runs multiple, returns min score
 // ---------------------------------------------------------------------------
 
+/** Compose multiple checkers, returning the minimum score across all. */
 export function all(...referees: Checker[]): Checker {
 	return {
 		async check(ctx: CheckerContext): Promise<CheckerResult> {
-			const results = await Promise.all(referees.map((r) => r.check(ctx)));
+			const results = await Promise.all(referees.map(async (r) => r.check(ctx)));
 			const errors = results.flatMap((r) => r.errors);
 			const score = Math.min(...results.map((r) => r.score));
 			return { pass: errors.length === 0, score, errors };
@@ -109,6 +113,7 @@ export function all(...referees: Checker[]): Checker {
 // Example: llmJudge('Does the reply correctly explain the error without hallucinating?')
 // ---------------------------------------------------------------------------
 
+/** Create a checker that scores the agent reply via an LLM judge against a rubric. */
 export function llmJudge(rubric: string, modelId = "claude-haiku-4-5"): Checker {
 	return {
 		async check({ lastReply }: CheckerContext): Promise<CheckerResult> {
@@ -164,6 +169,7 @@ export function llmJudge(rubric: string, modelId = "claude-haiku-4-5"): Checker 
 //          lintPasses('npx', ['eslint', 'src/'])
 // ---------------------------------------------------------------------------
 
+/** Create a checker that runs a lint command and asserts exit code 0. */
 export function lintPasses(cmd: string, args: string[] = []): Checker {
 	return {
 		check({ workspace }: CheckerContext): Promise<CheckerResult> {
@@ -194,10 +200,11 @@ export function lintPasses(cmd: string, args: string[] = []): Checker {
 // AnyReferee — runs multiple, returns max score (lenient)
 // ---------------------------------------------------------------------------
 
+/** Compose multiple checkers, returning the maximum score (lenient). */
 export function any(...referees: Checker[]): Checker {
 	return {
 		async check(ctx: CheckerContext): Promise<CheckerResult> {
-			const results = await Promise.all(referees.map((r) => r.check(ctx)));
+			const results = await Promise.all(referees.map(async (r) => r.check(ctx)));
 			const best = results.reduce((a, b) => (a.score >= b.score ? a : b));
 			return best;
 		},

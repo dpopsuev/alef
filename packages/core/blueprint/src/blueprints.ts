@@ -501,7 +501,7 @@ function migrateEnvelope(envelope: Record<string, unknown>): Record<string, unkn
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- guard for future MIGRATION_CHAIN entries
 	if (!migrate) {
 		throw new Error(
-			`Unsupported agent resource apiVersion "${envelope.apiVersion}". ` +
+			`Unsupported agent resource apiVersion "${String(envelope.apiVersion)}". ` +
 				`Expected "${AGENT_RESOURCE_API_VERSION}" or a migratable version.`,
 		);
 	}

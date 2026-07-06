@@ -280,14 +280,13 @@ const streamSimpleBedrockLazy = createLazySimpleStream(loadBedrockProviderModule
 
 // Registration order matters: specific strategies (with match()) before fallbacks.
 // Adding a new provider: add one lazy loader above, one export pair, one entry here.
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- narrowly-typed providers widen to Api union for registry iteration */
 const BUILTIN_PROVIDERS: ReadonlyArray<{
 	api: Api;
 	stream: StreamFunction<Api, StreamOptions>;
 	streamSimple: StreamFunction<Api, SimpleStreamOptions>;
 	match?: (model: Model<Api>) => boolean;
 }> = [
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowly-typed providers widen to Api union for registry iteration
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- widening readonly tuple to mutable array
 	{ api: "anthropic-messages", stream: streamAnthropicVertex, streamSimple: streamSimpleAnthropicVertex, match: matchesAnthropicVertex },
 	{ api: "anthropic-messages", stream: streamAnthropic, streamSimple: streamSimpleAnthropic },
 	{ api: "openai-completions", stream: streamGitHubCopilotCompletions, streamSimple: streamSimpleGitHubCopilotCompletions, match: matchesGitHubCopilot },
@@ -305,6 +304,7 @@ const BUILTIN_PROVIDERS: ReadonlyArray<{
 	streamSimple: StreamFunction<Api, SimpleStreamOptions>;
 	match?: (model: Model<Api>) => boolean;
 }>;
+/* eslint-enable @typescript-eslint/no-unsafe-type-assertion */
 
 export function registerBuiltInApiProviders(): void {
 	for (const entry of BUILTIN_PROVIDERS) {

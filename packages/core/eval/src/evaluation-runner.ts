@@ -21,6 +21,7 @@ import type { CheckerResult, Evaluation, ToolCall } from "./evaluation.js";
 import type { EvalHarness } from "./harness.js";
 import type { HarnessOptions, RunMetrics, SpanRecord } from "./index.js";
 
+/** Result of a single evaluation run including metrics and mustUse violations. */
 export interface EvaluationResult extends CheckerResult {
 	/** Full run metrics from the EvalHarness. */
 	metrics: RunMetrics;
@@ -45,6 +46,7 @@ export interface PassAtK {
 	trials: EvaluationResult[];
 }
 
+/** Options for the EvaluationRunner controlling error-rate thresholds. */
 export interface EvaluationRunnerOptions {
 	/**
 	 * Maximum fraction of trials allowed to have a runtime error (metrics.error set).
@@ -59,10 +61,12 @@ export interface EvaluationRunnerOptions {
 	maxErrorRate?: number;
 }
 
+/** Check whether an actual string matches an expected string or RegExp pattern. */
 function matchValue(actual: string, expected: string | RegExp): boolean {
 	return expected instanceof RegExp ? expected.test(actual) : actual.includes(expected);
 }
 
+/** Check whether a span record matches a tool call expectation. */
 function matchesToolCall(span: SpanRecord, expectation: ToolCall): boolean {
 	const toolName = String(span.attributes["alef.event.type"] ?? "");
 	const tools = Array.isArray(expectation.tool) ? expectation.tool : [expectation.tool];
@@ -85,6 +89,7 @@ function matchesToolCall(span: SpanRecord, expectation: ToolCall): boolean {
 	return true;
 }
 
+/** Format a tool call expectation as a human-readable description. */
 function describeExpectation(exp: ToolCall, prefix: string): string {
 	const tools = Array.isArray(exp.tool) ? exp.tool.join("|") : exp.tool;
 	const target = exp.target
@@ -94,9 +99,10 @@ function describeExpectation(exp: ToolCall, prefix: string): string {
 				.join(", ")}`
 		: "";
 	const produces = exp.produces ? ` → ${exp.produces instanceof RegExp ? exp.produces.source : exp.produces}` : "";
-	return `${prefix} ${tools}${target}${produces}`.trim();
+	return `${prefix} ${String(tools)}${target}${produces}`.trim();
 }
 
+/** Executes evaluations against the EvalHarness and collects pass/fail metrics. */
 export class EvaluationRunner {
 	private readonly harness: EvalHarness;
 	private readonly harnessOptions: Partial<HarnessOptions>;
@@ -133,6 +139,7 @@ export class EvaluationRunner {
 				(async () => {
 					for (const file of evaluation.seed ?? []) await handle.writeFile(file.path, file.content);
 					const prompts = Array.isArray(evaluation.prompt) ? evaluation.prompt : [evaluation.prompt];
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- prompts narrowed via Array.isArray but TS retains union
 					for (const p of prompts) await handle.send(p);
 				})(),
 				timeoutPromise,

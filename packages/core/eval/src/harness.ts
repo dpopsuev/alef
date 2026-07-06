@@ -38,6 +38,7 @@ const tracer = trace.getTracer("alef.eval", "0.0.1");
 
 const BUS_PAYLOAD_MAX_CHARS = 400;
 
+/** Truncate large bus payload values to keep eval traces readable. */
 function truncateBusPayload(payload: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
 	if (!payload) return undefined;
 	const out: Record<string, unknown> = {};
@@ -56,11 +57,13 @@ function truncateBusPayload(payload: Record<string, unknown> | undefined): Recor
 // Public types
 // ---------------------------------------------------------------------------
 
+/** A file to seed into the eval workspace before the agent runs. */
 export interface WorkspaceFile {
 	path: string;
 	content: string;
 }
 
+/** Configuration for an EvalHarness run — workspace, adapters, timeouts. */
 export interface HarnessOptions {
 	/** Scenario identifier — appears in RunMetrics and the report. */
 	scenario: string;
@@ -108,6 +111,7 @@ export interface HarnessOptions {
 // AgentHandle — incremental control for PhaseEvaluationRunner
 // ---------------------------------------------------------------------------
 
+/** Handle to a running eval agent — send turns, collect spans, dispose. */
 export class AgentHandle {
 	readonly path: string;
 
@@ -228,13 +232,15 @@ export class AgentHandle {
 					}
 				}
 				if (retryReasons.length > 0) attrs["alef.retry_reasons"] = retryReasons.join("|");
+				const spanStatusMap: Partial<Record<number, "ERROR" | "OK">> = {
+					[SpanStatusCode.ERROR]: "ERROR",
+					[SpanStatusCode.OK]: "OK",
+				};
+				const spanStatus: "ERROR" | "OK" | "UNSET" = spanStatusMap[s.status.code] ?? "UNSET";
 				return {
 					name: s.name,
 					attributes: attrs,
-					status: (s.status.code === 1 ? "ERROR" : s.status.code === 2 ? "OK" : "UNSET") as
-						| "ERROR"
-						| "OK"
-						| "UNSET",
+					status: spanStatus,
 					durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
 					...(args !== undefined && { args }),
 					...(result !== undefined && { result }),
@@ -254,8 +260,7 @@ export class AgentHandle {
 			this._unobserve?.();
 			await this._busTracer.close();
 		}
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget agent teardown
-		this._agent.dispose();
+		void this._agent.dispose();
 
 		if (!this._keepWorkspace) {
 			await rm(this.path, { recursive: true, force: true });
@@ -313,6 +318,7 @@ export class AgentHandle {
 // EvalHarness
 // ---------------------------------------------------------------------------
 
+/** Boots an Agent for evaluation runs with OTel tracing and workspace management. */
 export class EvalHarness {
 	/**
 	 * Boot an agent and return an AgentHandle for incremental control.
@@ -507,6 +513,7 @@ export class EvalHarness {
 // Assertion helpers
 // ---------------------------------------------------------------------------
 
+/** Assert that a specific tool was used during the eval run. */
 export function assertToolUsed(metrics: RunMetrics, eventType: string): void {
 	const spanName = `alef.command/${eventType}`;
 	const used = metrics.spans.some((s) => s.name === spanName);
@@ -519,6 +526,7 @@ export function assertToolUsed(metrics: RunMetrics, eventType: string): void {
 	}
 }
 
+/** Assert that a specific tool was NOT used during the eval run. */
 export function assertToolNotUsed(metrics: RunMetrics, eventType: string): void {
 	const spanName = `alef.command/${eventType}`;
 	if (metrics.spans.some((s) => s.name === spanName)) {
@@ -526,6 +534,7 @@ export function assertToolNotUsed(metrics: RunMetrics, eventType: string): void 
 	}
 }
 
+/** Assert that all specified tools were used during the eval run. */
 export function assertAllToolsUsed(metrics: RunMetrics, eventTypes: string[]): void {
 	for (const et of eventTypes) assertToolUsed(metrics, et);
 }

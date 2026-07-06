@@ -31,16 +31,19 @@ import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 /** True when the ALEF_TEST_LLM env var is set. Gates all real-LLM tests. */
 export const HAVE_REAL_LLM = process.env.ALEF_TEST_LLM === "1";
 
+/** Result of a single E2E session send call. */
 export interface E2eResult {
 	reply: string;
 	events: NotificationMessage[];
 }
 
+/** A real-LLM session for adapter end-to-end testing. */
 export interface E2eSession {
 	send(text: string): Promise<E2eResult>;
-	dispose(): void;
+	dispose(): void | Promise<void>;
 }
 
+/** Options for creating an E2E test session. */
 export interface E2eSessionOptions {
 	/** Model ID. Defaults to claude-haiku-4-5 (cheapest, fast enough for forcing-function tests). */
 	modelId?: string;

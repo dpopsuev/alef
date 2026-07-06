@@ -6,6 +6,7 @@
 
 import type { RunMetrics } from "./metrics.js";
 
+/** Format RunMetrics into a human-readable summary string. */
 export function formatReport(metrics: RunMetrics): string {
 	const status = metrics.passed ? "PASS" : "FAIL";
 	const nTurns = metrics.turns.length;
@@ -63,6 +64,7 @@ export function formatReport(metrics: RunMetrics): string {
 	return lines.join("\n");
 }
 
+/** Format the conversation transcript from RunMetrics into readable text. */
 export function formatTranscript(metrics: RunMetrics): string {
 	if (metrics.transcript.length === 0) return `[${metrics.scenario}] no transcript captured`;
 
@@ -72,7 +74,7 @@ export function formatTranscript(metrics: RunMetrics): string {
 		if (role === "TOOLRESULT") {
 			const content =
 				typeof msg.content === "string" ? msg.content.slice(0, 300) : JSON.stringify(msg.content).slice(0, 300);
-			lines.push(`\n[TOOL RESULT: ${msg.toolName ?? "?"}]`);
+			lines.push(`\n[TOOL RESULT: ${String(msg.toolName ?? "?")}]`);
 			lines.push(content + (content.length === 300 ? "..." : ""));
 		} else if (role === "ASSISTANT") {
 			const content = msg.content;
@@ -84,7 +86,7 @@ export function formatTranscript(metrics: RunMetrics): string {
 						lines.push(`\n[ASSISTANT]`);
 						lines.push(String(b.text ?? "").slice(0, 500));
 					} else if (b.type === "tool_use") {
-						lines.push(`\n[TOOL CALL: ${b.name}]`);
+						lines.push(`\n[TOOL CALL: ${String(b.name)}]`);
 						lines.push(JSON.stringify(b.input ?? {}, null, 2).slice(0, 400));
 					}
 				}
@@ -102,6 +104,7 @@ export function formatTranscript(metrics: RunMetrics): string {
 	return lines.join("\n");
 }
 
+/** Serialize RunMetrics to a JSON string. */
 export function serializeReport(metrics: RunMetrics): string {
 	return JSON.stringify(metrics, null, 2);
 }

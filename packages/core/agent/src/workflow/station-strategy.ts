@@ -77,7 +77,7 @@ export class ImplStationRunner implements StationRunner {
 
 		await controller.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? STATION_TIMEOUT_MS);
 
-		agent.dispose();
+		void agent.dispose();
 
 		if (submittedOutput !== undefined) {
 			return { status: "fulfilled", output: submittedOutput, questions };

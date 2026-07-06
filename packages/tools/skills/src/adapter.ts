@@ -29,6 +29,7 @@ import type {
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { getString } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
+import type { AgentRunContribution } from "@dpopsuev/alef-kernel/contributions";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";
 
@@ -186,7 +187,7 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		return { book: bookName, pageCount: book.pages.length, instructions };
 	}
 
-	const agentRunContribution: import("@dpopsuev/alef-kernel/contributions").AgentRunContribution = {
+	const agentRunContribution: AgentRunContribution = {
 		schema: {
 			playbook: z
 				.string()

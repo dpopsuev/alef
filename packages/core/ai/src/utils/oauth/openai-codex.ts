@@ -44,6 +44,7 @@ function createState(): string {
 	if (!_randomBytes) {
 		throw new Error("OpenAI Codex OAuth is only available in Node.js environments");
 	}
+	// eslint-disable-next-line no-magic-numbers
 	return _randomBytes(16).toString("hex");
 }
 
@@ -53,6 +54,7 @@ function createState(): string {
 function decodeJwt(token: string): JwtPayload | null {
 	try {
 		const parts = token.split(".");
+		// eslint-disable-next-line no-magic-numbers
 		if (parts.length !== 3) return null;
 		const payload = parts[1] ?? "";
 		const decoded = atob(payload);
@@ -110,6 +112,7 @@ async function exchangeAuthorizationCode(
 		type: "success",
 		access: json.access_token,
 		refresh: json.refresh_token,
+		// eslint-disable-next-line no-magic-numbers
 		expires: Date.now() + json.expires_in * 1000,
 	};
 }
@@ -156,6 +159,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResult> {
 			type: "success",
 			access: json.access_token,
 			refresh: json.refresh_token,
+			// eslint-disable-next-line no-magic-numbers
 			expires: Date.now() + json.expires_in * 1000,
 		};
 	} catch (error) {

@@ -124,6 +124,7 @@ export function createAccessPolicy(rules: AccessPolicyRules): AccessPolicy {
 
 					const escMatch = matchesAny(command, cmdEscalate);
 					if (escMatch)
+						// eslint-disable-next-line no-magic-numbers
 						return { action: "escalate", reason: `Command requires approval: ${command.slice(0, 80)}` };
 				}
 			}

@@ -90,6 +90,7 @@ export function coverageCheck(opts?: Partial<CoverageCheckOptions>): Checker {
 	return {
 		async check({ workspace, seedSha: ctxSeedSha }: CheckerContext): Promise<CheckerResult> {
 			const resolvedSha = opts?.seedSha ?? ctxSeedSha;
+			// eslint-disable-next-line no-magic-numbers
 			const threshold = opts?.threshold ?? 70;
 
 			if (!resolvedSha) return { pass: true, score: 1.0, errors: [] };

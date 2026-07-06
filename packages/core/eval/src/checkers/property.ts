@@ -115,6 +115,7 @@ export function propertyCheck(properties: Property[]): Checker {
 			const failLines = output
 				.split("\n")
 				.filter((l) => l.startsWith("not ok") || l.includes("AssertionError") || l.includes("# "))
+				// eslint-disable-next-line no-magic-numbers
 				.slice(0, 5);
 
 			return {

@@ -241,6 +241,7 @@ export class AgentHandle {
 					name: s.name,
 					attributes: attrs,
 					status: spanStatus,
+					// eslint-disable-next-line no-magic-numbers
 					durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
 					...(args !== undefined && { args }),
 					...(result !== undefined && { result }),
@@ -325,6 +326,7 @@ export class EvalHarness {
 	 * The caller drives send() calls and must call dispose() when done.
 	 */
 	async boot(opts: HarnessOptions): Promise<AgentHandle> {
+		// eslint-disable-next-line no-magic-numbers
 		const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
 
 		const rootSpan = tracer.startSpan("eval.run", {
@@ -479,6 +481,7 @@ export class EvalHarness {
 		const start = Date.now();
 		const handle = await this.boot(opts);
 
+		// eslint-disable-next-line no-magic-numbers
 		const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
 		const timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(() => {

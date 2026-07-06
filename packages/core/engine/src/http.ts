@@ -141,6 +141,7 @@ export class RouterAdapter implements Adapter {
 
 	constructor(options: RouterOptions) {
 		this.options = {
+			// eslint-disable-next-line no-magic-numbers
 			port: options.port ?? 3000,
 			host: options.host ?? "127.0.0.1",
 			allowedEvents: options.allowedEvents ?? [],

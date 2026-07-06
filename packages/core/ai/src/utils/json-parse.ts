@@ -7,6 +7,7 @@ const VALID_JSON_ESCAPES = new Set(['"', "\\", "/", "b", "f", "n", "r", "t", "u"
  */
 function isControlCharacter(char: string): boolean {
 	const codePoint = char.codePointAt(0);
+	// eslint-disable-next-line no-magic-numbers
 	return codePoint !== undefined && codePoint >= 0x00 && codePoint <= 0x1f;
 }
 
@@ -26,6 +27,7 @@ function escapeControlCharacter(char: string): string {
 		case "\t":
 			return "\\t";
 		default:
+			// eslint-disable-next-line no-magic-numbers
 			return `\\u${char.codePointAt(0)?.toString(16).padStart(4, "0") ?? "0000"}`;
 	}
 }
@@ -65,9 +67,11 @@ export function repairJson(json: string): string {
 			}
 
 			if (nextChar === "u") {
+				// eslint-disable-next-line no-magic-numbers
 				const unicodeDigits = json.slice(index + 2, index + 6);
 				if (/^[0-9a-fA-F]{4}$/.test(unicodeDigits)) {
 					repaired += `\\u${unicodeDigits}`;
+					// eslint-disable-next-line no-magic-numbers
 					index += 5;
 					continue;
 				}

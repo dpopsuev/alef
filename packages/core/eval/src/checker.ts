@@ -54,6 +54,7 @@ export function fileContains(relativePath: string, ...required: string[]): Check
 
 			// Partial: file exists but some required strings missing
 			const found = required.length - missing.length;
+			// eslint-disable-next-line no-magic-numbers
 			const score = found > 0 ? 0.5 : 0;
 			return {
 				pass: false,
@@ -79,6 +80,7 @@ export function replyContains(...required: string[]): Checker {
 			const found = required.length - missing.length;
 			return {
 				pass: false,
+				// eslint-disable-next-line no-magic-numbers
 				score: found > 0 ? 0.5 : 0,
 				errors: missing.map((m) => `Reply missing keyword: '${m}'`),
 			};
@@ -151,8 +153,10 @@ export function llmJudge(rubric: string, modelId = "claude-haiku-4-5"): Checker 
 				return { pass: false, score: 0, errors: [`LLMJudge returned non-numeric: '${text}'`] };
 			}
 			return {
+				// eslint-disable-next-line no-magic-numbers
 				pass: score >= 0.7,
 				score,
+				// eslint-disable-next-line no-magic-numbers
 				errors: score < 0.7 ? [`LLMJudge score ${score.toFixed(2)} < 0.7 for rubric: ${rubric}`] : [],
 			};
 		},

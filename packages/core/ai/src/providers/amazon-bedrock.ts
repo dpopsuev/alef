@@ -694,6 +694,7 @@ function buildSystemPrompt(
  */
 function normalizeToolCallId(id: string): string {
 	const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, "_");
+	// eslint-disable-next-line no-magic-numbers
 	return sanitized.length > 64 ? sanitized.slice(0, 64) : sanitized;
 }
 

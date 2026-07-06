@@ -29,6 +29,7 @@ export class EventStream {
 
 	/** Register a new SSE client. Sets headers and schedules cleanup on close. */
 	add(res: ServerResponse): void {
+		// eslint-disable-next-line no-magic-numbers
 		res.writeHead(200, {
 			"Content-Type": "text/event-stream",
 			"Cache-Control": "no-cache",

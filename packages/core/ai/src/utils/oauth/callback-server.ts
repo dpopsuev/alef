@@ -67,6 +67,7 @@ export async function startCallbackServer(config: CallbackServerConfig): Promise
 		try {
 			const url = new URL(req.url ?? "", "http://localhost");
 			if (url.pathname !== config.path) {
+				// eslint-disable-next-line no-magic-numbers
 				res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
 				res.end(oauthErrorHtml("Callback route not found."));
 				return;
@@ -74,6 +75,7 @@ export async function startCallbackServer(config: CallbackServerConfig): Promise
 
 			const error = url.searchParams.get("error");
 			if (error) {
+				// eslint-disable-next-line no-magic-numbers
 				res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
 				res.end(oauthErrorHtml("Authentication did not complete.", `Error: ${error}`));
 				return;
@@ -83,21 +85,25 @@ export async function startCallbackServer(config: CallbackServerConfig): Promise
 			const state = url.searchParams.get("state") ?? undefined;
 
 			if (!code) {
+				// eslint-disable-next-line no-magic-numbers
 				res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
 				res.end(oauthErrorHtml("Missing authorization code."));
 				return;
 			}
 
 			if (config.expectedState && state !== config.expectedState) {
+				// eslint-disable-next-line no-magic-numbers
 				res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
 				res.end(oauthErrorHtml("State mismatch."));
 				return;
 			}
 
+			// eslint-disable-next-line no-magic-numbers
 			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
 			res.end(oauthSuccessHtml(config.successMessage ?? "Authentication completed. You can close this window."));
 			settleWait?.({ code, state });
 		} catch {
+			// eslint-disable-next-line no-magic-numbers
 			res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
 			res.end("Internal error");
 		}

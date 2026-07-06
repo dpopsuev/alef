@@ -72,6 +72,7 @@ export function isCodexNonTransportError(error: unknown): boolean {
  *
  */
 export function isRetryableError(status: number, errorText: string): boolean {
+	// eslint-disable-next-line no-magic-numbers
 	if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
 		return true;
 	}
@@ -126,6 +127,7 @@ export async function* parseSSE(response: Response): AsyncGenerator<Record<strin
 				const dataLines = chunk
 					.split("\n")
 					.filter((l) => l.startsWith("data:"))
+					// eslint-disable-next-line no-magic-numbers
 					.map((l) => l.slice(5).trim());
 				if (dataLines.length > 0) {
 					const data = dataLines.join("\n").trim();
@@ -175,9 +177,11 @@ export async function parseErrorResponse(response: Response): Promise<{ message:
 		if (err) {
 			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through
 			const code = err.code || err.type || "";
+			// eslint-disable-next-line no-magic-numbers
 			if (/usage_limit_reached|usage_not_included|rate_limit_exceeded/i.test(code) || response.status === 429) {
 				const plan = err.plan_type ? ` (${err.plan_type.toLowerCase()} plan)` : "";
 				const mins = err.resets_at
+					// eslint-disable-next-line no-magic-numbers
 					? Math.max(0, Math.round((err.resets_at * 1000 - Date.now()) / 60000))
 					: undefined;
 				const when = mins !== undefined ? ` Try again in ~${mins} min.` : "";

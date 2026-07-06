@@ -37,6 +37,7 @@ export class BusFixture {
 		opts: { timeoutMs?: number; correlationId?: string } = {},
 	): Promise<EventMessage> {
 		const correlationId = opts.correlationId ?? randomUUID();
+		// eslint-disable-next-line no-magic-numbers
 		const timeoutMs = opts.timeoutMs ?? 5_000;
 
 		const resultPromise = new Promise<EventMessage>((resolve, reject) => {
@@ -66,6 +67,7 @@ export class BusFixture {
 		opts: { timeoutMs?: number; correlationId?: string } = {},
 	): Promise<EventMessage> {
 		const correlationId = opts.correlationId ?? randomUUID();
+		// eslint-disable-next-line no-magic-numbers
 		const timeoutMs = opts.timeoutMs ?? 10_000;
 
 		const resultPromise = new Promise<EventMessage>((resolve, reject) => {

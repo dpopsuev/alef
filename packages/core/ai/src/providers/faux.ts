@@ -76,7 +76,9 @@ function buildFauxModel(def: FauxModelDefinition, api: string, provider: string)
 		reasoning: def.reasoning ?? false,
 		input: def.input ?? ["text", "image"],
 		cost: def.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		// eslint-disable-next-line no-magic-numbers
 		contextWindow: def.contextWindow ?? 128_000,
+		// eslint-disable-next-line no-magic-numbers
 		maxTokens: def.maxTokens ?? 16_384,
 	};
 }
@@ -108,6 +110,7 @@ export function fauxToolCall(name: string, args: ToolCall["arguments"], options:
 		options.id ??
 		(typeof globalThis.crypto.randomUUID === "function"
 			? globalThis.crypto.randomUUID()
+			// eslint-disable-next-line no-magic-numbers
 			: `tool:${Math.random().toString(36).slice(2)}`);
 	return { type: "toolCall", id, name, arguments: args };
 }
@@ -194,6 +197,7 @@ export interface FauxProviderRegistration {
  *
  */
 function estimateTokens(text: string): number {
+	// eslint-disable-next-line no-magic-numbers
 	return Math.ceil(text.length / 4);
 }
 
@@ -205,6 +209,7 @@ function splitByTokenSize(text: string, min: number, max: number): string[] {
 	let i = 0;
 	while (i < text.length) {
 		const tokenSize = min + Math.floor(Math.random() * (max - min + 1));
+		// eslint-disable-next-line no-magic-numbers
 		const charSize = Math.max(1, tokenSize * 4);
 		chunks.push(text.slice(i, i + charSize));
 		i += charSize;
@@ -308,6 +313,7 @@ function withUsage(
  */
 function scheduleChunk(chunk: string, tps: number | undefined): Promise<void> {
 	if (!tps || tps <= 0) return new Promise((r) => queueMicrotask(r));
+	// eslint-disable-next-line no-magic-numbers
 	const delayMs = (estimateTokens(chunk) / tps) * 1000;
 	return new Promise((r) => setTimeout(r, delayMs));
 }
@@ -453,6 +459,7 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 	const uuid = (): string =>
 		typeof globalThis.crypto.randomUUID === "function"
 			? globalThis.crypto.randomUUID()
+			// eslint-disable-next-line no-magic-numbers
 			: Math.random().toString(36).slice(2);
 	const api = options.api ?? `${DEFAULT_API_PREFIX}:${uuid()}`;
 	const provider = options.provider ?? DEFAULT_PROVIDER;

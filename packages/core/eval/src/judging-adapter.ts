@@ -30,6 +30,7 @@ export const JudgeFindingSchema = z.object({
 	severity: FindingSeveritySchema,
 	/** File and optional line: "src/sum.ts:12" or just "src/sum.ts". */
 	location: z.string().optional(),
+	// eslint-disable-next-line no-magic-numbers
 	message: z.string().max(300),
 });
 /**
@@ -48,8 +49,10 @@ export const JudgeReportSchema = z.object({
 	score: z.number().min(0).max(1),
 	verdict: JudgeVerdictSchema,
 	/** One-sentence headline visible in the summary table. Max 200 chars. */
+	// eslint-disable-next-line no-magic-numbers
 	summary: z.string().max(200),
 	/** Up to 10 specific findings with severity and location. */
+	// eslint-disable-next-line no-magic-numbers
 	findings: z.array(JudgeFindingSchema).max(10),
 });
 /**

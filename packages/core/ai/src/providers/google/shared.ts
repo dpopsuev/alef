@@ -56,6 +56,7 @@ const base64SignaturePattern = /^[A-Za-z0-9+/]+={0,2}$/;
  */
 function isValidThoughtSignature(signature: string | undefined): boolean {
 	if (!signature) return false;
+	// eslint-disable-next-line no-magic-numbers
 	if (signature.length % 4 !== 0) return false;
 	return base64SignaturePattern.test(signature);
 }
@@ -89,6 +90,7 @@ function getGeminiMajorVersion(modelId: string): number | undefined {
 function supportsMultimodalFunctionResponse(modelId: string): boolean {
 	const geminiMajorVersion = getGeminiMajorVersion(modelId);
 	if (geminiMajorVersion !== undefined) {
+		// eslint-disable-next-line no-magic-numbers
 		return geminiMajorVersion >= 3;
 	}
 	return true;
@@ -101,6 +103,7 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 	const contents: Content[] = [];
 	const normalizeToolCallId = (id: string): string => {
 		if (!requiresToolCallId(model.id)) return id;
+		// eslint-disable-next-line no-magic-numbers
 		return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 	};
 

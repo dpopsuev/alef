@@ -102,6 +102,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		agent.observe(recorder);
 
 		const controller = new AgentController(agent);
+		// eslint-disable-next-line no-magic-numbers
 		return new BlueprintGauntlet(workspace, agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
 	}
 

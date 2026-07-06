@@ -54,6 +54,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	const passed: string[] = [];
 	const warnings: string[] = [];
 	const errors: PreflightError[] = [];
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = cfg.probeTimeoutMs ?? 2000;
 
 	const ok = (phase: string) => passed.push(phase);

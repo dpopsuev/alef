@@ -38,6 +38,7 @@ export class SqliteStorageFactory implements StorageFactory {
 						WHERE session_id = ? AND bus IN ('event', 'command', 'notification')
 						AND type NOT IN ('adapter.loaded', 'llm.chunk', 'llm.checkpoint', 'llm.thinking', 'context.assemble')
 						ORDER BY rowid DESC LIMIT ?`,
+					// eslint-disable-next-line no-magic-numbers
 					args: [sessionId, maxLines * 3],
 				});
 				const lines: string[] = [];
@@ -48,9 +49,11 @@ export class SqliteStorageFactory implements StorageFactory {
 					const payload = JSON.parse(String(row.payload)) as Record<string, unknown>;
 					if (bus === "event" && type === "llm.input") {
 						const text = typeof payload.text === "string" ? payload.text : "";
+						// eslint-disable-next-line no-magic-numbers
 						if (text) lines.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
 					} else if ((bus === "notification" && type === "llm.result") || (bus === "command" && type === "llm.response")) {
 						const text = typeof payload.text === "string" ? payload.text : "";
+						// eslint-disable-next-line no-magic-numbers
 						if (text) lines.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
 					} else if (bus === "command" && !type.startsWith("llm.") && !type.startsWith("context.")) {
 						lines.push(`  ● ${type}`);

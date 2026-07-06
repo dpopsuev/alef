@@ -129,6 +129,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		agent.validate();
 
 		const controller = new AgentController(agent);
+		// eslint-disable-next-line no-magic-numbers
 		return new BlueprintHarness(agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
 	}
 

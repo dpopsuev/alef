@@ -55,6 +55,7 @@ export async function runAdapterContract(
 	adapter: Adapter,
 	opts: AdapterContractOptions = {},
 ): Promise<AdapterContractReport> {
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = opts.timeoutMs ?? 2000;
 	const passed: string[] = [];
 	const violations: AdapterContractViolation[] = [];
@@ -302,6 +303,7 @@ export function adapterComplianceSuite(
 		it("has a non-empty description", () => {
 			const o = adapter;
 			expect(o.description, "adapter must have a description").toBeTruthy();
+			// eslint-disable-next-line no-magic-numbers
 			expect(o.description!.length, "description must be > 10 chars").toBeGreaterThan(10);
 		});
 
@@ -327,18 +329,22 @@ export function adapterComplianceSuite(
 
 		it("all tools reject null required fields immediately (< 400ms)", async () => {
 			const o = createAdapter();
+			// eslint-disable-next-line no-magic-numbers
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
 			const violations = results.flatMap((r) => r.violations.map((v) => ` ${r.tool}: ${v}`));
 			expect(violations, `schema violations:\n${violations.join("\n")}`).toEqual([]);
+		// eslint-disable-next-line no-magic-numbers
 		}, 10_000);
 
 		it("error messages are human-readable (no raw [InputValidation] prefix)", async () => {
 			const o = createAdapter();
+			// eslint-disable-next-line no-magic-numbers
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
 			const rawErrors = results.flatMap((r) =>
 				r.violations.filter((v) => v.includes("[InputValidation]")).map((v) => ` ${r.tool}: ${v}`),
 			);
 			expect(rawErrors, "error messages must not expose internal [InputValidation] prefix").toEqual([]);
+		// eslint-disable-next-line no-magic-numbers
 		}, 10_000);
 
 		// ── Streaming contracts (auto-discovered from tool.streaming === true) ─
@@ -350,6 +356,7 @@ export function adapterComplianceSuite(
 					it(`${tool.name} emits isFinal:false chunks (streaming tool via typedStreamAction)`, async () => {
 						const o = createAdapter();
 						const result = await runStreamingContract(o, tool.name, config.validPayload, {
+							// eslint-disable-next-line no-magic-numbers
 							thresholdMs: config.thresholdMs ?? 500,
 							timeoutMs: 15_000,
 						});
@@ -357,6 +364,7 @@ export function adapterComplianceSuite(
 						if (config.minChunks !== undefined) {
 							expect(result.streamed, `${tool.name} must emit at least ${config.minChunks} chunk(s)`).toBe(true);
 						}
+					// eslint-disable-next-line no-magic-numbers
 					}, 20_000);
 				}
 			});
@@ -415,6 +423,7 @@ export async function runSchemaContract(
 	opts: { timeoutMs?: number } = {},
 ): Promise<SchemaContractResult[]> {
 	const results: SchemaContractResult[] = [];
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = opts.timeoutMs ?? 300;
 
 	for (const tool of adapter.tools) {
@@ -463,6 +472,7 @@ export async function runSchemaContract(
 				violations.push(`isError should be true when schema rejects null '${requiredStringField}'`);
 			if (result.errorMessage?.includes("[InputValidation]"))
 				violations.push(`Error message contains raw '[InputValidation]' prefix — should be human-readable`);
+			// eslint-disable-next-line no-magic-numbers
 			if (elapsed > 200) violations.push(`Schema rejection took ${elapsed}ms — should be immediate (<200ms)`);
 		}
 
@@ -490,7 +500,9 @@ export async function runStreamingContract(
 	validPayload: Record<string, unknown>,
 	opts: { thresholdMs?: number; timeoutMs?: number } = {},
 ): Promise<{ streamed: boolean; durationMs: number; violation?: string }> {
+	// eslint-disable-next-line no-magic-numbers
 	const thresholdMs = opts.thresholdMs ?? 1_000;
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = opts.timeoutMs ?? 10_000;
 
 	const bus = new InProcessBus();

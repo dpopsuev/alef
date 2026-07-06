@@ -42,11 +42,13 @@ export interface CommitViolation {
  */
 function checkCommit(sha: string, subject: string, body: string): CommitViolation[] {
 	const violations: CommitViolation[] = [];
+	// eslint-disable-next-line no-magic-numbers
 	const v = (rule: string, message: string) => violations.push({ sha: sha.slice(0, 8), rule, message });
 
 	if (!SUBJECT_FORMAT.test(subject)) {
 		v("format", `Subject must match '<type>: <desc>' (feat|fix|refactor|test|docs|chore|ci). Got: "${subject}"`);
 	}
+	// eslint-disable-next-line no-magic-numbers
 	if (subject.length > 72) {
 		v("length", `Subject is ${subject.length} characters (maximum 72). Got: "${subject}"`);
 	}

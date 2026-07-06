@@ -140,6 +140,7 @@ export function isContextOverflow(message: AssistantMessage, contextWindow?: num
 	// with output=0 and input+cacheRead filling the context window.
 	if (contextWindow && message.stopReason === "length" && message.usage.output === 0) {
 		const inputTokens = message.usage.input + message.usage.cacheRead;
+		// eslint-disable-next-line no-magic-numbers
 		if (inputTokens >= contextWindow * 0.99) {
 			return true;
 		}

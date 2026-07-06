@@ -69,6 +69,7 @@ export interface RequestBody {
 export function extractAccountId(token: string): string {
 	try {
 		const parts = token.split(".");
+		// eslint-disable-next-line no-magic-numbers
 		if (parts.length !== 3) throw new Error("Invalid token");
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT parse boundary
 		const payload = JSON.parse(atob(parts[1]));
@@ -89,6 +90,7 @@ export function createCodexRequestId(): string {
 	if (typeof globalThis.crypto.randomUUID === "function") {
 		return globalThis.crypto.randomUUID();
 	}
+	// eslint-disable-next-line no-magic-numbers
 	return `codex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -195,8 +197,10 @@ export function getServiceTierCostMultiplier(
 ): number {
 	switch (serviceTier) {
 		case "flex":
+			// eslint-disable-next-line no-magic-numbers
 			return 0.5;
 		case "priority":
+			// eslint-disable-next-line no-magic-numbers
 			return model.id === "gpt-5.5" ? 2.5 : 2;
 		default:
 			return 1;

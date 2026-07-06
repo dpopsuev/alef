@@ -298,8 +298,10 @@ function getServiceTierCostMultiplier(
 ): number {
 	switch (serviceTier) {
 		case "flex":
+			// eslint-disable-next-line no-magic-numbers
 			return 0.5;
 		case "priority":
+			// eslint-disable-next-line no-magic-numbers
 			return model.id === "gpt-5.5" ? 2.5 : 2;
 		default:
 			return 1;

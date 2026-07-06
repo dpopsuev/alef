@@ -112,6 +112,7 @@ function resolvePath(path: string, root: unknown): unknown {
 
 		// Array projection: "files[]" \u2192 collect remaining path from each element
 		if (part.endsWith("[]")) {
+			// eslint-disable-next-line no-magic-numbers
 			const key = part.slice(0, -2);
 			const arr = getKey(current, key);
 			if (!Array.isArray(arr)) return undefined;

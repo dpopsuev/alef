@@ -29,6 +29,7 @@ export function agentsMdCheck(): Checker {
 
 			const content = readFileSync(path, "utf-8");
 
+			// eslint-disable-next-line no-magic-numbers
 			if (content.length < 200) {
 				return {
 					pass: false,

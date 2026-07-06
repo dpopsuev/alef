@@ -27,6 +27,7 @@ interface CacheEntry {
 
 const DEFAULT_CACHED_TOOLS = ["command/fs.read", "command/fs.grep", "command/fs.find", "command/code.read"];
 const DEFAULT_INVALIDATING_TOOLS = ["command/fs.write", "command/fs.edit", "command/fs.patch"];
+// eslint-disable-next-line no-magic-numbers
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -175,6 +176,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 								pendingCaptures.delete(correlationId);
 							}
 						},
+						// eslint-disable-next-line no-magic-numbers
 						Math.min(ttl * 2, 60000),
 					);
 				}),
@@ -249,6 +251,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 				"cache.stats": typedAction(STATS_TOOL, async () => {
 					const stats = cache.stats();
 					const total = hits + misses;
+					// eslint-disable-next-line no-magic-numbers
 					const hitRate = total > 0 ? ((hits / total) * 100).toFixed(1) : "0.0";
 
 					const output = [
@@ -262,6 +265,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 						`Cached entries:`,
 						...stats.entries.map(
 							(e) =>
+								// eslint-disable-next-line no-magic-numbers
 								`  ${e.key.substring(0, 80)}${e.key.length > 80 ? "..." : ""} (age: ${Math.floor(e.age / 1000)}s)`,
 						),
 					].join("\n");

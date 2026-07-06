@@ -32,6 +32,7 @@ export function createServiceResolver(
 
 const MAX_RESTARTS = 3;
 const RESTART_WINDOW_MS = 60_000;
+// eslint-disable-next-line no-magic-numbers
 const RESTART_BACKOFF_MS = [1_000, 3_000, 10_000];
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 

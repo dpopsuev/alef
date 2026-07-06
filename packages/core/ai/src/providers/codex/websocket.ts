@@ -8,6 +8,7 @@ import type { RequestBody } from "./request.js";
 // Configuration
 // ============================================================================
 
+// eslint-disable-next-line no-magic-numbers
 export const SESSION_WEBSOCKET_CACHE_TTL_MS = 5 * 60 * 1000;
 export const WEBSOCKET_MESSAGE_TOO_BIG_CLOSE_CODE = 1009;
 
@@ -275,6 +276,7 @@ export function scheduleSessionWebSocketExpiry(sessionId: string, entry: CachedW
 	}
 	entry.idleTimer = setTimeout(() => {
 		if (entry.busy) return;
+		// eslint-disable-next-line no-magic-numbers
 		closeWebSocketSilently(entry.socket, 1000, "idle_timeout");
 		websocketSessionCache.delete(sessionId);
 	}, SESSION_WEBSOCKET_CACHE_TTL_MS);
@@ -341,6 +343,7 @@ export async function connectWebSocket(url: string, headers: Headers, signal?: A
 			if (settled) return;
 			settled = true;
 			cleanup();
+			// eslint-disable-next-line no-magic-numbers
 			socket.close(1000, "aborted");
 			reject(new Error("Request was aborted"));
 		};
@@ -594,6 +597,7 @@ export async function decodeWebSocketData(data: unknown): Promise<string | null>
 export function closeOpenAICodexWebSocketSessions(sessionId?: string): void {
 	const closeEntry = (entry: CachedWebSocketConnection) => {
 		if (entry.idleTimer) clearTimeout(entry.idleTimer);
+		// eslint-disable-next-line no-magic-numbers
 		closeWebSocketSilently(entry.socket, 1000, "debug_close");
 	};
 	if (sessionId) {

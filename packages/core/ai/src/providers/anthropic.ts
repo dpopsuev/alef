@@ -1166,6 +1166,8 @@ function applyThinkingConfig(
 		params.thinking = {
 			type: "enabled",
 			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
+			// eslint-disable-next-line no-magic-numbers
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, no-magic-numbers
 			budget_tokens: options.thinkingBudgetTokens || 1024,
 			display,
 		};
@@ -1217,6 +1219,7 @@ function buildParams(
 		model: model.id,
 		messages: convertMessages(context.messages, model, isOAuthToken, cacheControl),
 		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
+		// eslint-disable-next-line no-magic-numbers, @typescript-eslint/prefer-nullish-coalescing
 		max_tokens: options?.maxTokens || (model.maxTokens / 3) | 0,
 		stream: true,
 	};
@@ -1254,6 +1257,7 @@ function buildParams(
  *
  */
 function normalizeToolCallId(id: string): string {
+	// eslint-disable-next-line no-magic-numbers
 	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
 

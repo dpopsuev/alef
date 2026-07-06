@@ -57,6 +57,7 @@ export class EvaluatorAdapter implements Adapter {
 	};
 
 	constructor(options: EvaluatorAdapterOptions = {}) {
+		// eslint-disable-next-line no-magic-numbers
 		this.threshold = options.loopThreshold ?? 10;
 		this.onLoop = options.onLoop;
 	}

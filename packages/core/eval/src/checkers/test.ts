@@ -85,6 +85,7 @@ export function testCheck(globPattern = "**/*.test.ts"): Checker {
 			const failLines = output
 				.split("\n")
 				.filter((l) => l.includes("FAIL") || l.includes("AssertionError") || l.includes("Error:"))
+				// eslint-disable-next-line no-magic-numbers
 				.slice(0, 5);
 
 			return {

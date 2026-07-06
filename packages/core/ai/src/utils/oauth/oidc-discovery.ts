@@ -33,6 +33,7 @@ export async function discoverOIDC(issuerUrl: string): Promise<OIDCConfig> {
 	const wellKnown = issuerUrl.replace(/\/+$/, "") + "/.well-known/openid-configuration";
 	const response = await fetch(wellKnown, {
 		headers: { Accept: "application/json" },
+		// eslint-disable-next-line no-magic-numbers
 		signal: AbortSignal.timeout(10_000),
 	});
 

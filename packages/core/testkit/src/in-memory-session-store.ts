@@ -12,6 +12,7 @@ export class InMemorySessionStore implements SessionStore {
 	private readonly _cache: StorageRecord[] = [];
 	private readonly _indexer = new TurnIndexer();
 
+	// eslint-disable-next-line no-magic-numbers
 	constructor(id = randomUUID().replace(/-/g, "").slice(0, 8)) {
 		this.id = id;
 		this.path = `/dev/null/memory-session/${this.id}.jsonl`;

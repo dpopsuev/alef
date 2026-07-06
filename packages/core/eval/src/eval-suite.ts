@@ -41,6 +41,7 @@ function formatResultTable(results: EvaluationResult[]): void {
 	const total = results.length;
 	const meanScore = results.reduce((a, r) => a + r.score, 0) / total;
 
+	// eslint-disable-next-line no-magic-numbers
 	const nameWidth = Math.max(...results.map((r) => r.metrics.scenario.length), 8);
 	const header = `${"Eval".padEnd(nameWidth)}  Score  Time     Turns  Tools  Tokens`;
 	const divider = "─".repeat(header.length);
@@ -51,16 +52,23 @@ function formatResultTable(results: EvaluationResult[]): void {
 	for (const r of results) {
 		const icon = r.pass ? "✓" : "✗";
 		const name = r.metrics.scenario.padEnd(nameWidth);
+		// eslint-disable-next-line no-magic-numbers
 		const score = `${(r.score * 100).toFixed(0)}%`.padStart(4);
+		// eslint-disable-next-line no-magic-numbers
 		const time = `${(r.metrics.durationMs / 1000).toFixed(1)}s`.padStart(6);
+		// eslint-disable-next-line no-magic-numbers
 		const turns = String(r.metrics.turns.length).padStart(5);
+		// eslint-disable-next-line no-magic-numbers
 		const tools = String(r.metrics.turns.reduce((a, t) => a + t.toolCalls, 0)).padStart(5);
+		// eslint-disable-next-line no-magic-numbers
 		const tokens = String(r.metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0)).padStart(6);
+		// eslint-disable-next-line no-magic-numbers
 		const err = r.pass ? "" : `  ${r.errors[0]?.slice(0, 60) ?? ""}`;
 		console.log(`${icon} ${name}  ${score}  ${time}  ${turns}  ${tools}  ${tokens}${err}`);
 	}
 	console.log(divider);
 	console.log(
+		// eslint-disable-next-line no-magic-numbers
 		`  ${passed}/${total} passed  mean=${(meanScore * 100).toFixed(1)}%  total=${(results.reduce((a, r) => a + r.metrics.durationMs, 0) / 1000).toFixed(1)}s`,
 	);
 }
@@ -68,6 +76,7 @@ function formatResultTable(results: EvaluationResult[]): void {
 /** Register a vitest eval suite with scoreboard tracking and result reporting. */
 export function defineEvalSuite(opts: EvalSuiteOptions): void {
 	const allResults: EvaluationResult[] = [];
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = opts.timeoutMs ?? 300_000;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument -- vitest describe options type is too narrow for tags
@@ -88,6 +97,7 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 
 				if (!result.pass) {
 					const errors = result.errors.join("; ");
+					// eslint-disable-next-line no-magic-numbers
 					expect.fail(`${evaluation.id}: score=${(result.score * 100).toFixed(0)}% — ${errors}`);
 				}
 			}, timeoutMs);

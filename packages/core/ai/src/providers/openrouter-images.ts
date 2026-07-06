@@ -184,9 +184,13 @@ function parseUsage(
 		cacheWrite: cacheWriteTokens,
 		totalTokens: input + output + cacheReadTokens + cacheWriteTokens,
 		cost: {
+			// eslint-disable-next-line no-magic-numbers
 			input: (model.cost.input / 1000000) * input,
+			// eslint-disable-next-line no-magic-numbers
 			output: (model.cost.output / 1000000) * output,
+			// eslint-disable-next-line no-magic-numbers
 			cacheRead: (model.cost.cacheRead / 1000000) * cacheReadTokens,
+			// eslint-disable-next-line no-magic-numbers
 			cacheWrite: (model.cost.cacheWrite / 1000000) * cacheWriteTokens,
 			total: 0,
 		},

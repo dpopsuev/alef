@@ -219,6 +219,7 @@ export function formatErrorForUser(err: unknown): string {
 	// Rate limit errors
 	if (err instanceof RateLimitError || message.includes("429") || message.toLowerCase().includes("rate limit")) {
 		const retryAfter =
+			// eslint-disable-next-line no-magic-numbers
 			err instanceof RateLimitError && err.retryAfter ? ` (retry in ${Math.ceil(err.retryAfter / 1000)}s)` : "";
 		return `Rate limited. Wait a moment and try again${retryAfter}.`;
 	}
@@ -294,6 +295,7 @@ export function isRetriable(err: unknown): boolean {
 	}
 
 	// 5xx server errors are retriable
+	// eslint-disable-next-line no-magic-numbers
 	if (err instanceof ServiceError && err.statusCode && err.statusCode >= 500 && err.statusCode < 600) {
 		return true;
 	}

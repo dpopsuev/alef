@@ -446,12 +446,16 @@ function normalizeSupervisorPolicy(
 	}
 	return {
 		heartbeatIntervalMs: Math.max(
+			// eslint-disable-next-line no-magic-numbers
 			1000,
 			supervisor.heartbeatIntervalMs ?? DEFAULT_SUPERVISOR_POLICY.heartbeatIntervalMs,
 		),
+		// eslint-disable-next-line no-magic-numbers
 		heartbeatTimeoutMs: Math.max(100, supervisor.heartbeatTimeoutMs ?? DEFAULT_SUPERVISOR_POLICY.heartbeatTimeoutMs),
 		maxMissedHeartbeats: Math.max(1, supervisor.maxMissedHeartbeats ?? DEFAULT_SUPERVISOR_POLICY.maxMissedHeartbeats),
+		// eslint-disable-next-line no-magic-numbers
 		smokeTestTimeoutMs: Math.max(1000, supervisor.smokeTestTimeoutMs ?? DEFAULT_SUPERVISOR_POLICY.smokeTestTimeoutMs),
+		// eslint-disable-next-line no-magic-numbers
 		handoffTimeoutMs: Math.max(100, supervisor.handoffTimeoutMs ?? DEFAULT_SUPERVISOR_POLICY.handoffTimeoutMs),
 		maxFixIterations: Math.max(1, supervisor.maxFixIterations ?? DEFAULT_SUPERVISOR_POLICY.maxFixIterations),
 		upgradePolicy: supervisor.upgradePolicy ?? DEFAULT_SUPERVISOR_POLICY.upgradePolicy,

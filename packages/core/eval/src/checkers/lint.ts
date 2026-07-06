@@ -113,10 +113,12 @@ export function lintCheck(opts?: Partial<LintCheckOptions>): Checker {
 			}
 
 			if (warnings.length > 0) {
+				// eslint-disable-next-line no-magic-numbers
 				const score = Math.max(0.5, 1 - warnings.length / 10);
 				return {
 					pass: false,
 					score,
+					// eslint-disable-next-line no-magic-numbers
 					errors: warnings.slice(0, 5).map((d) => `warning: ${d.message.text}`),
 				};
 			}

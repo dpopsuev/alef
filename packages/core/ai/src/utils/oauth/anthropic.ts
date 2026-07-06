@@ -58,6 +58,7 @@ async function postJson(url: string, body: Record<string, string | number>): Pro
 			Accept: "application/json",
 		},
 		body: JSON.stringify(body),
+		// eslint-disable-next-line no-magic-numbers
 		signal: AbortSignal.timeout(30_000),
 	});
 
@@ -107,6 +108,7 @@ async function exchangeAuthorizationCode(
 	return {
 		refresh: tokenData.refresh_token,
 		access: tokenData.access_token,
+		// eslint-disable-next-line no-magic-numbers
 		expires: Date.now() + tokenData.expires_in * 1000 - 5 * 60 * 1000,
 	};
 }
@@ -263,6 +265,7 @@ export async function refreshAnthropicToken(refreshToken: string): Promise<OAuth
 	return {
 		refresh: data.refresh_token,
 		access: data.access_token,
+		// eslint-disable-next-line no-magic-numbers
 		expires: Date.now() + data.expires_in * 1000 - 5 * 60 * 1000,
 	};
 }

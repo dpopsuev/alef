@@ -184,7 +184,9 @@ async function pollForGitHubAccessToken(
 	signal?: AbortSignal,
 ) {
 	const urls = getUrls(domain);
+	// eslint-disable-next-line no-magic-numbers
 	const deadline = Date.now() + expiresIn * 1000;
+	// eslint-disable-next-line no-magic-numbers
 	let intervalMs = Math.max(1000, Math.floor(intervalSeconds * 1000));
 	let intervalMultiplier = INITIAL_POLL_INTERVAL_MULTIPLIER;
 	let slowDownResponses = 0;
@@ -231,6 +233,7 @@ async function pollForGitHubAccessToken(
 				if (error === "slow_down") {
 					slowDownResponses += 1;
 					intervalMs =
+						// eslint-disable-next-line no-magic-numbers
 						interval !== undefined && interval > 0 ? interval * 1000 : Math.max(1000, intervalMs + 5000);
 					intervalMultiplier = SLOW_DOWN_POLL_INTERVAL_MULTIPLIER;
 					continue;
@@ -285,6 +288,7 @@ export async function refreshGitHubCopilotToken(
 	return {
 		refresh: refreshToken,
 		access: token,
+		// eslint-disable-next-line no-magic-numbers
 		expires: expiresAt * 1000 - 5 * 60 * 1000,
 		enterpriseUrl: enterpriseDomain,
 	};

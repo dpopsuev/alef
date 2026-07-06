@@ -25,6 +25,7 @@ export function resolveTimeout(
 	defaults: { default: number; max: number },
 ): number {
 	const effective = requested ?? opts.defaultTimeoutSeconds ?? defaults.default;
+	// eslint-disable-next-line no-magic-numbers
 	return Math.min(effective, opts.maxTimeoutSeconds ?? defaults.max) * 1000;
 }
 

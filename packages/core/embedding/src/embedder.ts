@@ -40,9 +40,13 @@ function shouldEmbed(bus: string, type: string): boolean {
 function extractText(payload: Record<string, unknown>): string {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown _display to extract optional text
 	const display = (payload._display as { text?: string } | undefined)?.text;
+	// eslint-disable-next-line no-magic-numbers
 	if (typeof display === "string" && display.length > 0) return display.slice(0, 2000);
+	// eslint-disable-next-line no-magic-numbers
 	if (typeof payload.content === "string") return payload.content.slice(0, 2000);
+	// eslint-disable-next-line no-magic-numbers
 	if (typeof payload.text === "string") return payload.text.slice(0, 2000);
+	// eslint-disable-next-line no-magic-numbers
 	if (typeof payload.output === "string") return payload.output.slice(0, 2000);
 	if (typeof payload.path === "string") return payload.path;
 	if (typeof payload.cmd === "string") return payload.cmd;
@@ -66,12 +70,14 @@ export function queueEmbedding(
 	if (!shouldEmbed(bus, type)) return;
 
 	const text = extractText(payload);
+	// eslint-disable-next-line no-magic-numbers
 	if (text.length < 10) return;
 
 	pendingEmbeddings.push({ rowid, text: `${type}: ${text}` });
 
 	flushTimer ??= setTimeout(() => {
 		void flushEmbeddings(client);
+	// eslint-disable-next-line no-magic-numbers
 	}, 500);
 }
 
@@ -82,6 +88,7 @@ async function flushEmbeddings(client: Client): Promise<void> {
 	flushTimer = undefined;
 	if (!_embedder || pendingEmbeddings.length === 0) return;
 
+	// eslint-disable-next-line no-magic-numbers
 	const batch = pendingEmbeddings.splice(0, 20);
 	const recall = new RecallStore(client);
 
@@ -97,6 +104,7 @@ async function flushEmbeddings(client: Client): Promise<void> {
 	if (pendingEmbeddings.length > 0) {
 		flushTimer = setTimeout(() => {
 			void flushEmbeddings(client);
+		// eslint-disable-next-line no-magic-numbers
 		}, 100);
 	}
 }

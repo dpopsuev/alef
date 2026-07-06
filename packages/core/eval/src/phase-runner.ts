@@ -191,14 +191,19 @@ export function formatPhaseReport(result: PhaseEvaluationResult): string {
 	const status = result.passed ? "PASS" : "FAIL";
 	const lines = [
 		`[${status}] ${result.id}`,
+		// eslint-disable-next-line no-magic-numbers
 		`${"─".repeat(70)}`,
+		// eslint-disable-next-line no-magic-numbers
 		`${"Phase".padEnd(20)} ${"w".padStart(5)} ${"att".padStart(4)} ${"raw".padStart(5)} ${"final".padStart(6)} ${"weighted".padStart(8)}  status`,
+		// eslint-disable-next-line no-magic-numbers
 		`${"─".repeat(70)}`,
 	];
 
 	for (const r of result.phases) {
+		// eslint-disable-next-line no-magic-numbers
 		const st = r.skipped ? "skip" : r.finalScore >= 0.7 ? "✓" : "✗";
 		lines.push(
+			// eslint-disable-next-line no-magic-numbers
 			`${r.name.padEnd(20)} ${r.weight.toFixed(2).padStart(5)} ${String(r.attempts).padStart(4)} ${r.rawScore.toFixed(2).padStart(5)} ${r.finalScore.toFixed(2).padStart(6)} ${r.weightedScore.toFixed(3).padStart(8)}  ${st}`,
 		);
 		for (const v of r.violations) {
@@ -206,7 +211,9 @@ export function formatPhaseReport(result: PhaseEvaluationResult): string {
 		}
 	}
 
+	// eslint-disable-next-line no-magic-numbers
 	lines.push(`${"─".repeat(70)}`);
+	// eslint-disable-next-line no-magic-numbers
 	lines.push(`Total weighted score: ${result.totalScore.toFixed(3)}  threshold: 0.700  → ${status}`);
 	return lines.join("\n");
 }

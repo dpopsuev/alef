@@ -141,6 +141,7 @@ export interface UnitEvalReport {
  */
 export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> {
 	const start = Date.now();
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = cfg.timeoutMs ?? 5000;
 	const scorer = cfg.scorer ?? defaultUnitScorer;
 	const adapter = cfg.adapter;

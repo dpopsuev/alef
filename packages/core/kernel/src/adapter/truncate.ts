@@ -13,8 +13,10 @@
  */
 
 /** Maximum lines before truncation (overridable via ALEF_TOOL_MAX_LINES). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_MAX_LINES = Number(process.env.ALEF_TOOL_MAX_LINES) || 2000;
 /** Maximum bytes before truncation (overridable via ALEF_TOOL_MAX_BYTES). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_MAX_BYTES = Number(process.env.ALEF_TOOL_MAX_BYTES) || 50 * 1024;
 /** Maximum character length for a single grep match line. */
 export const GREP_MAX_LINE_LENGTH = 500;
@@ -42,8 +44,11 @@ export interface TruncationOptions {
 
 /** Truncation notices show size in human units. */
 export function formatSize(bytes: number): string {
+	// eslint-disable-next-line no-magic-numbers
 	if (bytes < 1024) return `${bytes}B`;
+	// eslint-disable-next-line no-magic-numbers
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+	// eslint-disable-next-line no-magic-numbers
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
@@ -155,6 +160,7 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 				// Single line exceeds budget — take the tail of it.
 				const buf = Buffer.from(line, "utf-8");
 				let start = buf.length - maxBytes;
+				// eslint-disable-next-line no-magic-numbers
 				while (start < buf.length && (buf[start] & 0xc0) === 0x80) start++;
 				const partial = buf.subarray(start).toString("utf-8");
 				out.unshift(partial);

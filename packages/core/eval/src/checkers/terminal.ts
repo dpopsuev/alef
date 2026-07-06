@@ -85,6 +85,7 @@ export function terminalScript(script: string, timeoutMs = 30_000): Checker {
 			return {
 				pass: false,
 				score: 0,
+				// eslint-disable-next-line no-magic-numbers
 				errors: [`Test script failed (exit ${exitCode})`, ...(stderr.trim() ? [stderr.trim().slice(0, 500)] : [])],
 			};
 		},

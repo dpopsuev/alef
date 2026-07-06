@@ -57,6 +57,7 @@ export interface E2eSessionOptions {
  */
 export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = {}): E2eSession {
 	const modelId = opts.modelId ?? process.env.ALEF_E2E_MODEL ?? "claude-haiku-4-5";
+	// eslint-disable-next-line no-magic-numbers
 	const timeoutMs = opts.timeoutMs ?? 60_000;
 
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";

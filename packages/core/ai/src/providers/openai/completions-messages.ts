@@ -279,9 +279,11 @@ export function convertMessages(
 		if (id.includes("|")) {
 			const [callId] = id.split("|");
 			// Sanitize to allowed chars and truncate to 40 chars (OpenAI limit)
+			// eslint-disable-next-line no-magic-numbers
 			return callId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
 		}
 
+		// eslint-disable-next-line no-magic-numbers
 		if (model.provider === "openai") return id.length > 40 ? id.slice(0, 40) : id;
 		return id;
 	};

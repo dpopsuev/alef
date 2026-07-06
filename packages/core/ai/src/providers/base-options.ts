@@ -10,6 +10,7 @@ export { adjustMaxTokensForThinking, clampReasoning } from "../utils/thinking-bu
 export function buildBaseOptions(model: Model<Api>, options?: SimpleStreamOptions, apiKey?: string): StreamOptions {
 	return {
 		temperature: options?.temperature,
+		// eslint-disable-next-line no-magic-numbers
 		maxTokens: options?.maxTokens ?? (model.maxTokens > 0 ? Math.min(model.maxTokens, 32000) : undefined),
 		signal: options?.signal,
 		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string should fall through to options apiKey

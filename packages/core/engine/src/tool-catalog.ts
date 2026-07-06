@@ -119,6 +119,7 @@ function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ n
 	if (words.length === 0) {
 		return [...tools]
 			.sort((a, b) => a.name.localeCompare(b.name))
+			// eslint-disable-next-line no-magic-numbers
 			.slice(0, 20)
 			.map((t) => ({ name: t.name, description: t.description }));
 	}
@@ -129,6 +130,7 @@ function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ n
 		}))
 		.filter((s) => s.score > 0)
 		.sort((a, b) => b.score - a.score)
+		// eslint-disable-next-line no-magic-numbers
 		.slice(0, 10)
 		.map((s) => ({ name: s.tool.name, description: s.tool.description }));
 }
@@ -287,6 +289,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 						calls.length === 0
 							? "No tool calls in flight."
 							: calls
+									// eslint-disable-next-line no-magic-numbers
 									.map((c) => `${c.name} (${c.callId.slice(0, 8)}) — ${Math.round(c.elapsedMs / 1000)}s`)
 									.join("\n");
 					return Promise.resolve(withDisplay({ calls }, { text, mimeType: "text/plain" }));
@@ -306,6 +309,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 					return Promise.resolve(
 						withDisplay(
 							{ cancelled: true, name: entry.name },
+							// eslint-disable-next-line no-magic-numbers
 							{ text: `Cancelled ${entry.name} (${callId.slice(0, 8)})`, mimeType: "text/plain" },
 						),
 					);

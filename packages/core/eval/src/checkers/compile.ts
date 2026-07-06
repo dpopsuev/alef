@@ -83,6 +83,7 @@ export function compileCheck(): Checker {
 			const errorLines = output
 				.split("\n")
 				.filter((l) => l.includes("error TS"))
+				// eslint-disable-next-line no-magic-numbers
 				.slice(0, 10); // cap at 10 for readability
 
 			return {

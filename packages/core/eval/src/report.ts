@@ -17,6 +17,7 @@ export function formatReport(metrics: RunMetrics): string {
 	const sendStr = metrics.sendTimingsMs
 		.map((ms, i) => {
 			const isLast = i === metrics.sendTimingsMs.length - 1;
+			// eslint-disable-next-line no-magic-numbers
 			const label = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
 			return isLast && metrics.timedOut ? `${label}*` : label;
 		})
@@ -28,6 +29,7 @@ export function formatReport(metrics: RunMetrics): string {
 
 	const lines = [
 		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)${metrics.timedOut ? " TIMEOUT" : ""}`,
+		// eslint-disable-next-line no-magic-numbers
 		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%  schema_frac: ${Number.isNaN(metrics.avgSchemaFraction) ? "n/a" : `${(metrics.avgSchemaFraction * 100).toFixed(1)}%`}`,
 		`  path: ${toolPath}`,
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
@@ -55,6 +57,7 @@ export function formatReport(metrics: RunMetrics): string {
 			);
 			for (const e of orphanedEvents) {
 				lines.push(
+					// eslint-disable-next-line no-magic-numbers
 					`    ✗ no event response for command/${e.event} (correlationId=${e.correlationId.slice(0, 8)}…)`,
 				);
 			}
@@ -73,8 +76,10 @@ export function formatTranscript(metrics: RunMetrics): string {
 		const role = String(msg.role ?? "?").toUpperCase();
 		if (role === "TOOLRESULT") {
 			const content =
+				// eslint-disable-next-line no-magic-numbers
 				typeof msg.content === "string" ? msg.content.slice(0, 300) : JSON.stringify(msg.content).slice(0, 300);
 			lines.push(`\n[TOOL RESULT: ${String(msg.toolName ?? "?")}]`);
+			// eslint-disable-next-line no-magic-numbers
 			lines.push(content + (content.length === 300 ? "..." : ""));
 		} else if (role === "ASSISTANT") {
 			const content = msg.content;
@@ -84,19 +89,23 @@ export function formatTranscript(metrics: RunMetrics): string {
 					const b = block as Record<string, unknown>;
 					if (b.type === "text") {
 						lines.push(`\n[ASSISTANT]`);
+						// eslint-disable-next-line no-magic-numbers
 						lines.push(String(b.text ?? "").slice(0, 500));
 					} else if (b.type === "tool_use") {
 						lines.push(`\n[TOOL CALL: ${String(b.name)}]`);
+						// eslint-disable-next-line no-magic-numbers
 						lines.push(JSON.stringify(b.input ?? {}, null, 2).slice(0, 400));
 					}
 				}
 			} else {
 				lines.push(`\n[ASSISTANT]`);
+				// eslint-disable-next-line no-magic-numbers
 				lines.push(String(content ?? "").slice(0, 500));
 			}
 		} else {
 			lines.push(`\n[${role}]`);
 			const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+			// eslint-disable-next-line no-magic-numbers
 			lines.push(content.slice(0, 500));
 		}
 	}

@@ -116,12 +116,14 @@ export function convertResponsesMessages<TApi extends Api>(
 
 	const normalizeIdPart = (part: string): string => {
 		const sanitized = part.replace(/[^a-zA-Z0-9_-]/g, "_");
+		// eslint-disable-next-line no-magic-numbers
 		const normalized = sanitized.length > 64 ? sanitized.slice(0, 64) : sanitized;
 		return normalized.replace(/_+$/, "");
 	};
 
 	const buildForeignResponsesItemId = (itemId: string): string => {
 		const normalized = `fc_${shortHash(itemId)}`;
+		// eslint-disable-next-line no-magic-numbers
 		return normalized.length > 64 ? normalized.slice(0, 64) : normalized;
 	};
 
@@ -200,6 +202,7 @@ export function convertResponsesMessages<TApi extends Api>(
 					let msgId = parsedSignature?.id;
 					if (!msgId) {
 						msgId = `msg_${msgIndex}`;
+					// eslint-disable-next-line no-magic-numbers
 					} else if (msgId.length > 64) {
 						msgId = `msg_${shortHash(msgId)}`;
 					}

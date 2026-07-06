@@ -50,6 +50,7 @@ export class SqliteSpanExporter implements SpanExporter {
 			const rawCorrelationAttr = span.attributes["alef.correlation.id"];
 			const sessionId =
 				(typeof rawSessionAttr === "string" ? rawSessionAttr : undefined) ??
+				// eslint-disable-next-line no-magic-numbers
 				(typeof rawCorrelationAttr === "string" ? rawCorrelationAttr.slice(0, 8) : undefined) ??
 				null;
 
@@ -63,7 +64,9 @@ export class SqliteSpanExporter implements SpanExporter {
 					parentId,
 					span.name,
 					span.kind,
+					// eslint-disable-next-line no-magic-numbers
 					Math.floor(span.startTime[0] * 1000 + span.startTime[1] / 1e6),
+					// eslint-disable-next-line no-magic-numbers
 					Math.floor(span.endTime[0] * 1000 + span.endTime[1] / 1e6),
 					span.status.code,
 					JSON.stringify(span.attributes),

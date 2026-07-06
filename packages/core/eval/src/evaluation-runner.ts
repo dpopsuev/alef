@@ -125,6 +125,7 @@ export class EvaluationRunner {
 			...(evaluation.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: evaluation.scenarioTimeoutMs }),
 		});
 
+		// eslint-disable-next-line no-magic-numbers
 		const scenarioTimeoutMs = evaluation.scenarioTimeoutMs ?? this.harnessOptions.scenarioTimeoutMs ?? 180_000;
 		const timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(() => {
@@ -208,7 +209,9 @@ export class EvaluationRunner {
 	 * τ-bench finding: 60% pass@1 may mean only 25% consistency across trials.
 	 */
 	async runN(evaluation: Evaluation, n?: number): Promise<PassAtK> {
+		// eslint-disable-next-line no-magic-numbers
 		const defaultN = n ?? (evaluation.kind === "capability" ? Number(process.env.ALEF_EVAL_N) || 5 : 1);
+		// eslint-disable-next-line no-magic-numbers
 		const concurrency = Number(process.env.ALEF_EVAL_CONCURRENCY) || 3;
 
 		const results: EvaluationResult[] = [];
@@ -224,7 +227,9 @@ export class EvaluationRunner {
 			if (errorRate > this.maxErrorRate) {
 				const firstError = results.find((r) => r.metrics.error)?.metrics.error;
 				throw new Error(
+					// eslint-disable-next-line no-magic-numbers
 					`[MaxErrorRate] ${(errorRate * 100).toFixed(0)}% of trials errored ` +
+						// eslint-disable-next-line no-magic-numbers
 						`(${errorCount}/${results.length}), threshold ${(this.maxErrorRate * 100).toFixed(0)}%. ` +
 						`First error: ${firstError}`,
 				);
@@ -272,6 +277,7 @@ export class EvaluationRunner {
 				lastReply: "",
 			});
 
+			// eslint-disable-next-line no-magic-numbers
 			if (result.score < 0.9) {
 				throw new Error(
 					`Fixture check failed for '${evaluation.id}': score=${result.score}\n${result.errors.join("\n")}`,

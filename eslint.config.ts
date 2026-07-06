@@ -50,16 +50,12 @@ export default tseslint.config(
 		},
 	},
 
-	// ── No magic numbers in core domain packages ───────────────────────
+	// ── No magic numbers in all core domain packages ────────────────────
 	// Business-critical thresholds, timeouts, and priorities must be named.
-	// Scoped to core/agent, core/reasoner, core/session — not CLI or tools.
+	// Generated files excluded — they are data tables full of numeric literals.
 	{
-		files: [
-			"packages/core/agent/src/**/*.ts",
-			"packages/core/reasoner/src/**/*.ts",
-			"packages/core/session/src/**/*.ts",
-		],
-		ignores: ["**/test/**"],
+		files: ["packages/core/*/src/**/*.ts"],
+		ignores: ["**/test/**", "**/*.generated.ts"],
 		rules: {
 			"no-magic-numbers": ["error", {
 				ignore: [0, 1, -1, 2],

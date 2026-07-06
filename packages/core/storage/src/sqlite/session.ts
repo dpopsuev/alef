@@ -131,6 +131,7 @@ export class SqliteSessionStore implements SessionStore {
 
 	static async prune(client: Client, cwd: string, maxAgeDays = DEFAULT_PRUNE_MAX_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
 		const hash = cwdHash(cwd);
+		// eslint-disable-next-line no-magic-numbers
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
 		const staleIds = await client.execute({
 			sql: `SELECT id FROM sessions WHERE cwd_hash = ? AND updated_at < ? AND id NOT IN (

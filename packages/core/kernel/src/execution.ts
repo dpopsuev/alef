@@ -7,12 +7,16 @@ function envInt(key: string, fallback: number): number {
 }
 
 /** Maximum wall-clock time for a full conversation (overridable via ALEF_CONVERSATION_TIMEOUT_MS). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_CONVERSATION_TIMEOUT_MS = envInt("ALEF_CONVERSATION_TIMEOUT_MS", 900_000);
 /** Idle timeout before the agent is considered stalled (overridable via ALEF_STALL_TIMEOUT_MS). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_STALL_TIMEOUT_MS = envInt("ALEF_STALL_TIMEOUT_MS", 180_000);
 /** Timeout for a single LLM HTTP call (overridable via ALEF_LLM_TIMEOUT_MS). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_LLM_TIMEOUT_MS = envInt("ALEF_LLM_TIMEOUT_MS", 120_000);
 /** Timeout for a single tool execution (overridable via ALEF_TOOL_TIMEOUT_MS). */
+// eslint-disable-next-line no-magic-numbers
 export const DEFAULT_TOOL_TIMEOUT_MS = envInt("ALEF_TOOL_TIMEOUT_MS", 300_000);
 
 /** Parameters for sending a user message through an execution strategy. */

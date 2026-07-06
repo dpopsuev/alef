@@ -254,6 +254,7 @@ export class AgentHandle {
 			this._unobserve?.();
 			await this._busTracer.close();
 		}
+		// eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget agent teardown
 		this._agent.dispose();
 
 		if (!this._keepWorkspace) {

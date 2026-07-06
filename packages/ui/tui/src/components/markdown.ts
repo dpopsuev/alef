@@ -148,7 +148,7 @@ export class Markdown implements Component {
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i];
 			const nextToken = tokens[i + 1];
-			const tokenLines = this.renderToken(token, contentWidth, nextToken?.type);
+			const tokenLines = this.renderToken(token, contentWidth, nextToken.type);
 			renderedLines.push(...tokenLines);
 		}
 
@@ -317,7 +317,7 @@ export class Markdown implements Component {
 				stylePrefix: this.getStylePrefix(headingStyleFn),
 			};
 
-			const headingText = this.renderInlineTokens(heading.tokens ?? [], headingStyleContext);
+			const headingText = this.renderInlineTokens(heading.tokens, headingStyleContext);
 			const styledHeading = headingLevel >= 3 ? headingStyleFn(headingPrefix) + headingText : headingText;
 			lines.push(styledHeading);
 			if (nextTokenType && nextTokenType !== "space") {
@@ -328,7 +328,7 @@ export class Markdown implements Component {
 		const renderParagraph = (): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "paragraph"
 			const paragraph = token as Tokens.Paragraph;
-			const paragraphText = this.renderInlineTokens(paragraph.tokens ?? [], styleContext);
+			const paragraphText = this.renderInlineTokens(paragraph.tokens, styleContext);
 			lines.push(paragraphText);
 			// Don't add spacing if next token is space or list
 			if (nextTokenType && nextTokenType !== "list" && nextTokenType !== "space") {
@@ -400,13 +400,13 @@ export class Markdown implements Component {
 				applyText: (text: string) => text,
 				stylePrefix: quoteStylePrefix,
 			};
-			const quoteTokens = blockquote.tokens ?? [];
+			const quoteTokens = blockquote.tokens;
 			const renderedQuoteLines: string[] = [];
 			for (let i = 0; i < quoteTokens.length; i++) {
 				const quoteToken = quoteTokens[i];
 				const nextQuoteToken = quoteTokens[i + 1];
 				renderedQuoteLines.push(
-					...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
+					...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken.type, quoteInlineStyleContext),
 				);
 			}
 
@@ -467,11 +467,7 @@ export class Markdown implements Component {
 		};
 
 		const renderer = tokenRenderers[token.type];
-		if (renderer) {
-			renderer();
-		} else {
-			renderDefault();
-		}
+		renderer();
 
 		return lines;
 	}
@@ -500,20 +496,20 @@ export class Markdown implements Component {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "paragraph"
 			const paragraph = tk as Tokens.Paragraph;
 			// Paragraph tokens contain nested inline tokens
-			result += this.renderInlineTokens(paragraph.tokens ?? [], resolvedStyleContext);
+			result += this.renderInlineTokens(paragraph.tokens, resolvedStyleContext);
 		};
 
 		const renderInlineStrong = (tk: Token): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "strong"
 			const strong = tk as Tokens.Strong;
-			const boldContent = this.renderInlineTokens(strong.tokens ?? [], resolvedStyleContext);
+			const boldContent = this.renderInlineTokens(strong.tokens, resolvedStyleContext);
 			result += this.theme.bold(boldContent) + stylePrefix;
 		};
 
 		const renderInlineEm = (tk: Token): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "em"
 			const em = tk as Tokens.Em;
-			const italicContent = this.renderInlineTokens(em.tokens ?? [], resolvedStyleContext);
+			const italicContent = this.renderInlineTokens(em.tokens, resolvedStyleContext);
 			result += this.theme.italic(italicContent) + stylePrefix;
 		};
 
@@ -526,7 +522,7 @@ export class Markdown implements Component {
 		const renderInlineLink = (tk: Token): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "link"
 			const link = tk as Tokens.Link;
-			const linkText = this.renderInlineTokens(link.tokens ?? [], resolvedStyleContext);
+			const linkText = this.renderInlineTokens(link.tokens, resolvedStyleContext);
 			const styledLink = this.theme.link(this.theme.underline(linkText));
 			if (getCapabilities().hyperlinks) {
 				// OSC 8: render as a clickable hyperlink. The URL is not printed inline,
@@ -553,7 +549,7 @@ export class Markdown implements Component {
 		const renderInlineDel = (tk: Token): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees tk.type === "del"
 			const del = tk as Tokens.Del;
-			const delContent = this.renderInlineTokens(del.tokens ?? [], resolvedStyleContext);
+			const delContent = this.renderInlineTokens(del.tokens, resolvedStyleContext);
 			result += this.theme.strikethrough(delContent) + stylePrefix;
 		};
 
@@ -585,11 +581,7 @@ export class Markdown implements Component {
 
 		for (const token of tokens) {
 			const renderer = inlineRenderers[token.type];
-			if (renderer) {
-				renderer(token);
-			} else {
-				renderInlineDefault(token);
-			}
+			renderer(token);
 		}
 
 		while (stylePrefix && result.endsWith(stylePrefix)) {
@@ -722,6 +714,7 @@ export class Markdown implements Component {
 		let minCellsWidth = minColumnWidths.reduce((a, b) => a + b, 0);
 
 		if (minCellsWidth > availableForCells) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Array.fill(1) produces number[] but TS infers any[]
 			minColumnWidths = new Array(numCols).fill(1);
 			const remaining = availableForCells - numCols;
 

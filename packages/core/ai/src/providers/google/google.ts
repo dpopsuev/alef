@@ -3,6 +3,7 @@ import {
 	type GenerateContentParameters,
 	GoogleGenAI,
 	type ThinkingConfig,
+	ThinkingLevel as SdkThinkingLevel,
 } from "@google/genai";
 import { getEnvApiKey } from "../../env-api-keys.js";
 import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
@@ -89,26 +90,21 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			const blockIndex = () => blocks.length - 1;
 
 			function emitBlockEnd(block: TextContent | ThinkingContent): void {
-				const emitters: Record<string, () => void> = {
-					text: () =>
-						stream.push({
-							type: "text_end",
-							contentIndex: blockIndex(),
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "text"
-							content: (block as TextContent).text,
-							partial: output,
-						}),
-					thinking: () =>
-						stream.push({
-							type: "thinking_end",
-							contentIndex: blockIndex(),
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "thinking"
-							content: (block as ThinkingContent).thinking,
-							partial: output,
-						}),
-				};
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all block types have emitters
-				emitters[block.type]?.();
+				if (block.type === "text") {
+					stream.push({
+						type: "text_end",
+						contentIndex: blockIndex(),
+						content: block.text,
+						partial: output,
+					});
+				} else {
+					stream.push({
+						type: "thinking_end",
+						contentIndex: blockIndex(),
+						content: block.thinking,
+						partial: output,
+					});
+				}
 			}
 
 			function appendTextDelta(block: TextContent, text: string, thoughtSignature: string | undefined): void {
@@ -358,8 +354,8 @@ function buildParams(
 	if (options.thinking?.enabled && model.reasoning) {
 		const thinkingConfig: ThinkingConfig = { includeThoughts: true };
 		if (options.thinking.level !== undefined) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: GoogleThinkingLevel mirrors Google SDK's ThinkingLevel enum values
-			thinkingConfig.thinkingLevel = options.thinking.level as any;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: GoogleThinkingLevel values match SDK ThinkingLevel enum members
+			thinkingConfig.thinkingLevel = options.thinking.level as SdkThinkingLevel;
 		} else if (options.thinking.budgetTokens !== undefined) {
 			thinkingConfig.thinkingBudget = options.thinking.budgetTokens;
 		}
@@ -403,16 +399,13 @@ function getDisabledThinkingConfig(model: Model<"google-generative-ai">): Thinki
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
 	// thinkingLevel without includeThoughts so hidden thinking remains invisible to pi.
 	if (isGemini3ProModel(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemini 3.1 Pro requires LOW as minimum thinking level
-		return { thinkingLevel: "LOW" as any };
+		return { thinkingLevel: SdkThinkingLevel.LOW };
 	}
 	if (isGemini3FlashModel(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemini 3 Flash requires MINIMAL as minimum thinking level
-		return { thinkingLevel: "MINIMAL" as any };
+		return { thinkingLevel: SdkThinkingLevel.MINIMAL };
 	}
 	if (isGemma4Model(model)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- boundary cast: Gemma 4 requires MINIMAL as minimum thinking level
-		return { thinkingLevel: "MINIMAL" as any };
+		return { thinkingLevel: SdkThinkingLevel.MINIMAL };
 	}
 
 	// Gemini 2.x supports disabling via thinkingBudget = 0.
@@ -458,7 +451,7 @@ function getGoogleBudget(
 	customBudgets?: ThinkingBudgets,
 ): number {
 	if (customBudgets?.[effort] !== undefined) {
-		return customBudgets[effort]!;
+		return customBudgets[effort];
 	}
 
 	if (model.id.includes("2.5-pro")) {

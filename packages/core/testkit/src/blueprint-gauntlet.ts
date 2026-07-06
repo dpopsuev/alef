@@ -27,6 +27,7 @@ import { BusEventRecorder } from "./bus-event-recorder.js";
 import { type ScriptStep, step } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
 
+/** Configuration for creating a BlueprintGauntlet test harness. */
 export interface GauntletOptions {
 	/** Adapters to mount. Required. */
 	adapters: Adapter[];
@@ -38,6 +39,7 @@ export interface GauntletOptions {
 	timeoutMs?: number;
 }
 
+/** Options for a single send call in a gauntlet scenario. */
 export interface GauntletSendOptions {
 	/** Additional script steps to append before this send. */
 	prependSteps?: ScriptStep[];

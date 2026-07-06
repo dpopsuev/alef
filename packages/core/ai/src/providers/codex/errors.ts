@@ -197,8 +197,7 @@ export async function* mapCodexEvents(events: AsyncIterable<Record<string, unkno
 			const normalizedResponse = response
 				? { ...response, status: normalizeCodexStatus(response.status) }
 				: response;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Codex event type mapping
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Codex event type mapping
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/consistent-type-assertions -- Codex event type mapping
 			yield { ...event, type: "response.completed", response: normalizedResponse } as ResponseStreamEvent;
 			return;
 		}

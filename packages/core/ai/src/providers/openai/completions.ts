@@ -226,8 +226,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				// in choice.usage instead of the standard chunk.usage
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
 				if (!chunk.usage && (choice as any).usage) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- non-standard provider usage field
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument -- non-standard provider field
 					output.usage = parseChunkUsage((choice as any).usage, model);
 				}
 
@@ -310,8 +309,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 					}
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- non-standard reasoning_details field
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- non-standard provider field
 				const reasoningDetails = (choice.delta as any).reasoning_details;
 				if (reasoningDetails && Array.isArray(reasoningDetails)) {
 					for (const detail of reasoningDetails) {

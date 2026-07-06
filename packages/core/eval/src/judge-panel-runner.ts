@@ -25,10 +25,12 @@ import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
 import type { JudgeReport } from "./judging-adapter.js";
 import { createJudgingAdapter } from "./judging-adapter.js";
 
+/** Defines a specialist judge agent: its persona, weight, and opening prompt. */
 export interface JudgeSpec {
 	name: string;
 	/** SKILL.md content — the judge's persona and lens. */
@@ -39,6 +41,7 @@ export interface JudgeSpec {
 	prompt: string;
 }
 
+/** Outcome of a single judge run, including weighted score and optional error. */
 export interface JudgeResult {
 	name: string;
 	weight: number;
@@ -48,6 +51,7 @@ export interface JudgeResult {
 	durationMs: number;
 }
 
+/** Aggregated result from the full judge panel: scores, verdicts, and blocking findings. */
 export interface JudgePanelResult {
 	judges: JudgeResult[];
 	/** Weighted average of judge scores. */
@@ -60,6 +64,7 @@ export interface JudgePanelResult {
 // AIMD scheduler — mirrors the evaluations.test.ts pattern
 // ---------------------------------------------------------------------------
 
+/** AIMD concurrency scheduler that backs off on rate-limit errors. */
 class AimdScheduler {
 	private concurrency: number;
 	private readonly max: number;
@@ -93,20 +98,22 @@ class AimdScheduler {
 // Runner
 // ---------------------------------------------------------------------------
 
+/** Configuration for the judge panel: adapter factories, timeout, and concurrency. */
 export interface JudgePanelRunnerOptions {
 	/** Options forwarded to the agent loop factory. Must include asyncAdapterFactory. */
 	agentLoopFactory: (
 		workspace: string,
 		signal: AbortSignal,
-		extraAdapters: import("@dpopsuev/alef-kernel/adapter").Adapter[],
-	) => Promise<import("@dpopsuev/alef-kernel/adapter").Adapter[]>;
-	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<import("@dpopsuev/alef-engine/agent").Agent>;
+		extraAdapters: Adapter[],
+	) => Promise<Adapter[]>;
+	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<Agent>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */
 	maxConcurrency?: number;
 }
 
+/** Runs specialist judge agents in parallel against a workspace and aggregates results. */
 export class JudgePanelRunner {
 	private readonly opts: JudgePanelRunnerOptions;
 
@@ -119,7 +126,7 @@ export class JudgePanelRunner {
 		const maxConcurrency = this.opts.maxConcurrency ?? 3;
 		const scheduler = new AimdScheduler(Math.min(3, maxConcurrency), maxConcurrency);
 
-		const results: JudgeResult[] = new Array(judges.length).fill(null);
+		const results = new Array<JudgeResult | null>(judges.length).fill(null);
 		const queue = judges.map((j, i) => ({ judge: j, index: i }));
 		const inFlight: Promise<void>[] = [];
 
@@ -154,7 +161,7 @@ export class JudgePanelRunner {
 			while (inFlight.length < scheduler.current && next < queue.length) {
 				const item = queue[next++];
 				const p = runOne(item).finally(() => {
-					inFlight.splice(inFlight.indexOf(p), 1);
+					void inFlight.splice(inFlight.indexOf(p), 1);
 					dispatch();
 				});
 				inFlight.push(p);
@@ -164,7 +171,8 @@ export class JudgePanelRunner {
 		dispatch();
 		while (inFlight.length > 0) await Promise.race(inFlight);
 
-		const valid = results.filter((r) => !!r.report);
+		const filled = results.filter((r): r is JudgeResult => r != null);
+		const valid = filled.filter((r) => !!r.report);
 		const panelScore = valid.length > 0 ? valid.reduce((s, r) => s + r.weightedScore, 0) : 0;
 
 		const blockingFindings = valid.flatMap((r) =>
@@ -173,7 +181,7 @@ export class JudgePanelRunner {
 				.map((f) => ({ judge: r.name, location: f.location, message: f.message })),
 		);
 
-		return { judges: results, panelScore, blockingFindings };
+		return { judges: filled, panelScore, blockingFindings };
 	}
 
 	private async runJudge(judge: JudgeSpec, workspace: string, timeoutMs: number): Promise<JudgeReport | undefined> {
@@ -218,7 +226,7 @@ export class JudgePanelRunner {
 				),
 			]);
 		} finally {
-			agent.dispose();
+			void agent.dispose();
 			// Clean up the seeded skill.
 			await rm(skillDir, { recursive: true, force: true }).catch(() => {});
 		}
@@ -231,6 +239,7 @@ export class JudgePanelRunner {
 // Formatting
 // ---------------------------------------------------------------------------
 
+/** Formats a JudgePanelResult into a human-readable table with scores and findings. */
 export function formatJudgePanelReport(result: JudgePanelResult): string {
 	const lines = [
 		`Judge Panel Score: ${result.panelScore.toFixed(3)}`,

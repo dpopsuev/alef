@@ -106,25 +106,21 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			const blockIndex = () => blocks.length - 1;
 
 			function emitBlockEnd(block: TextContent | ThinkingContent): void {
-				const endEvents: Record<string, () => void> = {
-					text: () =>
-						stream.push({
-							type: "text_end",
-							contentIndex: blockIndex(),
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "text"
-							content: (block as TextContent).text,
-							partial: output,
-						}),
-					thinking: () =>
-						stream.push({
-							type: "thinking_end",
-							contentIndex: blockIndex(),
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees block.type === "thinking"
-							content: (block as ThinkingContent).thinking,
-							partial: output,
-						}),
-				};
-				endEvents[block.type]();
+				if (block.type === "text") {
+					stream.push({
+						type: "text_end",
+						contentIndex: blockIndex(),
+						content: block.text,
+						partial: output,
+					});
+				} else {
+					stream.push({
+						type: "thinking_end",
+						contentIndex: blockIndex(),
+						content: block.thinking,
+						partial: output,
+					});
+				}
 			}
 
 			for await (const chunk of googleStream) {
@@ -529,7 +525,7 @@ function getGoogleBudget(
 	customBudgets?: ThinkingBudgets,
 ): number {
 	if (customBudgets?.[effort] !== undefined) {
-		return customBudgets[effort]!;
+		return customBudgets[effort];
 	}
 
 	if (model.id.includes("2.5-pro")) {

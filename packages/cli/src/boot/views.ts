@@ -60,7 +60,7 @@ export class HeadlessViewMode implements ViewMode {
 	complete(): void {
 		this._unsubscribe?.();
 		this._resolve?.();
-		this._session?.dispose();
+		void this._session?.dispose();
 		this._unsubscribe = null;
 		this._resolve = null;
 		this._session = null;

@@ -215,7 +215,7 @@ const exit = {
 	name: "q",
 	description: "Quit",
 	run(ctx: TuiHandlerContext) {
-		ctx.session.dispose();
+		void ctx.session.dispose();
 		ctx.tui.stop();
 	},
 };
@@ -226,7 +226,7 @@ const detach = {
 	run(ctx: TuiHandlerContext) {
 		ctx.writer.addNotice("(detached — daemon keeps running)");
 		ctx.tui.requestRender(true);
-		ctx.session.dispose();
+		void ctx.session.dispose();
 		ctx.tui.stop();
 	},
 };

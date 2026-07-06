@@ -73,7 +73,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				start: () => Promise.resolve(),
 				stop() {
 					stopped = true;
-					handle.dispose();
+					void handle.dispose();
 					return Promise.resolve();
 				},
 				health: () => Promise.resolve(!stopped),

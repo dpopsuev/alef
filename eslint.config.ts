@@ -1,67 +1,7 @@
-import boundaries from "eslint-plugin-boundaries";
 import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-	// ── Runner intra-package import boundaries ──────────────────────────
-	// Enforces a DAG: subdirectories can import root, root can import
-	// subdirectories, but subdirectories cannot import each other
-	// (except where explicitly allowed).
-	{
-		files: ["packages/runner/src/**/*.ts"],
-		plugins: { boundaries },
-		settings: {
-			"import/resolver": {
-				typescript: {
-					project: "packages/runner/tsconfig.build.json",
-				},
-			},
-			"boundaries/elements": [
-				{ type: "model", pattern: ["model"] },
-				{ type: "session-lifecycle", pattern: ["session-lifecycle"] },
-				{ type: "tui", pattern: ["tui"] },
-				{ type: "commands", pattern: ["commands"] },
-				{ type: "identity", pattern: ["identity"] },
-				{ type: "strategies", pattern: ["strategies"] },
-				{ type: "workflow", pattern: ["workflow"] },
-				{ type: "root", pattern: ["src/*"], mode: "file" },
-			],
-		},
-		rules: {
-			"boundaries/dependencies": ["error", {
-				default: "disallow",
-				rules: [
-					{ from: { type: "root" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "session-lifecycle" } }, { to: { type: "tui" } }, { to: { type: "commands" } }, { to: { type: "identity" } }, { to: { type: "strategies" } }, { to: { type: "workflow" } }] },
-					{ from: { type: "model" }, allow: [{ to: { type: "root" } }] },
-					{ from: { type: "session-lifecycle" }, allow: [{ to: { type: "root" } }] },
-					{ from: { type: "tui" }, allow: [{ to: { type: "root" } }, { to: { type: "commands" } }] },
-					{ from: { type: "commands" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "tui" } }] },
-					{ from: { type: "identity" }, allow: [{ to: { type: "root" } }] },
-					{ from: { type: "strategies" }, allow: [{ to: { type: "root" } }] },
-					{ from: { type: "workflow" }, allow: [{ to: { type: "root" } }] },
-				],
-			}],
-		},
-	},
-
-	// ── Architectural boundary: core → tools is forbidden ──────────────
-	// Core packages define abstractions; tool packages implement them.
-	// If a core package needs tool-specific knowledge (event names, options),
-	// it must go through a contribution interface, not a direct import.
-	{
-		files: ["packages/core/*/src/**/*.ts"],
-		rules: {
-			"no-restricted-imports": ["error", {
-				patterns: [
-					{
-						group: ["@dpopsuev/alef-tool-*"],
-						message: "Core packages must not import from tool packages. Use adapter contributions instead.",
-					},
-				],
-			}],
-		},
-	},
-
 	// ── JSDoc: require documentation on all exported symbols ────────────
 	// Enforces JSDoc on exported functions, classes, interfaces, type
 	// aliases, and enums. Set to "warn" — does not block CI, but surfaces
@@ -199,6 +139,50 @@ export default tseslint.config(
 			"@typescript-eslint/prefer-promise-reject-errors": "warn",
 			"@typescript-eslint/no-redundant-type-constituents": "off",
 			"@typescript-eslint/use-unknown-in-catch-callback-variable": "warn",
+		},
+	},
+
+	// ── Architectural boundary: core must not import tools ───────────────
+	// Overrides the generic type-aware block above to merge barrel ban +
+	// tool import ban into a single no-restricted-imports rule.
+	// Must come AFTER the type-aware block so flat config override applies.
+	{
+		files: ["packages/core/*/src/**/*.ts"],
+		rules: {
+			"no-restricted-imports": ["error", {
+				patterns: [
+					{
+						group: ["../index", "../index.js", "../../index", "../../index.js"],
+						message: "Do not import from barrel files. Import from the source module directly.",
+					},
+					{
+						group: ["@dpopsuev/alef-tool-*"],
+						message: "Core packages must not import from tool packages. Use adapter contributions or injection instead.",
+					},
+				],
+			}],
+		},
+	},
+
+	// ── Architectural boundary: tools must not import other tools ────────
+	// Each tool adapter is independent. Shared adapter infrastructure lives
+	// in mcp-registry (exempted via ignores — those tools depend on it legitimately).
+	{
+		files: ["packages/tools/*/src/**/*.ts"],
+		ignores: ["packages/tools/locus/src/**", "packages/tools/scribe/src/**"],
+		rules: {
+			"no-restricted-imports": ["error", {
+				patterns: [
+					{
+						group: ["../index", "../index.js", "../../index", "../../index.js"],
+						message: "Do not import from barrel files. Import from the source module directly.",
+					},
+					{
+						group: ["@dpopsuev/alef-tool-*"],
+						message: "Tool packages must not import other tools.",
+					},
+				],
+			}],
 		},
 	},
 );

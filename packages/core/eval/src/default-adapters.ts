@@ -8,7 +8,9 @@
  *   baseAdaptersFactory: () => []
  */
 
+// eslint-disable-next-line no-restricted-imports -- eval harness is a composition root; needs concrete adapters
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+// eslint-disable-next-line no-restricted-imports -- eval harness is a composition root; needs concrete adapters
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 

@@ -77,5 +77,5 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 
 	console.log();
 	console.log("Replay complete.");
-	agent.dispose();
+	void agent.dispose();
 }

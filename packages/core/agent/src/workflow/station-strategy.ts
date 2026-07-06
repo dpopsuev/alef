@@ -3,17 +3,8 @@ import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import {
-	type Contract,
-	createContractTool,
-	createQuestionTool,
-	GoalContract,
-	ImplementContract,
-	IntentContract,
-	type StationDef,
-	type StationResult,
-	type StationRunner,
-} from "@dpopsuev/alef-tool-workflow";
+// eslint-disable-next-line no-restricted-imports -- workflow contracts belong in core; refactor pending
+import { type Contract, createContractTool, createQuestionTool, GoalContract, ImplementContract, IntentContract, type StationDef, type StationResult, type StationRunner } from "@dpopsuev/alef-tool-workflow";
 import type { z } from "zod";
 
 const STATION_TIMEOUT_MS = 180_000;

@@ -20,7 +20,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.tui.requestRender(true);
 	} else {
 		traceEvent("ctrl+c:idle:dispose");
-		ctx.session.dispose();
+		void ctx.session.dispose();
 		traceEvent("ctrl+c:idle:tui.stop");
 		ctx.tui.stop();
 	}

@@ -21,6 +21,6 @@ export async function runPrintMode(prompt: string, session: Session): Promise<vo
 		console.error(formatErrorForUser(e));
 		process.exitCode = 1;
 	} finally {
-		session.dispose();
+		void session.dispose();
 	}
 }

@@ -19,7 +19,9 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+// eslint-disable-next-line no-restricted-imports -- judge panel is a composition root; needs concrete adapters
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+// eslint-disable-next-line no-restricted-imports -- judge panel is a composition root; needs concrete adapters
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";

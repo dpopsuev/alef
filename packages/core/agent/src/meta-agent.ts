@@ -4,6 +4,7 @@ import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { DirectiveView } from "@dpopsuev/alef-session/contracts";
+// eslint-disable-next-line no-restricted-imports -- meta-agent is a composition root; createMetaAdapter needed directly
 import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-tool-meta";
 
 const META_SYSTEM_PROMPT =

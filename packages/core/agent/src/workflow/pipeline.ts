@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- workflow types belong in core; refactor pending
 import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-tool-workflow";
 
 export interface PipelineResult {

@@ -54,6 +54,6 @@ export async function runInteractive(session: Session, opts: InteractiveOptions)
 			}
 		}
 	} finally {
-		session.dispose();
+		void session.dispose();
 	}
 }

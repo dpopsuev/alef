@@ -108,16 +108,16 @@ export default tseslint.config(
 			// Catches returning unknown without narrowing.
 			"@typescript-eslint/no-unsafe-return": "error",
 			// Catches assigning unknown without narrowing.
-			"@typescript-eslint/no-unsafe-assignment": "warn",
+			"@typescript-eslint/no-unsafe-assignment": "error",
 			// Catches floating promises (void store.append() swallowing errors).
 			"@typescript-eslint/no-floating-promises": "error",
 			// Forces callback error variables to be typed as unknown.
-			"@typescript-eslint/use-unknown-in-catch-callback-variable": "warn",
+			"@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
 
 			// ── Anti-pattern: any abuse (AI agents' #1 escape hatch) ────────────
-			"@typescript-eslint/no-explicit-any": "warn",
-			"@typescript-eslint/no-unsafe-assignment": "warn",
-			"@typescript-eslint/no-unsafe-call": "warn",
+			"@typescript-eslint/no-explicit-any": "error",
+			"@typescript-eslint/no-unsafe-assignment": "error",
+			"@typescript-eslint/no-unsafe-call": "error",
 			"@typescript-eslint/no-unsafe-type-assertion": "error",
 
 			// ── Anti-pattern: enum misuse ─────────────────────────────────────────
@@ -131,8 +131,8 @@ export default tseslint.config(
 			// ── Anti-pattern: dead code / legacy ─────────────────────────────────
 			"@typescript-eslint/no-namespace": "error",
 
-			// ── Known debt: payload narrowing ────────────────────────────────────
-			"@typescript-eslint/no-base-to-string": "warn",
+			// ── Payload narrowing ────────────────────────────────────────────────
+			"@typescript-eslint/no-base-to-string": "error",
 
 			// ── Unused vars: ignore _ prefix (TypeScript convention) ─────────────
 			"@typescript-eslint/no-unused-vars": ["error", {
@@ -142,20 +142,19 @@ export default tseslint.config(
 			}],
 
 			// ── Type assertion hygiene ────────────────────────────────────────────
-			"@typescript-eslint/consistent-type-assertions": ["warn", {
+			"@typescript-eslint/consistent-type-assertions": ["error", {
 				assertionStyle: "as",
 				objectLiteralTypeAssertions: "allow-as-parameter",
 			}],
 			"@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "inline-type-imports" }],
 			"@typescript-eslint/no-import-type-side-effects": "error",
-			"@typescript-eslint/no-unnecessary-type-assertion": "warn",
+			"@typescript-eslint/no-unnecessary-type-assertion": "error",
 
 			// ── Relaxed: intentional patterns ────────────────────────────────────
 			"@typescript-eslint/no-empty-object-type": "off",
 			"@typescript-eslint/unbound-method": "off",
-			"@typescript-eslint/prefer-promise-reject-errors": "warn",
+			"@typescript-eslint/prefer-promise-reject-errors": "error",
 			"@typescript-eslint/no-redundant-type-constituents": "off",
-			"@typescript-eslint/use-unknown-in-catch-callback-variable": "warn",
 		},
 	},
 

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.js";
+import type { CompletionUsage } from "openai/resources/completions.js";
 import { getEnvApiKey } from "../../env-api-keys.js";
 import { clampThinkingLevel } from "../../models/llm.js";
 import type {
@@ -227,10 +228,10 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 
 				// Fallback: some providers (e.g., Moonshot) return usage
 				// in choice.usage instead of the standard chunk.usage
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-				if (!chunk.usage && (choice as any).usage) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion
-					output.usage = parseChunkUsage((choice as any).usage, model);
+				if (!chunk.usage && "usage" in choice) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
+					const fallbackUsage = (choice as unknown as { usage: CompletionUsage }).usage;
+					output.usage = parseChunkUsage(fallbackUsage, model);
 				}
 
 				if (choice.finish_reason) {
@@ -312,8 +313,8 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 					}
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-				const reasoningDetails = (choice.delta as any).reasoning_details;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider extension field
+				const reasoningDetails = (choice.delta as unknown as Record<string, unknown>).reasoning_details;
 				if (reasoningDetails && Array.isArray(reasoningDetails)) {
 					for (const detail of reasoningDetails) {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -361,8 +362,8 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
 			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			// Some providers via OpenRouter give additional information in this field.
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-			const rawMetadata = (error as any)?.error?.metadata?.raw;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- accessing non-standard error metadata from OpenRouter
+			const rawMetadata = (error as { error?: { metadata?: { raw?: string } } }).error?.metadata?.raw;
 			if (rawMetadata) output.errorMessage += `\n${rawMetadata}`;
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
@@ -386,7 +387,8 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	const base = buildBaseOptions(model, options, apiKey);
 	const clampedReasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;
 	const reasoningEffort = clampedReasoning === "off" ? undefined : clampedReasoning;
-	const toolChoice = (options as OpenAICompletionsOptions | undefined)?.toolChoice;
+	const openaiOptions: OpenAICompletionsOptions | undefined = options;
+	const toolChoice = openaiOptions?.toolChoice;
 
 	return streamOpenAICompletions(model, context, {
 		...base,
@@ -457,20 +459,20 @@ type ThinkingFormatHandler = (
 
 /** Apply Z.ai thinking format — sets enable_thinking flag. */
 function applyZaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-	(params as any).enable_thinking = !!options?.reasoningEffort;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Z.ai non-standard extension field
+	(params as unknown as Record<string, unknown>).enable_thinking = !!options?.reasoningEffort;
 }
 
 /** Apply Qwen thinking format — sets enable_thinking flag. */
 function applyQwenThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-	(params as any).enable_thinking = !!options?.reasoningEffort;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Qwen non-standard extension field
+	(params as unknown as Record<string, unknown>).enable_thinking = !!options?.reasoningEffort;
 }
 
 /** Apply Qwen chat-template thinking format — sets chat_template_kwargs with enable_thinking and preserve_thinking. */
 function applyQwenChatTemplateThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, _model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-	(params as any).chat_template_kwargs = {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Qwen chat-template non-standard extension field
+	(params as unknown as Record<string, unknown>).chat_template_kwargs = {
 		enable_thinking: !!options?.reasoningEffort,
 		preserve_thinking: true,
 	};
@@ -478,11 +480,11 @@ function applyQwenChatTemplateThinking(params: OpenAI.Chat.Completions.ChatCompl
 
 /** Apply DeepSeek thinking format — sets thinking object and optional reasoning_effort. */
 function applyDeepseekThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-	(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DeepSeek non-standard extension fields
+	const ext = params as unknown as Record<string, unknown>;
+	ext.thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	if (options?.reasoningEffort) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-		(params as any).reasoning_effort =
+		ext.reasoning_effort =
 			model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 	}
 }
@@ -515,15 +517,15 @@ function applyTogetherThinking(params: OpenAI.Chat.Completions.ChatCompletionCre
 
 /** Apply OpenAI-style thinking — sets reasoning_effort when supported, including off-value fallback. */
 function applyOpenaiThinking(params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, model: Model<"openai-completions">, options: OpenAICompletionsOptions | undefined, compat: ResolvedOpenAICompletionsCompat) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- OpenAI non-standard extension field
+	const ext = params as unknown as Record<string, unknown>;
 	if (options?.reasoningEffort && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
+		ext.reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 	} else if (!options?.reasoningEffort && compat.supportsReasoningEffort) {
 		const offValue = model.thinkingLevelMap?.off;
 		if (typeof offValue === "string") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-			(params as any).reasoning_effort = offValue;
+			ext.reasoning_effort = offValue;
 		}
 	}
 }
@@ -563,9 +565,12 @@ function buildParams(
 		prompt_cache_retention: cacheRetention === "long" && compat.supportsLongCacheRetention ? "24h" : undefined,
 	};
 
+	// Provider-specific extension fields not in the OpenAI SDK type
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider extension fields
+	const paramsExt = params as unknown as Record<string, unknown>;
+
 	if (compat.supportsUsageInStreaming !== false) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-		(params as any).stream_options = { include_usage: true };
+		paramsExt.stream_options = { include_usage: true };
 	}
 
 	if (compat.supportsStore) {
@@ -574,8 +579,7 @@ function buildParams(
 
 	if (options?.maxTokens) {
 		if (compat.maxTokensField === "max_tokens") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-			(params as any).max_tokens = options.maxTokens;
+			paramsExt.max_tokens = options.maxTokens;
 		} else {
 			params.max_completion_tokens = options.maxTokens;
 		}
@@ -588,8 +592,7 @@ function buildParams(
 	if (context.tools && context.tools.length > 0) {
 		params.tools = convertTools(context.tools, compat);
 		if (compat.zaiToolStream) {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-			(params as any).tool_stream = true;
+			paramsExt.tool_stream = true;
 		}
 	} else if (hasToolHistory(context.messages)) {
 		// Anthropic (via LiteLLM/proxy) requires tools param when conversation has tool_calls/tool_results
@@ -610,8 +613,7 @@ function buildParams(
 
 	// OpenRouter provider routing preferences
 	if (model.baseUrl.includes("openrouter.ai") && model.compat?.openRouterRouting) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-		(params as any).provider = model.compat.openRouterRouting;
+		paramsExt.provider = model.compat.openRouterRouting;
 	}
 
 	// Vercel AI Gateway provider routing preferences
@@ -621,8 +623,7 @@ function buildParams(
 			const gatewayOptions: Record<string, string[]> = {};
 			if (routing.only) gatewayOptions.only = routing.only;
 			if (routing.order) gatewayOptions.order = routing.order;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-			(params as any).providerOptions = { gateway: gatewayOptions };
+			paramsExt.providerOptions = { gateway: gatewayOptions };
 		}
 	}
 

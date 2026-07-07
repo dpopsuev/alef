@@ -383,8 +383,8 @@ export function convertMessages(
 				// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
 				const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
 				if (signature && signature.length > 0) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-					(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field keyed by thinking signature
+					(assistantMsg as unknown as Record<string, string>)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
 				}
 			}
 		} else if (assistantText.length > 0) {
@@ -418,8 +418,8 @@ export function convertMessages(
 				})
 				.filter(Boolean);
 			if (reasoningDetails.length > 0) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-				(assistantMsg as any).reasoning_details = reasoningDetails;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
+				(assistantMsg as unknown as Record<string, unknown>).reasoning_details = reasoningDetails;
 			}
 		}
 		if (
@@ -474,8 +474,8 @@ export function convertMessages(
 				tool_call_id: toolMsg.toolCallId,
 			};
 			if (compat.requiresToolResultName && toolMsg.toolName) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-				(toolResultMsg as any).name = toolMsg.toolName;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
+				(toolResultMsg as unknown as Record<string, string>).name = toolMsg.toolName;
 			}
 			params.push(toolResultMsg);
 
@@ -577,8 +577,8 @@ export function convertTools(
 		function: {
 			name: tool.name,
 			description: tool.description,
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- TypeBox generates JSON Schema compatible with OpenAI
-			parameters: tool.parameters as any, // TypeBox already generates JSON Schema
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox generates JSON Schema compatible with OpenAI
+			parameters: tool.parameters as Record<string, unknown>,
 			// Only include strict if provider supports it. Some reject unknown fields.
 			...(compat.supportsStrictMode !== false && { strict: false }),
 		},

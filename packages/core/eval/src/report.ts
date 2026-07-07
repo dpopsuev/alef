@@ -73,12 +73,12 @@ export function formatTranscript(metrics: RunMetrics): string {
 
 	const lines: string[] = [`=== TRANSCRIPT: ${metrics.scenario} ===`];
 	for (const msg of metrics.transcript) {
-		const role = String(msg.role ?? "?").toUpperCase();
+		const role = (typeof msg.role === "string" ? msg.role : "?").toUpperCase();
 		if (role === "TOOLRESULT") {
 			const content =
 				// eslint-disable-next-line no-magic-numbers
 				typeof msg.content === "string" ? msg.content.slice(0, 300) : JSON.stringify(msg.content).slice(0, 300);
-			lines.push(`\n[TOOL RESULT: ${String(msg.toolName ?? "?")}]`);
+			lines.push(`\n[TOOL RESULT: ${typeof msg.toolName === "string" ? msg.toolName : "?"}]`);
 			// eslint-disable-next-line no-magic-numbers
 			lines.push(content + (content.length === 300 ? "..." : ""));
 		} else if (role === "ASSISTANT") {
@@ -89,8 +89,9 @@ export function formatTranscript(metrics: RunMetrics): string {
 					const b = block as Record<string, unknown>;
 					if (b.type === "text") {
 						lines.push(`\n[ASSISTANT]`);
+						const text = typeof b.text === "string" ? b.text : "";
 						// eslint-disable-next-line no-magic-numbers
-						lines.push(String(b.text ?? "").slice(0, 500));
+						lines.push(text.slice(0, 500));
 					} else if (b.type === "tool_use") {
 						lines.push(`\n[TOOL CALL: ${String(b.name)}]`);
 						// eslint-disable-next-line no-magic-numbers
@@ -99,8 +100,9 @@ export function formatTranscript(metrics: RunMetrics): string {
 				}
 			} else {
 				lines.push(`\n[ASSISTANT]`);
+				const text = typeof content === "string" ? content : "";
 				// eslint-disable-next-line no-magic-numbers
-				lines.push(String(content ?? "").slice(0, 500));
+				lines.push(text.slice(0, 500));
 			}
 		} else {
 			lines.push(`\n[${role}]`);

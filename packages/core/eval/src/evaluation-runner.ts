@@ -68,7 +68,8 @@ function matchValue(actual: string, expected: string | RegExp): boolean {
 
 /** Check whether a span record matches a tool call expectation. */
 function matchesToolCall(span: SpanRecord, expectation: ToolCall): boolean {
-	const toolName = String(span.attributes["alef.event.type"] ?? "");
+	const rawType = span.attributes["alef.event.type"];
+	const toolName = typeof rawType === "string" ? rawType : "";
 	const tools = Array.isArray(expectation.tool) ? expectation.tool : [expectation.tool];
 	if (!tools.some((t) => toolName === t)) return false;
 
@@ -76,7 +77,8 @@ function matchesToolCall(span: SpanRecord, expectation: ToolCall): boolean {
 		const args = span.args ?? {};
 		for (const [key, pattern] of Object.entries(expectation.target)) {
 			if (pattern === undefined) continue;
-			const value = String(args[key] ?? "");
+			const rawVal = args[key];
+			const value = typeof rawVal === "string" ? rawVal : "";
 			if (!matchValue(value, pattern)) return false;
 		}
 	}

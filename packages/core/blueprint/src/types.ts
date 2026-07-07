@@ -31,7 +31,7 @@ export interface AgentCapabilityDefinition {
 	kind: AgentCapabilityKind;
 	description?: string;
 	availability?: AgentCapabilityAvailability;
-	actions: any[];
+	actions: unknown[];
 }
 
 /**

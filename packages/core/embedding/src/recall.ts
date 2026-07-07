@@ -59,8 +59,8 @@ export class RecallStore {
 		});
 
 		return result.rows.map((r) => ({
-			correlationId: String(r.correlation_id),
-			type: String(r.type),
+			correlationId: typeof r.correlation_id === "string" ? r.correlation_id : "",
+			type: typeof r.type === "string" ? r.type : "",
 			similarity: 1 - Number(r.dist),
 			timestamp: Number(r.timestamp),
 		}));
@@ -77,9 +77,9 @@ export class RecallStore {
 		});
 
 		return result.rows.map((r) => ({
-			sessionId: String(r.session_id),
-			model: String(r.model),
-			startedAt: String(r.started_at),
+			sessionId: typeof r.session_id === "string" ? r.session_id : "",
+			model: typeof r.model === "string" ? r.model : "",
+			startedAt: typeof r.started_at === "string" ? r.started_at : "",
 			turns: Number(r.turns),
 			similarity: 1 - Number(r.dist),
 		}));

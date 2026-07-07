@@ -100,7 +100,7 @@ export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 				ui: {
 					signals: {
 						"workflow.intent": (payload, ui) => {
-							ui.setIntent(String(payload.text ?? ""));
+							ui.setIntent(typeof payload.text === "string" ? payload.text : "");
 						},
 					},
 				},

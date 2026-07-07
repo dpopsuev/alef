@@ -37,8 +37,8 @@ export class SqliteDiscourseStore {
 		return result.rows.map((r) => ({
 			topic,
 			thread,
-			author: String(r.author),
-			content: JSON.parse(String(r.content)) as unknown,
+			author: typeof r.author === "string" ? r.author : "",
+			content: JSON.parse(typeof r.content === "string" ? r.content : "null") as unknown,
 			timestamp: Number(r.timestamp),
 		}));
 	}
@@ -48,7 +48,7 @@ export class SqliteDiscourseStore {
 			sql: "SELECT DISTINCT topic FROM discourse_posts WHERE session_id = ?",
 			args: [this.sessionId],
 		});
-		return result.rows.map((r) => String(r.topic));
+		return result.rows.map((r) => typeof r.topic === "string" ? r.topic : "");
 	}
 
 	async listThreads(topic: string): Promise<string[]> {
@@ -56,7 +56,7 @@ export class SqliteDiscourseStore {
 			sql: "SELECT DISTINCT thread FROM discourse_posts WHERE session_id = ? AND topic = ?",
 			args: [this.sessionId, topic],
 		});
-		return result.rows.map((r) => String(r.thread));
+		return result.rows.map((r) => typeof r.thread === "string" ? r.thread : "");
 	}
 
 	async threadInfo(topic: string, thread: string): Promise<ThreadInfo> {
@@ -83,10 +83,10 @@ export class SqliteDiscourseStore {
 		});
 
 		return result.rows.map((r) => ({
-			topic: String(r.topic),
-			thread: String(r.thread),
-			author: String(r.author),
-			content: JSON.parse(String(r.content)) as unknown,
+			topic: typeof r.topic === "string" ? r.topic : "",
+			thread: typeof r.thread === "string" ? r.thread : "",
+			author: typeof r.author === "string" ? r.author : "",
+			content: JSON.parse(typeof r.content === "string" ? r.content : "null") as unknown,
 			timestamp: Number(r.timestamp),
 		}));
 	}

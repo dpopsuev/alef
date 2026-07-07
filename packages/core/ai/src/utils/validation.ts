@@ -327,7 +327,7 @@ function formatValidationPath(error: TLocalizedValidationError): string {
  * @returns The validated arguments
  * @throws Error if tool is not found or validation fails
  */
-export function validateToolCall(tools: Tool[], toolCall: ToolCall): any {
+export function validateToolCall(tools: Tool[], toolCall: ToolCall): unknown {
 	const tool = tools.find((t) => t.name === toolCall.name);
 	if (!tool) {
 		throw new Error(`Tool "${toolCall.name}" not found`);
@@ -380,7 +380,7 @@ function formatValidationErrors(validator: ReturnType<typeof Compile>, args: unk
 /**
  *
  */
-export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
+export function validateToolArguments(tool: Tool, toolCall: ToolCall): unknown {
 	const args = structuredClone(toolCall.arguments);
 	Value.Convert(tool.parameters, args);
 

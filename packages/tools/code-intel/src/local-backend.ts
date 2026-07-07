@@ -143,7 +143,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 				this.lsp = c;
 				return c;
 			})
-			.catch((e) => {
+			.catch((e: unknown) => {
 				this.lspBroken = true;
 				this.lspStarting = null;
 				throw e;

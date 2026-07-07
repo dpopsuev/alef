@@ -18,7 +18,7 @@ export class SqliteAuthStore implements AuthStore {
 		});
 		const row = result.rows[0];
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
-		return row ? String(row.key) : undefined;
+		return row && typeof row.key === "string" ? row.key : undefined;
 	}
 
 	async set(provider: string, key: string): Promise<void> {
@@ -41,8 +41,8 @@ export class SqliteAuthStore implements AuthStore {
 			args: [],
 		});
 		return result.rows.map((r) => ({
-			provider: String(r.provider),
-			type: String(r.type),
+			provider: typeof r.provider === "string" ? r.provider : "",
+			type: typeof r.type === "string" ? r.type : "",
 		}));
 	}
 }

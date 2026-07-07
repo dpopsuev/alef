@@ -6,7 +6,6 @@ import type {
 	Model,
 	TextContent,
 	ToolCall,
-	ToolResultMessage,
 } from "../types.js";
 
 const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
@@ -168,7 +167,7 @@ export function transformMessages<TApi extends Api>(
 						content: [{ type: "text", text: "No result provided" }],
 						isError: true,
 						timestamp: Date.now(),
-					} as ToolResultMessage);
+					});
 				}
 			}
 			pendingToolCalls = [];

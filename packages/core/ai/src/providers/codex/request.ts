@@ -74,9 +74,8 @@ export function extractAccountId(token: string): string {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JWT parse boundary
 		const payload = JSON.parse(atob(parts[1]));
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-		const accountId = payload?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
-		if (!accountId) throw new Error("No account ID in token");
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- JWT claim value
+		const accountId: unknown = payload?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
+		if (typeof accountId !== "string" || !accountId) throw new Error("No account ID in token");
 		return accountId;
 	} catch {
 		throw new Error("Failed to extract accountId from token");

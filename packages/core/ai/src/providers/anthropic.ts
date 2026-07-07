@@ -264,7 +264,7 @@ function serializeError(error: unknown): string {
 				(current as { error?: unknown; cause?: unknown }).error ?? (current as { cause?: unknown }).cause;
 			current = inner;
 		} else {
-			parts.push(String(current));
+			parts.push(typeof current === "string" ? current : JSON.stringify(current));
 			break;
 		}
 	}
@@ -609,7 +609,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const contentBlock = event.content_block as { type: "tool_use"; id: string; name: string; input: unknown };
 				// Parse input if it's a JSON string (happens when eager streaming is disabled)
-				let parsedInput: Record<string, any>;
+				let parsedInput: Record<string, unknown>;
 				if (typeof contentBlock.input === "string") {
 					try {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse boundary
@@ -619,7 +619,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					}
 				} else {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- API response boundary
-					parsedInput = contentBlock.input as Record<string, any>;
+					parsedInput = contentBlock.input as Record<string, unknown>;
 				}
 
 				const block: Block = {
@@ -1165,9 +1165,7 @@ function applyThinkingConfig(
 		// Budget-based thinking for older models
 		params.thinking = {
 			type: "enabled",
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
-			// eslint-disable-next-line no-magic-numbers
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, no-magic-numbers
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, no-magic-numbers -- zero must fall through to default
 			budget_tokens: options.thinkingBudgetTokens || 1024,
 			display,
 		};
@@ -1218,8 +1216,7 @@ function buildParams(
 	const params: MessageCreateParamsStreaming = {
 		model: model.id,
 		messages: convertMessages(context.messages, model, isOAuthToken, cacheControl),
-		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
-		// eslint-disable-next-line no-magic-numbers, @typescript-eslint/prefer-nullish-coalescing
+		// eslint-disable-next-line no-magic-numbers, @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
 		max_tokens: options?.maxTokens || (model.maxTokens / 3) | 0,
 		stream: true,
 	};
@@ -1329,14 +1326,14 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 	if (lastMessage.role !== "user") return;
 
 	if (typeof lastMessage.content === "string") {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- Anthropic cache_control content type workaround
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control content type workaround
 		lastMessage.content = [
 			{
 				type: "text",
 				text: lastMessage.content,
 				cache_control: cacheControl,
 			},
-		] as any;
+		] as unknown as typeof lastMessage.content;
 		return;
 	}
 
@@ -1351,8 +1348,8 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 		return;
 	}
 	/* eslint-enable @typescript-eslint/no-unnecessary-condition */
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
-	(lastBlock as any).cache_control = cacheControl;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension field
+	(lastBlock as unknown as Record<string, unknown>).cache_control = cacheControl;
 }
 
 /**

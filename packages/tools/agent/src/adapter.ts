@@ -569,7 +569,7 @@ export function createAgentAdapter(
 				ui: {
 					signals: {
 						"agent.intent": (payload, ui) => {
-							ui.setIntent(String(payload.text ?? ""));
+							ui.setIntent(typeof payload.text === "string" ? payload.text : "");
 						},
 					},
 				},

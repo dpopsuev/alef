@@ -126,7 +126,7 @@ export async function callLLM(
 				case "toolcall_end":
 					pendingCalls.push({
 						name: event.toolCall.name,
-						args: event.toolCall.arguments as Record<string, unknown>,
+						args: event.toolCall.arguments,
 						id: event.toolCall.id,
 					});
 					break;

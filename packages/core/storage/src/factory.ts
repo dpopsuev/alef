@@ -30,7 +30,7 @@ export class SqliteStorageFactory implements StorageFactory {
 			getSessionName: async (sessionId) => {
 				const r = await this.client.execute({ sql: "SELECT name FROM sessions WHERE id = ?", args: [sessionId] });
 				const name = r.rows[0]?.name;
-				return name != null ? String(name) : undefined;
+				return typeof name === "string" ? name : undefined;
 			},
 			getSessionPreview: async (sessionId, maxLines) => {
 				const r = await this.client.execute({
@@ -43,10 +43,11 @@ export class SqliteStorageFactory implements StorageFactory {
 				});
 				const lines: string[] = [];
 				for (const row of [...r.rows].reverse()) {
-					const bus = String(row.bus);
-					const type = String(row.type);
+					const bus = typeof row.bus === "string" ? row.bus : "";
+					const type = typeof row.type === "string" ? row.type : "";
+					const rawPayload = typeof row.payload === "string" ? row.payload : "{}";
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
-					const payload = JSON.parse(String(row.payload)) as Record<string, unknown>;
+					const payload = JSON.parse(rawPayload) as Record<string, unknown>;
 					if (bus === "event" && type === "llm.input") {
 						const text = typeof payload.text === "string" ? payload.text : "";
 						// eslint-disable-next-line no-magic-numbers

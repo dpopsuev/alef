@@ -27,7 +27,6 @@ import type {
 	TextContent,
 	ThinkingContent,
 	ToolCall,
-	ToolResultMessage,
 	Usage,
 } from "../types.js";
 import { formatThrownValue } from "../utils/diagnostics.js";
@@ -240,7 +239,7 @@ function messageToText(msg: Message): string {
 						: `${b.name}:${JSON.stringify(b.arguments)}`,
 			)
 			.join("\n");
-	const tr = msg as ToolResultMessage;
+	const tr = msg;
 	return [tr.toolName, ...tr.content.map((b) => contentToText([b]))].join("\n");
 }
 

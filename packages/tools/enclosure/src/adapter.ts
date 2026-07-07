@@ -202,7 +202,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 				ui: {
 					signals: {
 						"enclosure.status": (payload, ui) => {
-							ui.setStatus(String(payload.text ?? ""));
+							ui.setStatus(typeof payload.text === "string" ? payload.text : "");
 						},
 					},
 				},

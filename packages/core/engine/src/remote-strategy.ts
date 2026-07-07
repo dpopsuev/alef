@@ -62,9 +62,7 @@ function collectReply(
 					const line = frame.split("\n").find((l) => l.startsWith("data: "));
 					if (!line) continue;
 					try {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SSE frame parsed from trusted internal bus
-						// eslint-disable-next-line no-magic-numbers
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, no-magic-numbers
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, no-magic-numbers -- SSE frame parsed from trusted internal bus
 						const ev = JSON.parse(line.slice(6)) as SSEEvent;
 						onSSEEvent?.(ev);
 						if (ev.bus === "command" && ev.type === replyEvent && typeof ev.payload?.text === "string") {

@@ -159,7 +159,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			appendToolResults(messages, toolCalls, results, toMotorName);
 			signal.publish({
 				type: "llm.checkpoint",
-				payload: { conversationHistory: messages.slice() as unknown },
+				payload: { conversationHistory: messages.slice() },
 				correlationId: ctx.correlationId,
 			});
 		}

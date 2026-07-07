@@ -118,7 +118,7 @@ export async function runPhase(
 	const phasePromise = waitForPhaseResult(event, correlationId, phaseTimeoutMs);
 	command.publish({
 		type: "context.assemble",
-		payload: { messages: messages as unknown[], turn, toolCount: tools.length },
+		payload: { messages: messages, turn, toolCount: tools.length },
 		correlationId,
 	});
 	const phase = await phasePromise;

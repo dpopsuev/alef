@@ -201,7 +201,7 @@ function safeSerialize(value: unknown): unknown {
 	try {
 		return JSON.parse(JSON.stringify(value));
 	} catch {
-		return String(value);
+		return typeof value === "string" ? value : JSON.stringify(value);
 	}
 }
 

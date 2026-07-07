@@ -445,10 +445,10 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				ui: {
 					signals: {
 						"plan.intent": (payload, ui) => {
-							ui.setIntent(String(payload.text ?? ""));
+							ui.setIntent(typeof payload.text === "string" ? payload.text : "");
 						},
 						"plan.tree": (payload, ui) => {
-							ui.setWidgetAbove(String(payload.tree ?? ""));
+							ui.setWidgetAbove(typeof payload.tree === "string" ? payload.tree : "");
 						},
 					},
 				},

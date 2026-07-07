@@ -90,10 +90,10 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 		if (!row) return undefined;
 		return {
 			port: Number(row.port),
-			host: String(row.host ?? "127.0.0.1"),
+			host: typeof row.host === "string" ? row.host : "127.0.0.1",
 			pid: Number(row.pid),
 			sessionId: String(row.session_id),
-			cwd: String(row.cwd ?? ""),
+			cwd: typeof row.cwd === "string" ? row.cwd : "",
 			startedAt: Number(row.started_at ?? 0),
 			lastHeartbeat: row.last_heartbeat != null ? Number(row.last_heartbeat) : undefined,
 			token: typeof row.token === "string" ? row.token : undefined,

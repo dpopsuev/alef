@@ -202,7 +202,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 								id: toolCallId,
 								name: part.functionCall.name ?? "",
 								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Vertex SDK returns args as object|undefined, narrowed to Record
-								arguments: (part.functionCall.args as Record<string, any>),
+								arguments: (part.functionCall.args as Record<string, unknown>),
 								...(part.thoughtSignature && { thoughtSignature: part.thoughtSignature }),
 							};
 

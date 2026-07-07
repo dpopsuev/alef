@@ -50,12 +50,12 @@ export interface StreamOptions {
 	 * Optional callback for inspecting or replacing provider payloads before sending.
 	 * Return undefined to keep the payload unchanged.
 	 */
-	onPayload?: (payload: unknown, model: any) => unknown | undefined | Promise<unknown | undefined>;
+	onPayload?: (payload: unknown, model: unknown) => unknown | undefined | Promise<unknown | undefined>;
 	/**
 	 * Optional callback invoked after an HTTP response is received and before
 	 * its body stream is consumed.
 	 */
-	onResponse?: (response: ProviderResponse, model: any) => void | Promise<void>;
+	onResponse?: (response: ProviderResponse, model: unknown) => void | Promise<void>;
 	/**
 	 * Optional custom HTTP headers to include in API requests.
 	 * Merged with provider defaults; can override default headers.
@@ -103,11 +103,11 @@ export interface ImagesOptions {
 	 * Optional callback for inspecting or replacing provider payloads before sending.
 	 * Return undefined to keep the payload unchanged.
 	 */
-	onPayload?: (payload: unknown, model: any) => unknown | undefined | Promise<unknown | undefined>;
+	onPayload?: (payload: unknown, model: unknown) => unknown | undefined | Promise<unknown | undefined>;
 	/**
 	 * Optional callback invoked after an HTTP response is received.
 	 */
-	onResponse?: (response: ProviderResponse, model: any) => void | Promise<void>;
+	onResponse?: (response: ProviderResponse, model: unknown) => void | Promise<void>;
 	/**
 	 * Optional custom HTTP headers to include in API requests.
 	 * Merged with provider defaults; can override default headers.

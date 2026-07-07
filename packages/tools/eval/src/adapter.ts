@@ -198,7 +198,7 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 				ui: {
 					signals: {
 						"eval.intent": (payload, ui) => {
-							ui.setIntent(String(payload.text ?? ""));
+							ui.setIntent(typeof payload.text === "string" ? payload.text : "");
 						},
 					},
 				},

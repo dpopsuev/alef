@@ -61,21 +61,29 @@ export class SqliteSessionStore implements SessionStore {
 		result.rows.reverse();
 
 		for (const row of result.rows) {
+			const bus = typeof row.bus === "string" ? row.bus : "";
+			const type = typeof row.type === "string" ? row.type : "";
+			const correlationId = typeof row.correlation_id === "string" ? row.correlation_id : "";
+			const payload = typeof row.payload === "string" ? row.payload : "{}";
+			const hash = typeof row.hash === "string" ? row.hash : undefined;
+			const sessionId = typeof row.session_id === "string" ? row.session_id : undefined;
+			const actorAddress = typeof row.actor_address === "string" ? row.actor_address : undefined;
+			const actorType = typeof row.actor_type === "string" ? row.actor_type : undefined;
 			const record: StorageRecord = {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus column constrained to StorageRecord bus values
-				bus: String(row.bus) as StorageRecord["bus"],
-				type: String(row.type),
-				correlationId: String(row.correlation_id),
+				bus: bus as StorageRecord["bus"],
+				type,
+				correlationId,
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
-				payload: JSON.parse(String(row.payload)) as Record<string, unknown>,
+				payload: JSON.parse(payload) as Record<string, unknown>,
 				timestamp: Number(row.timestamp),
 				elapsed: row.elapsed != null ? Number(row.elapsed) : undefined,
-				hash: row.hash != null ? String(row.hash) : undefined,
-				sessionId: row.session_id != null ? String(row.session_id) : undefined,
+				hash,
+				sessionId,
 				actor:
-					row.actor_address != null && row.actor_type != null
+					actorAddress != null && actorType != null
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- actor_type column constrained to "human" | "agent"
-						? { address: String(row.actor_address), type: String(row.actor_type) as "human" | "agent" }
+						? { address: actorAddress, type: actorType as "human" | "agent" }
 						: undefined,
 			};
 			this._cache.push(record);
@@ -113,7 +121,8 @@ export class SqliteSessionStore implements SessionStore {
 			args: [hash],
 		});
 		if (result.rows.length === 0) return null;
-		return SqliteSessionStore.resume(client, cwd, String(result.rows[0].id), version);
+		const id = result.rows[0].id;
+		return SqliteSessionStore.resume(client, cwd, typeof id === "string" ? id : "", version);
 	}
 
 	static async list(client: Client, cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
@@ -122,11 +131,14 @@ export class SqliteSessionStore implements SessionStore {
 			sql: "SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
 			args: [hash],
 		});
-		return result.rows.map((r) => ({
-			id: String(r.id),
-			path: `${SQLITE_PATH_PREFIX}${String(r.id)}`,
-			mtime: new Date(Number(r.updated_at)),
-		}));
+		return result.rows.map((r) => {
+			const id = typeof r.id === "string" ? r.id : "";
+			return {
+				id,
+				path: `${SQLITE_PATH_PREFIX}${id}`,
+				mtime: new Date(Number(r.updated_at)),
+			};
+		});
 	}
 
 	static async prune(client: Client, cwd: string, maxAgeDays = DEFAULT_PRUNE_MAX_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
@@ -141,7 +153,7 @@ export class SqliteSessionStore implements SessionStore {
 		});
 		if (staleIds.rows.length === 0) return 0;
 
-		const ids = staleIds.rows.map((r) => String(r.id));
+		const ids = staleIds.rows.map((r) => typeof r.id === "string" ? r.id : "");
 		const placeholders = ids.map(() => "?").join(",");
 		await client.batch(
 			[

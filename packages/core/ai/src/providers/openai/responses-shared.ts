@@ -297,8 +297,8 @@ export function convertResponsesTools(tools: Tool[], options?: ConvertResponsesT
 		type: "function",
 		name: tool.name,
 		description: tool.description,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-assignment -- TypeBox JSON Schema boundary
-		parameters: tool.parameters as any,
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox JSON Schema boundary
+		parameters: tool.parameters as Record<string, unknown>,
 		strict,
 	}));
 }

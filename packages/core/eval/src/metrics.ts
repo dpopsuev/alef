@@ -108,7 +108,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 
 		turns.push({
 			turn: turnIndex,
-			model: String(s.attributes["gen_ai.request.model"] ?? ""),
+			model: typeof s.attributes["gen_ai.request.model"] === "string" ? s.attributes["gen_ai.request.model"] : "",
 			tokensIn: Number(s.attributes["gen_ai.usage.input_tokens"] ?? 0),
 			tokensOut: Number(s.attributes["gen_ai.usage.output_tokens"] ?? 0),
 			cacheReadTokens: Number(s.attributes["gen_ai.usage.cache_read_tokens"] ?? 0),

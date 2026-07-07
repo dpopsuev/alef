@@ -782,7 +782,8 @@ function convertMessages(
 							break;
 						case "toolCall":
 							contentBlocks.push({
-								toolUse: { toolUseId: c.id, name: c.name, input: c.arguments },
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON schema boundary cast
+								toolUse: { toolUseId: c.id, name: c.name, input: c.arguments as unknown as DocumentType },
 							});
 							break;
 						case "thinking":
@@ -999,7 +1000,7 @@ function isGovCloudBedrockTarget(model: Model<"bedrock-converse-stream">, option
 function buildAdditionalModelRequestFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions,
-): Record<string, any> | undefined {
+): DocumentType | undefined {
 	if (!options.reasoning || !model.reasoning) return undefined;
 	if (!isAnthropicClaudeModel(model)) return undefined;
 
@@ -1013,12 +1014,12 @@ function buildAdditionalModelRequestFields(
 function buildClaudeThinkingFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions & { reasoning: ThinkingLevel },
-): Record<string, any> {
+): Record<string, DocumentType> {
 	// GovCloud Bedrock currently rejects the Claude thinking.display field.
 	// Omit it there until the GovCloud Converse schema catches up.
 	const display = isGovCloudBedrockTarget(model, options) ? undefined : (options.thinkingDisplay ?? "summarized");
 
-	const result: Record<string, any> = supportsAdaptiveThinking(model.id, model.name)
+	const result: Record<string, DocumentType> = supportsAdaptiveThinking(model.id, model.name)
 		? buildAdaptiveThinkingFields(model, options, display)
 		: buildLegacyThinkingFields(options, display);
 
@@ -1036,7 +1037,7 @@ function buildAdaptiveThinkingFields(
 	model: Model<"bedrock-converse-stream">,
 	options: BedrockOptions & { reasoning: ThinkingLevel },
 	display: BedrockThinkingDisplay | undefined,
-): Record<string, any> {
+): Record<string, DocumentType> {
 	return {
 		thinking: { type: "adaptive", ...(display !== undefined ? { display } : {}) },
 		output_config: { effort: mapThinkingLevelToEffort(model, options.reasoning) },
@@ -1049,7 +1050,7 @@ function buildAdaptiveThinkingFields(
 function buildLegacyThinkingFields(
 	options: BedrockOptions & { reasoning: ThinkingLevel },
 	display: BedrockThinkingDisplay | undefined,
-): Record<string, any> {
+): Record<string, DocumentType> {
 	const defaultBudgets: Record<ThinkingLevel, number> = {
 		minimal: 1024,
 		low: 2048,

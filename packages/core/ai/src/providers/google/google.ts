@@ -142,9 +142,11 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 				});
 			}
 
-			const deltaAppenders: Record<string, (block: any, text: string, thoughtSignature: string | undefined) => void> = {
-				text: appendTextDelta,
-				thinking: appendThinkingDelta,
+			const deltaAppenders: Record<string, (block: TextContent | ThinkingContent, text: string, thoughtSignature: string | undefined) => void> = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch key guarantees TextContent
+				text: (block, text, sig) => appendTextDelta(block as TextContent, text, sig),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch key guarantees ThinkingContent
+				thinking: (block, text, sig) => appendThinkingDelta(block as ThinkingContent, text, sig),
 			};
 
 			for await (const chunk of googleStream) {
@@ -196,7 +198,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 								type: "toolCall",
 								id: toolCallId,
 								name: part.functionCall.name ?? "",
-								arguments: (part.functionCall.args ?? {}) as Record<string, any>,
+								arguments: (part.functionCall.args ?? {}),
 								...(part.thoughtSignature && { thoughtSignature: part.thoughtSignature }),
 							};
 

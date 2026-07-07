@@ -37,7 +37,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/core/*/src/ packages/tools/*/src/ packages/profiles/*/src/ packages/ui/tui/src/ packages/cli/src/ --max-warnings 107"
+		"check:lint": "eslint --cache --cache-strategy content packages/core/*/src/ packages/tools/*/src/ packages/profiles/*/src/ packages/ui/tui/src/ packages/cli/src/ --max-warnings 0"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",

@@ -235,7 +235,10 @@ export function connectObservers(
 			const agentEvent = signalToAgentEvent(event, signalMappers, uiSignalTypes);
 			traceEvent("observer:convert", { busType: event.type, agentType: agentEvent?.type ?? "null", observerCount: observers.size });
 			if (agentEvent) {
-				for (const obs of observers) obs(agentEvent);
+				for (const obs of observers) {
+					traceEvent("observer:deliver", { agentType: agentEvent.type, observerName: obs.name || "anonymous" });
+					obs(agentEvent);
+				}
 			}
 		},
 	});

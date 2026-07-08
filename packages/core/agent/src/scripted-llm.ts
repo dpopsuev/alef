@@ -86,7 +86,7 @@ export class ScriptedLlmAdapter implements Adapter {
 				}
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: index may exceed array length
 				const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
-				bus.command.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
+				bus.notification.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
 				bus.command.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
 			})();
 		});

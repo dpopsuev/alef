@@ -1,446 +1,192 @@
 ---
 name: debug-alef
-description: Use when debugging Alef itself — hung tools, TUI glitches, LLM loop issues, session corruption, adapter failures, fs.find hangs. Use ONLY for debugging the Alef agent codebase at /home/dpopsuev/Workspace/alef, not for debugging user applications.
+description: Diagnose Alef issues via data flow tracing, instrumentation audit, and test coverage gaps. Use when the TUI doesn't render, tools hang, events vanish, or behavior diverges from expectation.
 ---
 
 # Debugging Alef
 
-## Architecture overview
+## Step 1: Build the Round-Trip Event Chain
 
-Alef uses a Supervisor-as-entrypoint model. One process, everything is a service.
+Every user interaction follows a data flow chain. Trace it end-to-end before looking at code.
+
+### Message round-trip (user types → reply renders)
 
 ```
-Supervisor (entrypoint.ts)
-  ├── storage service     — SQLite DB lifecycle
-  ├── scheduler service   — deferred/recurring timers
-  ├── session service     — Session mediator (Observer+Mediator pattern)
-  ├── agent service       — daemon registration, HTTP surface
-  └── tui service         — ViewMode lifecycle, done promise
+ 1. editor.onSubmit         (client/submit.ts)
+ 2. session.send()          (boot/handle.ts → AgentController)
+ 3. bus event/llm.input     (agent publishes to event bus)
+ 4. Reasoner subscribes     (reasoner/turn-loop.ts)
+ 5. HTTP stream to LLM      (ai/providers → stream-turn.ts)
+ 6. Chunks stream back      (bus notification/llm.chunk for each)
+ 7. connectObservers        (core/agent/assemble.ts: bus → AgentEvent)
+ 8. session.subscribe       (TUI dispatch receives AgentEvent)
+ 9. dispatchTuiEvent        (client/events.ts → state update)
+10. tui.requestRender       (TUI repaints terminal)
+11. bus command/llm.response (stream ends, reply published)
+12. AgentController resolves pending promise
 ```
 
-Boot: `bin/alef.js` → `entrypoint.ts` → CLI dispatch (early exit) → Supervisor boot.
-No child process. No IPC. The Supervisor IS the process.
+### Tool call round-trip
 
-## Log system overview
-
-All logging is unified under session storage. One session per ID, structured records, one activation knob.
-
-**Storage:** SQLite at `~/.alef/alef.db` (tables: `sessions`, `events`, `daemon`)
-
-**Record schema:**
-```json
-{"bus":"debug","type":"boot","correlationId":"debug","payload":{"pid":12345,"cwd":"/path","model":"claude-sonnet-4-5","tui":true},"timestamp":1719000000000}
+```
+ 1. LLM emits tool_use      (stream-turn.ts parses tool block)
+ 2. bus notification/llm.tool-start
+ 3. dispatchTools            (reasoner/tool-dispatch.ts)
+ 4. bus command/{tool.name}  (adapter handler executes)
+ 5. bus event/{tool.name}    (result published)
+ 6. bus notification/llm.tool-end
+ 7. Tool result fed back to LLM
 ```
 
-Buses: `command` (tool commands), `event` (tool results), `notification` (telemetry), `debug` (lifecycle/diagnostics).
+### Subagent round-trip
 
-**Activation:**
-- `--debug` flag — sets pino level to `debug`, all events visible on stderr
-- `ALEF_DEBUG=1` — identical to `--debug`
-- No flag — debug events still land in session JSONL, but pino stderr output is warn-level only
-
-## Bus auto-tracing (zero boilerplate)
-
-`InProcessBus({ trace: true })` subscribes wildcard listeners on all 3 channels. Every message flowing through the bus is traced with type + correlationId + elapsed. No per-call-site instrumentation needed.
-
-Bus auto-trace events:
 ```
-bus:command:llm.input          — user message published
-bus:command:llm.response       — LLM reply published
-bus:notification:llm.chunk     — streaming chunk
-bus:notification:llm.thinking  — thinking chunk
-bus:notification:llm.tool-start — tool call dispatched
-bus:notification:llm.tool-end  — tool result received
-bus:event:fs.read              — tool command on event bus
+ 1. LLM calls agent.run     (tools/agent/adapter.ts)
+ 2. InProcessStrategy.send   (engine/in-process.ts)
+ 3. SubagentFactory          (core/agent/subagent-factory.ts)
+ 4. Inner agent loop         (own bus, own reasoner)
+ 5. Inner chunks relay       (notification/agent.run.inner)
+ 6. connectObservers maps    (inner-tool-start, inner-chunk, etc.)
+ 7. Outer LLM receives toolResult
 ```
 
-Query all bus events for a session:
-```bash
-sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid, json_extract(payload,'$.elapsed') as ms FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
-```
-
-## AsyncLocalStorage trace context
-
-`traceEvent()` automatically enriches events with `correlationId` and `turn` from the current async context when `runInTraceContext()` is active. No parameter passing needed.
-
-```ts
-import { traceEvent, runInTraceContext } from "@dpopsuev/alef-kernel/log";
-
-runInTraceContext({ correlationId: "abc-123", turn: 1 }, () => {
-  traceEvent("my:event", { custom: "data" });
-  // → automatically includes correlationId: "abc-123", turn: 1
-});
-```
-
-## alef log — session query CLI
-
-Built-in CLI for querying the SQLite session store. No raw SQL needed.
-
-### Subcommands
+## Step 2: Trace the Actual Session
 
 ```bash
-alef log sessions                      # list sessions (newest first)
-alef log sessions --search "refactor"  # search by name/ID
-alef log events <id>                   # all events in a session
-alef log trace <id> <correlationId>    # one turn's full trace
-alef log summary <id>                  # token/tool/error summary
-alef log summary                       # latest session summary
-alef log tail                          # latest session events
-alef log spans [session-id]            # list OTel spans with parent IDs
-alef log cause <span-id>              # walk causal chain backwards to root
+# Find the session
+sqlite3 ~/.alef/alef.db "SELECT session_id, type, SUBSTR(json_extract(payload,'$.text'),1,80) FROM events WHERE type='llm.input' ORDER BY timestamp DESC LIMIT 5"
+
+# Full event trace (skip adapter.loaded noise)
+sqlite3 ~/.alef/alef.db "SELECT bus, type, SUBSTR(json_extract(payload,'$.text'),1,80) FROM events WHERE session_id='SESSION_ID' AND type NOT LIKE 'adapter%' ORDER BY timestamp"
+
+# Errors only
+sqlite3 ~/.alef/alef.db "SELECT bus, type, json_extract(payload,'$.err') FROM events WHERE session_id='SESSION_ID' AND (type LIKE '%error%' OR type LIKE '%fail%') ORDER BY timestamp"
+
+# Tool-call pairing (start without end = hung)
+sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.callId') as cid, json_extract(payload,'$.name') as name FROM events WHERE session_id='SESSION_ID' AND type IN ('llm.tool-start','llm.tool-end') ORDER BY timestamp"
 ```
 
-### Composable filters (any combination)
+## Step 3: Match Chain Link to Failure Point
+
+| Symptom | Chain break | Check |
+|---------|-------------|-------|
+| TUI shows "thinking" forever | Link 6→7: chunks not converted | Check `signalToAgentEvent` switch for the event type |
+| TUI shows nothing after send | Link 2→3: session.send didn't publish | Check `llm.input` in session events |
+| Tool pill stuck as active | Link 5→6: tool-end not emitted | Check `llm.tool-end` in session events |
+| Subagent reply missing | Link 5→6: inner events not relayed | Check `agent.run.inner` notifications |
+| Reply text empty | Link 11: llm.response has no text | Check provider response parsing |
+
+## Step 4: Assess Instrumentation
+
+For each chain link, verify:
+1. **Is the event published?** — check session JSONL/sqlite
+2. **Is it on the right bus?** — command vs event vs notification
+3. **Is there a debug event?** — `traceEvent()` call at the site
+4. **Is there an OTel span?** — `alef log spans <id>`
+
+### Instrumented (has traceEvent or OTel span)
+
+| Chain link | Debug event | OTel span |
+|-----------|-------------|-----------|
+| LLM HTTP call | `llm:http:start/done/error` | `chat {model}` |
+| Tool dispatch | `tool:start/end` | `alef.command/{type}` |
+| Phase pipeline | `llm:phase:enter/exit` | — |
+| Tool stall | `llm:tool:stall` | — |
+| Delegation | `delegate:strategy:start/done` | — |
+| Boot | `boot` | — |
+| TUI lifecycle | `tui:start/stopped` | — |
+
+### NOT instrumented (gaps)
+
+| Chain link | What's missing |
+|-----------|----------------|
+| `connectObservers` | No trace when bus event → AgentEvent conversion happens or fails |
+| `dispatchTuiEvent` | No trace when AgentEvent → TUI state update happens |
+| `session.subscribe` | No trace when observer is notified |
+| `tui.requestRender` | No trace when render is requested vs actually painted |
+
+## Step 5: Assess Test Coverage
+
+For each chain link, check:
 
 ```bash
-alef log events <id> --bus notification          # filter by bus
-alef log events <id> --type 'llm.%'              # filter by type pattern
-alef log events <id> --adapter fs                # filter by adapter prefix
-alef log events <id> --after 22:30 --before 22:35  # time window
-alef log events <id> --corr e9f1                 # correlationId prefix
-alef log events <id> --errors                    # errors only
-alef log events <id> --payload "Cannot read"     # payload substring
-alef log events <id> --limit 5                   # max results
-alef log events <id> --json                      # JSON output for piping
-alef log tail --adapter llm --limit 10           # filters work on tail too
+# Does a test exercise this function?
+grep -rn "FUNCTION_NAME" packages/cli/test/ packages/core/*/test/ --include="*.ts" | grep -v node_modules
 ```
 
-### Common debugging workflows
+### Coverage map
 
+| Chain link | Function | Tested? |
+|-----------|----------|---------|
+| 1. Submit | `createSubmitHandler` | ✅ colon-command-submit, concurrent-prompts |
+| 2. Send | `session.send` | ✅ interactive, local-session-observer |
+| 3. Bus publish | `llm.input` | ✅ engine/walking-skeleton |
+| 4. Reasoner | `createAgentLoop` | ✅ reasoner/e2e, llm-adapter |
+| 5. HTTP stream | provider stream | ✅ ai/stream, abort |
+| 6. Chunks | `llm.chunk` | ✅ contract-scan |
+| 7. Observer bridge | `signalToAgentEvent` | ❌ ZERO TESTS |
+| 8. TUI dispatch | `dispatchTuiEvent` | ✅ tui-dispatch |
+| 9. Render | `requestRender` | ✅ tui-render |
+| 10. Response | `llm.response` | ✅ lifecycle |
+
+## Step 6: Debug Tooling Reference
+
+### Session query (sqlite)
 ```bash
-# Find the crash: which session had errors?
-alef log sessions
-
-# What errors happened in session bfd457a7?
-alef log events bfd457a7 --errors
-
-# Trace a specific turn by correlationId
-alef log trace bfd457a7 e9f102f1
-
-# Find all tool calls in a session
-alef log events bfd457a7 --type 'llm.tool-%'
-
-# Find events containing specific text
-alef log events bfd457a7 --payload "Cannot read properties"
-
-# Get JSON for piping to jq
-alef log tail --json | jq '.type'
+sqlite3 ~/.alef/alef.db "SELECT ..." 
 ```
 
-## Causal trace DAG — "What caused this?"
-
-OTel spans are persisted to SQLite with parent-child relationships. Every tool call and LLM call is a span. Walk backwards from any effect to the prime cause.
-
-### Walk a causal chain
-
+### CLI tools
 ```bash
-# List spans for a session
-alef log spans <session-id>
-
-# Walk backwards from a span to the root cause
-alef log cause <span-id>
-
-# Output:
-# [Causal chain — 4 span(s)]
-# → alef.command/fs.write (abc123, 23ms) corr:e9f102f1
-#   ← chat claude-sonnet-4-5 (def456, 3800ms) model:claude-sonnet-4-5
-#     ← alef.command/agent.run (ghi789, 5200ms) corr:b4bbb29b
-#       ← chat claude-sonnet-4-5 (jkl012, 2100ms) = ROOT
+alef log sessions                    # list sessions
+alef log events <id> --errors       # errors in session
+alef log trace <id> <correlationId> # one turn
+alef log spans <id>                 # OTel spans
+alef log cause <span-id>            # causal chain
+alef debug session                  # tool-call pairing
 ```
 
-### How it works
-
-The dispatch framework (`kernel/adapter/dispatch.ts`) creates OTel spans for every tool call. The reasoner (`reasoner/stream-turn.ts`) creates spans for every LLM call. Tool dispatch runs inside the LLM span's OTel context, so parent-child is automatic. The `SqliteSpanExporter` persists spans with `parent_span_id` to the `spans` table.
-
-### Span types
-
-| Span name pattern | What it is | Created by |
-|---|---|---|
-| `alef.command/{type}` | Tool call (fs.read, shell.exec, etc.) | dispatch.ts |
-| `alef.event/{type}` | Event-side handler | dispatch.ts |
-| `chat {model}` | LLM HTTP call | stream-turn.ts |
-| `eval.run` | Evaluation harness | harness.ts |
-
-## Start here
-
+### TUI frame capture
 ```bash
-# List sessions
-alef log sessions
-
-# Inspect most recent session (tool-call pairing analysis)
-alef debug session
-
-# All errors in a session
-alef log events <id> --errors
-
-# Trace a specific turn
-alef log trace <id> <correlationId>
-
-# Walk a causal chain from a span
-alef log spans <id>          # find the span ID
-alef log cause <span-id>     # walk to root
-```
-
-## Message round-trip
-
-Full lifecycle of a user message:
-
-```
-User types → Enter
-  1. editor.onSubmit        (tui-submit.ts)
-  2. session.send()         (SessionHandle → AgentController)
-  3. bus command/llm.input   (agent publishes to bus)
-  4. Reasoner handles it    (createAgentLoop subscribed to event/llm.input)
-  5. HTTP stream to LLM     (callLLM → provider)
-  6. Chunks stream back     (bus notification/llm.chunk for each)
-  7. connectObservers       (assemble.ts converts bus events → AgentEvent)
-  8. session.subscribe      (TUI dispatch receives events)
-  9. tui.requestRender()    (TUI repaints terminal)
- 10. bus command/llm.response (stream ends, reply published)
- 11. AgentController.handleReply resolves the pending promise
- 12. session.send() promise resolves
-```
-
-With bus auto-trace enabled, steps 3, 6, 10 are traced automatically. No manual instrumentation.
-
-**Hang diagnosis:**
-- `bus:command:llm.input` without `bus:command:llm.response` = LLM call failed or hung
-- Chunks stream but TUI doesn't render = check glyph registry for missing keys (GlyphKey union type prevents this at compile time now)
-- `llm.tool-end` with `ok:false` = tool result rendering crashed
-
-## Event reference
-
-### Lifecycle (bus: "debug")
-
-| type | Key fields | What it means |
-|---|---|---|
-| `boot` | `pid, cwd, model, tui` | Process started |
-| `tui:start` | — | TUI live, accepting input |
-| `tui:stopped` | — | TUI teardown complete |
-| `tool:start` | `callId, name, keyArg, activeCount` | LLM dispatched a tool call |
-| `tool:end` | `callId, name, elapsedMs, ok, remainingActive` | Tool result received |
-| `loop:detected` | `reason` | Loop detector fired, LLM aborted |
-
-**Hang diagnosis:** `tool:start` without matching `tool:end` = hung tool.
-`callId` correlates between them.
-
-### LLM timing (bus: "debug", need `--debug`)
-
-| type | Key fields | What it means |
-|---|---|---|
-| `llm:phase:enter` | `turn` | llm.phase pipeline fired |
-| `llm:phase:exit` | `turn, elapsedMs, modified` | pipeline resolved |
-| `llm:http:start` | `turn, messages, tools` | HTTP call to provider started |
-| `llm:http:done` | `turn, elapsedMs, stopReason` | stream exhausted |
-| `llm:http:error` | `turn, elapsedMs, abort, err` | stream threw |
-| `llm:retry` | `turn, attempt, reason` | retryable error, backing off |
-| `llm:tool:subscribe` | `name, toolCallId` | waitForToolResult waiting on sense bus |
-| `llm:tool:resolved` | `name, elapsedMs, isError` | sense event arrived |
-| `llm:tool:timeout` | `name, elapsedMs` | tool timed out |
-| `llm:tool:stall` | `name, elapsedMs, lastChunkMs` | no chunks for 5s |
-
-**LLM hang:** `llm:http:start` without `llm:http:done`.
-**Tool stall:** `llm:tool:stall` fires but `llm:tool:resolved` never follows.
-
-### Delegation boundary (bus: "debug")
-
-| type | Key fields | What it means |
-|---|---|---|
-| `delegate:strategy:start` | `adapter, tool, correlationId, profile, timeoutMs` | InProcessStrategy.send() called |
-| `delegate:strategy:done` | `adapter, tool, correlationId, profile, elapsedMs, ok` | Strategy completed |
-| `in-process:start` | `adapters, timeoutMs` | Inner agent created |
-| `in-process:done` | `replyLength` | Inner agent replied |
-| `in-process:error` | `err` (full stack) | Inner agent threw |
-
-### Framework errors (bus: "debug")
-
-| type | Key fields | What it means |
-|---|---|---|
-| `stream action failed` | `op, correlationId, err` | typedStreamAction generator threw |
-| `command action failed` | `op, correlationId, err` | typedAction handler threw |
-| `event action failed` | `op, correlationId, err` | event-side action threw |
-| `tool:schema-rejected` | `name, field, issues` | LLM passed invalid args |
-
-### fs.find events (bus: "debug")
-
-| type | Key fields | What it means |
-|---|---|---|
-| `fs:find:spawn` | `pattern, searchPath` | fd subprocess spawned |
-| `fs:find:close` | `elapsedMs, code, lines, pattern` | fd exited normally |
-| `fs:find:timeout` | `elapsedMs, pattern, searchPath` | 30s kill timer fired |
-
-## Adapter handler logs (ctx.log)
-
-Every `typedAction` and `typedStreamAction` handler receives `ctx.log` — a child logger
-pre-stamped with `{ adapter, tool, correlationId, toolCallId }`.
-
-```ts
-ctx.log.warn({ path, bytes }, "file too large to read");
-```
-
-These flow through pino to stderr (suppressed in TUI mode). For persistent records,
-use `traceEvent()` which writes to session JSONL.
-
-## Diagnosing a hung fs.find
-
-```bash
-# Find tool:start without matching tool:end
-jq 'select(.type == "tool:start" and .payload.name == "fs.find")' "$SESSION"
-```
-
-Reproduce the exact fd command:
-```bash
-fd --glob --color=never --no-require-git --max-results 1000 --hidden -- "<pattern>" "<cwd>"
-```
-
-Kill timer: `packages/tools/fs/src/find-query.ts` — fires at 30s.
-
-## TUI frame capture (ALEF_DEBUG=1 only)
-
-```bash
+ALEF_DEBUG=1 alef  # writes /tmp/alef-frames.jsonl
 tail -f /tmp/alef-frames.jsonl | jq .frame
 ```
 
-## TUI glyph crash prevention
-
-Glyph keys are type-safe via `GlyphKey` union type. `glyph("unknown")` is a compile-time error (TS2345). If a new glyph key is needed, add it to the `GLYPHS` map in both:
-- `packages/ui/tui/src/views/theme.ts`
-- `packages/agent/src/cli/ansi.ts`
-
-## Directive system
-
-Directives are standalone XML blocks injected into the system prompt. Key blocks:
-- `no-emojis` (priority 10) — no emoji in any output
-- `no-files` (priority 15) — no file creation for reports/analysis, no aspirational abstractions
-- `core` (priority 0) — agent identity and safety rules
-- `agents-md` (priority 450) — project-specific rules from AGENTS.md
-
-Check directives in the session JSONL:
+### Headless capture
 ```bash
-jq 'select(.type == "directives:built") | .payload.ids' "$SESSION"
-```
-
-## Daemon debugging
-
-When running with `--daemon`:
-- Registry: SQLite table `daemon` in `~/.alef/alef.db`
-- Attach: `alef --attach` connects to SSE on `http://127.0.0.1:<port>/events`
-
-```bash
-alef --list-daemons          # Show running daemons
-alef --attach last            # Attach to most recent daemon
-alef --kill-daemon <id>       # Stop a daemon by session ID
-```
-
-## Supervisor service debugging
-
-```bash
-# Check which services are registered
-# In code: supervisor.names() → string[]
-# In debug events: look for service start/stop events
-
-# Session service is the mediator — all UI events flow through it
-# Agent service manages daemon registration
-# TUI service exposes done promise — resolves when viewer exits
-```
-
-## Missing instrumentation (known gaps)
-
-1. **No AbortSignal in `CorpusHandlerCtx`** — adapters cannot be cancelled mid-flight.
-   Ctrl+C aborts the LLM turn but fd subprocess runs until 30s kill timer.
-
-## Key source files
-
-| Concern | File |
-|---|---|
-| `traceEvent()` + `runInTraceContext()` | `packages/core/kernel/src/trace.ts` |
-| Bus auto-trace | `packages/core/kernel/src/bus/in-process-bus.ts` (trace option) |
-| Logger creation | `packages/agent/src/logger.ts` |
-| `ctx.log` stamping | `packages/core/kernel/src/adapter/dispatch.ts` |
-| Reasoner events | `packages/core/reasoner/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| Delegation events | `packages/core/engine/src/delegation.ts`, `in-process.ts` |
-| `tools:describe:miss` | `packages/core/engine/src/tool-catalog.ts` |
-| fd subprocess + kill timer | `packages/tools/fs/src/find-query.ts` |
-| Session store (SQLite) | `packages/core/storage/src/factory.ts` |
-| Session store (JSONL) | `packages/agent/src/session-store.ts` |
-| Supervisor entrypoint | `packages/agent/src/entrypoint.ts` |
-| Session service (mediator) | `packages/agent/src/session-service.ts` |
-| Agent service | `packages/agent/src/agent-service.ts` |
-| TUI service | `packages/agent/src/tui-service.ts` |
-| Glyph registry (TUI) | `packages/ui/tui/src/views/theme.ts` |
-| Glyph registry (agent) | `packages/agent/src/cli/ansi.ts` |
-| Supervisor class | `packages/core/supervisor/src/supervisor.ts` |
-| ServiceDescriptor / lifecycle | `packages/core/supervisor/src/lifecycle.ts` |
-| Scheduler service | `packages/core/supervisor/src/scheduler.ts` |
-| Package Manager service | `packages/core/supervisor/src/package-manager.ts` |
-| Storage service | `packages/core/storage/src/service.ts` |
-| Log CLI | `packages/agent/src/store-cli.ts` |
-| SQLite span exporter | `packages/core/storage/src/sqlite/span-exporter.ts` |
-| Spans table schema | `packages/core/storage/src/sqlite/schema.ts` (migration v5) |
-| OTel setup + upgrade | `packages/agent/src/otel.ts` |
-
-## Quick reference
-
-```bash
-# Sessions
-alef log sessions                          # list all
-alef log sessions --search "refactor"      # search
-
-# Events (with composable filters)
-alef log events <id>                       # all events
-alef log events <id> --errors              # errors only
-alef log events <id> --adapter llm         # LLM events
-alef log events <id> --bus notification    # notification bus
-alef log events <id> --payload "error"     # payload search
-alef log events <id> --after 22:30         # time filter
-alef log events <id> --json                # pipe to jq
-
-# Tracing
-alef log trace <id> <correlationId>        # one turn trace
-alef log tail                              # latest session
-alef log tail --errors                     # latest errors
-
-# Causal DAG
-alef log spans <id>                        # list OTel spans
-alef log cause <span-id>                   # walk to root cause
-
-# Summary
-alef log summary <id>                      # session stats
-alef log summary                           # latest session
-
-# Legacy (tool-call pairing analysis)
-alef debug session
-
-# Headless capture
 ALEF_DEBUG=1 alef --no-tui -p "prompt" 2>&1
 ```
 
-## CLI introspection (no TUI required)
-
+### tmux observation (spawn Alef and watch)
 ```bash
-alef --preflight           # Verify config, profile, model, adapters, tools, directives
-alef --list-models         # Models for active profile
-alef --show-config         # Parsed config.yaml
-alef --list-directives     # Directive blocks with priorities
-alef --list-tools          # Loaded tools
-alef --list-adapters       # Loaded adapters with labels
-alef --migrate             # Import legacy JSONL sessions to SQLite
-alef --replay <id|last>    # Replay recorded session (zero tokens)
-alef --daemon              # Run headless, expose HTTP/SSE
-alef --attach <id|last>    # Attach TUI to running daemon
-alef --list-daemons        # Show running daemons
-alef --kill-daemon <id>    # Stop a running daemon
-alef --serve <port>        # Expose HTTP/SSE bridge on port
-alef --thinking <level>    # Set extended thinking: off, low, medium, high
+# Spawn Alef in a tmux session
+tmux new-session -d -s alef-watch -x 120 -y 30 \
+  "ALEF_SCRIPTED_REPLIES='[\"test reply\"]' npx tsx packages/cli/src/entrypoint.ts"
+
+# Wait for TUI to start
+sleep 3
+
+# Capture what the TUI shows
+tmux capture-pane -t alef-watch -p
+
+# Send keystrokes
+tmux send-keys -t alef-watch "Hello" Enter
+
+# Capture after interaction
+sleep 2
+tmux capture-pane -t alef-watch -p
+
+# Cleanup
+tmux kill-session -t alef-watch
 ```
 
-## Timeout constants
-
+### node-pty observation (programmatic)
+```typescript
+import { spawn } from "node-pty";
+const pty = spawn(process.execPath, [tsx, main], {
+  name: "xterm-256color", cols: 120, rows: 30, cwd,
+  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["reply"]), ALEF_DEBUG: "1" },
+});
+pty.onData((data) => output += data);
+// Wait for [ALEF_READY], then send keystrokes
 ```
-DEFAULT_LLM_TIMEOUT_MS    = 120s  (per-turn LLM HTTP call)
-DEFAULT_TOOL_TIMEOUT_MS   = 300s  (tool execution — longer than LLM)
-DEFAULT_CONVERSATION_MS   = 900s  (15 min session)
-DEFAULT_STALL_TIMEOUT_MS  = 180s  (3 min inactivity)
-```
-
-Override via env: `ALEF_LLM_TIMEOUT_MS=60000 alef`

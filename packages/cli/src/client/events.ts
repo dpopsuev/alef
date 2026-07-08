@@ -175,7 +175,7 @@ export function dispatchTuiEvent(
 	ui: TuiUi,
 	signalHandlers?: ReadonlyMap<string, UiSignalHandler>,
 ): TuiState {
-	traceEvent("tui:dispatch", { type: event.type });
+	traceEvent("tui:dispatch", { eventType: event.type });
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
 
 	if (event.type === "state-changed") {

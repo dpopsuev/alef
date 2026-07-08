@@ -85,7 +85,7 @@ export async function runTuiMode(
 	};
 
 	session.subscribe((event) => {
-		traceEvent("tui:observer", { type: event.type });
+		traceEvent("tui:observer", { eventType: event.type });
 		dispatch(event);
 	});
 

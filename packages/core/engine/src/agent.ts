@@ -156,7 +156,8 @@ export class Agent {
 		this._toolsCache = null;
 		let unmount: () => void;
 		try {
-			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, this.bus.asBus()) : this.bus.asBus();
+			const tracedBus = this.asBus();
+			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, tracedBus) : tracedBus;
 			unmount = adapter.mount(withPayloadValidation(boundBus, adapter));
 		} catch (err) {
 			this._adapters.pop();

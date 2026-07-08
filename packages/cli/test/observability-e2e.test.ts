@@ -47,93 +47,85 @@ describe("observability E2E — traceEvent pipeline", { tags: ["unit"] }, () => 
 		return d;
 	}
 
-	it.fails(
-		"bus auto-trace events reach the session store after a turn",
-		async () => {
-			const faux = registerFauxProvider();
-			faux.setResponses([fauxAssistantMessage("trace-test-reply")]);
+	it("bus auto-trace events reach the session store after a turn", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("trace-test-reply")]);
 
-			const cwd = makeTmp();
-			const store = await JsonlSessionStore.create(cwd);
-			const args = { ...parseArgs([]), cwd, noTui: true };
-			const model = faux.getModel();
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const args = { ...parseArgs([]), cwd, noTui: true };
+		const model = faux.getModel();
 
-			const recorded: Array<{ type: string; bus: string }> = [];
-			initSessionSink((record) => {
-				recorded.push({
-					type: typeof record.type === "string" ? record.type : "unknown",
-					bus: typeof record.bus === "string" ? record.bus : "debug",
-				});
+		const recorded: Array<{ type: string; bus: string }> = [];
+		initSessionSink((record) => {
+			recorded.push({
+				type: typeof record.type === "string" ? record.type : "unknown",
+				bus: typeof record.bus === "string" ? record.bus : "debug",
 			});
+		});
 
-			const { session } = await createLocalSession(
-				args,
-				{},
-				SILENT_LOGGER,
-				store,
-				EMPTY_LOADED,
-				model,
-				STUB_STORAGE,
-				buildIdentityContext(store),
-			);
+		const { session } = await createLocalSession(
+			args,
+			{},
+			SILENT_LOGGER,
+			store,
+			EMPTY_LOADED,
+			model,
+			STUB_STORAGE,
+			buildIdentityContext(store),
+		);
 
-			if (session.send) {
-				await session.send("hello", 10_000);
-			}
+		if (session.send) {
+			await session.send("hello", 10_000);
+		}
 
-			const busTraces = recorded.filter((e) => e.type.startsWith("bus:"));
-			expect(busTraces.length, "bus auto-trace events should be recorded").toBeGreaterThan(0);
+		const busTraces = recorded.filter((e) => e.type.startsWith("bus:"));
+		expect(busTraces.length, "bus auto-trace events should be recorded").toBeGreaterThan(0);
 
-			const hasNotification = busTraces.some((e) => e.type.startsWith("bus:notification:"));
-			const hasCommand = busTraces.some((e) => e.type.startsWith("bus:command:"));
-			expect(hasNotification, "bus:notification:* traces (llm.chunk, etc.)").toBe(true);
-			expect(hasCommand, "bus:command:* traces (llm.response, etc.)").toBe(true);
+		const hasNotification = busTraces.some((e) => e.type.startsWith("bus:notification:"));
+		const hasCommand = busTraces.some((e) => e.type.startsWith("bus:command:"));
+		expect(hasNotification, "bus:notification:* traces (llm.chunk, etc.)").toBe(true);
+		expect(hasCommand, "bus:command:* traces (llm.response, etc.)").toBe(true);
 
-			await session.dispose();
-		},
-		15_000,
-	);
+		await session.dispose();
+	}, 15_000);
 
-	it.fails(
-		"tui:observer traceEvents fire when session.subscribe callback runs",
-		async () => {
-			const faux = registerFauxProvider();
-			faux.setResponses([fauxAssistantMessage("observer-test-reply")]);
+	it("tui:observer traceEvents fire when session.subscribe callback runs", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("observer-test-reply")]);
 
-			const cwd = makeTmp();
-			const store = await JsonlSessionStore.create(cwd);
-			const args = { ...parseArgs([]), cwd, noTui: true };
-			const model = faux.getModel();
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const args = { ...parseArgs([]), cwd, noTui: true };
+		const model = faux.getModel();
 
-			const recorded: string[] = [];
-			initSessionSink((record) => {
-				if (typeof record.type === "string") recorded.push(record.type);
-			});
+		const recorded: string[] = [];
+		initSessionSink((record) => {
+			if (typeof record.type === "string") recorded.push(record.type);
+		});
 
-			const { session } = await createLocalSession(
-				args,
-				{},
-				SILENT_LOGGER,
-				store,
-				EMPTY_LOADED,
-				model,
-				STUB_STORAGE,
-				buildIdentityContext(store),
-			);
+		const { session } = await createLocalSession(
+			args,
+			{},
+			SILENT_LOGGER,
+			store,
+			EMPTY_LOADED,
+			model,
+			STUB_STORAGE,
+			buildIdentityContext(store),
+		);
 
-			session.subscribe((event) => {
-				traceEvent("tui:observer", { type: event.type });
-			});
+		session.subscribe((event) => {
+			traceEvent("tui:observer", { eventType: event.type });
+		});
 
-			if (session.send) {
-				await session.send("hello", 10_000);
-			}
+		if (session.send) {
+			await session.send("hello", 10_000);
+		}
 
-			const observerTraces = recorded.filter((t) => t === "tui:observer");
-			expect(observerTraces.length, "tui:observer traces should be recorded for each AgentEvent").toBeGreaterThan(0);
+		const observerTraces = recorded.filter((t) => t === "tui:observer");
+		expect(observerTraces.length, "tui:observer traces should be recorded for each AgentEvent").toBeGreaterThan(0);
 
-			await session.dispose();
-		},
-		15_000,
-	);
+		await session.dispose();
+	}, 15_000);
 });

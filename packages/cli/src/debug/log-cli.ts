@@ -579,18 +579,10 @@ async function analyzeChain(db: Client, args: string[]): Promise<void> {
 	const response = await check(await count("llm.response"), "7. llm.response (final reply)");
 	if (response > 0) info(`   text: "${await firstPayload("llm.response", "text")}"`);
 
-	console.log("\n── Observer bridge ──");
-	const converts = await check(await count("observer:convert"), "8. observer:convert (bus→AgentEvent)");
-	if (converts > 0) {
-		const r = await db.execute({
-			sql: "SELECT json_extract(payload, '$.observerCount') as oc FROM events WHERE session_id = ? AND type = 'observer:convert' LIMIT 1",
-			args: [sessionId] as InValue[],
-		});
-		info(`   observerCount: ${String(r.rows[0]?.oc ?? "?")}`);
-	}
-
-	await check(await count("observer:deliver"), "9. observer:deliver (callback invoked)");
-	await check(await count("observer:turn-complete"), "10. observer:turn-complete");
+	console.log("\n── Bus auto-trace ──");
+	await check(await countLike("bus:notification:%"), "8. bus:notification:* (chunks, thinking, tool events)");
+	await check(await countLike("bus:command:%"), "9. bus:command:* (responses, tool dispatch)");
+	await check(await countLike("bus:event:%"), "10. bus:event:* (input, results)");
 
 	console.log("\n── TUI pipeline ──");
 	await check(await count("tui:observer"), "11. tui:observer (TUI callback)");

@@ -3,7 +3,6 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
-import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
 /**
@@ -226,19 +225,14 @@ export function connectObservers(
 			if (event.type === "llm.response") {
 				const p = busPayload(event);
 				const text = typeof p.text === "string" ? p.text : "";
-				traceEvent("observer:turn-complete", { correlationId: event.correlationId, observerCount: observers.size });
 				for (const obs of observers) obs({ type: "turn-complete", reply: text });
 			}
 		},
 		onEvent() {},
 		onNotification(event) {
 			const agentEvent = signalToAgentEvent(event, signalMappers, uiSignalTypes);
-			traceEvent("observer:convert", { busType: event.type, agentType: agentEvent?.type ?? "null", observerCount: observers.size });
 			if (agentEvent) {
-				for (const obs of observers) {
-					traceEvent("observer:deliver", { agentType: agentEvent.type, observerName: obs.name || "anonymous" });
-					obs(agentEvent);
-				}
+				for (const obs of observers) obs(agentEvent);
 			}
 		},
 	});

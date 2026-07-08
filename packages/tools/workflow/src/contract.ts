@@ -98,7 +98,7 @@ export type ImplementOutput = z.infer<typeof ImplementSchema>;
 export type ExitOutput = z.infer<typeof ExitSchema>;
 
 // ---------------------------------------------------------------------------
-// Legacy flat contracts kept for backward compatibility.
+// Pre-built contracts for common station types.
 // ---------------------------------------------------------------------------
 
 export const IntentContract = defineContract(

@@ -101,8 +101,6 @@ export interface EnclosureAdapterOptions {
 	backend?: "overlay" | "docker" | "stub";
 	/** Options for the Docker backend. Required when backend='docker'. */
 	docker?: DockerSpaceOptions;
-	/** @deprecated Use backend='stub' instead. */
-	stub?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +266,7 @@ async function handleCreate(
 	if (!workspace) throw new Error("enclosure.create: workspace is required");
 	const spaceId = randomUUID();
 
-	const backend = opts.backend ?? (opts.stub ? "stub" : "overlay");
+	const backend = opts.backend ?? "overlay";
 	let space: Space;
 	if (backend === "docker") {
 		space = await DockerSpace.create({ ...opts.docker, workspace });

@@ -43,9 +43,9 @@ const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
 export interface DelegationAdapters {
 	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
 	strategyRegistry?: { register(name: string, strategy: unknown): void };
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP); file is @deprecated
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP boundary)
 	createCompactionStage: (opts?: any) => ContextAssemblyHandler;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP); file is @deprecated
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- engine can't import session types (DIP boundary)
 	createSessionContextStage: (opts: any) => ContextAssemblyHandler;
 }
 

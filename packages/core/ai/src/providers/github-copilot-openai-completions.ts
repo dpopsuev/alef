@@ -8,8 +8,6 @@
  * context.messages) and injects them via options.headers before delegating
  * to streamOpenAICompletions. This removes the hasCopilotVisionInput +
  * buildCopilotDynamicHeaders import from openai-completions.ts.
- *
- * Strangler Fig extraction from openai-completions.ts.
  */
 
 import type { Context, Model, SimpleStreamOptions } from "../types.js";

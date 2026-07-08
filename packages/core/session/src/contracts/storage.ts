@@ -87,5 +87,3 @@ export interface SessionStore {
 	name(): string | undefined;
 	setName(name: string): Promise<void>;
 }
-
-/** @deprecated Use SessionStore (the interface) */

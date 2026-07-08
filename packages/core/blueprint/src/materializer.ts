@@ -245,12 +245,10 @@ export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | 
 	return (entries as AdapterEntry[]).map(normalizeAdapterEntry);
 }
 
-/** Resolve the path to the adapters config file, preferring adapters.yaml over legacy organs.yaml. */
+/** Resolve the path to the adapters config file. */
 function resolveAdaptersConfigPath(): string | null {
 	const configPath = userAdaptersConfigPath();
 	if (existsSync(configPath)) return configPath;
-	const legacyPath = configPath.replace("adapters.yaml", "organs.yaml");
-	if (existsSync(legacyPath)) return legacyPath;
 	return null;
 }
 

@@ -152,8 +152,8 @@ describe("EnclosureAdapter — backend selection", { tags: ["unit"] }, () => {
 		expect(organ.tools.length).toBeGreaterThan(0);
 	});
 
-	it("legacy stub:true still works", () => {
-		const organ = createEnclosureAdapter({ stub: true });
+	it("backend:'stub' creates adapter", () => {
+		const organ = createEnclosureAdapter({ backend: "stub" });
 		expect(organ.name).toBe("enclosure");
 	});
 

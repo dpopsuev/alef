@@ -167,6 +167,3 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 		turnSignals.dispose();
 	}
 }
-
-// Re-export for backward compatibility
-export { buildTools } from "./handlers/message-handler.js";

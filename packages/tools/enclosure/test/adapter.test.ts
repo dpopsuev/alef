@@ -3,17 +3,17 @@ import { describe, expect, it } from "vitest";
 import { createEnclosureAdapter } from "../src/adapter.js";
 import { StubSpace } from "../src/space.js";
 
-adapterComplianceSuite(() => createEnclosureAdapter({ stub: true }));
+adapterComplianceSuite(() => createEnclosureAdapter({ backend: "stub" }));
 
 function fixture() {
 	const f = new BusFixture();
-	f.mount(createEnclosureAdapter({ stub: true }));
+	f.mount(createEnclosureAdapter({ backend: "stub" }));
 	return f;
 }
 
 describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 	it("has name=enclosure and 8 tools", () => {
-		const organ = createEnclosureAdapter({ stub: true });
+		const organ = createEnclosureAdapter({ backend: "stub" });
 		expect(organ.name).toBe("enclosure");
 		expect(organ.tools).toHaveLength(8);
 		expect(organ.tools.map((t) => t.name)).toEqual([
@@ -30,7 +30,7 @@ describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 
 	it("unmount cleans up all motor subscriptions", () => {
 		const f = new BusFixture();
-		const unmount = f.mount(createEnclosureAdapter({ stub: true }));
+		const unmount = f.mount(createEnclosureAdapter({ backend: "stub" }));
 		expect(f.bus.listenerCount("command", "enclosure.create")).toBe(1);
 		unmount();
 		expect(f.bus.listenerCount("command", "enclosure.create")).toBe(0);

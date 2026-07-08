@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { adapterComplianceSuite, BusFixture, TurnDriver } from "../../testkit/src/index.js";
 import { createAgentLoop } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
-import { buildTools } from "../src/turn-loop.js";
+import { buildTools } from "../src/handlers/message-handler.js";
 
 // createContextAssembler (from kernel) is the mountable pipeline adapter — no tools, pure coordinator.
 // adapter-llm is a reasoner (no tools), not a tool-bearing adapter.

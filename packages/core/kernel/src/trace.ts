@@ -77,6 +77,55 @@ export function initSessionSink(sink: SessionSink): void {
 	flushPending();
 }
 
+// ---------------------------------------------------------------------------
+// Sampling — rule-based tail sampling for high-volume trace events
+// ---------------------------------------------------------------------------
+
+const ALWAYS_RECORD = new Set([
+	"boot", "tui:start", "tui:stopped", "directives:built",
+	"llm:http:start", "llm:http:done", "llm:http:error",
+	"llm:retry", "llm:tool:stall", "llm:tool:timeout",
+	"observer:turn-complete", "turn.start", "turn.complete",
+	"tool:start", "tool:end", "loop:detected",
+	"delegate:strategy:start", "delegate:strategy:done",
+	"in-process:start", "in-process:done", "in-process:error",
+]);
+
+const SAMPLED = new Set([
+	"observer:convert", "observer:deliver",
+	"tui:observer", "tui:dispatch",
+]);
+
+const SAMPLE_RATE = 0.1;
+let samplingCounter = 0;
+
+/** Wrap a session sink with rule-based sampling. Always keeps errors, timeouts, and lifecycle events. Samples high-volume observer/dispatch events at 10%. */
+export function withSampling(sink: SessionSink): SessionSink {
+	return (record) => {
+		const type = typeof record.type === "string" ? record.type : "";
+
+		if (ALWAYS_RECORD.has(type)) {
+			sink(record);
+			return;
+		}
+
+		if (type.includes("error") || type.includes("fail") || type.includes("timeout")) {
+			sink(record);
+			return;
+		}
+
+		if (SAMPLED.has(type)) {
+			samplingCounter++;
+			if (samplingCounter % Math.round(1 / SAMPLE_RATE) === 0) {
+				sink(record);
+			}
+			return;
+		}
+
+		sink(record);
+	};
+}
+
 /** Emit a structured trace event, buffering if no sink is registered yet. */
 export function traceEvent(event: string, extra?: Record<string, unknown>): void {
 	const ctx = traceContextStorage.getStore();

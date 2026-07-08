@@ -590,6 +590,18 @@ async function analyzeChain(db: Client, args: string[]): Promise<void> {
 	await check(await count("turn.start"), "13. turn.start (TUI turn begin)");
 	await check(await count("turn.complete"), "14. turn.complete (TUI turn end)");
 
+	console.log("\n── OTel spans ──");
+	const spanCount = async (pattern: string): Promise<number> => {
+		const r = await db.execute({
+			sql: "SELECT count(*) as c FROM spans WHERE name LIKE ?",
+			args: [pattern] as InValue[],
+		});
+		return Number(r.rows[0]?.c ?? 0);
+	};
+	await check(await spanCount("chat %"), "15. chat spans (LLM HTTP calls)");
+	await check(await spanCount("alef.command/%"), "16. tool dispatch spans");
+	await check(await spanCount("%.mount"), "17. adapter @Traced spans");
+
 	console.log("\n── Errors ──");
 	const errors = await countLike("%error%");
 	if (errors > 0) {

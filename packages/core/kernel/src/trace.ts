@@ -190,25 +190,53 @@ const _tracedTracer = trace.getTracer("alef.traced", "0.0.1");
  *     mount(bus: Bus) { ... }
  *   }
  */
-export function Traced(_target: unknown, propertyKey: string, descriptor: PropertyDescriptor): void {
-	const original = descriptor.value as (...args: unknown[]) => unknown;
-	descriptor.value = function (this: { constructor: { name: string } }, ...args: unknown[]): unknown {
-		const spanName = `${this.constructor.name}.${propertyKey}`;
-		return _tracedTracer.startActiveSpan(spanName, (span) => {
-			try {
-				const result = original.apply(this, args);
-				if (result instanceof Promise) {
-					return result
-						.then((v) => { span.end(); return v; })
-						.catch((e: unknown) => { span.recordException(e instanceof Error ? e : new Error(String(e))); span.end(); throw e; });
-				}
-				span.end();
-				return result;
-			} catch (e) {
-				span.recordException(e instanceof Error ? e : new Error(String(e)));
-				span.end();
-				throw e;
-			}
-		});
+export function Traced(
+	targetOrMethod: unknown,
+	propertyKeyOrContext: string | ClassMethodDecoratorContext,
+	descriptor?: PropertyDescriptor,
+): void {
+	if (typeof propertyKeyOrContext === "object") {
+		// TC39 Stage 3: (originalMethod, context) → replacementMethod
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- targetOrMethod is the original method in Stage 3 decorator protocol
+		const original = targetOrMethod as (...args: unknown[]) => unknown;
+		const ctx = propertyKeyOrContext;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Stage 3 decorator must return the replacement function; tsc sees void but tsx needs the actual function
+		return function (this: { constructor: { name: string } }, ...args: unknown[]): unknown {
+			const spanName = `${this.constructor.name}.${String(ctx.name)}`;
+			return _wrapWithSpan(spanName, original, this, args);
+		} as unknown as void;
+	}
+	// Legacy Stage 2: (target, propertyKey, descriptor) → void
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- descriptor.value is the original method; PropertyDescriptor types it as any
+	const original = descriptor!.value as (...args: unknown[]) => unknown;
+	descriptor!.value = function (this: { constructor: { name: string } }, ...args: unknown[]): unknown {
+		const spanName = `${this.constructor.name}.${propertyKeyOrContext}`;
+		return _wrapWithSpan(spanName, original, this, args);
 	};
+}
+
+/** Execute `original` inside a new OTel span, recording exceptions on error. */
+function _wrapWithSpan(
+	spanName: string,
+	original: (...args: unknown[]) => unknown,
+	thisArg: unknown,
+	args: unknown[],
+): unknown {
+	return _tracedTracer.startActiveSpan(spanName, (span) => {
+		try {
+			const result = original.apply(thisArg, args);
+			if (result instanceof Promise) {
+				return result
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- original.apply returns any; value passes through .then
+				.then((v) => { span.end(); return v; })
+					.catch((e: unknown) => { span.recordException(e instanceof Error ? e : new Error(String(e))); span.end(); throw e; });
+			}
+			span.end();
+			return result;
+		} catch (e) {
+			span.recordException(e instanceof Error ? e : new Error(String(e)));
+			span.end();
+			throw e;
+		}
+	});
 }

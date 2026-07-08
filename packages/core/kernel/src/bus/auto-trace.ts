@@ -16,7 +16,7 @@ export function withAutoTrace(): BusMiddleware {
 	return (bus: Bus): Bus => {
 		const trace = (channel: ChannelName, event: { type: string; correlationId: string; payload?: unknown }) => {
 			const payloadKeys = event.payload && typeof event.payload === "object"
-				? Object.keys(event.payload as Record<string, unknown>).join(",")
+				? Object.keys(event.payload).join(",")
 				: "";
 			traceEvent(`bus:${channel}:${event.type}`, {
 				correlationId: event.correlationId,

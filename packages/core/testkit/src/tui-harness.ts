@@ -5,6 +5,12 @@ const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const MAIN = resolve(ROOT, "packages/cli/src/entrypoint.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
+const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_COLS = 120;
+const DEFAULT_ROWS = 30;
+const POLL_INTERVAL_MS = 50;
+const TAIL_CHARS = 500;
+
 /** Options for spawning an Alef TUI in a real PTY. */
 export interface TuiHarnessOptions {
 	cwd: string;
@@ -35,22 +41,23 @@ export interface TuiHarness {
 
 /** Spawn Alef in a real PTY with scripted replies, wait for TUI ready. */
 export async function createTuiHarness(opts: TuiHarnessOptions): Promise<TuiHarness> {
-	let spawn: typeof import("node-pty").spawn;
+	// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- dynamic import; node-pty is optional
+	let spawn: (file: string, args: string[], opt: Record<string, unknown>) => import("node-pty").IPty;
 	try {
 		spawn = (await import("node-pty")).spawn;
 	} catch {
 		throw new Error("node-pty not available — install it to use TuiHarness");
 	}
 
-	const timeout = opts.timeoutMs ?? 20_000;
+	const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	let buf = "";
 	let exitCode: number | undefined;
 	let exitResolve: ((code: number) => void) | undefined;
 
 	const pty = spawn(process.execPath, [TSX, MAIN], {
 		name: "xterm-256color",
-		cols: opts.cols ?? 120,
-		rows: opts.rows ?? 30,
+		cols: opts.cols ?? DEFAULT_COLS,
+		rows: opts.rows ?? DEFAULT_ROWS,
 		cwd: opts.cwd,
 		env: {
 			...process.env,
@@ -87,7 +94,7 @@ export async function createTuiHarness(opts: TuiHarnessOptions): Promise<TuiHarn
 					return;
 				}
 				const timer = setTimeout(() => {
-					reject(new Error(`TuiHarness.waitFor(${pattern}) timed out after ${waitMs}ms.\nOutput:\n${buf.slice(-500)}`));
+					reject(new Error(`TuiHarness.waitFor(${pattern}) timed out after ${waitMs}ms.\nOutput:\n${buf.slice(-TAIL_CHARS)}`));
 				}, waitMs);
 				const check = setInterval(() => {
 					if (pattern.test(buf)) {
@@ -95,7 +102,7 @@ export async function createTuiHarness(opts: TuiHarnessOptions): Promise<TuiHarn
 						clearTimeout(timer);
 						resolve();
 					}
-				}, 50);
+				}, POLL_INTERVAL_MS);
 			});
 		},
 		output() {

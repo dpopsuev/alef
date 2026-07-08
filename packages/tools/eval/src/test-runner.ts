@@ -28,6 +28,7 @@ export interface TestRunResult {
 /** Parse vitest JSON reporter output into a structured TestRunResult. */
 export function parseVitestJson(raw: string, exitCode: number, durationMs: number): TestRunResult {
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns any; we validate fields below
 		const data = JSON.parse(raw) as {
 			numPassedTests?: number;
 			numFailedTests?: number;
@@ -83,7 +84,7 @@ function runVitest(packagePath: string, timeoutMs: number, filePattern?: string)
 			timeout: timeoutMs,
 			maxBuffer: 10 * 1024 * 1024,
 			env: { ...process.env, NODE_OPTIONS: "" },
-		}, (err, stdout, stderr) => {
+		}, (err, stdout, _stderr) => {
 			const elapsed = Date.now() - start;
 			const code = proc.exitCode ?? (err ? 1 : 0);
 			const jsonStart = stdout.indexOf("{");

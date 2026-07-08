@@ -516,14 +516,17 @@ async function walkCause(db: Client, args: string[]): Promise<void> {
 async function analyzeChain(db: Client, args: string[]): Promise<void> {
 	let sessionId = args[0];
 	if (!sessionId) {
-		const latest = (
-			await db.execute({ sql: "SELECT session_id FROM events WHERE type='llm.input' ORDER BY timestamp DESC LIMIT 1", args: [] })
-		).rows[0];
-		if (!latest) {
+		const rows = (
+			await db.execute({
+				sql: "SELECT session_id FROM events WHERE type='llm.input' ORDER BY timestamp DESC LIMIT 1",
+				args: [],
+			})
+		).rows;
+		if (rows.length === 0) {
 			console.error("No sessions with llm.input found.");
 			process.exit(1);
 		}
-		sessionId = String(latest.session_id);
+		sessionId = String(rows[0].session_id);
 	}
 
 	console.log(`\n[Round-trip chain analysis — session ${sessionId}]\n`);
@@ -557,10 +560,11 @@ async function analyzeChain(db: Client, args: string[]): Promise<void> {
 	const fail = (label: string) => console.log(`  ❌  ${label}`);
 	const info = (label: string) => console.log(`      ${label}`);
 
-	const check = async (n: number, label: string) => {
-		if (n > 0) ok(`${label} (${n})`);
+	const check = async (n: number | Promise<number>, label: string): Promise<number> => {
+		const v = await n;
+		if (v > 0) ok(`${label} (${v})`);
 		else fail(`${label} (0)`);
-		return n;
+		return v;
 	};
 
 	console.log("── Backend ──");
@@ -575,7 +579,7 @@ async function analyzeChain(db: Client, args: string[]): Promise<void> {
 	await check(thinking, `4. llm.thinking (thinking chunks)`);
 	await check(chunks, `5. llm.chunk (reply chunks)`);
 
-	const httpDone = await check(await count("llm:http:done"), "6. llm:http:done (stream end)");
+	await check(await count("llm:http:done"), "6. llm:http:done (stream end)");
 	const response = await check(await count("llm.response"), "7. llm.response (final reply)");
 	if (response > 0) info(`   text: "${await firstPayload("llm.response", "text")}"`);
 

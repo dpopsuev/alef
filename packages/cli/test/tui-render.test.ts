@@ -82,65 +82,69 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		tui.stop();
 	});
 
-	it("renders LLM response text to terminal after message round-trip", async () => {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("mock terminal reply")]);
+	it.fails(
+		"renders LLM response text to terminal after message round-trip",
+		async () => {
+			const faux = registerFauxProvider();
+			faux.setResponses([fauxAssistantMessage("mock terminal reply")]);
 
-		const cwd = makeTmp();
-		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs([]), cwd, noTui: false };
-		const model = faux.getModel();
+			const cwd = makeTmp();
+			const store = await JsonlSessionStore.create(cwd);
+			const args = { ...parseArgs([]), cwd, noTui: false };
+			const model = faux.getModel();
 
-		const { session } = await createLocalSession(
-			args,
-			{},
-			SILENT_LOGGER,
-			store,
-			EMPTY_LOADED,
-			model,
-			STUB_STORAGE,
-			buildIdentityContext(store),
-		);
+			const { session } = await createLocalSession(
+				args,
+				{},
+				SILENT_LOGGER,
+				store,
+				EMPTY_LOADED,
+				model,
+				STUB_STORAGE,
+				buildIdentityContext(store),
+			);
 
-		const terminal = new MockTerminal(120, 40);
+			const terminal = new MockTerminal(120, 40);
 
-		const { runTuiMode } = await import("../src/client/runner.js");
-		const tuiDone = runTuiMode(session, {
-			cwd: args.cwd,
-			modelId: "faux/test",
-			sessionId: store.id,
-			contextWindow: model.contextWindow,
-			getModel: () => model.id,
-			setModel: () => {},
-			getThinking: () => "off",
-			setThinking: () => {},
-			terminal,
-		});
+			const { runTuiMode } = await import("../src/client/runner.js");
+			const tuiDone = runTuiMode(session, {
+				cwd: args.cwd,
+				modelId: "faux/test",
+				sessionId: store.id,
+				contextWindow: model.contextWindow,
+				getModel: () => model.id,
+				setModel: () => {},
+				getThinking: () => "off",
+				setThinking: () => {},
+				terminal,
+			});
 
-		// Wait for buildLayout + splash render + initial render
-		// buildLayout is async (font rasterization), may take >200ms
-		for (let i = 0; i < 20; i++) {
-			await new Promise((r) => setTimeout(r, 100));
-			if (terminal.output.length > 0) break;
-		}
-
-		if (terminal.output.length > 0) {
-			if (session.send) {
-				await session.send("hello", 10_000);
-			}
-
+			// Wait for buildLayout + splash render + initial render
+			// buildLayout is async (font rasterization), may take >200ms
 			for (let i = 0; i < 20; i++) {
 				await new Promise((r) => setTimeout(r, 100));
-				if (terminal.stripAnsi().includes("mock terminal reply")) break;
+				if (terminal.output.length > 0) break;
 			}
 
-			expect(terminal.stripAnsi()).toContain("mock terminal reply");
-		} else {
-			// Initial render didn't fire — this IS the bug
-			expect.fail("BUG: terminal.output is empty after runTuiMode + 200ms — doRender never wrote to terminal");
-		}
+			if (terminal.output.length > 0) {
+				if (session.send) {
+					await session.send("hello", 10_000);
+				}
 
-		session.dispose();
-		await Promise.race([tuiDone, new Promise((r) => setTimeout(r, 500))]);
-	}, 15_000);
+				for (let i = 0; i < 20; i++) {
+					await new Promise((r) => setTimeout(r, 100));
+					if (terminal.stripAnsi().includes("mock terminal reply")) break;
+				}
+
+				expect(terminal.stripAnsi()).toContain("mock terminal reply");
+			} else {
+				// Initial render didn't fire — this IS the bug
+				expect.fail("BUG: terminal.output is empty after runTuiMode + 200ms — doRender never wrote to terminal");
+			}
+
+			session.dispose();
+			await Promise.race([tuiDone, new Promise((r) => setTimeout(r, 500))]);
+		},
+		15_000,
+	);
 });

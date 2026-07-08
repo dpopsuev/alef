@@ -109,7 +109,7 @@ editor.onSubmit = (value: string) => {
 				"Great point!",
 				"Thanks for sharing that.",
 			];
-			const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+			const randomResponse = responses[Math.floor(Math.random() * responses.length)]!;
 
 			// Add assistant message with no background (transparent)
 			const botMessage = new Markdown(randomResponse, 1, 1, defaultMarkdownTheme);

@@ -28,39 +28,39 @@ const PATTERNS: Array<{ re: RegExp; map: (m: RegExpMatchArray) => RawMatch }> = 
 	// export (async) function name(
 	{
 		re: /^(export\s+(?:default\s+)?)?async\s+function\s+(\w+)\s*[(<]/,
-		map: (m) => ({ name: m[2], kind: "function", exported: !!m[1], hasBlock: true }),
+		map: (m) => ({ name: m[2]!, kind: "function", exported: !!m[1], hasBlock: true }),
 	},
 	{
 		re: /^(export\s+(?:default\s+)?)?function\s+(\w+)\s*[(<]/,
-		map: (m) => ({ name: m[2], kind: "function", exported: !!m[1], hasBlock: true }),
+		map: (m) => ({ name: m[2]!, kind: "function", exported: !!m[1], hasBlock: true }),
 	},
 	// export abstract? class Name
 	{
 		re: /^(export\s+)?(?:abstract\s+)?class\s+(\w+)[\s{<(]/,
-		map: (m) => ({ name: m[2], kind: "class", exported: !!m[1], hasBlock: true }),
+		map: (m) => ({ name: m[2]!, kind: "class", exported: !!m[1], hasBlock: true }),
 	},
 	// export interface Name
 	{
 		re: /^(export\s+)?interface\s+(\w+)[\s{<(]/,
-		map: (m) => ({ name: m[2], kind: "interface", exported: !!m[1], hasBlock: true }),
+		map: (m) => ({ name: m[2]!, kind: "interface", exported: !!m[1], hasBlock: true }),
 	},
 	// export type Name = ...
 	{
 		re: /^(export\s+)?type\s+(\w+)\s*(?:<[^=]+>)?\s*=/,
-		map: (m) => ({ name: m[2], kind: "type", exported: !!m[1], hasBlock: false }),
+		map: (m) => ({ name: m[2]!, kind: "type", exported: !!m[1], hasBlock: false }),
 	},
 	// export const/let/var name = ... (including arrow functions)
 	{
 		re: /^(export\s+)?const\s+(\w+)\s*(?::[^=]+)?\s*=/,
-		map: (m) => ({ name: m[2], kind: "const", exported: !!m[1], hasBlock: false }),
+		map: (m) => ({ name: m[2]!, kind: "const", exported: !!m[1], hasBlock: false }),
 	},
 	{
 		re: /^(export\s+)?let\s+(\w+)\s*(?::[^=]+)?\s*=/,
-		map: (m) => ({ name: m[2], kind: "variable", exported: !!m[1], hasBlock: false }),
+		map: (m) => ({ name: m[2]!, kind: "variable", exported: !!m[1], hasBlock: false }),
 	},
 	{
 		re: /^(export\s+)?var\s+(\w+)\s*(?::[^=]+)?\s*=/,
-		map: (m) => ({ name: m[2], kind: "variable", exported: !!m[1], hasBlock: false }),
+		map: (m) => ({ name: m[2]!, kind: "variable", exported: !!m[1], hasBlock: false }),
 	},
 ];
 
@@ -82,7 +82,7 @@ function findEndLine(lines: string[], startIdx: number, hasBlock: boolean): numb
 		let depth = 0;
 		let opened = false;
 		for (let i = startIdx; i < lines.length; i++) {
-			const line = lines[i];
+			const line = lines[i]!;
 			for (const ch of line) {
 				if (ch === "{") {
 					depth++;
@@ -99,7 +99,7 @@ function findEndLine(lines: string[], startIdx: number, hasBlock: boolean): numb
 	// No block — scan for semicolon or until next non-continuation line.
 	// Arrow functions with block body: detect `=> {` and switch to brace mode.
 	for (let i = startIdx; i < Math.min(startIdx + 50, lines.length); i++) {
-		const line = lines[i];
+		const line = lines[i]!;
 
 		// Arrow function that opens a block
 		if (line.includes("=> {") || line.match(/=>\s*\{/)) {
@@ -131,7 +131,7 @@ export function extractSymbols(content: string): SymbolBlock[] {
 	let classDepth = 0;
 
 	for (let i = 0; i < lines.length; i++) {
-		const raw = lines[i].trimStart();
+		const raw = lines[i]!.trimStart();
 
 		// Track class body for method detection
 		if (/^(?:export\s+)?(?:abstract\s+)?class\s+\w/.test(raw)) {
@@ -139,7 +139,7 @@ export function extractSymbols(content: string): SymbolBlock[] {
 			classDepth = 0;
 		}
 		if (insideClass) {
-			for (const ch of lines[i]) {
+			for (const ch of lines[i]!) {
 				if (ch === "{") classDepth++;
 				else if (ch === "}") {
 					classDepth--;
@@ -169,12 +169,12 @@ export function extractSymbols(content: string): SymbolBlock[] {
 		if (matched || !insideClass) continue;
 
 		// Method detection inside classes
-		if (METHOD_EXCLUDE.test(lines[i])) continue;
-		const mm = lines[i].match(METHOD_RE);
+		if (METHOD_EXCLUDE.test(lines[i]!)) continue;
+		const mm = lines[i]!.match(METHOD_RE);
 		if (mm && mm[1] !== "constructor") {
 			const endLine = findEndLine(lines, i, true);
 			symbols.push({
-				name: mm[1],
+				name: mm[1]!,
 				kind: "method",
 				startLine: i + 1,
 				endLine: endLine + 1,

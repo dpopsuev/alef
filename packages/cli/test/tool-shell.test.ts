@@ -248,7 +248,7 @@ describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
 		const input = [{ role: "user", content: "hello" }];
 		const result = shell.applyPhase(input, 1);
 		expect(result).toHaveLength(1);
-		expect(result[0].content).toBe("hello");
+		expect(result[0]!.content).toBe("hello");
 	});
 
 	it("applyPhase does not evict (no catalog to evict)", () => {
@@ -257,7 +257,7 @@ describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
 		const after1 = shell.applyPhase(input, 1);
 		const after5 = shell.applyPhase(after1, 5);
 		expect(after5).toHaveLength(1);
-		expect(after5[0].content).toBe("hello");
+		expect(after5[0]!.content).toBe("hello");
 	});
 });
 
@@ -308,7 +308,7 @@ describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 100));
 		const { results } = h.senseResult("tools.describe");
 		expect((results as unknown[]).length).toBe(1);
-		const entry = (results as Array<Record<string, unknown>>)[0];
+		const entry = (results as Array<Record<string, unknown>>)[0]!;
 		expect(entry.name).toBe("fs.read");
 		expect(entry).toHaveProperty("schema");
 		expect(entry.guidance).toContain("offset/limit");
@@ -320,7 +320,7 @@ describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 100));
 		const { results } = h.senseResult("tools.describe");
 		expect((results as unknown[]).length).toBe(1);
-		expect((results as Array<{ name: string }>)[0].name).toBe("fs.read");
+		expect((results as Array<{ name: string }>)[0]!.name).toBe("fs.read");
 	});
 
 	it("returns empty guidance when no directives registered", async () => {
@@ -328,7 +328,7 @@ describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 		h.publish("tools.describe", { names: ["shell.exec"] });
 		await new Promise((r) => setTimeout(r, 100));
 		const { results } = h.senseResult("tools.describe");
-		expect((results as Array<{ guidance: string }>)[0].guidance).toBe("");
+		expect((results as Array<{ guidance: string }>)[0]!.guidance).toBe("");
 	});
 
 	it("empty names returns full catalog (all tool names + descriptions, no schemas)", async () => {
@@ -368,7 +368,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const result = shell.applyPhase(msgs(1), 1);
 		expect(result.length).toBe(2);
-		const first = result[0].content as string;
+		const first = result[0]!.content as string;
 		expect(first).toContain(MARKER);
 		expect(first).toContain("fs.read");
 	});

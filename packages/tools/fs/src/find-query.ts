@@ -56,7 +56,7 @@ const FD_ARG_RULES: {
 	{ test: (i) => i.hidden !== false, args: () => ["--hidden"] },
 	{
 		test: (i) => i.type !== undefined,
-		args: (i) => ["--type", FD_TYPE_FLAG[i.type!]],
+		args: (i) => ["--type", FD_TYPE_FLAG[i.type!]!],
 	},
 	{
 		test: (i) => i.extension !== undefined,

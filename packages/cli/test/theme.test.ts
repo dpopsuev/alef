@@ -8,6 +8,7 @@ import {
 	getTheme,
 	setThemeByName,
 	spinnerFrames,
+	type ThemeTokens,
 } from "../src/client/theme.js";
 
 afterEach(() => {
@@ -96,7 +97,7 @@ describe("built-in themes", { tags: ["unit"] }, () => {
 	});
 
 	it("terminal theme has no truecolor values — pure ANSI 16", () => {
-		const t = BUILT_IN_THEMES.terminal;
+		const t = BUILT_IN_THEMES.terminal!;
 		for (const [key, token] of Object.entries(t)) {
 			expect(token.truecolor, `terminal.${key} should have no truecolor`).toBeUndefined();
 			expect(token.ansi16, `terminal.${key} should have ansi16`).toBeDefined();
@@ -104,7 +105,7 @@ describe("built-in themes", { tags: ["unit"] }, () => {
 	});
 
 	it("each theme has all required token keys", () => {
-		const required: Array<keyof typeof BUILT_IN_THEMES.akko> = [
+		const required: Array<keyof ThemeTokens> = [
 			"userFg",
 			"agentFg",
 			"primaryFg",
@@ -144,8 +145,8 @@ describe("setThemeByName", { tags: ["unit"] }, () => {
 
 describe("akko palette", { tags: ["unit"] }, () => {
 	it("has truecolor values", () => {
-		expect(BUILT_IN_THEMES.akko.accentFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
-		expect(BUILT_IN_THEMES.akko.warnFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
+		expect(BUILT_IN_THEMES.akko!.accentFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
+		expect(BUILT_IN_THEMES.akko!.warnFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
 	});
 });
 

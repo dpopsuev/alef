@@ -49,7 +49,7 @@ export function createResourceMeter(): Adapter {
 	function percentile(sorted: number[], p: number): number {
 		if (sorted.length === 0) return 0;
 		const idx = Math.ceil((p / PERCENT) * sorted.length) - 1;
-		return sorted[Math.max(0, idx)];
+		return sorted[Math.max(0, idx)]!;
 	}
 
 	/**

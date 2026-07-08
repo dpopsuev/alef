@@ -85,7 +85,7 @@ describe("Intent → Goal → Implement pipeline", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("I am done thinking.")]);
 
 		const runner = new ImplStationRunner(faux.getModel());
-		const result = await runner.run(DEF.stations[0], "anything");
+		const result = await runner.run(DEF.stations[0]!, "anything");
 
 		expect(result.status).toBe("budget_exhausted");
 		expect(result.output).toBeUndefined();
@@ -102,7 +102,7 @@ describe("Intent → Goal → Implement pipeline", { tags: ["unit"] }, () => {
 		]);
 
 		const runner = new ImplStationRunner(faux.getModel());
-		const result = await runner.run(DEF.stations[0], "a request");
+		const result = await runner.run(DEF.stations[0]!, "a request");
 
 		expect(result.status).toBe("fulfilled");
 		expect(result.output).toMatchObject({ intent: INTENT_OUTPUT.intent });

@@ -56,40 +56,40 @@ describe("parseHashlineEdits", { tags: ["unit"] }, () => {
 	it("parses SWAP single line", () => {
 		const edits = parseHashlineEdits('SWAP 2\n+  return "universe";');
 		expect(edits).toHaveLength(1);
-		expect(edits[0].kind).toBe("swap");
-		expect(edits[0].startLine).toBe(2);
-		expect(edits[0].endLine).toBe(2);
-		expect(edits[0].body).toEqual(['  return "universe";']);
+		expect(edits[0]!.kind).toBe("swap");
+		expect(edits[0]!.startLine).toBe(2);
+		expect(edits[0]!.endLine).toBe(2);
+		expect(edits[0]!.body).toEqual(['  return "universe";']);
 	});
 
 	it("parses SWAP range", () => {
 		const edits = parseHashlineEdits('SWAP 2.=3\n+  return "universe";\n+  // done');
 		expect(edits).toHaveLength(1);
-		expect(edits[0].startLine).toBe(2);
-		expect(edits[0].endLine).toBe(3);
-		expect(edits[0].body).toHaveLength(2);
+		expect(edits[0]!.startLine).toBe(2);
+		expect(edits[0]!.endLine).toBe(3);
+		expect(edits[0]!.body).toHaveLength(2);
 	});
 
 	it("parses DEL", () => {
 		const edits = parseHashlineEdits("DEL 5.=8");
 		expect(edits).toHaveLength(1);
-		expect(edits[0].kind).toBe("del");
-		expect(edits[0].startLine).toBe(5);
-		expect(edits[0].endLine).toBe(8);
+		expect(edits[0]!.kind).toBe("del");
+		expect(edits[0]!.startLine).toBe(5);
+		expect(edits[0]!.endLine).toBe(8);
 	});
 
 	it("parses INS.POST", () => {
 		const edits = parseHashlineEdits("INS.POST 3\n+// new line");
 		expect(edits).toHaveLength(1);
-		expect(edits[0].kind).toBe("ins_post");
-		expect(edits[0].startLine).toBe(3);
-		expect(edits[0].body).toEqual(["// new line"]);
+		expect(edits[0]!.kind).toBe("ins_post");
+		expect(edits[0]!.startLine).toBe(3);
+		expect(edits[0]!.body).toEqual(["// new line"]);
 	});
 
 	it("parses INS.PRE", () => {
 		const edits = parseHashlineEdits("INS.PRE 1\n+// header");
 		expect(edits).toHaveLength(1);
-		expect(edits[0].kind).toBe("ins_pre");
+		expect(edits[0]!.kind).toBe("ins_pre");
 	});
 
 	it("parses multiple edits", () => {

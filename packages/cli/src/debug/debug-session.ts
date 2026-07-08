@@ -51,7 +51,7 @@ async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPref
 		target = found;
 	}
 
-	const store = await sessions.resume(cwd, target.id);
+	const store = await sessions.resume(cwd, target!.id);
 	const records: StorageRecord[] = await store.events();
 
 	const motorByCorr = new Map<string, StorageRecord[]>();
@@ -76,7 +76,7 @@ async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPref
 		}
 	}
 
-	console.log(`Session: ${target.id}`);
+	console.log(`Session: ${target!.id}`);
 	console.log(`Events:  ${records.length}  Turns: ${turns}  Errors: ${errors}`);
 	console.log();
 

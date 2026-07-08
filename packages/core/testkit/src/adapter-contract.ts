@@ -271,7 +271,6 @@ export function adapterComplianceSuite(
 	// Throwing here (not inside it()) surfaces the error during test discovery,
 	// not as a test failure — the developer sees it immediately on first run.
 	for (const tool of streamingTools) {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: Record indexing can yield undefined
 		if (streamingConfig[tool.name] === undefined) {
 			throw new Error(
 				`adapterComplianceSuite: '${tool.name}' is declared as a streaming tool ` +

@@ -82,7 +82,7 @@ function bootAlef(
 			const m = buf.match(/router listening on (http:\/\/[\d.]+:\d+)/);
 			if (m) {
 				clearTimeout(timer);
-				resolve({ proc, baseUrl: m[1] });
+				resolve({ proc, baseUrl: m[1]! });
 			}
 		};
 		proc.stdout?.on("data", onData);

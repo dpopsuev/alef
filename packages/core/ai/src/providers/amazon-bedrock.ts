@@ -281,7 +281,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key is one of the known discriminant names
 				const key = streamHandlerKeys.find((k) => item[k as keyof StreamItem]);
 				if (key) {
-					streamHandlers[key](item);
+					streamHandlers[key]!(item);
 				}
 			}
 
@@ -427,19 +427,19 @@ function handleContentBlockDelta(
 
 	if (delta?.text !== undefined) {
 		// handleContentBlockStart is not sent for text blocks — create one if missing.
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; block can be undefined at runtime
+		 
 		if (!block) {
 			const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
 			output.content.push(newBlock);
 			index = blocks.length - 1;
-			block = blocks[index];
+			block = blocks[index]!;
 			stream.push({ type: "text_start", contentIndex: index, partial: output });
 		}
 		if (block.type === "text") {
 			block.text += delta.text;
 			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
 		}
-	} else if (delta?.toolUse && block.type === "toolCall") {
+	} else if (delta?.toolUse && block && block.type === "toolCall") {
 		block.partialJson = (block.partialJson ?? "") + (delta.toolUse.input ?? "");
 		block.arguments = parseStreamingJson(block.partialJson);
 		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input ?? "", partial: output });
@@ -467,7 +467,7 @@ function handleReasoningDelta(
 		const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
 		output.content.push(newBlock);
 		thinkingIndex = blocks.length - 1;
-		thinkingBlock = blocks[thinkingIndex];
+		thinkingBlock = blocks[thinkingIndex]!;
 		stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
 	}
 
@@ -517,7 +517,7 @@ function handleContentBlockStop(
 ): void {
 	const index = blocks.findIndex((b) => b.index === event.contentBlockIndex);
 	const block = blocks[index];
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; block can be undefined at runtime
+	 
 	if (!block) return;
 	delete (block).index;
 
@@ -745,7 +745,7 @@ function convertMessages(
 	const transformedMessages = transformMessages(context.messages, model, normalizeToolCallId);
 
 	for (let i = 0; i < transformedMessages.length; i++) {
-		const m = transformedMessages[i];
+		const m = transformedMessages[i]!;
 
 		switch (m.role) {
 			case "user":
@@ -825,7 +825,7 @@ function convertMessages(
 
 				// Look ahead for consecutive toolResult messages
 				let j = i + 1;
-				while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
+				while (j < transformedMessages.length && transformedMessages[j]!.role === "toolResult") {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role === "toolResult" guard above
 				const nextMsg = transformedMessages[j] as ToolResultMessage;
 					toolResults.push({
@@ -858,7 +858,7 @@ function convertMessages(
 
 	// Add cache point to the last user message for supported Claude models when caching is enabled
 	if (cacheRetention !== "none" && supportsPromptCaching(model) && result.length > 0) {
-		const lastMessage = result[result.length - 1];
+		const lastMessage = result[result.length - 1]!;
 		if (lastMessage.role === ConversationRole.USER && lastMessage.content) {
 			(lastMessage.content).push({
 				cachePoint: {

@@ -42,7 +42,7 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 	let i = 0;
 
 	while (i < lines.length) {
-		const line = lines[i].trim();
+		const line = lines[i]!.trim();
 		if (!line) {
 			i++;
 			continue;
@@ -50,12 +50,12 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 
 		const swapMatch = line.match(/^SWAP\s+(\d+)(?:\.=(\d+))?$/);
 		if (swapMatch) {
-			const start = Number(swapMatch[1]);
+			const start = Number(swapMatch[1]!);
 			const end = swapMatch[2] ? Number(swapMatch[2]) : start;
 			const body: string[] = [];
 			i++;
-			while (i < lines.length && lines[i].startsWith("+")) {
-				body.push(lines[i].slice(1));
+			while (i < lines.length && lines[i]!.startsWith("+")) {
+				body.push(lines[i]!.slice(1));
 				i++;
 			}
 			edits.push({ kind: "swap", startLine: start, endLine: end, body });
@@ -64,7 +64,7 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 
 		const delMatch = line.match(/^DEL\s+(\d+)(?:\.=(\d+))?$/);
 		if (delMatch) {
-			const start = Number(delMatch[1]);
+			const start = Number(delMatch[1]!);
 			const end = delMatch[2] ? Number(delMatch[2]) : start;
 			edits.push({ kind: "del", startLine: start, endLine: end, body: [] });
 			i++;
@@ -73,11 +73,11 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 
 		const insPreMatch = line.match(/^INS\.PRE\s+(\d+)$/);
 		if (insPreMatch) {
-			const anchor = Number(insPreMatch[1]);
+			const anchor = Number(insPreMatch[1]!);
 			const body: string[] = [];
 			i++;
-			while (i < lines.length && lines[i].startsWith("+")) {
-				body.push(lines[i].slice(1));
+			while (i < lines.length && lines[i]!.startsWith("+")) {
+				body.push(lines[i]!.slice(1));
 				i++;
 			}
 			edits.push({ kind: "ins_pre", startLine: anchor, endLine: anchor, body });
@@ -86,11 +86,11 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 
 		const insPostMatch = line.match(/^INS\.POST\s+(\d+)$/);
 		if (insPostMatch) {
-			const anchor = Number(insPostMatch[1]);
+			const anchor = Number(insPostMatch[1]!);
 			const body: string[] = [];
 			i++;
-			while (i < lines.length && lines[i].startsWith("+")) {
-				body.push(lines[i].slice(1));
+			while (i < lines.length && lines[i]!.startsWith("+")) {
+				body.push(lines[i]!.slice(1));
 				i++;
 			}
 			edits.push({ kind: "ins_post", startLine: anchor, endLine: anchor, body });

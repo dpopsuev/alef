@@ -396,8 +396,8 @@ describe("JsonlSessionStore + TurnAssembler", () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		expect(turns[0].id).toBe("corr-1");
-		expect(turns[0].events).toHaveLength(2);
+		expect(turns[0]!.id).toBe("corr-1");
+		expect(turns[0]!.events).toHaveLength(2);
 	});
 
 	it("assembleTurns includes recent turns in context window", async () => {

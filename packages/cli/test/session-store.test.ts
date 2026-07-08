@@ -57,7 +57,7 @@ describe("JsonlSessionStore.append + events", { tags: ["unit"] }, () => {
 
 		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		const events = await resumed.events();
-		expect(events[0].type).toBe("llm.response");
+		expect(events[0]!.type).toBe("llm.response");
 	});
 });
 
@@ -72,9 +72,9 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(2);
-		expect(turns[0].id).toBe("c-1");
-		expect(turns[0].events).toHaveLength(2);
-		expect(turns[1].id).toBe("c-2");
+		expect(turns[0]!.id).toBe("c-1");
+		expect(turns[0]!.events).toHaveLength(2);
+		expect(turns[1]!.id).toBe("c-2");
 	});
 
 	it("assigns ascending turnIndex", async () => {
@@ -84,8 +84,8 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 		await store.append(motorRecord("llm.response", "c-2"));
 
 		const turns = await store.turns();
-		expect(turns[0].turnIndex).toBe(0);
-		expect(turns[1].turnIndex).toBe(1);
+		expect(turns[0]!.turnIndex).toBe(0);
+		expect(turns[1]!.turnIndex).toBe(1);
 	});
 
 	it("assigns typeWeight from event types", async () => {
@@ -95,7 +95,7 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 		await store.append(motorRecord("llm.response", "c-1"));
 
 		const [turn] = await store.turns();
-		expect(turn.typeWeight).toBe(0.5);
+		expect(turn!.typeWeight).toBe(0.5);
 	});
 
 	it("excludes internal records from turns", async () => {
@@ -112,7 +112,7 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		expect(turns[0].events).toHaveLength(1);
+		expect(turns[0]!.events).toHaveLength(1);
 
 		const records = await store.events();
 		const index = buildSessionIndex(records);
@@ -211,7 +211,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
 		// Cost derived from _display.text length / 4 = 100 tokens
-		expect(turns[0].tokenCost).toBe(100);
+		expect(turns[0]!.tokenCost).toBe(100);
 	});
 
 	it("does NOT use totalTokens as per-turn cost (totalTokens is cumulative context size, not per-turn)", async () => {
@@ -232,9 +232,9 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
 		// Must NOT be totalTokens (2220) — that is the cumulative context, not this turn's cost.
-		expect(turns[0].tokenCost).not.toBe(2220);
+		expect(turns[0]!.tokenCost).not.toBe(2220);
 		// Should be derived from actual content: "hi" + "hello" = 10 chars → ~3 tokens
-		expect(turns[0].tokenCost).toBeLessThan(50);
+		expect(turns[0]!.tokenCost).toBeLessThan(50);
 	});
 
 	it("falls back to char/4 when no usage is present (ScriptedLLMOrgan / first turn)", async () => {
@@ -253,8 +253,8 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
 		// char/4 estimate — just verify it's a positive number and not the real usage value
-		expect(turns[0].tokenCost).toBeGreaterThan(0);
-		expect(turns[0].tokenCost).not.toBe(2220);
+		expect(turns[0]!.tokenCost).toBeGreaterThan(0);
+		expect(turns[0]!.tokenCost).not.toBe(2220);
 	});
 
 	it("ignores zero totalTokens and falls back to char/4", async () => {
@@ -271,7 +271,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 		});
 
 		const turns = await store.turns();
-		expect(turns[0].tokenCost).toBeGreaterThan(0);
+		expect(turns[0]!.tokenCost).toBeGreaterThan(0);
 	});
 });
 
@@ -290,7 +290,7 @@ describe("JsonlSessionStore — in-memory cache", { tags: ["unit"] }, () => {
 		// Immediately read — must see the record without awaiting the file write.
 		const events = await store.events();
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("fs.write");
+		expect(events[0]!.type).toBe("fs.write");
 	});
 
 	it("llm.checkpoint internal record appears in turn events", async () => {
@@ -313,7 +313,7 @@ describe("JsonlSessionStore — in-memory cache", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		const checkpointEvent = turns[0].events.find((e) => e.type === "llm.checkpoint");
+		const checkpointEvent = turns[0]!.events.find((e) => e.type === "llm.checkpoint");
 		expect(checkpointEvent).toBeDefined();
 		expect(checkpointEvent?.payload.conversationHistory).toHaveLength(2);
 	});
@@ -328,7 +328,7 @@ describe("JsonlSessionStore — in-memory cache", { tags: ["unit"] }, () => {
 		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		const events = await resumed.events();
 		expect(events).toHaveLength(2);
-		expect(events[0].type).toBe("fs.read");
+		expect(events[0]!.type).toBe("fs.read");
 	});
 
 	it("turnsToMessages finds llm.checkpoint conversationHistory from aborted turn", async () => {

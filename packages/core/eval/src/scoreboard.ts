@@ -174,7 +174,7 @@ export function generateScoreboard(history: RunRecord[]): string {
 	}
 
 	// Per-evaluation breakdown — latest run + trend vs previous
-	const latest = history[history.length - 1];
+	const latest = history[history.length - 1]!;
 	const prev = history.length >= 2 ? history[history.length - 2] : undefined;
 
 	const evalIds = Object.keys(latest.evals);
@@ -184,15 +184,15 @@ export function generateScoreboard(history: RunRecord[]): string {
 	lines.push("|---|---|---|---|---|");
 
 	for (const id of evalIds) {
-		const e = latest.evals[id];
+		const e = latest.evals[id]!;
 		const icon = e.pass ? "✓" : "✗";
 		// eslint-disable-next-line no-magic-numbers
 		const score = `${(e.score * 100).toFixed(0)}%`;
 
 		// Trend vs previous run
 		let trend = "—";
-		if (prev?.evals[id]) {
-			const prevE = prev.evals[id];
+		const prevE = prev?.evals[id];
+		if (prevE) {
 			if (!prevE.pass && e.pass) trend = "↑ improved";
 			else if (prevE.pass && !e.pass) trend = "↓ regressed";
 			// eslint-disable-next-line no-magic-numbers
@@ -214,11 +214,11 @@ export function generateScoreboard(history: RunRecord[]): string {
 
 	for (const id of evalIds) {
 		const allRuns = history.filter((r) => id in r.evals);
-		const passCount = allRuns.filter((r) => r.evals[id].pass).length;
+		const passCount = allRuns.filter((r) => r.evals[id]!.pass).length;
 		// eslint-disable-next-line no-magic-numbers
 		const passRate = allRuns.length > 0 ? `${((passCount / allRuns.length) * 100).toFixed(0)}%` : "—";
-		const bestScore = Math.max(...allRuns.map((r) => r.evals[id].score));
-		const latestScore = latest.evals[id].score;
+		const bestScore = Math.max(...allRuns.map((r) => r.evals[id]!.score));
+		const latestScore = latest.evals[id]!.score;
 		lines.push(
 			// eslint-disable-next-line no-magic-numbers
 			`| ${id} | ${allRuns.length} | ${passRate} | ${(bestScore * 100).toFixed(0)}% | ${(latestScore * 100).toFixed(0)}% |`,

@@ -20,10 +20,10 @@ describe("extractTrace", { tags: ["unit"] }, () => {
 
 		const trace = extractTrace(records);
 		expect(trace).toHaveLength(1);
-		expect(trace[0].userMessage).toBe("hello");
-		expect(trace[0].finalReply).toBe("hi");
-		expect(trace[0].toolExecutions).toHaveLength(0);
-		expect(trace[0].llmResponse).toBeDefined();
+		expect(trace[0]!.userMessage).toBe("hello");
+		expect(trace[0]!.finalReply).toBe("hi");
+		expect(trace[0]!.toolExecutions).toHaveLength(0);
+		expect(trace[0]!.llmResponse).toBeDefined();
 	});
 
 	it("extracts a turn with tool calls", () => {
@@ -54,12 +54,12 @@ describe("extractTrace", { tags: ["unit"] }, () => {
 
 		const trace = extractTrace(records);
 		expect(trace).toHaveLength(1);
-		expect(trace[0].toolExecutions).toHaveLength(1);
-		expect(trace[0].toolExecutions[0].toolName).toBe("fs.read");
-		expect(trace[0].toolExecutions[0].callId).toBe("tc-1");
-		expect(trace[0].toolExecutions[0].args.path).toBe("/tmp/f.txt");
-		expect(trace[0].toolExecutions[0].result.content).toBeDefined();
-		expect(trace[0].finalReply).toBe("The file contains: file content");
+		expect(trace[0]!.toolExecutions).toHaveLength(1);
+		expect(trace[0]!.toolExecutions[0]!.toolName).toBe("fs.read");
+		expect(trace[0]!.toolExecutions[0]!.callId).toBe("tc-1");
+		expect(trace[0]!.toolExecutions[0]!.args.path).toBe("/tmp/f.txt");
+		expect(trace[0]!.toolExecutions[0]!.result.content).toBeDefined();
+		expect(trace[0]!.finalReply).toBe("The file contains: file content");
 	});
 
 	it("extracts multiple turns in order", () => {
@@ -97,8 +97,8 @@ describe("extractTrace", { tags: ["unit"] }, () => {
 		];
 
 		const trace = extractTrace(records);
-		expect(trace[0].toolExecutions).toHaveLength(2);
-		const byId = new Map(trace[0].toolExecutions.map((e) => [e.callId, e]));
+		expect(trace[0]!.toolExecutions).toHaveLength(2);
+		const byId = new Map(trace[0]!.toolExecutions.map((e) => [e.callId, e]));
 		expect(byId.get("tc-a")!.result.content).toBe("aaa");
 		expect(byId.get("tc-b")!.result.content).toBe("bbb");
 	});
@@ -116,7 +116,7 @@ describe("extractTrace", { tags: ["unit"] }, () => {
 
 		const trace = extractTrace(records);
 		expect(trace).toHaveLength(1);
-		expect(trace[0].finalReply).toBe("hi");
+		expect(trace[0]!.finalReply).toBe("hi");
 	});
 });
 

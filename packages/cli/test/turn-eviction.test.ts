@@ -167,7 +167,7 @@ describe("assembleTurns — eviction proof", { tags: ["unit"] }, () => {
 
 		// 6. Output is sorted chronologically (ascending turnIndex)
 		for (let i = 1; i < selected.length; i++) {
-			expect(selected[i].turnIndex).toBeGreaterThanOrEqual(selected[i - 1].turnIndex);
+			expect(selected[i]!.turnIndex).toBeGreaterThanOrEqual(selected[i - 1]!.turnIndex);
 		}
 	});
 

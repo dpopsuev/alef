@@ -55,5 +55,5 @@ export class ActorRouteTable {
 export function parseAtAddress(text: string): { address: string; message: string } | null {
 	const m = /^@([\w.]+)\s+([\s\S]+)$/.exec(text.trim());
 	if (!m) return null;
-	return { address: m[1], message: m[2].trim() };
+	return { address: m[1]!, message: m[2]!.trim() };
 }

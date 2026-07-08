@@ -64,7 +64,7 @@ describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "github");
-		expect(adapter.tools[0].name).toBe("github.create_issue");
+		expect(adapter.tools[0]!.name).toBe("github.create_issue");
 	});
 
 	it("tool description comes from MCP server metadata", async () => {
@@ -73,7 +73,7 @@ describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "code");
-		expect(adapter.tools[0].description).toBe("Search the codebase");
+		expect(adapter.tools[0]!.description).toBe("Search the codebase");
 	});
 
 	it("subscriptions match discovered tool names", async () => {

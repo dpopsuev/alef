@@ -578,7 +578,7 @@ export function handleInspectorCycle(state: TuiState, ui: TuiUi): TuiState {
 	if (state.activeCalls.size === 0) return state;
 	const ids = [...state.activeCalls.keys()];
 	const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
-	const nextId = ids[(idx + 1) % ids.length];
+	const nextId = ids[(idx + 1) % ids.length]!;
 	updateInspectorView(state, ui, nextId, state.inspectorScrollOffset);
 	return { ...state, focusedCallId: nextId };
 }

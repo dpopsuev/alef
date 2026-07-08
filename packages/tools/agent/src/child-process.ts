@@ -103,10 +103,10 @@ export function waitForReady(
 		const scan = (chunk: Buffer | string) => {
 			const text = typeof chunk === "string" ? chunk : chunk.toString();
 			const sessionMatch = text.match(/\[session\]\s+(\S+)/);
-			if (sessionMatch) sessionId = sessionMatch[1];
+			if (sessionMatch) sessionId = sessionMatch[1]!;
 			const routerMatch = text.match(/router listening on (http:\/\/[\d.]+:\d+)/);
 			if (routerMatch) {
-				endpoint = routerMatch[1];
+				endpoint = routerMatch[1]!;
 				clearTimeout(timer);
 				child.stdout?.off("data", scan);
 				child.stderr?.off("data", scanStderr);

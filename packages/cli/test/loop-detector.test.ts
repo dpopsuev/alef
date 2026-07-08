@@ -74,8 +74,8 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		interact(bus, "fs.read", { path: "README.md" }, "same content");
 
 		expect(onLoop).toHaveBeenCalledOnce();
-		expect(onLoop.mock.calls[0][0]).toBe("fs.read");
-		expect(onLoop.mock.calls[0][1]).toContain("identical output");
+		expect(onLoop.mock.calls[0]![0]).toBe("fs.read");
+		expect(onLoop.mock.calls[0]![1]).toContain("identical output");
 	});
 
 	it("does not fire when same interaction appears exactly at threshold", () => {
@@ -103,7 +103,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		}
 
 		expect(onLoop).toHaveBeenCalled();
-		expect(onLoop.mock.calls[0][1]).toContain("limit:");
+		expect(onLoop.mock.calls[0]![1]).toContain("limit:");
 	});
 
 	it("resets counts on new correlationId", () => {

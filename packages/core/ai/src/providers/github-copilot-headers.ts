@@ -6,7 +6,7 @@ import type { Message } from "../types.js";
  *
  */
 export function inferCopilotInitiator(messages: Message[]): "user" | "agent" {
-	const last = messages[messages.length - 1];
+	const last = messages[messages.length - 1]!;
 	return last.role !== "user" ? "agent" : "user";
 }
 

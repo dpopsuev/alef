@@ -241,7 +241,7 @@ export class OverlaySpace implements Space {
 		const [bin, ...rest] = args;
 
 		try {
-			const { stdout, stderr } = await execFileAsync(bin, rest, {
+			const { stdout, stderr } = await execFileAsync(bin!, rest, {
 				cwd: this.merged,
 				env: { ...process.env, ...options.env },
 				timeout: options.timeoutMs,

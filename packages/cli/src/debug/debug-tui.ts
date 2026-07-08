@@ -27,19 +27,19 @@ function parseDebugTuiArgs(argv: string[]): {
 	let timeoutMs = DEFAULT_TIMEOUT_MS;
 
 	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i];
+		const arg = argv[i]!;
 		if (arg === "--reply" && argv[i + 1]) {
-			reply = argv[++i];
+			reply = argv[++i]!;
 		} else if (arg === "--attach") {
 			attach = true;
 		} else if (arg === "--live") {
 			live = true;
 		} else if (arg === "--cols" && argv[i + 1]) {
-			cols = parseInt(argv[++i], 10);
+			cols = parseInt(argv[++i]!, 10);
 		} else if (arg === "--rows" && argv[i + 1]) {
-			rows = parseInt(argv[++i], 10);
+			rows = parseInt(argv[++i]!, 10);
 		} else if (arg === "--timeout" && argv[i + 1]) {
-			timeoutMs = parseInt(argv[++i], 10);
+			timeoutMs = parseInt(argv[++i]!, 10);
 		} else if (!arg.startsWith("-") && !prompt) {
 			prompt = arg;
 		}

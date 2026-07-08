@@ -97,7 +97,7 @@ export async function prependSessionHistory(
 	// Move the newly added children (from totalBefore onward) to the top.
 	const newChildren = writer.container.children.splice(totalBefore);
 	for (let i = newChildren.length - 1; i >= 0; i--) {
-		const child = newChildren[i];
+		const child = newChildren[i]!;
 		writer.container.insertAt(0, child);
 	}
 }

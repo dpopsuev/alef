@@ -50,7 +50,7 @@ function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	}
 
 	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i];
+		const stage = stages[i]!;
 		if (stage.kind === "skip") {
 			return { kind: "skip", reply: stage.reply };
 		}
@@ -61,7 +61,7 @@ function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	let tools: ToolDefinition[] | undefined;
 
 	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i];
+		const stage = stages[i]!;
 		if (stage.kind === "continue") {
 			if (messages === undefined && stage.messages !== undefined) {
 				messages = stage.messages;

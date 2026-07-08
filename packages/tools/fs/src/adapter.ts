@@ -318,7 +318,7 @@ function generateEditDiff(oldContent: string, newContent: string, filePath: stri
 	let newLine = 1;
 
 	for (let i = 0; i < parts.length; i++) {
-		const part = parts[i];
+		const part = parts[i]!;
 		const raw = part.value.split("\n");
 		if (raw[raw.length - 1] === "") raw.pop();
 

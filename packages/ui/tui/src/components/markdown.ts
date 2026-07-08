@@ -15,7 +15,7 @@ class StrictStrikethroughTokenizer extends Tokenizer {
 			return undefined;
 		}
 
-		const text = match[2];
+		const text = match[2]!;
 		return {
 			type: "del",
 			raw: match[0],
@@ -152,8 +152,8 @@ export class Markdown implements Component {
 		const renderedLines: string[] = [];
 
 		for (let i = 0; i < tokens.length; i++) {
-			const token = tokens[i];
-			const nextType = i + 1 < tokens.length ? tokens[i + 1].type : undefined;
+			const token = tokens[i]!;
+			const nextType = i + 1 < tokens.length ? tokens[i + 1]!.type : undefined;
 			const tokenLines = this.renderToken(token, contentWidth, nextType);
 			renderedLines.push(...tokenLines);
 		}
@@ -409,8 +409,8 @@ export class Markdown implements Component {
 			const quoteTokens = blockquote.tokens;
 			const renderedQuoteLines: string[] = [];
 			for (let i = 0; i < quoteTokens.length; i++) {
-				const quoteToken = quoteTokens[i];
-				const nextType = i + 1 < quoteTokens.length ? quoteTokens[i + 1].type : undefined;
+				const quoteToken = quoteTokens[i]!;
+				const nextType = i + 1 < quoteTokens.length ? quoteTokens[i + 1]!.type : undefined;
 				renderedQuoteLines.push(
 					...this.renderToken(quoteToken, quoteContentWidth, nextType, quoteInlineStyleContext),
 				);
@@ -474,7 +474,7 @@ export class Markdown implements Component {
 		};
 
 		const renderer = tokenRenderers[token.type];
-		renderer();
+		renderer!();
 
 		return lines;
 	}
@@ -589,7 +589,7 @@ export class Markdown implements Component {
 
 		for (const token of tokens) {
 			const renderer = inlineRenderers[token.type];
-			renderer(token);
+			renderer!(token);
 		}
 
 		while (stylePrefix && result.endsWith(stylePrefix)) {
@@ -609,7 +609,7 @@ export class Markdown implements Component {
 		const startNumber = typeof token.start === "number" ? token.start : 1;
 
 		for (let i = 0; i < token.items.length; i++) {
-			const item = token.items[i];
+			const item = token.items[i]!;
 			const bullet = token.ordered ? `${startNumber + i}. ` : "- ";
 			const firstPrefix = indent + this.theme.listBullet(bullet);
 			const continuationPrefix = indent + " ".repeat(visibleWidth(bullet));
@@ -703,16 +703,16 @@ export class Markdown implements Component {
 		const naturalWidths: number[] = [];
 		const minWordWidths: number[] = [];
 		for (let i = 0; i < numCols; i++) {
-			const headerText = this.renderInlineTokens(token.header[i].tokens, styleContext);
+			const headerText = this.renderInlineTokens(token.header[i]!.tokens, styleContext);
 			naturalWidths[i] = visibleWidth(headerText);
 			minWordWidths[i] = Math.max(1, this.getLongestWordWidth(headerText, maxUnbrokenWordWidth));
 		}
 		for (const row of token.rows) {
 			for (let i = 0; i < row.length; i++) {
-				const cellText = this.renderInlineTokens(row[i].tokens, styleContext);
-				naturalWidths[i] = Math.max(naturalWidths[i] || 0, visibleWidth(cellText));
+				const cellText = this.renderInlineTokens(row[i]!.tokens, styleContext);
+				naturalWidths[i] = Math.max(naturalWidths[i] ?? 0, visibleWidth(cellText));
 				minWordWidths[i] = Math.max(
-					minWordWidths[i] || 1,
+					minWordWidths[i] ?? 1,
 					this.getLongestWordWidth(cellText, maxUnbrokenWordWidth),
 				);
 			}
@@ -734,13 +734,13 @@ export class Markdown implements Component {
 				});
 
 				for (let i = 0; i < numCols; i++) {
-					minColumnWidths[i] += growth[i] ?? 0;
+					minColumnWidths[i]! += growth[i] ?? 0;
 				}
 
 				const allocated = growth.reduce((total, width) => total + width, 0);
 				let leftover = remaining - allocated;
 				for (let i = 0; leftover > 0 && i < numCols; i++) {
-					minColumnWidths[i]++;
+					minColumnWidths[i]!++;
 					leftover--;
 				}
 			}
@@ -754,15 +754,15 @@ export class Markdown implements Component {
 
 		if (totalNaturalWidth <= availableWidth) {
 			// Everything fits naturally
-			columnWidths = naturalWidths.map((width, index) => Math.max(width, minColumnWidths[index]));
+			columnWidths = naturalWidths.map((width, index) => Math.max(width, minColumnWidths[index]!));
 		} else {
 			// Need to shrink columns to fit
 			const totalGrowPotential = naturalWidths.reduce((total, width, index) => {
-				return total + Math.max(0, width - minColumnWidths[index]);
+				return total + Math.max(0, width - minColumnWidths[index]!);
 			}, 0);
 			const extraWidth = Math.max(0, availableForCells - minCellsWidth);
 			columnWidths = minColumnWidths.map((minWidth, index) => {
-				const naturalWidth = naturalWidths[index];
+				const naturalWidth = naturalWidths[index]!;
 				const minWidthDelta = Math.max(0, naturalWidth - minWidth);
 				let grow = 0;
 				if (totalGrowPotential > 0) {
@@ -777,8 +777,8 @@ export class Markdown implements Component {
 			while (remaining > 0) {
 				let grew = false;
 				for (let i = 0; i < numCols && remaining > 0; i++) {
-					if (columnWidths[i] < naturalWidths[i]) {
-						columnWidths[i]++;
+					if (columnWidths[i]! < naturalWidths[i]!) {
+						columnWidths[i]!++;
 						remaining--;
 						grew = true;
 					}
@@ -796,14 +796,14 @@ export class Markdown implements Component {
 		// Render header with wrapping
 		const headerCellLines: string[][] = token.header.map((cell, i) => {
 			const text = this.renderInlineTokens(cell.tokens, styleContext);
-			return this.wrapCellText(text, columnWidths[i]);
+			return this.wrapCellText(text, columnWidths[i]!);
 		});
 		const headerLineCount = Math.max(...headerCellLines.map((c) => c.length));
 
 		for (let lineIdx = 0; lineIdx < headerLineCount; lineIdx++) {
 			const rowParts = headerCellLines.map((cellLines, colIdx) => {
-				const text = cellLines[lineIdx] || "";
-				const padded = text + " ".repeat(Math.max(0, columnWidths[colIdx] - visibleWidth(text)));
+				const text = cellLines[lineIdx] ?? "";
+				const padded = text + " ".repeat(Math.max(0, columnWidths[colIdx]! - visibleWidth(text)));
 				return this.theme.bold(padded);
 			});
 			lines.push(`│ ${rowParts.join(" │ ")} │`);
@@ -816,17 +816,17 @@ export class Markdown implements Component {
 
 		// Render rows with wrapping
 		for (let rowIndex = 0; rowIndex < token.rows.length; rowIndex++) {
-			const row = token.rows[rowIndex];
+			const row = token.rows[rowIndex]!;
 			const rowCellLines: string[][] = row.map((cell, i) => {
 				const text = this.renderInlineTokens(cell.tokens, styleContext);
-				return this.wrapCellText(text, columnWidths[i]);
+				return this.wrapCellText(text, columnWidths[i]!);
 			});
 			const rowLineCount = Math.max(...rowCellLines.map((c) => c.length));
 
 			for (let lineIdx = 0; lineIdx < rowLineCount; lineIdx++) {
 				const rowParts = rowCellLines.map((cellLines, colIdx) => {
-					const text = cellLines[lineIdx] || "";
-					return text + " ".repeat(Math.max(0, columnWidths[colIdx] - visibleWidth(text)));
+					const text = cellLines[lineIdx] ?? "";
+					return text + " ".repeat(Math.max(0, columnWidths[colIdx]! - visibleWidth(text)));
 				});
 				lines.push(`│ ${rowParts.join(" │ ")} │`);
 			}

@@ -184,18 +184,18 @@ export function systemLang(): string {
 		[process.env.LC_ALL, process.env.LC_MESSAGES, process.env.LANG, process.env.LANGUAGE]
 			.filter((v): v is string => Boolean(v))
 			.flatMap((v) => v.split(":"))[0] ?? "en";
-	const code = raw.split("_")[0].split(".")[0].toLowerCase();
+	const code = raw.split("_")[0]!.split(".")[0]!.toLowerCase();
 	return LANG_ALIAS[code] ?? code;
 }
 
 /** Return shuffled spinner frames from the user's locale script. */
 export function spinnerFrames(count = DEFAULT_SPINNER_FRAMES): string[] {
 	const lang = systemLang();
-	const glyphs = SCRIPT_GLYPHS[lang] as readonly string[] | undefined;
-	const pool = [...(glyphs ?? SCRIPT_GLYPHS.default)];
+	const glyphs = SCRIPT_GLYPHS[lang];
+	const pool = [...(glyphs ?? SCRIPT_GLYPHS.default!)];
 	for (let i = pool.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
-		[pool[i], pool[j]] = [pool[j], pool[i]];
+		[pool[i], pool[j]] = [pool[j]!, pool[i]!];
 	}
 	return pool.slice(0, count);
 }
@@ -250,7 +250,7 @@ export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as con
 
 /** Activate a built-in theme by name, falling back to terminal if unknown. */
 export function setThemeByName(name: string): void {
-	const t = BUILT_IN_THEMES[name.toLowerCase()] as ThemeTokens | undefined;
+	const t = BUILT_IN_THEMES[name.toLowerCase()];
 	if (!t) {
 		process.stderr.write(`[alef] unknown theme '${name}', using terminal\n`);
 		_active = TERMINAL;
@@ -315,7 +315,7 @@ export function loadTheme(
 	const allColors: Record<string, string> = { ...cfgColors, ...manifest?.colors };
 	if (Object.keys(allColors).length === 0) return;
 
-	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.terminal;
+	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.terminal!;
 	const overrides: Partial<Record<keyof ThemeTokens, ColorToken>> = {};
 	for (const [k, v] of Object.entries(allColors)) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- user config keys mapped to ThemeTokens; unknown keys are harmless
@@ -440,10 +440,10 @@ export async function queryPalette(
 				const m = re.exec(buf);
 				if (!m) break;
 				const slot = Number(m[1]);
-				const scale = m[2].length <= COLOR_CHANNEL_8BIT_LENGTH ? COLOR_CHANNEL_8BIT : COLOR_CHANNEL_16BIT;
-				const r = Math.round((parseInt(m[2], 16) / scale) * 255);
-				const g = Math.round((parseInt(m[3], 16) / scale) * 255);
-				const b = Math.round((parseInt(m[4], 16) / scale) * 255);
+				const scale = m[2]!.length <= COLOR_CHANNEL_8BIT_LENGTH ? COLOR_CHANNEL_8BIT : COLOR_CHANNEL_16BIT;
+				const r = Math.round((parseInt(m[2]!, 16) / scale) * 255);
+				const g = Math.round((parseInt(m[3]!, 16) / scale) * 255);
+				const b = Math.round((parseInt(m[4]!, 16) / scale) * 255);
 				result[slot] =
 					`#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 				pending.delete(slot);

@@ -318,8 +318,8 @@ export class Agent {
 	unload(name: string): boolean {
 		const idx = this._adapters.findIndex((o) => o.name === name);
 		if (idx === -1) return false;
-		const adapter = this._adapters[idx];
-		this.unmounts[idx]();
+		const adapter = this._adapters[idx]!;
+		this.unmounts[idx]!();
 		void adapter.close?.();
 		this._adapters.splice(idx, 1);
 		this.unmounts.splice(idx, 1);

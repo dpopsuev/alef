@@ -77,7 +77,7 @@ function selectOneCasePerProvider(cases: AnthropicEagerE2ECase[]): AnthropicEage
 		(providerCases) =>
 			providerCases.sort(
 				(a, b) => getProbePriority(a.model) - getProbePriority(b.model) || a.model.id.localeCompare(b.model.id),
-			)[0],
+			)[0]!,
 	);
 }
 

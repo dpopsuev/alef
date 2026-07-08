@@ -141,7 +141,6 @@ export class ScriptedReasoner implements Adapter {
 	private async _handle(bus: Bus, event: EventMessage): Promise<void> {
 		const step = this.queue[this.stepIndex++];
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: array index can exceed bounds
 		if (!step) {
 			process.stderr.write(
 				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,

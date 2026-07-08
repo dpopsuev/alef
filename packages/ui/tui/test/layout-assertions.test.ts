@@ -308,11 +308,11 @@ describe("Layout assertions", { tags: ["unit"] }, () => {
 
 			// Footer should descend monotonically as content grows
 			for (let i = 1; i < footerPositions.length; i++) {
-				expect(footerPositions[i]).toBeGreaterThanOrEqual(footerPositions[i - 1]);
+				expect(footerPositions[i]!).toBeGreaterThanOrEqual(footerPositions[i - 1]!);
 			}
 
 			// After 5 messages: footer should be at row 5+1+1 = 7 (msgs + editor + footer)
-			expect(footerPositions[5]).toBeGreaterThan(footerPositions[0]);
+			expect(footerPositions[5]!).toBeGreaterThan(footerPositions[0]!);
 		});
 
 		it("editor stays directly above footer at every tick", async () => {

@@ -25,7 +25,7 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 		const organ = createShellAdapter({ cwd: process.cwd() });
 		expect(organ.name).toBe("shell");
 		expect(organ.tools).toHaveLength(1);
-		expect(organ.tools[0].name).toBe("shell.exec");
+		expect(organ.tools[0]!.name).toBe("shell.exec");
 	});
 
 	it("unmount unsubscribes command handler", () => {

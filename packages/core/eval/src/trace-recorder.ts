@@ -252,8 +252,8 @@ export function summarizeTrace(events: TraceEvent[]): TraceSummary {
 
 	let durationMs = 0;
 	if (events.length >= 2) {
-		const first = new Date(events[0].ts).getTime();
-		const last = new Date(events[events.length - 1].ts).getTime();
+		const first = new Date(events[0]!.ts).getTime();
+		const last = new Date(events[events.length - 1]!.ts).getTime();
 		durationMs = last - first;
 	}
 

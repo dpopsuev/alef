@@ -78,7 +78,7 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 	for (const key of KEY_ARG_FIELDS) {
 		const v = args[key];
 		if (typeof v === "string" && v.length > 0) {
-			const firstLine = v.split("\n")[0].trim();
+			const firstLine = v.split("\n")[0]!.trim();
 			return firstLine.slice(0, 60);
 		}
 	}

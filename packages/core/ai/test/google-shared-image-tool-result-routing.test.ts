@@ -81,10 +81,10 @@ describe("google-shared image tool result routing", { tags: ["unit"] }, () => {
 		const contents = convertMessages(model, makeContext(model));
 
 		expect(contents).toHaveLength(5);
-		expect(contents[2].parts?.every((part) => part.functionResponse)).toBe(true);
-		expect(contents[3].parts?.[0]?.text).toBe("Tool result image:");
-		expect(contents[3].parts?.[1]?.inlineData).toBeTruthy();
-		expect(contents[4].parts?.[0]?.functionResponse).toBeTruthy();
+		expect(contents[2]!.parts?.every((part) => part.functionResponse)).toBe(true);
+		expect(contents[3]!.parts?.[0]?.text).toBe("Tool result image:");
+		expect(contents[3]!.parts?.[1]?.inlineData).toBeTruthy();
+		expect(contents[4]!.parts?.[0]?.functionResponse).toBeTruthy();
 	});
 
 	it("nests image tool results for Gemini 3 Google API models", () => {
@@ -92,7 +92,7 @@ describe("google-shared image tool result routing", { tags: ["unit"] }, () => {
 		const contents = convertMessages(model, makeContext(model));
 
 		expect(contents).toHaveLength(3);
-		const toolResultTurn = contents[2];
+		const toolResultTurn = contents[2]!;
 		expect(toolResultTurn.parts).toHaveLength(3);
 		const imageResponse = toolResultTurn.parts?.[1]?.functionResponse;
 		expect(imageResponse).toBeTruthy();

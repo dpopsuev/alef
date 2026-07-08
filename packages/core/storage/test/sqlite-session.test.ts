@@ -48,7 +48,7 @@ describe("SqliteSessionStore.create", { tags: ["unit"] }, () => {
 			sql: "SELECT * FROM sessions WHERE id = ?",
 			args: [store.id],
 		});
-		const row = result.rows[0];
+		const row = result.rows[0]!;
 		expect(row).toBeTruthy();
 		expect(String(row.cwd)).toBe("/tmp/test-cwd");
 		client.close();
@@ -71,8 +71,8 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 
 		const events = await store.events();
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("fs.read");
-		expect(events[0].correlationId).toBe("corr-1");
+		expect(events[0]!.type).toBe("fs.read");
+		expect(events[0]!.correlationId).toBe("corr-1");
 	});
 
 	it("persists events to SQLite", async () => {
@@ -84,9 +84,9 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 		});
 		const rows = result.rows;
 		expect(rows).toHaveLength(1);
-		expect(String(rows[0].type)).toBe("fs.read");
-		expect(String(rows[0].adapter)).toBe("fs");
-		expect(rows[0].version).toBeTruthy();
+		expect(String(rows[0]!.type)).toBe("fs.read");
+		expect(String(rows[0]!.adapter)).toBe("fs");
+		expect(rows[0]!.version).toBeTruthy();
 	});
 
 	it("stores actor identity", async () => {
@@ -96,7 +96,7 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 			sql: "SELECT actor_address, actor_type FROM events WHERE session_id = ?",
 			args: [store.id],
 		});
-		const row = result.rows[0];
+		const row = result.rows[0]!;
 		expect(String(row.actor_address)).toBe("@crimson");
 		expect(String(row.actor_type)).toBe("agent");
 	});
@@ -111,9 +111,9 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 			args: [store.id],
 		});
 		const rows = result.rows;
-		expect(String(rows[0].adapter)).toBe("shell");
-		expect(String(rows[1].adapter)).toBe("llm");
-		expect(rows[2].adapter).toBeNull();
+		expect(String(rows[0]!.adapter)).toBe("shell");
+		expect(String(rows[1]!.adapter)).toBe("llm");
+		expect(rows[2]!.adapter).toBeNull();
 	});
 });
 
@@ -134,16 +134,16 @@ describe("SqliteSessionStore.turns", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(2);
-		expect(turns[0].id).toBe("turn-1");
-		expect(turns[0].events).toHaveLength(2);
-		expect(turns[1].id).toBe("turn-2");
+		expect(turns[0]!.id).toBe("turn-1");
+		expect(turns[0]!.events).toHaveLength(2);
+		expect(turns[1]!.id).toBe("turn-2");
 	});
 
 	it("computes tokenCost from content length", async () => {
 		await store.append(motorEvent("fs.read", "turn-1", { payload: { text: "a".repeat(400) } }));
 
 		const turns = await store.turns();
-		expect(turns[0].tokenCost).toBe(100);
+		expect(turns[0]!.tokenCost).toBe(100);
 	});
 });
 
@@ -180,7 +180,7 @@ describe("SqliteSessionStore.resume", { tags: ["unit"] }, () => {
 
 		const turns = await resumed.turns();
 		expect(turns).toHaveLength(1);
-		expect(turns[0].events).toHaveLength(2);
+		expect(turns[0]!.events).toHaveLength(2);
 		client.close();
 	});
 
@@ -264,7 +264,7 @@ describe("SqliteSessionStore.name + setName", { tags: ["unit"] }, () => {
 			sql: "SELECT name FROM sessions WHERE id = ?",
 			args: [store.id],
 		});
-		const row = result.rows[0];
+		const row = result.rows[0]!;
 		expect(String(row.name)).toBe("my session");
 		client.close();
 	});
@@ -295,7 +295,7 @@ describe("SqliteSessionStore identity dimensions", { tags: ["unit"] }, () => {
 			sql: "SELECT version FROM events WHERE session_id = ?",
 			args: [store.id],
 		});
-		const row = result.rows[0];
+		const row = result.rows[0]!;
 		expect(String(row.version)).toBe("1.2.3");
 		client.close();
 	});
@@ -312,9 +312,9 @@ describe("SqliteSessionStore identity dimensions", { tags: ["unit"] }, () => {
 			args: [store.id],
 		});
 		const rows = result.rows;
-		expect(Number(rows[0].turn_number)).toBe(0);
-		expect(Number(rows[1].turn_number)).toBe(0);
-		expect(Number(rows[2].turn_number)).toBe(1);
+		expect(Number(rows[0]!.turn_number)).toBe(0);
+		expect(Number(rows[1]!.turn_number)).toBe(0);
+		expect(Number(rows[2]!.turn_number)).toBe(1);
 		client.close();
 	});
 });

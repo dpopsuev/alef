@@ -51,7 +51,7 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 	it("header line (index 0) contains the file path", () => {
 		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
-		expect(stripVTControlCharacters(lines[0])).toBe("edit packages/runner/test/smoke-tui.test.ts");
+		expect(stripVTControlCharacters(lines[0]!)).toBe("edit packages/runner/test/smoke-tui.test.ts");
 	});
 
 	it("removed line (-) is colored red (ansi16=31)", () => {

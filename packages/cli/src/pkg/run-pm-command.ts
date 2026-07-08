@@ -51,7 +51,8 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 	pm.init();
 
 	if (args.pmInstall) {
-		const [name, version] = args.pmInstall.split("@");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- split always returns at least one element; destructuring covers the two-element case
+		const [name, version] = args.pmInstall.split("@") as [string, string | undefined];
 		const { generation, manifest } = await pm.install(name, version);
 		const typeLabel = manifest ? ` [${manifest.type}]` : "";
 		console.log(`Installed ${args.pmInstall}${typeLabel} (generation ${generation})`);

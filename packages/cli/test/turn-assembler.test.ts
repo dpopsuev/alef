@@ -101,7 +101,7 @@ describe("assembleTurns — ordering", { tags: ["unit"] }, () => {
 		const result = assembleTurns(turns, { query: "anything", contextWindow: LARGE_CONTEXT });
 
 		for (let i = 1; i < result.length; i++) {
-			expect(result[i].turnIndex).toBeGreaterThanOrEqual(result[i - 1].turnIndex);
+			expect(result[i]!.turnIndex).toBeGreaterThanOrEqual(result[i - 1]!.turnIndex);
 		}
 	});
 });

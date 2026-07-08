@@ -84,15 +84,15 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 	let turnIndex = 0;
 
 	for (let i = 0; i < spans.length; i++) {
-		const s = spans[i];
+		const s = spans[i]!;
 		if (!s.name.startsWith("chat ")) continue;
 
 		turnIndex++;
 		// Collect command tool spans that follow this LLM call until the next LLM call
 		const toolSpans: SpanRecord[] = [];
 		for (let j = i + 1; j < spans.length; j++) {
-			if (spans[j].name.startsWith("chat ")) break;
-			if (spans[j].name.startsWith("alef.command/")) toolSpans.push(spans[j]);
+			if (spans[j]!.name.startsWith("chat ")) break;
+			if (spans[j]!.name.startsWith("alef.command/")) toolSpans.push(spans[j]!);
 		}
 
 		// Exclude internal seam events from tool path tracking.
@@ -240,8 +240,8 @@ export function pearsonCorrelation(xs: number[], ys: number[]): number {
 	let denX = 0;
 	let denY = 0;
 	for (let i = 0; i < n; i++) {
-		const dx = xs[i] - meanX;
-		const dy = ys[i] - meanY;
+		const dx = xs[i]! - meanX;
+		const dy = ys[i]! - meanY;
 		num += dx * dy;
 		denX += dx * dx;
 		denY += dy * dy;

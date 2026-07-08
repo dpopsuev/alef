@@ -17,7 +17,6 @@ export class SqliteAuthStore implements AuthStore {
 			args: [provider],
 		});
 		const row = result.rows[0];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
 		return row && typeof row.key === "string" ? row.key : undefined;
 	}
 

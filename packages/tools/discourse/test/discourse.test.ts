@@ -37,7 +37,7 @@ describe("DiscourseStore", () => {
 				author: "alice",
 				content: "too deep",
 			});
-			expect(posts[0].timestamp).toBeGreaterThan(0);
+			expect(posts[0]!.timestamp).toBeGreaterThan(0);
 		});
 
 		it("appends multiple posts in order", () => {
@@ -45,14 +45,14 @@ describe("DiscourseStore", () => {
 			store.append("reviews", "nesting", "bob", "second");
 			const posts = store.readThread("reviews", "nesting");
 			expect(posts).toHaveLength(2);
-			expect(posts[0].author).toBe("alice");
-			expect(posts[1].author).toBe("bob");
+			expect(posts[0]!.author).toBe("alice");
+			expect(posts[1]!.author).toBe("bob");
 		});
 
 		it("stores JSON-serializable content", () => {
 			store.append("data", "metrics", "agent", { score: 42, tags: ["a", "b"] });
 			const posts = store.readThread("data", "metrics");
-			expect(posts[0].content).toEqual({ score: 42, tags: ["a", "b"] });
+			expect(posts[0]!.content).toEqual({ score: 42, tags: ["a", "b"] });
 		});
 
 		it("returns the created post from append", () => {
@@ -85,7 +85,7 @@ describe("DiscourseStore", () => {
 			const cutoff = Date.now() - 1;
 			const posts = store.readThread("t", "th", cutoff);
 			expect(posts).toHaveLength(1);
-			expect(posts[0].author).toBe("a");
+			expect(posts[0]!.author).toBe("a");
 		});
 
 		it("excludes posts at or before since timestamp", () => {
@@ -187,7 +187,7 @@ describe("DiscourseStore", () => {
 			store.append("a", "t1", "x", "third");
 			const all = store.readNewPosts(0);
 			for (let i = 1; i < all.length; i++) {
-				expect(all[i].timestamp).toBeGreaterThanOrEqual(all[i - 1].timestamp);
+				expect(all[i]!.timestamp).toBeGreaterThanOrEqual(all[i - 1]!.timestamp);
 			}
 		});
 	});
@@ -200,7 +200,7 @@ describe("DiscourseStore", () => {
 			writeFileSync(path, `${existing}not-json\n{"broken\n`);
 			const posts = store.readThread("t", "th");
 			expect(posts).toHaveLength(1);
-			expect(posts[0].content).toBe("good");
+			expect(posts[0]!.content).toBe("good");
 		});
 	});
 });

@@ -115,7 +115,7 @@ function expectAnthropicCacheMarkers(params: CapturedParams): void {
 	expect(params.tools).toHaveLength(1);
 	expect(params.tools?.[0]?.cache_control).toEqual({ type: "ephemeral" });
 
-	const lastMessage = params.messages[params.messages.length - 1];
+	const lastMessage = params.messages[params.messages.length - 1]!;
 	expect(lastMessage.role).toBe("user");
 	expect(Array.isArray(lastMessage.content)).toBe(true);
 	expect((lastMessage.content as TextPart[])[0]?.cache_control).toEqual({ type: "ephemeral" });

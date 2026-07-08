@@ -149,7 +149,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				if (contentIndex === -1) {
 					return;
 				}
-				blockFinishers[block.type](block, contentIndex);
+				blockFinishers[block.type]!(block, contentIndex);
 			};
 			const ensureTextBlock = () => {
 				if (!textBlock) {
@@ -436,7 +436,7 @@ function createClient(
 		model.provider === "cloudflare-ai-gateway"
 			? {
 					...headers,
-					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime value may be undefined despite Record<string,string> index signature
+					 
 					Authorization: headers.Authorization ?? null,
 					"cf-aig-authorization": `Bearer ${apiKey}`,
 				}
@@ -608,7 +608,7 @@ function buildParams(
 	}
 
 	if (model.reasoning) {
-		thinkingFormatHandlers[compat.thinkingFormat](params, model, options, compat);
+		thinkingFormatHandlers[compat.thinkingFormat]!(params, model, options, compat);
 	}
 
 	// OpenRouter provider routing preferences

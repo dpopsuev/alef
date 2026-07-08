@@ -41,7 +41,7 @@ export async function runPluginMigrations(client: Client, plugin: string, migrat
 	for (const file of files) {
 		const match = file.match(/^(\d+)/);
 		if (!match) continue;
-		const version = Number.parseInt(match[1], 10);
+		const version = Number.parseInt(match[1]!, 10);
 		if (version <= current) continue;
 
 		const sql = readFileSync(join(migrationsDir, file), "utf-8").trim();

@@ -107,13 +107,13 @@ Examples:
 	}
 
 	if (command === "login") {
-		let provider = args[1] as OAuthProviderId | undefined;
+		let provider = args[1];
 
 		if (!provider) {
 			const rl = createInterface({ input: process.stdin, output: process.stdout });
 			console.log("Select a provider:\n");
 			for (let i = 0; i < PROVIDERS.length; i++) {
-				console.log(`  ${i + 1}. ${PROVIDERS[i].name}`);
+				console.log(`  ${i + 1}. ${PROVIDERS[i]!.name}`);
 			}
 			console.log();
 
@@ -125,7 +125,7 @@ Examples:
 				console.error("Invalid selection");
 				process.exit(1);
 			}
-			provider = PROVIDERS[index].id;
+			provider = PROVIDERS[index]!.id;
 		}
 
 		if (!PROVIDERS.some((p) => p.id === provider)) {

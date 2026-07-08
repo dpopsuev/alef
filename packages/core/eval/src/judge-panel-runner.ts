@@ -162,7 +162,7 @@ export class JudgePanelRunner {
 		let next = 0;
 		const dispatch = (): void => {
 			while (inFlight.length < scheduler.current && next < queue.length) {
-				const item = queue[next++];
+				const item = queue[next++]!;
 				const p = runOne(item).finally(() => {
 					void inFlight.splice(inFlight.indexOf(p), 1);
 					dispatch();

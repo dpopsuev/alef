@@ -252,7 +252,7 @@ export class ProcessTerminal implements Terminal {
 			const handle = GetStdHandle(STD_INPUT_HANDLE);
 			const mode = new Uint32Array(1);
 			GetConsoleMode(handle, mode);
-			SetConsoleMode(handle, mode[0] | ENABLE_VIRTUAL_TERMINAL_INPUT);
+			SetConsoleMode(handle, mode[0]! | ENABLE_VIRTUAL_TERMINAL_INPUT);
 			/* eslint-enable */
 		} catch {
 			// koffi not available — Shift+Tab won't be distinguishable from Tab

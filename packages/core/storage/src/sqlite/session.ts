@@ -121,7 +121,7 @@ export class SqliteSessionStore implements SessionStore {
 			args: [hash],
 		});
 		if (result.rows.length === 0) return null;
-		const id = result.rows[0].id;
+		const id = result.rows[0]!.id;
 		return SqliteSessionStore.resume(client, cwd, typeof id === "string" ? id : "", version);
 	}
 
@@ -205,7 +205,7 @@ export class SqliteSessionStore implements SessionStore {
 			"write",
 		);
 
-		_embeddingCallback?.(this._client, Number(results[0].lastInsertRowid), record.bus, record.type, record.payload);
+		_embeddingCallback?.(this._client, Number(results[0]!.lastInsertRowid), record.bus, record.type, record.payload);
 	}
 
 	events(): Promise<StorageRecord[]> {
@@ -214,7 +214,7 @@ export class SqliteSessionStore implements SessionStore {
 
 	name(): string | undefined {
 		for (let i = this._cache.length - 1; i >= 0; i--) {
-			const r = this._cache[i];
+			const r = this._cache[i]!;
 			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
 				return typeof r.payload.name === "string" ? r.payload.name : undefined;
 			}

@@ -81,7 +81,7 @@ function waitForOutput(proc: ChildProcess, pattern: RegExp, timeoutMs: number): 
 function parseRouterAddress(output: string): string {
 	const match = output.match(/router listening on (http:\/\/[\d.]+:\d+)/);
 	if (!match) throw new Error(`Could not parse router address from: ${output.slice(-500)}`);
-	return match[1];
+	return match[1]!;
 }
 
 /** GET a URL, return parsed JSON. */
@@ -672,7 +672,7 @@ proc.stderr.on("data", (chunk) => {
 			await waitForOutput(supervisor, /Promoted staging slot/, 35_000);
 			const output2 = await waitForOutput(supervisor, /router listening on http/, 25_000);
 			const allAddrs = [...output2.matchAll(/router listening on (http:\/\/[\d.]+:\d+)/g)];
-			const baseUrl2 = allAddrs.at(-1)![1];
+			const baseUrl2 = allAddrs.at(-1)![1]!;
 
 			// Turn 2 — new green handles it (same scripted replies list, fresh index).
 			const reply2 = collectSse(

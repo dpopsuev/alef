@@ -254,7 +254,7 @@ export class JsonlSessionStore {
 	/** Return the most recently set session name, or undefined if never named. */
 	name(): string | undefined {
 		for (let i = this._cache.length - 1; i >= 0; i--) {
-			const r = this._cache[i];
+			const r = this._cache[i]!;
 			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
 				return typeof r.payload.name === "string" ? r.payload.name : undefined;
 			}
@@ -278,10 +278,10 @@ export class JsonlSessionStore {
 		const cutoff = Date.now() - maxAgeDays * MS_PER_DAY;
 		let removed = 0;
 		for (let i = maxCount; i < sessions.length; i++) {
-			if (sessions[i].mtime.getTime() < cutoff) {
+			if (sessions[i]!.mtime.getTime() < cutoff) {
 				try {
-					await unlink(sessions[i].path);
-					const summaryPath = sessions[i].path.replace(".jsonl", ".summary.json");
+					await unlink(sessions[i]!.path);
+					const summaryPath = sessions[i]!.path.replace(".jsonl", ".summary.json");
 					await unlink(summaryPath).catch(() => {});
 					removed++;
 				} catch {}

@@ -85,6 +85,6 @@ describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
 
 		const fsReadSpans = metrics.spans.filter((s) => s.name.includes("alef.command/fs.read"));
 		expect(fsReadSpans.length).toBeGreaterThanOrEqual(1);
-		expect(fsReadSpans[0].attributes["alef.cache.hit"]).toBe(false);
+		expect(fsReadSpans[0]!.attributes["alef.cache.hit"]).toBe(false);
 	});
 });

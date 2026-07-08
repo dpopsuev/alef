@@ -205,7 +205,6 @@ function applySchemaArrayCoercion(value: unknown[], schema: JsonSchemaObject): v
 	if (Array.isArray(schema.items)) {
 		for (let index = 0; index < value.length; index++) {
 			const itemSchema: JsonSchemaObject | undefined = schema.items[index];
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- index may exceed tuple length at runtime
 			if (!itemSchema) {
 				continue;
 			}

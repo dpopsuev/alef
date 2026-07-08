@@ -492,7 +492,7 @@ export function compileAgentDefinition(
 ): CompiledAgentDefinition {
 	if (!agentDefinitionValidator.Check(input)) {
 		const [firstError] = agentDefinitionValidator.Errors(input);
-		const errorMessage = firstError.message;
+		const errorMessage = firstError!.message;
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(`Invalid agent definition${location}: ${errorMessage}`);
 	}
@@ -553,7 +553,7 @@ function migrateEnvelope(envelope: Record<string, unknown>): Record<string, unkn
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- apiVersion is typed as string in envelope
 	const migrate = MIGRATION_CHAIN[envelope.apiVersion as string];
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- guard for future MIGRATION_CHAIN entries
+	 
 	if (!migrate) {
 		throw new Error(
 			`Unsupported agent resource apiVersion "${String(envelope.apiVersion)}". ` +

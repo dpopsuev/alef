@@ -47,8 +47,8 @@ function runVitest(workspace: string): Promise<{ exitCode: number; output: strin
 function parseTestCounts(output: string): { passed: number; failed: number; total: number } {
 	const passMatch = output.match(/Tests\s+(\d+) passed/);
 	const failMatch = output.match(/(\d+) failed/);
-	const passed = passMatch ? Number.parseInt(passMatch[1], 10) : 0;
-	const failed = failMatch ? Number.parseInt(failMatch[1], 10) : 0;
+	const passed = passMatch ? Number.parseInt(passMatch[1]!, 10) : 0;
+	const failed = failMatch ? Number.parseInt(failMatch[1]!, 10) : 0;
 	return { passed, failed, total: passed + failed };
 }
 

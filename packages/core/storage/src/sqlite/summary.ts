@@ -43,7 +43,6 @@ export class SqliteSummaryStore implements SummaryStore {
 			args: [sessionId],
 		});
 		const row = result.rows[0];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
 		if (!row) return undefined;
 		return {
 			id: typeof row.session_id === "string" ? row.session_id : "",
@@ -64,7 +63,6 @@ export class SqliteSummaryStore implements SummaryStore {
 			args: [],
 		});
 		const row = result.rows[0];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
 		if (!row) return undefined;
 		return this.get(typeof row.session_id === "string" ? row.session_id : "");
 	}

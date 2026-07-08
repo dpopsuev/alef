@@ -399,7 +399,7 @@ async function consumeChatStream(
 
 		if (existingIndex !== undefined) {
 			const existing = output.content[existingIndex];
-			if (existing.type === "toolCall") {
+			if (existing && existing.type === "toolCall") {
 				block = existing;
 			}
 		}
@@ -446,7 +446,7 @@ async function consumeChatStream(
 			calculateCost(model, output.usage);
 		}
 
-		const choice = chunk.choices[0];
+		const choice = chunk.choices[0]!;
 
 		if (choice.finishReason) {
 			output.stopReason = mapChatStopReason(choice.finishReason);
@@ -473,7 +473,7 @@ async function consumeChatStream(
 
 	finishCurrentBlock(currentBlock);
 	for (const index of toolBlocksByKey.values()) {
-		const block = output.content[index];
+		const block = output.content[index]!;
 		if (block.type !== "toolCall") continue;
 		const toolBlock = block as ToolCall & { partialArgs?: string };
 		toolBlock.arguments = parseStreamingJson<Record<string, unknown>>(toolBlock.partialArgs);

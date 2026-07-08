@@ -76,7 +76,7 @@ describe("executeFindQuery — cache hit", { tags: ["unit"] }, () => {
 		const r2 = await executeFindQuery({ pattern: "*.ts" }, opts);
 		expect(callCount).toBe(1);
 		expect(r2.details?.cache?.hit).toBe(true);
-		expect(r2.content[0].text).toEqual(r1.content[0].text);
+		expect(r2.content[0]!.text).toEqual(r1.content[0]!.text);
 	});
 
 	it("does not serve from cache when input differs", async () => {

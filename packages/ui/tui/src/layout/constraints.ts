@@ -40,19 +40,19 @@ export function solveConstraints(constraints: readonly Constraint[], available: 
 	let remaining = available;
 
 	for (let i = 0; i < constraints.length; i++) {
-		const c = constraints[i];
+		const c = constraints[i]!;
 		switch (c.type) {
 			case "length":
 				sizes[i] = Math.min(c.value, remaining);
-				remaining -= sizes[i];
+				remaining -= sizes[i]!;
 				break;
 			case "percentage":
 				sizes[i] = Math.min(Math.floor((c.value / 100) * available), remaining);
-				remaining -= sizes[i];
+				remaining -= sizes[i]!;
 				break;
 			case "min":
 				sizes[i] = Math.min(c.value, remaining);
-				remaining -= sizes[i];
+				remaining -= sizes[i]!;
 				break;
 			case "max":
 				sizes[i] = 0;
@@ -72,15 +72,15 @@ export function solveConstraints(constraints: readonly Constraint[], available: 
 			sizes[i] = perFill;
 		}
 		remaining -= perFill * fillIndices.length;
-		if (remaining > 0) sizes[fillIndices[0]] += remaining;
+		if (remaining > 0) sizes[fillIndices[0]!]! += remaining;
 	} else if (remaining > 0 && fillIndices.length === 0) {
-		sizes[sizes.length - 1] += remaining;
+		sizes[sizes.length - 1]! += remaining;
 	}
 
 	for (let i = 0; i < constraints.length; i++) {
-		const c = constraints[i];
-		if (c.type === "min") sizes[i] = Math.max(sizes[i], c.value);
-		if (c.type === "max") sizes[i] = Math.min(sizes[i] || available, c.value);
+		const c = constraints[i]!;
+		if (c.type === "min") sizes[i] = Math.max(sizes[i]!, c.value);
+		if (c.type === "max") sizes[i] = Math.min(sizes[i]! || available, c.value);
 	}
 
 	return sizes.map((s) => Math.max(0, s));

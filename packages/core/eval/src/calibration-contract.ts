@@ -80,7 +80,7 @@ export function extractFields(
 export function foldContracts(contracts: Record<string, CalibrationContract>): CalibrationContract {
 	const keys = Object.keys(contracts);
 	if (keys.length === 0) return { outputs: [] };
-	if (keys.length === 1) return contracts[keys[0]];
+	if (keys.length === 1) return contracts[keys[0]!]!;
 
 	const foldedInputs: ContractField[] = [];
 	const folded: CalibrationContract = { inputs: foldedInputs, outputs: [] };
@@ -107,7 +107,7 @@ function resolvePath(path: string, root: unknown): unknown {
 	let current = root;
 
 	for (let i = 0; i < parts.length; i++) {
-		const part = parts[i];
+		const part = parts[i]!;
 		if (current === null || current === undefined) return undefined;
 
 		// Array projection: "files[]" \u2192 collect remaining path from each element

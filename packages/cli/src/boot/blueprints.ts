@@ -29,7 +29,7 @@ function readBlueprintPreview(path: string): string[] {
 
 		const descMatch = raw.match(/^description:\s*>?\s*\n([\s\S]*?)(?=\n\w)/m);
 		if (descMatch) {
-			const desc = descMatch[1]
+			const desc = descMatch[1]!
 				.trim()
 				.split("\n")
 				.map((l) => l.trim())
@@ -42,7 +42,7 @@ function readBlueprintPreview(path: string): string[] {
 		if (adapterMatches.length > 0) {
 			lines.push("  Adapters (SBOM):");
 			for (const m of adapterMatches) {
-				const adapterName = m[1];
+				const adapterName = m[1]!;
 				const pkgMatch = raw.match(new RegExp(`name:\\s*${adapterName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));
 				const pkg = pkgMatch?.[1] ?? `adapter-${adapterName}`;
 				const ADAPTER_NAME_COL_WIDTH = 14;
@@ -52,7 +52,7 @@ function readBlueprintPreview(path: string): string[] {
 		}
 
 		const modelMatch = raw.match(/^model:\s*(.+)$/m);
-		if (modelMatch) lines.push(`  Model: ${modelMatch[1].trim()}`);
+		if (modelMatch) lines.push(`  Model: ${modelMatch[1]!.trim()}`);
 
 		const capMatch = raw.match(/orchestration:\s*(true|false)/);
 		if (capMatch) lines.push(`  Orchestration: ${capMatch[1]}`);

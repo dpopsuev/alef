@@ -172,7 +172,7 @@ function installedLangs(): Set<string> {
 		});
 		for (const line of out.split("\n")) {
 			for (const tag of line.split("|")) {
-				const code = tag.trim().split("-")[0].toLowerCase();
+				const code = tag.trim().split("-")[0]!.toLowerCase();
 				if (code) langs.add(code);
 			}
 		}
@@ -195,14 +195,13 @@ function fontPathForLang(lang: string): string | null {
 			.map((l) => l.trim())
 			.filter((f) => f.endsWith(".ttf") || f.endsWith(".otf"));
 		// Prefer Noto / Google fonts over bitmap/terminal fonts (Terminus, etc.)
-		/* eslint-disable @typescript-eslint/no-unnecessary-condition -- find() can return undefined; array index may be out of bounds */
+
 		return (
 			files.find((f) => /noto/i.test(f)) ??
 			files.find((f) => !/terminus|terminess|nerd/i.test(f)) ??
 			files[0] ??
 			null
 		);
-		/* eslint-enable @typescript-eslint/no-unnecessary-condition */
 	} catch {
 		return null;
 	}
@@ -231,7 +230,7 @@ export async function renderSplash(): Promise<string> {
 
 	for (let attempt = 0; attempt < 8; attempt++) {
 		const block = attempt === 0 ? pool[0] : pool[Math.floor(Math.random() * pool.length)];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: pool index may be out of bounds
+
 		if (!block) continue;
 
 		const fontPath = fontPathForLang(block.lang);

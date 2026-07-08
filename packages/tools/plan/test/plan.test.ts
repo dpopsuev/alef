@@ -224,6 +224,6 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		});
 
 		expect(g.children(root.id)).toHaveLength(1);
-		expect(g.children(root.id)[0].label).toBe("add a new child node");
+		expect(g.children(root.id)[0]!.label).toBe("add a new child node");
 	});
 });

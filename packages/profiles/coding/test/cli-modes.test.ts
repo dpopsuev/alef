@@ -53,7 +53,7 @@ describe.skipIf(SKIP_LLM)("CLI output modes — real LLM", { tags: ["real-llm"] 
 		const lines = result.stdout.trim().split("\n").filter(Boolean);
 		expect(lines.length).toBeGreaterThan(0);
 
-		const event = JSON.parse(lines[0]);
+		const event = JSON.parse(lines[0]!);
 		expect(event.type).toBe("reply");
 		expect(typeof event.text).toBe("string");
 		expect(typeof event.ts).toBe("number");

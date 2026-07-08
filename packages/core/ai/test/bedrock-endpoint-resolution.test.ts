@@ -86,7 +86,7 @@ afterEach(() => {
 async function captureClientConfig(model: Model<"bedrock-converse-stream">): Promise<Record<string, unknown>> {
 	await streamBedrock(model, context, { cacheRetention: "none" }).result();
 	expect(bedrockMock.constructorCalls).toHaveLength(1);
-	return bedrockMock.constructorCalls[0];
+	return bedrockMock.constructorCalls[0]!;
 }
 
 describe("bedrock endpoint resolution", { tags: ["unit"] }, () => {

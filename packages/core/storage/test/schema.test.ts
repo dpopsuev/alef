@@ -35,7 +35,7 @@ describe("schema", { tags: ["unit"] }, () => {
 		await applySchema(client);
 
 		const result = await client.execute("SELECT version FROM schema_version");
-		expect(Number(result.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
+		expect(Number(result.rows[0]!.version)).toBe(CURRENT_SCHEMA_VERSION);
 	});
 
 	it("is idempotent", async () => {
@@ -45,7 +45,7 @@ describe("schema", { tags: ["unit"] }, () => {
 		await applySchema(client);
 
 		const result = await client.execute("SELECT version FROM schema_version");
-		expect(Number(result.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
+		expect(Number(result.rows[0]!.version)).toBe(CURRENT_SCHEMA_VERSION);
 	});
 
 	it("events table has identity dimension columns", async () => {
@@ -100,7 +100,7 @@ describe("schema", { tags: ["unit"] }, () => {
 
 		// Verify version bumped
 		const ver = await client.execute("SELECT version FROM schema_version");
-		expect(Number(ver.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
+		expect(Number(ver.rows[0]!.version)).toBe(CURRENT_SCHEMA_VERSION);
 
 		// Verify column renamed: 'adapter' exists, 'organ' does not
 		const cols = await client.execute("PRAGMA table_info(events)");
@@ -110,7 +110,7 @@ describe("schema", { tags: ["unit"] }, () => {
 
 		// Verify data preserved after rename
 		const rows = await client.execute("SELECT adapter FROM events WHERE session_id = 's1'");
-		expect(String(rows.rows[0].adapter)).toBe("fs");
+		expect(String(rows.rows[0]!.adapter)).toBe("fs");
 	});
 
 	it("migrates v3 schema — converts daemon to multi-row", async () => {
@@ -144,7 +144,7 @@ describe("schema", { tags: ["unit"] }, () => {
 
 		// Verify version bumped
 		const ver = await client.execute("SELECT version FROM schema_version");
-		expect(Number(ver.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
+		expect(Number(ver.rows[0]!.version)).toBe(CURRENT_SCHEMA_VERSION);
 
 		// Verify daemon table is now keyed by session_id (not id)
 		const cols = await client.execute("PRAGMA table_info(daemon)");
@@ -155,8 +155,8 @@ describe("schema", { tags: ["unit"] }, () => {
 		// Verify data preserved
 		const rows = await client.execute("SELECT session_id, port, pid FROM daemon");
 		expect(rows.rows).toHaveLength(1);
-		expect(String(rows.rows[0].session_id)).toBe("sess-1");
-		expect(Number(rows.rows[0].port)).toBe(3001);
+		expect(String(rows.rows[0]!.session_id)).toBe("sess-1");
+		expect(Number(rows.rows[0]!.port)).toBe(3001);
 
 		// Verify we can insert multiple daemon entries (multi-daemon)
 		await client.execute({
@@ -188,6 +188,6 @@ describe("schema", { tags: ["unit"] }, () => {
 			args: ["abcd1234"],
 		});
 		expect(result.rows).toHaveLength(1);
-		expect(String(result.rows[0].type)).toBe("fs.read");
+		expect(String(result.rows[0]!.type)).toBe("fs.read");
 	});
 });

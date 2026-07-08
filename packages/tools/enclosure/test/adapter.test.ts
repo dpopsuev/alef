@@ -119,7 +119,7 @@ describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 			space._injectChange({ path: "src/main.ts", kind: "modified", size: 1024 });
 			const changes = await space.diff();
 			expect(changes).toHaveLength(1);
-			expect(changes[0].kind).toBe("modified");
+			expect(changes[0]!.kind).toBe("modified");
 		});
 
 		it("commit clears changes", async () => {

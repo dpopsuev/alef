@@ -78,7 +78,7 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 			output.usage = parseUsage(imageResponse.usage, model);
 		}
 
-		const choice = imageResponse.choices[0];
+		const choice = imageResponse.choices[0]!;
 		const content = choice.message.content;
 		if (typeof content === "string" && content.length > 0) {
 			output.output.push({ type: "text", text: content } satisfies TextContent);
@@ -91,8 +91,8 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 			if (!matches) continue;
 			output.output.push({
 				type: "image",
-				mimeType: matches[1],
-				data: matches[2],
+				mimeType: matches[1]!,
+				data: matches[2]!,
 			} satisfies ImageContent);
 		}
 

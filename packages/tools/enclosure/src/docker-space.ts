@@ -130,8 +130,9 @@ export class DockerSpace implements Space {
 		for (const line of result.output.split("\n")) {
 			const trimmed = line.trim();
 			if (!trimmed) continue;
-			const [kind, rawPath] = trimmed.split(" ", 2);
-			if (!rawPath.startsWith(CONTAINER_WORKDIR)) continue;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- split always returns at least one element; destructuring covers the two-element case
+			const [kind, rawPath] = trimmed.split(" ", 2) as [string, string | undefined];
+			if (!rawPath?.startsWith(CONTAINER_WORKDIR)) continue;
 
 			const relPath = relative(CONTAINER_WORKDIR, rawPath);
 			const changeKind: Record<string, Change["kind"]> = {
@@ -139,7 +140,7 @@ export class DockerSpace implements Space {
 				C: "modified",
 				D: "deleted",
 			};
-			const mappedKind = changeKind[kind] as Change["kind"] | undefined;
+			const mappedKind = changeKind[kind];
 			if (!mappedKind) continue;
 
 			// Get size for non-deleted files

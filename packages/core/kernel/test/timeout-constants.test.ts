@@ -50,8 +50,8 @@ function findEnvReads(envVar: string, searchDir: string): string[] {
 		const content = readFileSync(file, "utf-8");
 		const lines = content.split("\n");
 		for (let i = 0; i < lines.length; i++) {
-			if (lines[i].includes(`process.env.${envVar}`) || lines[i].includes(`"${envVar}"`)) {
-				violations.push(`${file.replace(`${root}/`, "")}:${i + 1}: ${lines[i].trim()}`);
+			if (lines[i]!.includes(`process.env.${envVar}`) || lines[i]!.includes(`"${envVar}"`)) {
+				violations.push(`${file.replace(`${root}/`, "")}:${i + 1}: ${lines[i]!.trim()}`);
 			}
 		}
 	}

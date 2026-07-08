@@ -30,7 +30,7 @@ function stableColorIndex(seed: string): number {
 export function resolveHumanActor(): ActorIdentity {
 	const username = userInfo().username;
 	const idx = stableColorIndex(`human:${username}`);
-	const paletteColor = ALL_COLORS[idx];
+	const paletteColor = ALL_COLORS[idx]!;
 	return {
 		type: "human",
 		color: username,
@@ -46,7 +46,7 @@ export function resolveHumanActor(): ActorIdentity {
  */
 export function resolveAgentActor(sessionId: string, _boardId: string): ActorIdentity {
 	const idx = stableColorIndex(sessionId);
-	const paletteColor = ALL_COLORS[idx];
+	const paletteColor = ALL_COLORS[idx]!;
 	return {
 		type: "agent",
 		color: paletteColor.name,

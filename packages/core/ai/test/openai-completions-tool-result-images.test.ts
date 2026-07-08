@@ -90,7 +90,7 @@ describe("openai-completions convertMessages", { tags: ["unit"] }, () => {
 		const roles = messages.map((message) => message.role);
 		expect(roles).toEqual(["user", "assistant", "tool", "tool", "user"]);
 
-		const imageMessage = messages[messages.length - 1];
+		const imageMessage = messages[messages.length - 1]!;
 		expect(imageMessage.role).toBe("user");
 		expect(Array.isArray(imageMessage.content)).toBe(true);
 

@@ -94,7 +94,6 @@ export async function applySchema(client: Client): Promise<void> {
 
 	for (let v = version + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
 		const stmts = MIGRATIONS[v];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all versions have migration entries
 		if (stmts) {
 			for (const sql of stmts) {
 				try {
@@ -115,7 +114,6 @@ async function getSchemaVersion(client: Client): Promise<number> {
 	try {
 		const result = await client.execute("SELECT version FROM schema_version LIMIT 1");
 		const row = result.rows[0];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if table is empty
 		return row ? Number(row.version) : 0;
 	} catch {
 		return 0;

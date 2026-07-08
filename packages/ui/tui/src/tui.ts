@@ -95,7 +95,7 @@ function parseSizeValue(value: SizeValue | undefined, referenceSize: number): nu
 	// Parse percentage string like "50%"
 	const match = value.match(/^(\d+(?:\.\d+)?)%$/);
 	if (match) {
-		return Math.floor((referenceSize * parseFloat(match[1])) / 100);
+		return Math.floor((referenceSize * parseFloat(match[1]!)) / 100);
 	}
 	return undefined;
 }
@@ -424,9 +424,9 @@ export class TUI extends Container {
 	/** Find the topmost visible capturing overlay, if any */
 	private getTopmostVisibleOverlay(): (typeof this.overlayStack)[number] | undefined {
 		for (let i = this.overlayStack.length - 1; i >= 0; i--) {
-			if (this.overlayStack[i].options?.nonCapturing) continue;
-			if (this.isOverlayVisible(this.overlayStack[i])) {
-				return this.overlayStack[i];
+			if (this.overlayStack[i]!.options?.nonCapturing) continue;
+			if (this.isOverlayVisible(this.overlayStack[i]!)) {
+				return this.overlayStack[i]!
 			}
 		}
 		return undefined;
@@ -629,8 +629,8 @@ export class TUI extends Container {
 			return false;
 		}
 
-		const heightPx = parseInt(match[1], 10);
-		const widthPx = parseInt(match[2], 10);
+		const heightPx = parseInt(match[1]!, 10);
+		const widthPx = parseInt(match[2]!, 10);
 		if (heightPx <= 0 || widthPx <= 0) {
 			return true;
 		}
@@ -697,7 +697,7 @@ export class TUI extends Container {
 				const match = opt.row.match(/^(\d+(?:\.\d+)?)%$/);
 				if (match) {
 					const maxRow = Math.max(0, availHeight - effectiveHeight);
-					const percent = parseFloat(match[1]) / 100;
+					const percent = parseFloat(match[1]!) / 100;
 					row = marginTop + Math.floor(maxRow * percent);
 				} else {
 					// Invalid format, fall back to center
@@ -719,7 +719,7 @@ export class TUI extends Container {
 				const match = opt.col.match(/^(\d+(?:\.\d+)?)%$/);
 				if (match) {
 					const maxCol = Math.max(0, availWidth - width);
-					const percent = parseFloat(match[1]) / 100;
+					const percent = parseFloat(match[1]!) / 100;
 					col = marginLeft + Math.floor(maxCol * percent);
 				} else {
 					// Invalid format, fall back to center
@@ -833,8 +833,8 @@ export class TUI extends Container {
 					// Defensive: truncate overlay line to declared width before compositing
 					// (components should already respect width, but this ensures it)
 					const truncatedOverlayLine =
-						visibleWidth(overlayLines[i]) > w ? sliceByColumn(overlayLines[i], 0, w, true) : overlayLines[i];
-					result[idx] = this.compositeLineAt(result[idx], truncatedOverlayLine, col, w, termWidth);
+						visibleWidth(overlayLines[i]!) > w ? sliceByColumn(overlayLines[i]!, 0, w, true) : overlayLines[i]!;
+					result[idx] = this.compositeLineAt(result[idx]!, truncatedOverlayLine, col, w, termWidth);
 				}
 			}
 		}
@@ -847,7 +847,7 @@ export class TUI extends Container {
 	private applyLineResets(lines: string[]): string[] {
 		const reset = TUI.SEGMENT_RESET;
 		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
+			const line = lines[i]!;
 			if (!isImageLine(line)) {
 				lines[i] = normalizeTerminalOutput(line) + reset;
 			}
@@ -876,7 +876,7 @@ export class TUI extends Container {
 	private expandLastChangedForKittyImages(firstChanged: number, lastChanged: number): number {
 		let expandedLastChanged = lastChanged;
 		for (let i = firstChanged; i < this.previousLines.length; i++) {
-			if (extractKittyImageIds(this.previousLines[i]).length > 0) {
+			if (extractKittyImageIds(this.previousLines[i]!).length > 0) {
 				expandedLastChanged = Math.max(expandedLastChanged, i);
 			}
 		}
@@ -960,7 +960,7 @@ export class TUI extends Container {
 		// Only scan the bottom `height` lines (visible viewport)
 		const viewportTop = Math.max(0, lines.length - height);
 		for (let row = lines.length - 1; row >= viewportTop; row--) {
-			const line = lines[row];
+			const line = lines[row]!;
 			const markerIndex = line.indexOf(CURSOR_MARKER);
 			if (markerIndex !== -1) {
 				// Calculate visual column (width of text before marker)
@@ -1259,7 +1259,7 @@ export class TUI extends Container {
 		for (let i = firstChanged; i <= renderEnd; i++) {
 			if (i > firstChanged) buffer += "\r\n";
 			buffer += "\x1b[2K"; // Clear current line
-			const line = newLines[i];
+			const line = newLines[i]!;
 			const isImage = isImageLine(line);
 			if (!isImage && visibleWidth(line) > width) {
 				renderLog(`Line ${i} exceeds width (${visibleWidth(line)} > ${width}), truncating`);

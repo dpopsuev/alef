@@ -99,8 +99,8 @@ export class PhaseEvaluationRunner {
 		let aborted = false;
 
 		for (let i = 0; i < evaluation.phases.length; i++) {
-			const phase = evaluation.phases[i];
-			const weight = weights[i];
+			const phase = evaluation.phases[i]!;
+			const weight = weights[i]!;
 
 			if (aborted) {
 				results.push({

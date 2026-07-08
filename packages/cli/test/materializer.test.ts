@@ -44,14 +44,14 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		const def = makeDefinition([{ name: "fs" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		expect(result.adapters[0].name).toBe("fs");
+		expect(result.adapters[0]!.name).toBe("fs");
 	});
 
 	it("instantiates ShellOrgan for shell organ", async () => {
 		const def = makeDefinition([{ name: "shell" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		expect(result.adapters[0].name).toBe("shell");
+		expect(result.adapters[0]!.name).toBe("shell");
 	});
 
 	it("instantiates both fs and shell", async () => {
@@ -68,7 +68,7 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		});
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		expect(result.adapters[0].name).toBe("code-intel");
+		expect(result.adapters[0]!.name).toBe("code-intel");
 	});
 
 	it("skips truly unsupported organs (symbols) without throwing", async () => {
@@ -78,7 +78,7 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		});
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		expect(result.adapters[0].name).toBe("fs");
+		expect(result.adapters[0]!.name).toBe("fs");
 	});
 
 	it("returns modelId from blueprint model field", async () => {
@@ -100,7 +100,7 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		const def = makeDefinition([{ name: "fs", actions: ["read"] }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		const organ = result.adapters[0];
+		const organ = result.adapters[0]!;
 		expect(organ.tools.some((t) => t.name === "fs.read")).toBe(true);
 		expect(organ.tools.some((t) => t.name === "fs.write")).toBe(false);
 	});

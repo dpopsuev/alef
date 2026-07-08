@@ -478,12 +478,12 @@ export class PlanGraph {
 			lines.push(`${prefix}${branch}${status} ${node.id}: ${node.label}`);
 			const kids = this.children(node.id);
 			for (let i = 0; i < kids.length; i++) {
-				renderNode(kids[i], `${prefix}${isLast ? "    " : "│   "}`, i === kids.length - 1);
+				renderNode(kids[i]!, `${prefix}${isLast ? "    " : "│   "}`, i === kids.length - 1);
 			}
 		};
 		const roots = this.children(null);
 		for (let i = 0; i < roots.length; i++) {
-			renderNode(roots[i], "", i === roots.length - 1);
+			renderNode(roots[i]!, "", i === roots.length - 1);
 		}
 		return lines.join("\n");
 	}
@@ -539,7 +539,7 @@ export class PlanGraph {
 				const siblings = node.parent ? this.children(node.parent) : this.children(null);
 				const idx = siblings.findIndex((s) => s.id === node.id);
 				if (idx > 0) {
-					const prev = siblings[idx - 1];
+					const prev = siblings[idx - 1]!;
 					lines.push(`${prefix}${branch}${sg(prev)} ${prev.label}${agentSuffix(prev)}`);
 				}
 				lines.push(`${prefix}${branch}${glyph} ${node.label}${agentSuffix(node)}  ◄`);
@@ -547,7 +547,7 @@ export class PlanGraph {
 					render(kid, `${prefix}${isLast ? "    " : "│   "}`, kid === kids[kids.length - 1]);
 				}
 				if (idx < siblings.length - 1) {
-					const next = siblings[idx + 1];
+					const next = siblings[idx + 1]!;
 					lines.push(`${prefix}${branch}${sg(next)} ${next.label}${agentSuffix(next)}`);
 				}
 				return;
@@ -568,7 +568,7 @@ export class PlanGraph {
 
 		const roots = this.children(null);
 		for (let i = 0; i < roots.length; i++) {
-			render(roots[i], "", i === roots.length - 1);
+			render(roots[i]!, "", i === roots.length - 1);
 		}
 		return lines.join("\n");
 	}

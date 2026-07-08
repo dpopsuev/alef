@@ -25,7 +25,7 @@ describe("agent.spawn entrypoint", { tags: ["unit"] }, () => {
 		const match = source.match(/const RUNNER_MAIN = new URL\("([^"]+)"/);
 		expect(match).not.toBeNull();
 
-		const relativePath = match![1];
+		const relativePath = match![1]!;
 		const absolutePath = new URL(relativePath, `file://${resolved}`).pathname;
 
 		expect(existsSync(absolutePath)).toBe(true);

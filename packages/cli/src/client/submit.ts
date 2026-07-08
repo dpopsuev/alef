@@ -77,7 +77,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 			// Bare "@name" (no message) → switch forum
 			const bareMatch = /^@([\w.]+)$/.exec(trimmed);
 			if (bareMatch && config.forums) {
-				config.forums.switchTo(bareMatch[1]);
+				config.forums.switchTo(bareMatch[1]!);
 				writer.addNotice(`Switched to @${bareMatch[1]}`);
 				return true;
 			}

@@ -220,7 +220,6 @@ function createClient(
 		model.provider === "cloudflare-ai-gateway"
 			? {
 					...headers,
-					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional: null fallback prevents OpenAI SDK from injecting default Authorization
 					Authorization: headers.Authorization ?? null,
 					"cf-aig-authorization": `Bearer ${apiKey}`,
 				}

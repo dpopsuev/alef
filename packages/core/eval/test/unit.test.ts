@@ -210,25 +210,25 @@ describe("deriveturns — schemaTokensEstimate", { tags: ["unit"] }, () => {
 		const spans = [chatSpan({ "alef.schema_token_estimate": 250 })];
 		const turns = deriveturns(spans);
 		expect(turns).toHaveLength(1);
-		expect(turns[0].schemaTokensEstimate).toBe(250);
+		expect(turns[0]!.schemaTokensEstimate).toBe(250);
 	});
 
 	it("defaults to 0 when attribute is absent", () => {
 		const turns = deriveturns([chatSpan()]);
-		expect(turns[0].schemaTokensEstimate).toBe(0);
+		expect(turns[0]!.schemaTokensEstimate).toBe(0);
 	});
 
 	it("schemaFraction = schemaTokensEstimate / tokensIn", () => {
 		const turns = deriveturns([chatSpan({ "alef.schema_token_estimate": 250 })]);
-		const fraction = turns[0].schemaTokensEstimate / turns[0].tokensIn;
+		const fraction = turns[0]!.schemaTokensEstimate / turns[0]!.tokensIn;
 		expect(fraction).toBeCloseTo(0.25);
 	});
 
 	it("handles multiple turns independently", () => {
 		const spans = [chatSpan({ "alef.schema_token_estimate": 300 }), chatSpan({ "alef.schema_token_estimate": 400 })];
 		const turns = deriveturns(spans);
-		expect(turns[0].schemaTokensEstimate).toBe(300);
-		expect(turns[1].schemaTokensEstimate).toBe(400);
+		expect(turns[0]!.schemaTokensEstimate).toBe(300);
+		expect(turns[1]!.schemaTokensEstimate).toBe(400);
 	});
 });
 

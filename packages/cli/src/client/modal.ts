@@ -199,11 +199,11 @@ export class ModalInputHandler {
 	}
 
 	private tabComplete(): void {
-		const prefix = `:${this.cmdBuffer.split(" ")[0]}`;
+		const prefix = `:${this.cmdBuffer.split(" ")[0]!}`;
 		const matches = allCommandNames.filter((n) => n.startsWith(prefix));
 		if (matches.length === 0) return;
 		this.cmdTabIndex = (this.cmdTabIndex + 1) % matches.length;
-		const completion = matches[this.cmdTabIndex].slice(1); // strip ':'
+		const completion = matches[this.cmdTabIndex]!.slice(1); // strip ':'
 		// Keep args if any were typed after the command name
 		const parts = this.cmdBuffer.split(" ");
 		parts[0] = completion;

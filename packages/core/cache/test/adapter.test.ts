@@ -166,7 +166,7 @@ describe("CacheAdapter", () => {
 		expect(results).toHaveLength(2);
 		expect(results[0]).toMatchObject({ content: "original" });
 		expect(results[1]).toMatchObject({ content: "refreshed" });
-		expect(results[1]._fromCache).toBeUndefined();
+		expect(results[1]!._fromCache).toBeUndefined();
 	});
 
 	test("invalidation: fs.write invalidates fs.read cache", async () => {
@@ -227,7 +227,7 @@ describe("CacheAdapter", () => {
 		expect(results).toHaveLength(2);
 		expect(results[0]).toMatchObject({ content: "before write" });
 		expect(results[1]).toMatchObject({ content: "after write" });
-		expect(results[1]._fromCache).toBeUndefined();
+		expect(results[1]!._fromCache).toBeUndefined();
 	});
 
 	test("cache.invalidate tool: explicit invalidation", async () => {
@@ -387,6 +387,6 @@ describe("CacheAdapter", () => {
 		expect(results).toHaveLength(2);
 		expect(results[0]).toMatchObject({ error: "file not found" });
 		expect(results[1]).toMatchObject({ content: "now exists" });
-		expect(results[1]._fromCache).toBeUndefined();
+		expect(results[1]!._fromCache).toBeUndefined();
 	});
 });

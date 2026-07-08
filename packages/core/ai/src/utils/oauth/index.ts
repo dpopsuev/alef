@@ -104,7 +104,6 @@ export async function getOAuthApiKey(
 	}
 
 	let creds = credentials[providerId];
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- providerId key may not exist at runtime despite Record type
 	if (!creds) {
 		return null;
 	}

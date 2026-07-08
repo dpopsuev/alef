@@ -142,7 +142,7 @@ class OrderedStrategy implements BindingExecutionStrategy {
 		let current = input;
 
 		for (let i = 0; i < chain.length; i++) {
-			const stage = chain[i];
+			const stage = chain[i]!;
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChainInput.output is unknown; filters expect Record
 			if (stage.filter && !stage.filter(current.output as Record<string, unknown>)) {
 				continue;

@@ -58,7 +58,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			adapters: [{ name: "fs" }],
 		});
 		expect(def.adapters).toHaveLength(1);
-		const fs = def.adapters[0];
+		const fs = def.adapters[0]!;
 		expect(fs.name).toBe("fs");
 		// Blueprint is purely structural — no static adapter catalog.
 		// Actions default to [] when not specified; toolNames is always [].
@@ -71,7 +71,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			name: "read-only",
 			adapters: [{ name: "fs", actions: ["read", "grep"] }],
 		});
-		const fs = def.adapters[0];
+		const fs = def.adapters[0]!;
 		expect(fs.actions).toEqual(["read", "grep"]);
 		// toolNames is always [] — resolved at mount time, not compile time.
 		expect(fs.toolNames).toEqual([]);
@@ -82,8 +82,8 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			name: "shell-agent",
 			adapters: [{ name: "shell" }],
 		});
-		expect(def.adapters[0].name).toBe("shell");
-		expect(def.adapters[0].toolNames).toEqual([]);
+		expect(def.adapters[0]!.name).toBe("shell");
+		expect(def.adapters[0]!.toolNames).toEqual([]);
 	});
 
 	it("compiles fs + shell — capabilities.tools is empty without explicit declaration", () => {
@@ -110,7 +110,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			name: "custom",
 			adapters: [{ name: "weather" }],
 		});
-		expect(def.adapters[0].name).toBe("weather");
+		expect(def.adapters[0]!.name).toBe("weather");
 	});
 
 	it("rejects orchestration organ without capabilities.orchestration", () => {
@@ -137,7 +137,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			name: "no-actions",
 			adapters: [{ name: "fs", actions: [] }],
 		});
-		expect(def.adapters[0].actions).toEqual([]);
+		expect(def.adapters[0]!.actions).toEqual([]);
 	});
 
 	it("normalises model string 'provider/model-id'", () => {
@@ -186,7 +186,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 			},
 			{ sourcePath: join(dir, "parent.yaml") },
 		);
-		expect(def.children[0].blueprint).toBe(childPath);
+		expect(def.children[0]!.blueprint).toBe(childPath);
 	});
 });
 
@@ -218,7 +218,7 @@ spec:
 		expect(def.resource?.apiVersion).toBe(AGENT_RESOURCE_API_VERSION);
 		expect(def.resource?.kind).toBe(AGENT_RESOURCE_KIND);
 		expect(def.resource?.metadata.labels.env).toBe("prod");
-		expect(def.adapters[0].name).toBe("fs");
+		expect(def.adapters[0]!.name).toBe("fs");
 	});
 
 	it("derives name from metadata.name when spec.name is absent", () => {
@@ -277,7 +277,7 @@ adapters:
     actions: [nonexistent_action]
 `.trim();
 		const def = parseAgentDefinitionYaml(yaml);
-		expect(def.adapters[0].actions).toEqual(["nonexistent_action"]);
+		expect(def.adapters[0]!.actions).toEqual(["nonexistent_action"]);
 	});
 });
 
@@ -436,8 +436,8 @@ surfaces:
       - fs.*
 `);
 		expect(def.surfaces).toHaveLength(1);
-		expect(def.surfaces[0].type).toBe("sse");
-		expect(def.surfaces[0].events).toEqual(["dialog.message", "fs.*"]);
+		expect(def.surfaces[0]!.type).toBe("sse");
+		expect(def.surfaces[0]!.events).toEqual(["dialog.message", "fs.*"]);
 	});
 
 	it("defaults surfaces to empty array when not specified", () => {
@@ -461,7 +461,7 @@ surfaces:
     events: ["dialog.message", "fs.*", "shell.*"]
 `);
 		const merged = mergeAgentDefinitions(base, overlay);
-		expect(merged.surfaces[0].events).toEqual(["dialog.message", "fs.*", "shell.*"]);
+		expect(merged.surfaces[0]!.events).toEqual(["dialog.message", "fs.*", "shell.*"]);
 	});
 
 	it("base surfaces preserved when overlay has none", () => {
@@ -473,7 +473,7 @@ surfaces:
 `);
 		const overlay = parseAgentDefinitionYaml("name: base\n");
 		const merged = mergeAgentDefinitions(base, overlay);
-		expect(merged.surfaces[0].events).toEqual(["dialog.message"]);
+		expect(merged.surfaces[0]!.events).toEqual(["dialog.message"]);
 	});
 
 	it("overlay model overrides base model", () => {

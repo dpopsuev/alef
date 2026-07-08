@@ -33,7 +33,7 @@ describe("FallbackSearchEngine", { tags: ["unit"] }, () => {
 		const results = await fallback.search({ query: "test" });
 
 		expect(results).toHaveLength(1);
-		expect(results[0].url).toBe("https://example.com/1");
+		expect(results[0]!.url).toBe("https://example.com/1");
 	});
 
 	it("falls back to second engine when first returns empty", async () => {
@@ -46,7 +46,7 @@ describe("FallbackSearchEngine", { tags: ["unit"] }, () => {
 		const results = await fallback.search({ query: "test" });
 
 		expect(results).toHaveLength(1);
-		expect(results[0].url).toBe("https://example.com/2");
+		expect(results[0]!.url).toBe("https://example.com/2");
 	});
 
 	it("falls back to second engine when first throws", async () => {
@@ -59,7 +59,7 @@ describe("FallbackSearchEngine", { tags: ["unit"] }, () => {
 		const results = await fallback.search({ query: "test" });
 
 		expect(results).toHaveLength(1);
-		expect(results[0].url).toBe("https://example.com/2");
+		expect(results[0]!.url).toBe("https://example.com/2");
 	});
 
 	it("returns empty when all engines return empty and fallbackOnEmpty=true", async () => {

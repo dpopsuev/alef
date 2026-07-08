@@ -252,9 +252,9 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 			const m = line.match(/^(.+?):(\d+):(.*)/);
 			if (!m) continue;
 			matches.push({
-				path: m[1],
-				line: Number.parseInt(m[2], 10),
-				content: m[3],
+				path: m[1]!,
+				line: Number.parseInt(m[2]!, 10),
+				content: m[3]!,
 			});
 		}
 		return matches;
@@ -346,7 +346,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 
 			return symbols.map((s) => ({
 				name: s.name,
-				kind: kindMap[s.kind] || "unknown",
+				kind: kindMap[s.kind] ?? "unknown",
 				path: s.location.uri.startsWith("file://") ? fileURLToPath(s.location.uri) : s.location.uri,
 				line: s.location.range.start.line + 1, // Convert to 1-indexed
 				containerName: s.containerName,

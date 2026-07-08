@@ -242,8 +242,8 @@ async function* streamExec(
 			try {
 				const stat = readFileSync(`/proc/${child.pid}/stat`, "utf-8");
 				const fields = stat.split(" ");
-				const utime = Number.parseInt(fields[13], 10) || 0;
-				const stime = Number.parseInt(fields[14], 10) || 0;
+				const utime = Number.parseInt(fields[13]!, 10) || 0;
+				const stime = Number.parseInt(fields[14]!, 10) || 0;
 				const cpuTime = utime + stime;
 				if (lastCpuTime >= 0 && cpuTime === lastCpuTime) {
 					stallCount++;

@@ -50,9 +50,9 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		const responses = await Promise.all(responsePromises);
 
 		for (let i = 0; i < 5; i++) {
-			expect(responses[i].correlationId).toBe(`corr-${i}`);
-			expect(responses[i].isError).toBe(false);
-			expect(responses[i].payload.echoed).toBe(i);
+			expect(responses[i]!.correlationId).toBe(`corr-${i}`);
+			expect(responses[i]!.isError).toBe(false);
+			expect(responses[i]!.payload.echoed).toBe(i);
 		}
 	});
 
@@ -80,7 +80,7 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 					bus.asBus().command.publish({
 						type: "identity.reflect",
 						payload: { value },
-						correlationId: correlationIds[i],
+						correlationId: correlationIds[i]!,
 					}),
 				),
 			),
@@ -89,8 +89,8 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		const responses = await Promise.all(responsePromises);
 
 		for (let i = 0; i < inputs.length; i++) {
-			expect(responses[i].correlationId).toBe(correlationIds[i]);
-			expect(responses[i].payload.value).toBe(inputs[i]);
+			expect(responses[i]!.correlationId).toBe(correlationIds[i]);
+			expect(responses[i]!.payload.value).toBe(inputs[i]);
 		}
 	});
 

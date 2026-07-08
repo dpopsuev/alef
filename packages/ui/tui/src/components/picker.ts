@@ -90,7 +90,7 @@ export class Picker<T extends PickerItem = PickerItem> implements Component {
 		const start = this.scrollOffset;
 
 		for (let i = start; i < end; i++) {
-			const item = filtered[i];
+			const item = filtered[i]!;
 			const isSel = i === selectedIndex;
 			const prefix = isSel ? "  > " : "    ";
 			const desc = item.description ? theme.dim(` ${item.description}`) : "";
@@ -106,8 +106,8 @@ export class Picker<T extends PickerItem = PickerItem> implements Component {
 			const previewLines = (filtered[selectedIndex].preview ?? "").split("\n");
 			const bodyLines = lines.length - (this.title ? 2 : 1);
 			for (let i = 0; i < bodyLines && i < previewLines.length; i++) {
-				const contentLine = lines[(this.title ? 2 : 1) + i];
-				const pl = truncateToWidth(previewLines[i], previewWidth, "…");
+				const contentLine = lines[(this.title ? 2 : 1) + i]!;
+				const pl = truncateToWidth(previewLines[i]!, previewWidth, "…");
 				const gap = Math.max(0, listWidth + 1 - visibleWidth(contentLine));
 				lines[(this.title ? 2 : 1) + i] = `${contentLine}${" ".repeat(gap)}${theme.dim(pl)}`;
 			}

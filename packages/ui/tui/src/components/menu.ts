@@ -60,7 +60,7 @@ export class Menu implements Component {
 		lines.push(theme.border("─".repeat(width)));
 
 		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
+			const item = items[i]!;
 			const isSel = i === selectedIndex;
 			const prefix = isSel ? "  > " : "    ";
 			const keyHint = item.key ? theme.dim(` [${item.key}]`) : "";

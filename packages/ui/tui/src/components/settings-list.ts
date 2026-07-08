@@ -134,7 +134,7 @@ export class SettingsList implements Component {
 
 		// Render visible items
 		for (let i = startIndex; i < endIndex; i++) {
-			const item = displayItems[i];
+			const item = displayItems[i]!;
 
 			const isSelected = i === this.selectedIndex;
 			const prefix = isSelected ? this.theme.cursor : "  ";
@@ -162,7 +162,7 @@ export class SettingsList implements Component {
 
 		// Add description for selected item
 		const selectedItem = displayItems[this.selectedIndex];
-		if (selectedItem.description) {
+		if (selectedItem?.description) {
 			lines.push("");
 			const wrappedDesc = wrapTextWithAnsi(selectedItem.description, width - 4);
 			for (const line of wrappedDesc) {
@@ -215,15 +215,16 @@ export class SettingsList implements Component {
 
 	private cycleSelectedItem(direction: 1 | -1): void {
 		const item = this.searchEnabled ? this.filteredItems[this.selectedIndex] : this.items[this.selectedIndex];
-		if (!item.values || item.values.length === 0) return;
+		if (!item?.values || item.values.length === 0) return;
 		const currentIndex = item.values.indexOf(item.currentValue);
 		const len = item.values.length;
 		const nextIndex = (currentIndex + direction + len) % len;
-		item.currentValue = item.values[nextIndex];
+		item.currentValue = item.values[nextIndex]!;
 	}
 
 	private activateItem(): void {
 		const item = this.searchEnabled ? this.filteredItems[this.selectedIndex] : this.items[this.selectedIndex];
+		if (!item) return;
 		if (item.submenu) {
 			this.submenuItemIndex = this.selectedIndex;
 			this.submenuComponent = item.submenu(item.currentValue, (selectedValue?: string) => {

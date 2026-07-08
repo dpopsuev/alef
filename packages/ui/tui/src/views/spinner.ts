@@ -80,7 +80,7 @@ function hueToAnsi256(hue: number): number {
 	const sector = Math.floor(h / 60);
 	const f = (h % 60) / 60;
 	const colors = [196, 208, 226, 46, 51, 201];
-	return Math.round(colors[sector % 6] + (colors[(sector + 1) % 6] - colors[sector % 6]) * f);
+	return Math.round(colors[sector % 6]! + (colors[(sector + 1) % 6]! - colors[sector % 6]!) * f);
 }
 
 /**
@@ -88,10 +88,10 @@ function hueToAnsi256(hue: number): number {
  */
 export function spinnerFrame(id: string, elapsedMs: number): string {
 	const idx = indexFor(id);
-	const chars = SCRIPTS[idx % SCRIPTS.length];
+	const chars = SCRIPTS[idx % SCRIPTS.length]!;
 	const frameIdx = Math.floor(elapsedMs / 200) % chars.length;
 	const hue = ((idx * 137) % 360) + ((elapsedMs / 50) % 360);
-	return chalk.ansi256(hueToAnsi256(hue))(chars[frameIdx]);
+	return chalk.ansi256(hueToAnsi256(hue))(chars[frameIdx]!);
 }
 
 /**

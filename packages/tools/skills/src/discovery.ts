@@ -55,14 +55,14 @@ function parseSkillMd(filePath: string, content: string): Skill | null {
 	const [, frontmatterRaw, instructions] = match;
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- parseYaml returns unknown; shape validated by the guard below
-		const fm = parseYaml(frontmatterRaw) as SkillFrontmatter;
+		const fm = parseYaml(frontmatterRaw!) as SkillFrontmatter;
 		if (!fm.name || !fm.description) return null;
 		return {
 			name: fm.name,
 			description: fm.description,
 			userInvocable: fm["user-invocable"] ?? false,
 			disableModelInvocation: fm["disable-model-invocation"] ?? false,
-			instructions: instructions.trim(),
+			instructions: instructions!.trim(),
 			path: filePath,
 		};
 	} catch {

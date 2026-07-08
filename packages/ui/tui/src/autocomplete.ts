@@ -348,7 +348,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		cursorCol: number,
 		options: { signal: AbortSignal; force?: boolean },
 	): Promise<AutocompleteSuggestions | null> {
-		const currentLine = lines[cursorLine] || "";
+		const currentLine = lines[cursorLine] ?? "";
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
 
 		if (!options.force && textBeforeCursor.startsWith(":")) {
@@ -438,7 +438,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		item: AutocompleteItem,
 		prefix: string,
 	): { lines: string[]; cursorLine: number; cursorCol: number } {
-		const currentLine = lines[cursorLine] || "";
+		const currentLine = lines[cursorLine] ?? "";
 		const beforePrefix = currentLine.slice(0, cursorCol - prefix.length);
 		const afterCursor = currentLine.slice(cursorCol);
 		const isQuotedPrefix = prefix.startsWith('"') || prefix.startsWith('/"');
@@ -763,7 +763,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 	}
 
 	shouldTriggerFileCompletion(lines: string[], cursorLine: number, cursorCol: number): boolean {
-		const currentLine = lines[cursorLine] || "";
+		const currentLine = lines[cursorLine] ?? "";
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
 
 		// Don't trigger if we're typing an operator command at the start of the line

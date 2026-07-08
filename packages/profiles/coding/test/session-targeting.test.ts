@@ -34,7 +34,7 @@ async function writeDialog(store: JsonlSessionStore, pairs: Array<{ user: string
 			bus: "event",
 			type: "llm.response",
 			correlationId: corrId,
-			payload: { text: pairs[i].user },
+			payload: { text: pairs[i]!.user },
 			timestamp: Date.now() + i * 100,
 		});
 		await store.append({
@@ -42,10 +42,10 @@ async function writeDialog(store: JsonlSessionStore, pairs: Array<{ user: string
 			type: "llm.response",
 			correlationId: corrId,
 			payload: {
-				text: pairs[i].assistant,
+				text: pairs[i]!.assistant,
 				conversationHistory: [
-					{ role: "user", content: pairs[i].user },
-					{ role: "assistant", content: pairs[i].assistant },
+					{ role: "user", content: pairs[i]!.user },
+					{ role: "assistant", content: pairs[i]!.assistant },
 				],
 			},
 			timestamp: Date.now() + i * 100 + 50,

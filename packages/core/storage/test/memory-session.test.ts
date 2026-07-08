@@ -22,7 +22,7 @@ describe("InMemorySessionStore", { tags: ["unit"] }, () => {
 		await store.append(motorEvent("fs.read", "corr-1"));
 		const events = await store.events();
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("fs.read");
+		expect(events[0]!.type).toBe("fs.read");
 	});
 
 	it("groups events into turns by correlationId", async () => {
@@ -32,8 +32,8 @@ describe("InMemorySessionStore", { tags: ["unit"] }, () => {
 		await store.append(motorEvent("fs.write", "turn-2"));
 		const turns = await store.turns();
 		expect(turns).toHaveLength(2);
-		expect(turns[0].id).toBe("turn-1");
-		expect(turns[0].events).toHaveLength(2);
+		expect(turns[0]!.id).toBe("turn-1");
+		expect(turns[0]!.events).toHaveLength(2);
 	});
 
 	it("sets and gets name", async () => {

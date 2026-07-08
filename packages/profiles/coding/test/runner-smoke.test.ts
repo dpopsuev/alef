@@ -81,7 +81,7 @@ function waitForOutput(proc: ChildProcess, pattern: RegExp, timeoutMs: number): 
 function parseRouterAddress(output: string): string {
 	const match = output.match(/router listening on (http:\/\/[\d.]+:\d+)/);
 	if (!match) throw new Error(`Could not parse router address:\n${output.slice(-300)}`);
-	return match[1];
+	return match[1]!;
 }
 
 function postJson(url: string, body: unknown): Promise<{ status: number; json: unknown }> {

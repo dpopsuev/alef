@@ -134,15 +134,15 @@ describe("extractSymbolsTs — generics and complex types", { tags: ["unit"] }, 
 	it("handles generic function", () => {
 		const src = "export function identity<T>(x: T): T { return x; }";
 		const symbols = extractSymbolsTs(src, "id.ts");
-		expect(symbols[0].name).toBe("identity");
-		expect(symbols[0].kind).toBe("function");
+		expect(symbols[0]!.name).toBe("identity");
+		expect(symbols[0]!.kind).toBe("function");
 	});
 
 	it("handles abstract class", () => {
 		const src = "export abstract class Base { abstract method(): void; }";
 		const symbols = extractSymbolsTs(src, "base.ts");
-		expect(symbols[0].name).toBe("Base");
-		expect(symbols[0].kind).toBe("class");
+		expect(symbols[0]!.name).toBe("Base");
+		expect(symbols[0]!.kind).toBe("class");
 	});
 
 	it("handles default export function", () => {

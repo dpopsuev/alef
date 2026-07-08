@@ -50,7 +50,7 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 	const steps: TraceStep[] = [];
 
 	for (let i = 0; i < turnOrder.length; i++) {
-		const corrId = turnOrder[i];
+		const corrId = turnOrder[i]!;
 		const events = turnGroups.get(corrId) ?? [];
 
 		let userMessage = "";

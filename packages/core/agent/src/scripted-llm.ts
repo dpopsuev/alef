@@ -56,7 +56,6 @@ export class ScriptedLlmAdapter implements Adapter {
 		return bus.event.subscribe("llm.input", (event) => {
 			void (async () => {
 				const step = this.steps[this.index++];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: index may exceed array length
 				if (step !== undefined && typeof step === "object" && step.kind === "toolCall") {
 					const toolCallId = randomUUID();
 					const dotName = step.call.name; // e.g. "tools.describe"
@@ -84,7 +83,6 @@ export class ScriptedLlmAdapter implements Adapter {
 						correlationId: event.correlationId,
 					});
 				}
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: index may exceed array length
 				const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
 				bus.notification.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
 				bus.command.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });

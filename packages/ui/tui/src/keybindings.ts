@@ -286,7 +286,7 @@ export class KeyMap {
 	}
 
 	getDefinition(keybinding: Keybinding): KeybindingDefinition {
-		return this.definitions[keybinding];
+		return this.definitions[keybinding]!;
 	}
 
 	getConflicts(): KeybindingConflict[] {

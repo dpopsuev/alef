@@ -72,7 +72,7 @@ describe("SqliteDaemonRegistry", { tags: ["unit"] }, () => {
 		await daemon.register({ port: 9090, host: "127.0.0.1", pid: 5678, sessionId: "def", cwd: "/tmp2", startedAt: 2000 });
 		const all = await daemon.list();
 		expect(all).toHaveLength(2);
-		expect(all[0].sessionId).toBe("def");
+		expect(all[0]!.sessionId).toBe("def");
 
 		const latest = await daemon.findLatest();
 		expect(latest?.sessionId).toBe("def");

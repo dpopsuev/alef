@@ -124,6 +124,7 @@ export async function createMcpAdapterFromClient(client: MCPClient, name: string
 
 		tools.push({
 			name: motorName,
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- MCP tool shape not statically typed
 			description: (tool as { description?: string }).description ?? mcpName,
 			// MCP returns JSON Schema natively — wrap with passthroughSchema so
 			// toolInputToJsonSchema() returns it unchanged to the LLM provider.

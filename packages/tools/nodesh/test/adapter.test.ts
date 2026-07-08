@@ -15,7 +15,7 @@ describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 		const organ = createNodeshAdapter({ cwd: process.cwd() });
 		expect(organ.name).toBe("nodesh");
 		expect(organ.tools).toHaveLength(1);
-		expect(organ.tools[0].name).toBe("nodesh.eval");
+		expect(organ.tools[0]!.name).toBe("nodesh.eval");
 	});
 
 	it("unmount unsubscribes motor handler", () => {

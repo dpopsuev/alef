@@ -656,7 +656,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleTextDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				 
 				if (!block || block.type !== "text") return;
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const delta = event.delta as { type: "text_delta"; text: string };
@@ -675,7 +675,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleThinkingDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				 
 				if (!block || block.type !== "thinking") return;
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const delta = event.delta as { type: "thinking_delta"; thinking: string };
@@ -694,7 +694,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleInputJsonDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				 
 				if (!block || block.type !== "toolCall") return;
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const delta = event.delta as { type: "input_json_delta"; partial_json: string };
@@ -714,7 +714,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleSignatureDelta(event: Extract<RawMessageStreamEvent, { type: "content_block_delta" }>) {
 				const index = blocks.findIndex((b) => b.index === event.index);
 				const block = blocks[index];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				 
 				if (!block || block.type !== "thinking") return;
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const delta = event.delta as { type: "signature_delta"; signature: string };
@@ -759,7 +759,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleContentBlockStart(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_start" }>;
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API types
+				 
 				contentBlockStartHandlers[e.content_block.type]?.(e);
 			}
 
@@ -769,7 +769,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			function handleContentBlockDelta(event: RawMessageStreamEvent) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminant checked before dispatch
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_delta" }>;
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API types
+				 
 				contentBlockDeltaHandlers[e.delta.type]?.(e);
 			}
 
@@ -781,7 +781,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				const e = event as Extract<RawMessageStreamEvent, { type: "content_block_stop" }>;
 				const index = blocks.findIndex((b) => b.index === e.index);
 				const block = blocks[index];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
+				 
 				if (!block) return;
 
 				delete (block as { index?: number }).index;
@@ -851,7 +851,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			};
 
 			for await (const event of iterateAnthropicEvents(response, options?.signal)) {
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- dispatch table may not cover future API event types
+				 
 				eventHandlers[event.type]?.(event);
 			}
 
@@ -1322,7 +1322,7 @@ function convertAssistantBlock(
 function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: CacheControlEphemeral): void {
 	if (!cacheControl || params.length === 0) return;
 
-	const lastMessage = params[params.length - 1];
+	const lastMessage = params[params.length - 1]!;
 	if (lastMessage.role !== "user") return;
 
 	if (typeof lastMessage.content === "string") {
@@ -1340,14 +1340,14 @@ function applyCacheControlToLastMessage(params: MessageParam[], cacheControl?: C
 	if (!Array.isArray(lastMessage.content)) return;
 
 	const lastBlock = lastMessage.content[lastMessage.content.length - 1];
-	/* eslint-disable @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds */
+	 
 	if (
 		!lastBlock ||
 		(lastBlock.type !== "text" && lastBlock.type !== "image" && lastBlock.type !== "tool_result")
 	) {
 		return;
 	}
-	/* eslint-enable @typescript-eslint/no-unnecessary-condition */
+	 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension field
 	(lastBlock as unknown as Record<string, unknown>).cache_control = cacheControl;
 }
@@ -1367,7 +1367,7 @@ function convertMessages(
 	const transformedMessages = transformMessages(messages, model, normalizeToolCallId);
 
 	for (let i = 0; i < transformedMessages.length; i++) {
-		const msg = transformedMessages[i];
+		const msg = transformedMessages[i]!;
 
 		if (msg.role === "user") {
 			if (typeof msg.content === "string") {
@@ -1434,7 +1434,7 @@ function convertMessages(
 
 			// Look ahead for consecutive toolResult messages
 			let j = i + 1;
-			while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
+			while (j < transformedMessages.length && transformedMessages[j]!.role === "toolResult") {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role checked in while condition
 				const nextMsg = transformedMessages[j] as ToolResultMessage;
 				toolResults.push({

@@ -204,8 +204,8 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	let baseHistory: Message[] | undefined;
 	let baseFoundAt = -1;
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
-		for (let j = turns[i].events.length - 1; j >= 0; j--) {
-			const e = turns[i].events[j];
+		for (let j = turns[i]!.events.length - 1; j >= 0; j--) {
+			const e = turns[i]!.events[j]!;
 			const isDialogMessage = e.bus === "command" && e.type === "llm.response";
 			const isCheckpoint = e.type === "llm.checkpoint"; // internal bus, written by onCheckpoint
 			if (!isDialogMessage && !isCheckpoint) continue;
@@ -222,7 +222,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	const abortedFrom = baseFoundAt + 1; // 0 when no base found → scans all turns
 	const abortedMessages: Message[] = [];
 	for (let i = abortedFrom; i < turns.length; i++) {
-		const turn = turns[i];
+		const turn = turns[i]!;
 		if (turn.events.some((e) => e.type === "llm.response")) continue;
 		const motorTools = turn.events.filter((e) => e.bus === "command");
 		if (motorTools.length === 0) continue;

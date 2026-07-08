@@ -35,8 +35,8 @@ class EditorWrapper implements Component {
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
-		lines[0] = this.topBorder.render(width)[0];
-		lines[lines.length - 1] = this.bottomBorder.render(width)[0];
+		lines[0] = this.topBorder.render(width)[0]!;
+		lines[lines.length - 1] = this.bottomBorder.render(width)[0]!;
 		return lines;
 	}
 
@@ -112,7 +112,7 @@ export class PromptConsole {
 		this.t = t;
 
 		const spinnerPool = buildPool();
-		const spinnerBlock = spinnerPool[0];
+		const spinnerBlock = spinnerPool[0]!;
 		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () => randomCodePoint(spinnerBlock));
 
 		this.statusText = new Text("", 0, 0);
@@ -135,7 +135,7 @@ export class PromptConsole {
 
 		this.pendingFooter = new DynamicText((w) => {
 			if (!this.pendingFooterActive) return "";
-			return new SeparatorLine({ style: this.pendingFooterStyle }).render(w)[0];
+			return new SeparatorLine({ style: this.pendingFooterStyle }).render(w)[0]!;
 		});
 	}
 

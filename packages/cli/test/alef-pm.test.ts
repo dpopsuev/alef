@@ -189,8 +189,8 @@ describe("history", { tags: ["unit"] }, () => {
 		await upgrade();
 		const h = history();
 		expect(h).toHaveLength(2);
-		expect(h[0].id).toBe(2);
-		expect(h[1].id).toBe(1);
+		expect(h[0]!.id).toBe(2);
+		expect(h[1]!.id).toBe(1);
 	});
 });
 

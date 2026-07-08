@@ -81,7 +81,7 @@ export function requiresToolCallId(modelId: string): boolean {
 function getGeminiMajorVersion(modelId: string): number | undefined {
 	const match = modelId.toLowerCase().match(/^gemini(?:-live)?-(\d+)/);
 	if (!match) return undefined;
-	return Number.parseInt(match[1], 10);
+	return Number.parseInt(match[1]!, 10);
 }
 
 /**
@@ -223,7 +223,7 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 
 			// Cloud Code Assist API requires all function responses to be in a single user turn.
 			// Check if the last content is already a user turn with function responses and merge.
-			const lastContent = contents[contents.length - 1];
+			const lastContent = contents[contents.length - 1]!;
 			if (lastContent.role === "user" && lastContent.parts?.some((p) => p.functionResponse)) {
 				lastContent.parts.push(functionResponsePart);
 			} else {

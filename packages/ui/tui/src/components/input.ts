@@ -156,7 +156,7 @@ export class Input implements Component, Focusable {
 			this.pushUndo();
 			const beforeCursor = this.value.slice(0, this.cursor);
 			const graphemes = [...segmenter.segment(beforeCursor)];
-			const lastGrapheme = graphemes[graphemes.length - 1];
+			const lastGrapheme = graphemes[graphemes.length - 1]!;
 			const graphemeLength = lastGrapheme.segment.length;
 			this.value = this.value.slice(0, this.cursor - graphemeLength) + this.value.slice(this.cursor);
 			this.cursor -= graphemeLength;
@@ -169,7 +169,7 @@ export class Input implements Component, Focusable {
 			this.pushUndo();
 			const afterCursor = this.value.slice(this.cursor);
 			const graphemes = [...segmenter.segment(afterCursor)];
-			const firstGrapheme = graphemes[0];
+			const firstGrapheme = graphemes[0]!;
 			const graphemeLength = firstGrapheme.segment.length;
 			this.value = this.value.slice(0, this.cursor) + this.value.slice(this.cursor + graphemeLength);
 		}
@@ -281,7 +281,7 @@ export class Input implements Component, Focusable {
 		if (this.cursor > 0) {
 			const beforeCursor = this.value.slice(0, this.cursor);
 			const graphemes = [...segmenter.segment(beforeCursor)];
-			const lastGrapheme = graphemes[graphemes.length - 1];
+			const lastGrapheme = graphemes[graphemes.length - 1]!;
 			this.cursor -= lastGrapheme.segment.length;
 		}
 	}
@@ -291,7 +291,7 @@ export class Input implements Component, Focusable {
 		if (this.cursor < this.value.length) {
 			const afterCursor = this.value.slice(this.cursor);
 			const graphemes = [...segmenter.segment(afterCursor)];
-			const firstGrapheme = graphemes[0];
+			const firstGrapheme = graphemes[0]!;
 			this.cursor += firstGrapheme.segment.length;
 		}
 	}
@@ -443,7 +443,7 @@ export class Input implements Component, Focusable {
 		const cursorGrapheme = graphemes[0];
 
 		const beforeCursor = visibleText.slice(0, cursorDisplay);
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		 
 		const atCursor = cursorGrapheme?.segment ?? " ";
 		const afterCursor = visibleText.slice(cursorDisplay + atCursor.length);
 

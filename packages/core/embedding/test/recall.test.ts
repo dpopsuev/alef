@@ -44,15 +44,15 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 		});
 		const rowids = eventsResult.rows.map((r) => Number(r.rowid));
 
-		await recall.setEventEmbedding(rowids[0], [1, 0, 0, 0]);
-		await recall.setEventEmbedding(rowids[1], [0, 1, 0, 0]);
+		await recall.setEventEmbedding(rowids[0]!, [1, 0, 0, 0]);
+		await recall.setEventEmbedding(rowids[1]!, [0, 1, 0, 0]);
 
 		const results = await recall.searchEvents(store.id, [0.9, 0.1, 0, 0], 2);
 		expect(results).toHaveLength(2);
-		expect(results[0].correlationId).toBe("corr-1");
-		expect(results[0].similarity).toBeGreaterThan(0.9);
-		expect(results[1].correlationId).toBe("corr-2");
-		expect(results[1].similarity).toBeLessThan(0.5);
+		expect(results[0]!.correlationId).toBe("corr-1");
+		expect(results[0]!.similarity).toBeGreaterThan(0.9);
+		expect(results[1]!.correlationId).toBe("corr-2");
+		expect(results[1]!.similarity).toBeLessThan(0.5);
 	});
 
 	it("turnScores returns max similarity per correlation", async () => {
@@ -82,8 +82,8 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 		});
 		const rowids = eventsResult.rows.map((r) => Number(r.rowid));
 
-		await recall.setEventEmbedding(rowids[0], [1, 0, 0, 0]);
-		await recall.setEventEmbedding(rowids[1], [0.5, 0.5, 0, 0]);
+		await recall.setEventEmbedding(rowids[0]!, [1, 0, 0, 0]);
+		await recall.setEventEmbedding(rowids[1]!, [0.5, 0.5, 0, 0]);
 
 		const scores = await recall.turnScores(store.id, [1, 0, 0, 0]);
 		expect(scores.get("turn-A")).toBeGreaterThan(0.9);
@@ -123,8 +123,8 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 
 		const results = await recall.searchSessions([0.9, 0.1, 0, 0], 2);
 		expect(results).toHaveLength(2);
-		expect(results[0].sessionId).toBe(s1.id);
-		expect(results[0].similarity).toBeGreaterThan(0.9);
+		expect(results[0]!.sessionId).toBe(s1.id);
+		expect(results[0]!.similarity).toBeGreaterThan(0.9);
 	});
 
 	it("returns empty results when no embeddings exist", async () => {

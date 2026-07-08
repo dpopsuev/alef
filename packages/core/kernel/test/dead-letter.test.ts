@@ -12,8 +12,8 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 		await Promise.resolve();
 
 		expect(received).toHaveLength(1);
-		expect(received[0].isError).toBe(true);
-		expect(received[0].errorMessage).toMatch(/no adapter handles command\/fs\.read/);
+		expect(received[0]!.isError).toBe(true);
+		expect(received[0]!.errorMessage).toMatch(/no adapter handles command\/fs\.read/);
 	});
 
 	it("does not dead-letter when a specific handler is registered", async () => {
@@ -41,8 +41,8 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 		});
 		await Promise.resolve();
 
-		expect(received[0].isError).toBe(true);
-		expect(received[0].payload.toolCallId).toBe("tc-42");
+		expect(received[0]!.isError).toBe(true);
+		expect(received[0]!.payload.toolCallId).toBe("tc-42");
 	});
 
 	it("wildcard subscribers do not prevent dead letter", async () => {
@@ -56,7 +56,7 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 		await Promise.resolve();
 
 		expect(allCommands).toHaveLength(1); // wildcard still sees it
-		expect(deadLetters[0].isError).toBe(true);
+		expect(deadLetters[0]!.isError).toBe(true);
 	});
 
 	it("dead letter preserves correlationId", async () => {

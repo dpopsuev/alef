@@ -25,10 +25,10 @@ describe.skipIf(!BRAVE_KEY)("BraveSearchEngine integration", { tags: ["integrati
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
 
 		expect(results.length).toBeGreaterThan(0);
-		expect(results[0]).toHaveProperty("url");
-		expect(results[0]).toHaveProperty("title");
-		expect(results[0]).toHaveProperty("snippet");
-		expect(results[0].url).toMatch(/^https?:\/\//);
+		expect(results[0]!).toHaveProperty("url");
+		expect(results[0]!).toHaveProperty("title");
+		expect(results[0]!).toHaveProperty("snippet");
+		expect(results[0]!.url).toMatch(/^https?:\/\//);
 	}, 30_000);
 });
 
@@ -38,10 +38,10 @@ describe.skipIf(!TAVILY_KEY)("TavilySearchEngine integration", { tags: ["integra
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
 
 		expect(results.length).toBeGreaterThan(0);
-		expect(results[0]).toHaveProperty("url");
-		expect(results[0]).toHaveProperty("title");
-		expect(results[0]).toHaveProperty("snippet");
-		expect(results[0].url).toMatch(/^https?:\/\//);
+		expect(results[0]!).toHaveProperty("url");
+		expect(results[0]!).toHaveProperty("title");
+		expect(results[0]!).toHaveProperty("snippet");
+		expect(results[0]!.url).toMatch(/^https?:\/\//);
 	}, 30_000);
 });
 
@@ -51,10 +51,10 @@ describe.skipIf(!EXA_KEY)("ExaSearchEngine integration", { tags: ["integration"]
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
 
 		expect(results.length).toBeGreaterThan(0);
-		expect(results[0]).toHaveProperty("url");
-		expect(results[0]).toHaveProperty("title");
-		expect(results[0]).toHaveProperty("snippet");
-		expect(results[0].url).toMatch(/^https?:\/\//);
+		expect(results[0]!).toHaveProperty("url");
+		expect(results[0]!).toHaveProperty("title");
+		expect(results[0]!).toHaveProperty("snippet");
+		expect(results[0]!.url).toMatch(/^https?:\/\//);
 	}, 30_000);
 });
 
@@ -67,10 +67,10 @@ describe("DdgSearchEngine integration (free, always enabled)", { tags: ["integra
 		// We just verify it doesn't throw and returns the correct structure.
 		expect(Array.isArray(results)).toBe(true);
 		if (results.length > 0) {
-			expect(results[0]).toHaveProperty("url");
-			expect(results[0]).toHaveProperty("title");
-			expect(results[0]).toHaveProperty("snippet");
-			expect(results[0].url).toMatch(/^https?:\/\//);
+			expect(results[0]!).toHaveProperty("url");
+			expect(results[0]!).toHaveProperty("title");
+			expect(results[0]!).toHaveProperty("snippet");
+			expect(results[0]!.url).toMatch(/^https?:\/\//);
 		}
 	}, 30_000);
 });
@@ -81,10 +81,10 @@ describe.skipIf(!hasAnyKey)("defaultSearchEngine fallback", { tags: ["integratio
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
 
 		expect(results.length).toBeGreaterThan(0);
-		expect(results[0]).toHaveProperty("url");
-		expect(results[0]).toHaveProperty("title");
-		expect(results[0]).toHaveProperty("snippet");
-		expect(results[0].url).toMatch(/^https?:\/\//);
+		expect(results[0]!).toHaveProperty("url");
+		expect(results[0]!).toHaveProperty("title");
+		expect(results[0]!).toHaveProperty("snippet");
+		expect(results[0]!.url).toMatch(/^https?:\/\//);
 	}, 30_000);
 });
 

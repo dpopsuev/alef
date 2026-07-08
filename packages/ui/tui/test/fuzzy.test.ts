@@ -151,67 +151,67 @@ describe("parseSearchTokens", () => {
 	it("plain tokens are fuzzy", () => {
 		const tokens = parseSearchTokens("clau ver");
 		assert.strictEqual(tokens.length, 1);
-		assert.strictEqual(tokens[0].length, 2);
-		assert.strictEqual(tokens[0][0].strategy, "fuzzy");
-		assert.strictEqual(tokens[0][0].query, "clau");
-		assert.strictEqual(tokens[0][1].query, "ver");
+		assert.strictEqual(tokens[0]!.length, 2);
+		assert.strictEqual(tokens[0]![0]!.strategy, "fuzzy");
+		assert.strictEqual(tokens[0]![0]!.query, "clau");
+		assert.strictEqual(tokens[0]![1]!.query, "ver");
 	});
 
 	it("quoted token is exact", () => {
 		const tokens = parseSearchTokens("'exact");
-		assert.strictEqual(tokens[0][0].strategy, "exact");
-		assert.strictEqual(tokens[0][0].query, "exact");
+		assert.strictEqual(tokens[0]![0]!.strategy, "exact");
+		assert.strictEqual(tokens[0]![0]!.query, "exact");
 	});
 
 	it("caret token is prefix", () => {
 		const tokens = parseSearchTokens("^prefix");
-		assert.strictEqual(tokens[0][0].strategy, "prefix");
-		assert.strictEqual(tokens[0][0].query, "prefix");
+		assert.strictEqual(tokens[0]![0]!.strategy, "prefix");
+		assert.strictEqual(tokens[0]![0]!.query, "prefix");
 	});
 
 	it("dollar token is suffix", () => {
 		const tokens = parseSearchTokens("suffix$");
-		assert.strictEqual(tokens[0][0].strategy, "suffix");
-		assert.strictEqual(tokens[0][0].query, "suffix");
+		assert.strictEqual(tokens[0]![0]!.strategy, "suffix");
+		assert.strictEqual(tokens[0]![0]!.query, "suffix");
 	});
 
 	it("slash-wrapped token is regex", () => {
 		const tokens = parseSearchTokens("/pat.*tern/");
-		assert.strictEqual(tokens[0][0].strategy, "regex");
-		assert.strictEqual(tokens[0][0].query, "pat.*tern");
+		assert.strictEqual(tokens[0]![0]!.strategy, "regex");
+		assert.strictEqual(tokens[0]![0]!.query, "pat.*tern");
 	});
 
 	it("bang prefix is inverse", () => {
 		const tokens = parseSearchTokens("!excluded");
-		assert.strictEqual(tokens[0][0].inverse, true);
-		assert.strictEqual(tokens[0][0].strategy, "fuzzy");
-		assert.strictEqual(tokens[0][0].query, "excluded");
+		assert.strictEqual(tokens[0]![0]!.inverse, true);
+		assert.strictEqual(tokens[0]![0]!.strategy, "fuzzy");
+		assert.strictEqual(tokens[0]![0]!.query, "excluded");
 	});
 
 	it("bang + caret is inverse prefix", () => {
 		const tokens = parseSearchTokens("!^test");
-		assert.strictEqual(tokens[0][0].inverse, true);
-		assert.strictEqual(tokens[0][0].strategy, "prefix");
+		assert.strictEqual(tokens[0]![0]!.inverse, true);
+		assert.strictEqual(tokens[0]![0]!.strategy, "prefix");
 	});
 
 	it("pipe creates OR groups", () => {
 		const tokens = parseSearchTokens("claude | gemini");
 		assert.strictEqual(tokens.length, 2);
-		assert.strictEqual(tokens[0][0].query, "claude");
-		assert.strictEqual(tokens[1][0].query, "gemini");
+		assert.strictEqual(tokens[0]![0]!.query, "claude");
+		assert.strictEqual(tokens[1]![0]!.query, "gemini");
 	});
 
 	it("complex query: ^claude vertex$ | gemini !haiku", () => {
 		const tokens = parseSearchTokens("^claude vertex$ | gemini !haiku");
 		assert.strictEqual(tokens.length, 2);
-		assert.strictEqual(tokens[0][0].strategy, "prefix");
-		assert.strictEqual(tokens[0][0].query, "claude");
-		assert.strictEqual(tokens[0][1].strategy, "suffix");
-		assert.strictEqual(tokens[0][1].query, "vertex");
-		assert.strictEqual(tokens[1][0].strategy, "fuzzy");
-		assert.strictEqual(tokens[1][0].query, "gemini");
-		assert.strictEqual(tokens[1][1].inverse, true);
-		assert.strictEqual(tokens[1][1].query, "haiku");
+		assert.strictEqual(tokens[0]![0]!.strategy, "prefix");
+		assert.strictEqual(tokens[0]![0]!.query, "claude");
+		assert.strictEqual(tokens[0]![1]!.strategy, "suffix");
+		assert.strictEqual(tokens[0]![1]!.query, "vertex");
+		assert.strictEqual(tokens[1]![0]!.strategy, "fuzzy");
+		assert.strictEqual(tokens[1]![0]!.query, "gemini");
+		assert.strictEqual(tokens[1]![1]!.inverse, true);
+		assert.strictEqual(tokens[1]![1]!.query, "haiku");
 	});
 });
 

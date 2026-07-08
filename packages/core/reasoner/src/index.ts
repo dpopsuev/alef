@@ -217,7 +217,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		const sysIdx = messages.findIndex((m) => m.role === "system");
 		if (sysIdx >= 0) {
 			const updated = [...messages] as T[];
-			updated[sysIdx] = { ...messages[sysIdx], content: messages[sysIdx].content + block };
+			updated[sysIdx] = { ...messages[sysIdx]!, content: messages[sysIdx]!.content + block };
 			return updated;
 		}
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- constructing a system message with shape matching generic T

@@ -110,7 +110,7 @@ export class LspClient {
 				this.buf = "";
 				break;
 			}
-			const len = Number.parseInt(lenMatch[1], 10);
+			const len = Number.parseInt(lenMatch[1]!, 10);
 			const bodyStart = headerEnd + 4;
 			if (this.buf.length < bodyStart + len) break;
 			const body = this.buf.slice(bodyStart, bodyStart + len);

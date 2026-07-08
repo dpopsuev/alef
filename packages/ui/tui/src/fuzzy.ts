@@ -56,7 +56,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch {
 
 		for (let i = 0; i < textLower.length && queryIndex < normalizedQuery.length; i++) {
 			if (textLower[i] === normalizedQuery[queryIndex]) {
-				const isWordBoundary = i === 0 || /[\s\-_./:]/.test(textLower[i - 1]);
+				const isWordBoundary = i === 0 || /[\s\-_./:]/.test(textLower[i - 1]!);
 
 				if (lastMatchIndex === i - 1) {
 					consecutiveMatches++;

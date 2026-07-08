@@ -66,7 +66,7 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 	});
 
 	for (let i = 0; i < trace.length; i++) {
-		const step = trace[i];
+		const step = trace[i]!;
 		const preview =
 			step.userMessage.length > PROMPT_PREVIEW_MAX_CHARS
 				? `${step.userMessage.slice(0, PROMPT_PREVIEW_MAX_CHARS)}...`

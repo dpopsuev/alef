@@ -10,7 +10,7 @@ export function appendToolResults(
 	results: EventMessage[],
 	toMotorName: (n: string) => string,
 ): void {
-	for (const [toolCall, result] of toolCalls.map((tc, i) => [tc, results[i]] as const)) {
+	for (const [toolCall, result] of toolCalls.map((tc, i) => [tc, results[i]!] as const)) {
 		messages.push({
 			role: "toolResult",
 			toolCallId: toolCall.id,

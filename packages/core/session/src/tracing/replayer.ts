@@ -27,7 +27,6 @@ export class TraceReasonerAdapter implements Adapter {
 		return bus.event.subscribe("llm.input", (event) => {
 			void (async () => {
 				const step = this.steps[this.index++];
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime bounds check for array index
 				if (!step) {
 					bus.notification.publish({ type: "llm.chunk", payload: { text: "(trace exhausted)" }, correlationId: event.correlationId });
 					bus.command.publish({ type: "llm.response", payload: { text: "(trace exhausted)" }, correlationId: event.correlationId });

@@ -43,7 +43,7 @@ const SLASH_TO_COLON: Record<string, string> = {
 /** Dispatch a /slash command by mapping it to the corresponding colon command. */
 export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
 	const parts = text.trim().split(/\s+/);
-	const slash = parts[0].toLowerCase();
+	const slash = parts[0]!.toLowerCase();
 	const colonName = SLASH_TO_COLON[slash];
 	if (!colonName) {
 		ctx.writer.addNotice(`Unknown command: ${slash}. Type /help for list.`);

@@ -95,6 +95,6 @@ describe("JsonlSessionStore.adapterHistory(name)", { tags: ["unit"] }, () => {
 		});
 		const webHistory = await memStore.adapterHistory("web");
 		expect(webHistory).toHaveLength(1);
-		expect(webHistory[0].type).toBe("web.search");
+		expect(webHistory[0]!.type).toBe("web.search");
 	});
 });

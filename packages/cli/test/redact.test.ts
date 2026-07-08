@@ -38,8 +38,8 @@ describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => 
 
 	it("scans arrays element-by-element", () => {
 		const result = redactPayload([{ token: "abc" }, { path: "/tmp" }]) as Record<string, unknown>[];
-		expect(result[0].token).toBe(REDACTED);
-		expect(result[1].path).toBe("/tmp");
+		expect(result[0]!.token).toBe(REDACTED);
+		expect(result[1]!.path).toBe("/tmp");
 	});
 
 	it("leaves non-object scalars unchanged", () => {

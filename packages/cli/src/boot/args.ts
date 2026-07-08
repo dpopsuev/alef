@@ -505,12 +505,12 @@ export function parseArgs(argv: string[]): Args {
 		const arg = argv[i];
 
 		const consumed =
-			parseModeFlags(arg, argv, i, args) ??
-			parseSessionFlags(arg, argv, i, args) ??
-			parseModelFlags(arg, argv, i, args) ??
-			parseInfoFlags(arg, argv, i, args) ??
-			parsePmFlags(arg, argv, i, args) ??
-			parseMiscFlags(arg, argv, i, args);
+			parseModeFlags(arg!, argv, i, args) ??
+			parseSessionFlags(arg!, argv, i, args) ??
+			parseModelFlags(arg!, argv, i, args) ??
+			parseInfoFlags(arg!, argv, i, args) ??
+			parsePmFlags(arg!, argv, i, args) ??
+			parseMiscFlags(arg!, argv, i, args);
 
 		if (consumed !== undefined) {
 			i += 1 + consumed;
@@ -518,9 +518,9 @@ export function parseArgs(argv: string[]): Args {
 		}
 
 		// Bare positional argument — treat as prompt in print mode
-		if (!arg.startsWith("-")) {
+		if (!arg!.startsWith("-")) {
 			args.print = true;
-			args.prompt = arg;
+			args.prompt = arg!;
 			i++;
 			continue;
 		}

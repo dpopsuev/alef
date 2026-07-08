@@ -161,7 +161,7 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 				const buf = Buffer.from(line, "utf-8");
 				let start = buf.length - maxBytes;
 				// eslint-disable-next-line no-magic-numbers
-				while (start < buf.length && (buf[start] & 0xc0) === 0x80) start++;
+				while (start < buf.length && (buf[start]! & 0xc0) === 0x80) start++;
 				const partial = buf.subarray(start).toString("utf-8");
 				out.unshift(partial);
 				outBytes = Buffer.byteLength(partial, "utf-8");

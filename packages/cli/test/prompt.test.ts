@@ -124,8 +124,8 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		d.register({ id: "rule", priority: 0, content: "No emojis ever.", enabled: true });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hello" }]);
-		expect(messages[0].role).toBe("system");
-		expect(messages[0].content).toBe(d.build(100_000));
+		expect(messages[0]!.role).toBe("system");
+		expect(messages[0]!.content).toBe(d.build(100_000));
 	});
 
 	it("system message contains registered directive text", async () => {
@@ -133,7 +133,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		d.register({ id: "core", priority: 0, content: BLOCK_CORE(), enabled: true });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
-		expect(String(messages[0].content)).toContain("You are Alef");
+		expect(String(messages[0]!.content)).toContain("You are Alef");
 	});
 
 	it("strips existing system messages from the input", async () => {
@@ -145,8 +145,8 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 			{ role: "user", content: "Question" },
 		]);
 		expect(messages).toHaveLength(2);
-		expect(String(messages[0].content)).toBe("Fresh prompt");
-		expect(messages[1].role).toBe("user");
+		expect(String(messages[0]!.content)).toBe("Fresh prompt");
+		expect(messages[1]!.role).toBe("user");
 	});
 
 	it("system message is always first regardless of input order", async () => {
@@ -157,7 +157,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 			{ role: "user", content: "A" },
 			{ role: "assistant", content: "B" },
 		]);
-		expect(messages[0].role).toBe("system");
+		expect(messages[0]!.role).toBe("system");
 	});
 
 	it("reflects live directive changes — rebuild on each call", async () => {
@@ -166,18 +166,18 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		const prepareStep = buildPrepareStep(d, 100_000);
 
 		const first = await prepareStep([{ role: "user", content: "?" }]);
-		expect(String(first[0].content)).toContain("Version 1");
+		expect(String(first[0]!.content)).toContain("Version 1");
 
 		d.replace("x", "Version 2");
 		const second = await prepareStep([{ role: "user", content: "?" }]);
-		expect(String(second[0].content)).toContain("Version 2");
+		expect(String(second[0]!.content)).toContain("Version 2");
 	});
 
 	it("defaultDirectives includes core rules in the system message", async () => {
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hello" }]);
-		const systemContent = String(messages[0].content);
+		const systemContent = String(messages[0]!.content);
 		expect(systemContent).toContain("No emojis");
 		expect(systemContent).toContain("not create files");
 		expect(systemContent).toContain("hooks are mandatory");
@@ -196,7 +196,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		registerAdapters(d, [organ]);
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
-		expect(String(messages[0].content)).toContain("CUSTOM_DIRECTIVE_SENTINEL");
+		expect(String(messages[0]!.content)).toContain("CUSTOM_DIRECTIVE_SENTINEL");
 	});
 
 	it("disabled directive does not reach the system message", async () => {
@@ -205,7 +205,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		d.register({ id: "visible", priority: 1, content: "PUBLIC_RULE", enabled: true });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "?" }]);
-		const systemContent = String(messages[0].content);
+		const systemContent = String(messages[0]!.content);
 		expect(systemContent).toContain("PUBLIC_RULE");
 		expect(systemContent).not.toContain("SECRET_RULE");
 	});
@@ -217,7 +217,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		const budget = "KEEP_THIS".length + 5;
 		const prepareStep = buildPrepareStep(d, budget);
 		const messages = await prepareStep([{ role: "user", content: "?" }]);
-		const systemContent = String(messages[0].content);
+		const systemContent = String(messages[0]!.content);
 		expect(systemContent).toContain("KEEP_THIS");
 		expect(systemContent).not.toContain("DROP_THIS");
 	});

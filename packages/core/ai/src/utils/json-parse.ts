@@ -42,7 +42,7 @@ export function repairJson(json: string): string {
 	let inString = false;
 
 	for (let index = 0; index < json.length; index++) {
-		const char = json[index];
+		const char = json[index]!;
 
 		if (!inString) {
 			repaired += char;
@@ -60,7 +60,7 @@ export function repairJson(json: string): string {
 
 		if (char === "\\") {
 			const nextChar: string | undefined = json[index + 1];
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- index+1 may be out of bounds
+			 
 			if (nextChar === undefined) {
 				repaired += "\\\\";
 				continue;

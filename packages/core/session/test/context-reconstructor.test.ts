@@ -37,8 +37,8 @@ describe("Context Reconstructor", { tags: ["unit"] }, () => {
 
 		const index = buildSessionIndex(records);
 		expect(index.turns).toHaveLength(2);
-		expect(index.turns[0].id).toBe("c-1");
-		expect(index.turns[1].id).toBe("c-2");
+		expect(index.turns[0]!.id).toBe("c-1");
+		expect(index.turns[1]!.id).toBe("c-2");
 	});
 
 	it("reconstructTurn returns snapshot for a given turn", () => {
@@ -103,11 +103,11 @@ describe("Context Reconstructor", { tags: ["unit"] }, () => {
 		}
 
 		const snapshots = reconstructAllTurns(records, 3);
-		expect(snapshots[0].catalogState).toBe("injected");
-		expect(snapshots[1].catalogState).toBe("present");
-		expect(snapshots[2].catalogState).toBe("present");
-		expect(snapshots[3].catalogState).toBe("present");
-		expect(snapshots[4].catalogState).toBe("evicted");
+		expect(snapshots[0]!.catalogState).toBe("injected");
+		expect(snapshots[1]!.catalogState).toBe("present");
+		expect(snapshots[2]!.catalogState).toBe("present");
+		expect(snapshots[3]!.catalogState).toBe("present");
+		expect(snapshots[4]!.catalogState).toBe("evicted");
 	});
 
 	it("reconstructAllTurns returns all turns in order", () => {

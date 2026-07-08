@@ -59,7 +59,7 @@ function evalCondition(when: string, payload: Record<string, unknown>): boolean 
 	const match = /^(\w+)\s*==\s*['"]?(\w+)['"]?$/.exec(when.trim());
 	if (!match) return true;
 	const [, field, value] = match;
-	return String(payload[field]) === value;
+	return String(payload[field!]) === value;
 }
 
 /**

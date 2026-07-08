@@ -127,7 +127,7 @@ function parseTime(s: string): number {
 	if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) {
 		const today = new Date();
 		const parts = s.split(":").map(Number);
-		today.setHours(parts[0], parts[1], parts[2] ?? 0, 0);
+		today.setHours(parts[0]!, parts[1], parts[2] ?? 0, 0);
 		return today.getTime();
 	}
 	const ts = Date.parse(s);
@@ -323,7 +323,7 @@ async function traceCorrelation(db: Client, args: string[]): Promise<void> {
 		return;
 	}
 
-	const first = Number(result.rows[0].timestamp);
+	const first = Number(result.rows[0]!.timestamp);
 	const last = Number(result.rows[result.rows.length - 1]?.timestamp ?? first);
 	console.log(`[Turn ${correlationId.slice(0, 8)} — ${((last - first) / 1000).toFixed(1)}s]`);
 
@@ -373,7 +373,7 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 		return;
 	}
 
-	const s = summary.rows[0];
+	const s = summary.rows[0]!;
 	console.log(`Session:  ${String(s.session_id)}`);
 	console.log(`Model:    ${String(s.model)}`);
 	console.log(`Started:  ${String(s.started_at)}`);
@@ -472,14 +472,15 @@ async function walkCause(db: Client, args: string[]): Promise<void> {
 
 		if (rows.length === 0) break;
 
+		const row = rows[0]!;
 		chain.push({
-			name: String(rows[0].name),
-			spanId: String(rows[0].span_id).slice(0, 16),
-			duration: Number(rows[0].end_time) - Number(rows[0].start_time),
-			attributes: String(rows[0].attributes ?? "{}"),
+			name: String(row.name),
+			spanId: String(row.span_id).slice(0, 16),
+			duration: Number(row.end_time) - Number(row.start_time),
+			attributes: String(row.attributes ?? "{}"),
 		});
 
-		nextId = rows[0].parent_span_id ? String(rows[0].parent_span_id) : null;
+		nextId = row.parent_span_id ? String(row.parent_span_id) : null;
 	}
 
 	if (chain.length === 0) {
@@ -489,7 +490,7 @@ async function walkCause(db: Client, args: string[]): Promise<void> {
 
 	console.log(`[Causal chain — ${chain.length} span(s)]`);
 	for (let i = 0; i < chain.length; i++) {
-		const s = chain[i];
+		const s = chain[i]!;
 		const indent = "  ".repeat(i);
 		const arrow = i === 0 ? "→" : "←";
 
@@ -526,7 +527,7 @@ async function analyzeChain(db: Client, args: string[]): Promise<void> {
 			console.error("No sessions with llm.input found.");
 			process.exit(1);
 		}
-		sessionId = String(rows[0].session_id);
+		sessionId = String(rows[0]!.session_id);
 	}
 
 	console.log(`\n[Round-trip chain analysis — session ${sessionId}]\n`);

@@ -179,10 +179,10 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		);
 
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("error");
-		if (events[0].type === "error") {
-			expect(events[0].error.stopReason).toBe("error");
-			expect(events[0].error.errorMessage).toBe("boom");
+		expect(events[0]!.type).toBe("error");
+		if (events[0]!.type === "error") {
+			expect(events[0]!.error.stopReason).toBe("error");
+			expect(events[0]!.error.errorMessage).toBe("boom");
 		}
 	});
 
@@ -419,7 +419,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		);
 
 		expect(events.map((event) => event.type)).toEqual(["start", "text_start", "text_delta", "text_end", "error"]);
-		const terminal = events[events.length - 1];
+		const terminal = events[events.length - 1]!;
 		expect(terminal.type).toBe("error");
 		if (terminal.type === "error") {
 			expect(terminal.reason).toBe("error");
@@ -444,7 +444,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		);
 
 		expect(events.map((event) => event.type)).toEqual(["start", "text_start", "text_delta", "text_end", "error"]);
-		const terminal = events[events.length - 1];
+		const terminal = events[events.length - 1]!;
 		expect(terminal.type).toBe("error");
 		if (terminal.type === "error") {
 			expect(terminal.reason).toBe("aborted");
@@ -469,10 +469,10 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		);
 
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("error");
-		if (events[0].type === "error") {
-			expect(events[0].reason).toBe("aborted");
-			expect(events[0].error.stopReason).toBe("aborted");
+		expect(events[0]!.type).toBe("error");
+		if (events[0]!.type === "error") {
+			expect(events[0]!.reason).toBe("aborted");
+			expect(events[0]!.error.stopReason).toBe("aborted");
 		}
 	});
 

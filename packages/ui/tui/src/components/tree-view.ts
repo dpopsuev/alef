@@ -54,11 +54,11 @@ export class TreeView implements Component {
 			if (node.collapsed || !node.children?.length) return;
 			const childPrefix = prefix + (isLast ? TREE.space : TREE.pipe);
 			for (let i = 0; i < node.children.length; i++) {
-				renderNode(node.children[i], childPrefix, i === node.children.length - 1);
+				renderNode(node.children[i]!, childPrefix, i === node.children.length - 1);
 			}
 		};
 		for (let i = 0; i < this.nodes.length; i++) {
-			renderNode(this.nodes[i], "", i === this.nodes.length - 1);
+			renderNode(this.nodes[i]!, "", i === this.nodes.length - 1);
 		}
 		return lines;
 	}

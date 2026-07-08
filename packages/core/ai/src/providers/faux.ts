@@ -384,7 +384,7 @@ async function streamWithDeltas(
 			stream.end(ab);
 			return;
 		}
-		const block = msg.content[idx];
+		const block = msg.content[idx]!;
 
 		if (block.type === "thinking") {
 			partial.content = [...partial.content, { type: "thinking", thinking: "" }];

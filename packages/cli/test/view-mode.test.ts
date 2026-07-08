@@ -215,8 +215,8 @@ describe("HeadlessViewMode — unit", { tags: ["unit"] }, () => {
 		await running;
 
 		expect(viewer.toolStarts()).toHaveLength(1);
-		expect(viewer.toolStarts()[0].name).toBe("fs.read");
-		expect(viewer.toolEnds()[0].ok).toBe(true);
+		expect(viewer.toolStarts()[0]!.name).toBe("fs.read");
+		expect(viewer.toolEnds()[0]!.ok).toBe(true);
 		expect(viewer.chunks()).toEqual(["result"]);
 		expect(viewer.errors()).toHaveLength(0);
 	});
@@ -394,11 +394,11 @@ describe("HeadlessViewMode — tool-call lifecycle", { tags: ["unit"] }, () => {
 		await running;
 
 		expect(viewer.toolStarts()).toHaveLength(1);
-		expect(viewer.toolStarts()[0].name).toBe("echo");
-		expect(viewer.toolStarts()[0].args).toMatchObject({ message: "hello" });
+		expect(viewer.toolStarts()[0]!.name).toBe("echo");
+		expect(viewer.toolStarts()[0]!.args).toMatchObject({ message: "hello" });
 
 		expect(viewer.toolEnds()).toHaveLength(1);
-		expect(viewer.toolEnds()[0].ok).toBe(true);
+		expect(viewer.toolEnds()[0]!.ok).toBe(true);
 
 		expect(viewer.lastReply()).toBe("the echo said: hello");
 

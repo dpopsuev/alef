@@ -169,7 +169,7 @@ function addCacheControlToLastConversationMessage(
 	cacheControl: OpenAICompatCacheControl,
 ): void {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const message = messages[i];
+		const message = messages[i]!;
 		if (message.role === "user" || message.role === "assistant") {
 			if (addCacheControlToMessage(message, cacheControl)) {
 				return;
@@ -189,6 +189,7 @@ function addCacheControlToLastTool(
 		return;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- extending vendor type with cache_control; the array is checked non-empty above
 	const lastTool = tools[tools.length - 1] as ChatCompletionToolWithCacheControl;
 	lastTool.cache_control = cacheControl;
 }
@@ -246,7 +247,7 @@ function addCacheControlToTextContent(
 	}
 
 	for (let i = content.length - 1; i >= 0; i--) {
-		const part = content[i];
+		const part = content[i]!;
 		if (part.type === "text") {
 			const textPart = part as ChatCompletionTextPartWithCacheControl;
 			textPart.cache_control = cacheControl;
@@ -277,7 +278,7 @@ export function convertMessages(
 		// These come from providers like github-copilot, openai-codex, opencode
 		// Extract just the call_id part and normalize it
 		if (id.includes("|")) {
-			const [callId] = id.split("|");
+			const callId = id.split("|")[0]!;
 			// Sanitize to allowed chars and truncate to 40 chars (OpenAI limit)
 			// eslint-disable-next-line no-magic-numbers
 			return callId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
@@ -381,7 +382,7 @@ export function convertMessages(
 				}
 
 				// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
-				const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
+				const signature = nonEmptyThinkingBlocks[0]!.thinkingSignature;
 				if (signature && signature.length > 0) {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field keyed by thinking signature
 					(assistantMsg as unknown as Record<string, string>)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
@@ -454,7 +455,7 @@ export function convertMessages(
 		const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
 		let j = startIndex;
 
-		for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
+		for (; j < transformedMessages.length && transformedMessages[j]!.role === "toolResult"; j++) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role check boundary
 			const toolMsg = transformedMessages[j] as ToolResultMessage;
 
@@ -533,7 +534,7 @@ export function convertMessages(
 	};
 
 	for (let i = 0; i < transformedMessages.length; i++) {
-		const msg = transformedMessages[i];
+		const msg = transformedMessages[i]!;
 		// Some providers don't allow user messages directly after tool results
 		// Insert a synthetic assistant message to bridge the gap
 		if (compat.requiresAssistantAfterToolResult && lastRole === "toolResult" && msg.role === "user") {
@@ -544,7 +545,7 @@ export function convertMessages(
 		}
 
 		const handler = roleHandlers[msg.role];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive guard for unknown roles
+		 
 		if (handler) {
 			const result = handler(msg, i);
 			if (result.newIndex !== undefined) {

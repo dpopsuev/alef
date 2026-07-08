@@ -176,7 +176,6 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 									stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
 								}
 							}
-							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all block types have delta appenders
 							deltaAppenders[currentBlock.type]?.(currentBlock, part.text, part.thoughtSignature);
 						}
 

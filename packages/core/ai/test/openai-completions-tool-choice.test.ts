@@ -540,7 +540,7 @@ describe("openai-completions tool_choice", { tags: ["unit"] }, () => {
 		expect(response.stopReason).toBe("toolUse");
 		expect(toolCallContentIndexes).toEqual([0, 0, 0, 0, 0]);
 		expect(response.content).toHaveLength(1);
-		const toolCall = response.content[0];
+		const toolCall = response.content[0]!;
 		expect(toolCall.type).toBe("toolCall");
 		if (toolCall.type !== "toolCall") {
 			throw new Error("Expected toolCall content");
@@ -746,10 +746,10 @@ describe("openai-completions tool_choice", { tags: ["unit"] }, () => {
 			thinking: "think 1 think 2",
 			thinkingSignature: "reasoning_content",
 		});
-		const readCall = response.content[2];
-		const grepCall = response.content[3];
-		const listCall = response.content[4];
-		const writeCall = response.content[5];
+		const readCall = response.content[2]!;
+		const grepCall = response.content[3]!;
+		const listCall = response.content[4]!;
+		const writeCall = response.content[5]!;
 		expect(readCall.type).toBe("toolCall");
 		expect(grepCall.type).toBe("toolCall");
 		expect(listCall.type).toBe("toolCall");

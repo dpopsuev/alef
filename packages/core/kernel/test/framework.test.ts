@@ -220,12 +220,12 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 		await done;
 
 		expect(events).toHaveLength(3);
-		expect(events[0].payload.chunk).toBe("a");
-		expect(events[0].payload.isFinal).toBe(false);
-		expect(events[1].payload.chunk).toBe("b");
-		expect(events[1].payload.isFinal).toBe(false);
-		expect(events[2].payload.chunk).toBe("c");
-		expect(events[2].payload.isFinal).toBe(true);
+		expect(events[0]!.payload.chunk).toBe("a");
+		expect(events[0]!.payload.isFinal).toBe(false);
+		expect(events[1]!.payload.chunk).toBe("b");
+		expect(events[1]!.payload.isFinal).toBe(false);
+		expect(events[2]!.payload.chunk).toBe("c");
+		expect(events[2]!.payload.isFinal).toBe(true);
 	});
 });
 
@@ -571,8 +571,8 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);
-		expect(received[0].isError).toBe(true);
-		expect(received[0].errorMessage).toMatch(/argument validation failed/);
+		expect(received[0]!.isError).toBe(true);
+		expect(received[0]!.errorMessage).toMatch(/argument validation failed/);
 	});
 
 	it("passes valid payload through to handler", async () => {
@@ -602,7 +602,7 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);
-		expect(received[0].isError).toBe(false);
+		expect(received[0]!.isError).toBe(false);
 	});
 });
 

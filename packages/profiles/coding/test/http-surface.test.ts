@@ -163,7 +163,7 @@ async function bootRunner(
 				if (m) {
 					resolved = true;
 					clearTimeout(timer);
-					resolve({ proc, baseUrl: m[1] });
+					resolve({ proc, baseUrl: m[1]! });
 				}
 			}
 		};

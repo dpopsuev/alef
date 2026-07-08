@@ -20,16 +20,16 @@ describe("database boot smoke test", { tags: ["integration"] }, () => {
 		const client = await getDatabase(dbPath);
 
 		const wal = await client.execute("PRAGMA journal_mode");
-		expect(String(wal.rows[0].journal_mode)).toBe("wal");
+		expect(String(wal.rows[0]!.journal_mode)).toBe("wal");
 
 		const timeout = await client.execute("PRAGMA busy_timeout");
-		expect(Number(timeout.rows[0].timeout)).toBe(5000);
+		expect(Number(timeout.rows[0]!.timeout)).toBe(5000);
 
 		const sync = await client.execute("PRAGMA synchronous");
-		expect(Number(sync.rows[0].synchronous)).toBe(1); // NORMAL = 1
+		expect(Number(sync.rows[0]!.synchronous)).toBe(1); // NORMAL = 1
 
 		const fk = await client.execute("PRAGMA foreign_keys");
-		expect(Number(fk.rows[0].foreign_keys)).toBe(1);
+		expect(Number(fk.rows[0]!.foreign_keys)).toBe(1);
 	});
 
 	it("openDatabase boots with file-backed SQLite and all PRAGMAs", async () => {
@@ -39,13 +39,13 @@ describe("database boot smoke test", { tags: ["integration"] }, () => {
 		const client = await openDatabase(dbPath);
 
 		const wal = await client.execute("PRAGMA journal_mode");
-		expect(String(wal.rows[0].journal_mode)).toBe("wal");
+		expect(String(wal.rows[0]!.journal_mode)).toBe("wal");
 
 		const timeout = await client.execute("PRAGMA busy_timeout");
-		expect(Number(timeout.rows[0].timeout)).toBe(5000);
+		expect(Number(timeout.rows[0]!.timeout)).toBe(5000);
 
 		const sync = await client.execute("PRAGMA synchronous");
-		expect(Number(sync.rows[0].synchronous)).toBe(1);
+		expect(Number(sync.rows[0]!.synchronous)).toBe(1);
 
 		client.close();
 	});
@@ -67,7 +67,7 @@ describe("database boot smoke test", { tags: ["integration"] }, () => {
 
 		const events = await store.events();
 		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("fs.read");
+		expect(events[0]!.type).toBe("fs.read");
 	});
 
 	it("concurrent appends on the same file DB do not crash", async () => {

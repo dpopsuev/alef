@@ -309,7 +309,7 @@ export function getJpegDimensions(base64Data: string): ImageDimensions | null {
 				continue;
 			}
 
-			const marker = buffer[offset + 1];
+			const marker = buffer[offset + 1]!;
 
 			if (marker >= 0xc0 && marker <= 0xc2) {
 				const height = buffer.readUInt16BE(offset + 5);
@@ -389,8 +389,8 @@ export function getWebpDimensions(base64Data: string): ImageDimensions | null {
 			return { widthPx: width, heightPx: height };
 		} else if (chunk === "VP8X") {
 			if (buffer.length < 30) return null;
-			const width = (buffer[24] | (buffer[25] << 8) | (buffer[26] << 16)) + 1;
-			const height = (buffer[27] | (buffer[28] << 8) | (buffer[29] << 16)) + 1;
+			const width = (buffer[24]! | (buffer[25]! << 8) | (buffer[26]! << 16)) + 1;
+			const height = (buffer[27]! | (buffer[28]! << 8) | (buffer[29]! << 16)) + 1;
 			return { widthPx: width, heightPx: height };
 		}
 

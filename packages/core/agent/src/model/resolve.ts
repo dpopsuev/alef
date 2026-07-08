@@ -160,10 +160,10 @@ export function buildModel(id: string): Model<Api> {
 
 	if (matches.length > 1) {
 		const names = matches.map((m) => m.provider).join(", ");
-		_logger.warn(`"${id}" found in multiple providers: ${names} — using ${matches[0].provider}`);
+		_logger.warn(`"${id}" found in multiple providers: ${names} — using ${matches[0]!.provider}`);
 	}
 
-	if (matches.length > 0) return matches[0].model;
+	if (matches.length > 0) return matches[0]!.model;
 
 	_logger.warn(`"${id}" not found in any provider catalog — creating synthetic model (typo?)`);
 	return syntheticModel("anthropic", id, "anthropic-messages", "https://api.anthropic.com");

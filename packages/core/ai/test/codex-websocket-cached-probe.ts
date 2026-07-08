@@ -151,7 +151,7 @@ function average(values: number[]): number {
 function percentile(values: number[], p: number): number {
 	if (values.length === 0) return 0;
 	const sorted = [...values].sort((a, b) => a - b);
-	return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))];
+	return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))]!;
 }
 
 async function main(): Promise<void> {

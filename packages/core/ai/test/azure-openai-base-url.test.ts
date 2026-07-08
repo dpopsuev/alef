@@ -79,7 +79,7 @@ async function captureClientBaseUrl(baseUrl: string): Promise<string> {
 	const model = getModel("azure-openai-responses", "gpt-4o-mini");
 	await streamAzureOpenAIResponses(model, context, { apiKey: "test-api-key" }).result();
 	expect(azureMock.constructorCalls).toHaveLength(1);
-	return azureMock.constructorCalls[0].baseURL;
+	return azureMock.constructorCalls[0]!.baseURL;
 }
 
 describe("azure-openai-responses base URL normalization", { tags: ["unit"] }, () => {
@@ -131,6 +131,6 @@ describe("azure-openai-responses base URL normalization", { tags: ["unit"] }, ()
 		const model = getModel("azure-openai-responses", "gpt-4o-mini");
 		await streamAzureOpenAIResponses(model, context, { apiKey: "test-api-key" }).result();
 		expect(azureMock.constructorCalls).toHaveLength(1);
-		expect(azureMock.constructorCalls[0].baseURL).toBe("https://my-resource.openai.azure.com/openai/v1");
+		expect(azureMock.constructorCalls[0]!.baseURL).toBe("https://my-resource.openai.azure.com/openai/v1");
 	});
 });

@@ -401,7 +401,8 @@ const install = {
 		attempt(ctx, async () => {
 			const pm = await import("../../pkg/alef-pm.js");
 			pm.init();
-			const [name, version] = spec.split("@");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- split always returns at least one element; destructuring covers the two-element case
+			const [name, version] = spec.split("@") as [string, string | undefined];
 			const { generation } = await pm.install(name, version);
 			ctx.writer.addNotice(`Installed ${spec} (generation ${generation})`);
 			ctx.tui.requestRender();

@@ -103,7 +103,7 @@ export class ChatLog {
 
 	/** Remove all children — used by /new and :clear commands. */
 	clearAll(): void {
-		while (this.chat.children.length > 0) this.chat.removeChild(this.chat.children[0]);
+		while (this.chat.children.length > 0) this.chat.removeChild(this.chat.children[0]!);
 	}
 
 	/** Direct access to the underlying Container for test introspection. */

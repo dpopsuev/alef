@@ -80,6 +80,6 @@ describe("detectDrift", { tags: ["unit"] }, () => {
 		);
 		const drift = detectDrift(previous, current);
 		expect(drift).toHaveLength(1);
-		expect(drift[0].key).toBe("exists");
+		expect(drift[0]!.key).toBe("exists");
 	});
 });

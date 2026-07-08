@@ -120,7 +120,7 @@ export class SelectList implements Component {
 
 		// Render visible items
 		for (let i = startIndex; i < endIndex; i++) {
-			const item = this.filteredItems[i];
+			const item = this.filteredItems[i]!;
 
 			const isSelected = i === this.selectedIndex;
 			const descriptionSingleLine = item.description ? normalizeToSingleLine(item.description) : undefined;
@@ -141,7 +141,7 @@ export class SelectList implements Component {
 		["tui.select.up", () => this.moveSelection(-1)],
 		["tui.select.down", () => this.moveSelection(1)],
 		["tui.select.confirm", () => {
-			const item = this.filteredItems[this.selectedIndex];
+			const item = this.filteredItems[this.selectedIndex]!;
 			this.onSelect?.(item);
 		}],
 		["tui.select.cancel", () => {
@@ -258,12 +258,12 @@ export class SelectList implements Component {
 	}
 
 	private notifySelectionChange(): void {
-		const selectedItem = this.filteredItems[this.selectedIndex];
+		const selectedItem = this.filteredItems[this.selectedIndex]!;
 		this.onSelectionChange?.(selectedItem);
 	}
 
 	getSelectedItem(): SelectItem | null {
-		const item = this.filteredItems[this.selectedIndex];
+		const item = this.filteredItems[this.selectedIndex] ?? null;
 		return item;
 	}
 }

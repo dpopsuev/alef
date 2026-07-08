@@ -131,9 +131,9 @@ export function convertResponsesMessages<TApi extends Api>(
 		if (!allowedToolCallProviders.has(model.provider)) return normalizeIdPart(id);
 		if (!id.includes("|")) return normalizeIdPart(id);
 		const [callId, itemId] = id.split("|");
-		const normalizedCallId = normalizeIdPart(callId);
+		const normalizedCallId = normalizeIdPart(callId!);
 		const isForeignToolCall = source.provider !== model.provider || source.api !== model.api;
-		let normalizedItemId = isForeignToolCall ? buildForeignResponsesItemId(itemId) : normalizeIdPart(itemId);
+		let normalizedItemId = isForeignToolCall ? buildForeignResponsesItemId(itemId!) : normalizeIdPart(itemId!);
 		// OpenAI Responses API requires item id to start with "fc"
 		if (!normalizedItemId.startsWith("fc_")) {
 			normalizedItemId = normalizeIdPart(`fc_${normalizedItemId}`);
@@ -222,14 +222,14 @@ export function convertResponsesMessages<TApi extends Api>(
 					// For different-model messages, set id to undefined to avoid pairing validation.
 					// OpenAI tracks which fc_xxx IDs were paired with rs_xxx reasoning items.
 					// By omitting the id, we avoid triggering that validation (like cross-provider does).
-					if (isDifferentModel && itemId.startsWith("fc_")) {
+					if (isDifferentModel && itemId?.startsWith("fc_")) {
 						itemId = undefined;
 					}
 
 					output.push({
 						type: "function_call",
-						id: itemId,
-						call_id: callId,
+						id: itemId!,
+						call_id: callId!,
 						name: toolCall.name,
 						arguments: JSON.stringify(toolCall.arguments),
 					});
@@ -244,7 +244,7 @@ export function convertResponsesMessages<TApi extends Api>(
 				.join("\n");
 			const hasImages = msg.content.some((c): c is ImageContent => c.type === "image");
 			const hasText = textResult.length > 0;
-			const [callId] = msg.toolCallId.split("|");
+			const callId = msg.toolCallId.split("|")[0]!;
 
 			let output: string | ResponseFunctionCallOutputItemList;
 			if (hasImages && model.input.includes("image")) {
@@ -381,7 +381,7 @@ export async function processResponsesStream<TApi extends Api>(
 		if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 			currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 			const lastPart = currentItem.summary[currentItem.summary.length - 1];
-			if (lastPart) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
+			if (lastPart) {  
 				currentBlock.thinking += event.delta;
 				lastPart.text += event.delta;
 				stream.push({
@@ -403,7 +403,7 @@ export async function processResponsesStream<TApi extends Api>(
 		if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 			currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 			const lastPart = currentItem.summary[currentItem.summary.length - 1];
-			if (lastPart) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
+			if (lastPart) {  
 				currentBlock.thinking += "\n\n";
 				lastPart.text += "\n\n";
 				stream.push({
@@ -460,7 +460,7 @@ export async function processResponsesStream<TApi extends Api>(
 				return;
 			}
 			const lastPart = currentItem.content[currentItem.content.length - 1];
-			if (lastPart?.type === "output_text") { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be undefined
+			if (lastPart?.type === "output_text") {  
 				currentBlock.text += event.delta;
 				lastPart.text += event.delta;
 				stream.push({
@@ -485,7 +485,7 @@ export async function processResponsesStream<TApi extends Api>(
 				return;
 			}
 			const lastPart = currentItem.content[currentItem.content.length - 1];
-			if (lastPart?.type === "refusal") { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be undefined
+			if (lastPart?.type === "refusal") {  
 				currentBlock.text += event.delta;
 				lastPart.refusal += event.delta;
 				stream.push({
@@ -688,7 +688,7 @@ export async function processResponsesStream<TApi extends Api>(
 
 	for await (const event of openaiStream) {
 		const handler = eventHandlers[event.type];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- not all event types have handlers in dispatch table
+		 
 		if (handler) handler(event);
 	}
 }

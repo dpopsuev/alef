@@ -64,7 +64,7 @@ function selectOneCasePerProvider(cases: AnthropicLongCacheRetentionE2ECase[]): 
 		(providerCases) =>
 			providerCases.sort(
 				(a, b) => getProbePriority(a.model) - getProbePriority(b.model) || a.model.id.localeCompare(b.model.id),
-			)[0],
+			)[0]!,
 	);
 }
 

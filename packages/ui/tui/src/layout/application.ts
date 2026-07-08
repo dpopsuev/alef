@@ -66,7 +66,7 @@ export class Application implements Component {
 			if (!slot) continue;
 			const panelLines = slot.panel.render(region.width);
 			for (let i = 0; i < region.height && i < panelLines.length; i++) {
-				lines.push(panelLines[i]);
+				lines.push(panelLines[i]!);
 			}
 		}
 		return lines;

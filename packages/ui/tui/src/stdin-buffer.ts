@@ -95,7 +95,7 @@ function isCompleteCsiSequence(data: string): "complete" | "incomplete" {
 
 	// CSI sequences end with a byte in the range 0x40-0x7E (@-~)
 	// This includes all letters and several special characters
-	const lastChar = payload[payload.length - 1];
+	const lastChar = payload[payload.length - 1]!;
 	const lastCharCode = lastChar.charCodeAt(0);
 
 	if (lastCharCode >= 0x40 && lastCharCode <= 0x7e) {
@@ -185,7 +185,7 @@ function parseUnmodifiedKittyPrintableCodepoint(sequence: string): number | unde
 	const match = sequence.match(/^\x1b\[(\d+)(?::\d*)?(?::\d+)?u$/);
 	if (!match) return undefined;
 
-	const codepoint = parseInt(match[1], 10);
+	const codepoint = parseInt(match[1]!, 10);
 	return codepoint >= 32 ? codepoint : undefined;
 }
 
@@ -226,7 +226,7 @@ function extractCompleteSequences(buffer: string): { sequences: string[]; remain
 			}
 		} else {
 			// Not an escape sequence - take a single character
-			sequences.push(remaining[0]);
+			sequences.push(remaining[0]!);
 			pos++;
 		}
 	}
@@ -281,8 +281,8 @@ export class StdinBuffer extends EventEmitter<StdinBufferEventMap> {
 		// If buffer has single byte > 127, convert to ESC + (byte - 128)
 		let str: string;
 		if (Buffer.isBuffer(data)) {
-			if (data.length === 1 && data[0] > 127) {
-				const byte = data[0] - 128;
+			if (data.length === 1 && data[0]! > 127) {
+				const byte = data[0]! - 128;
 				str = `\x1b${String.fromCharCode(byte)}`;
 			} else {
 				str = data.toString();

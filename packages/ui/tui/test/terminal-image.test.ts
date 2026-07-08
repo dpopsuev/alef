@@ -327,10 +327,10 @@ describe("Kitty image cursor movement", { tags: ["unit"] }, () => {
 			const imageId = image.getImageId();
 			assert.strictEqual(typeof imageId, "number");
 			assert.deepStrictEqual(lines.slice(0, -1), [""]);
-			assert.ok(lines[1].startsWith("\x1b[1A\x1b_G"));
-			assert.ok(lines[1].includes(",C=1,"));
-			assert.ok(lines[1].includes(`,i=${imageId}`));
-			assert.ok(lines[1].endsWith("\x1b[1B"));
+			assert.ok(lines[1]!.startsWith("\x1b[1A\x1b_G"));
+			assert.ok(lines[1]!.includes(",C=1,"));
+			assert.ok(lines[1]!.includes(`,i=${imageId}`));
+			assert.ok(lines[1]!.endsWith("\x1b[1B"));
 		} finally {
 			resetCapabilitiesCache();
 			setCellDimensions({ widthPx: 9, heightPx: 18 });

@@ -38,7 +38,7 @@ describe("withAutoTrace bus middleware", { tags: ["unit"] }, () => {
 
 	it("traces event publish", () => {
 		const bus = setupTracedBus();
-		bus.event.publish({ type: "llm.input", payload: { text: "hello" }, correlationId: "c-1" });
+		bus.event.publish({ type: "llm.input", payload: { text: "hello" }, correlationId: "c-1", isError: false });
 
 		const traced = events.find((e) => e.type === "bus:event:llm.input");
 		expect(traced).toBeDefined();
@@ -47,7 +47,7 @@ describe("withAutoTrace bus middleware", { tags: ["unit"] }, () => {
 	it("events still reach subscribers through the traced bus", () => {
 		const bus = setupTracedBus();
 		const received: string[] = [];
-		bus.command.subscribe("test.echo", (e) => received.push(e.type));
+		bus.command.subscribe("test.echo", (e) => { received.push(e.type); });
 		bus.command.publish({ type: "test.echo", payload: {}, correlationId: "c-1" });
 
 		expect(received).toEqual(["test.echo"]);

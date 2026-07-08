@@ -11,6 +11,7 @@ import {
 	InProcessBus,
 	makeBus,
 	type NotificationInput,
+	withAutoTrace,
 	withBindings,
 } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
@@ -241,8 +242,11 @@ export class Agent {
 		this.bus.publish("notification", event);
 	}
 
+	private _tracedBus: Bus | undefined;
+
 	asBus(): Bus {
-		return this.bus.asBus();
+		this._tracedBus ??= withAutoTrace()(this.bus.asBus());
+		return this._tracedBus;
 	}
 
 	/**

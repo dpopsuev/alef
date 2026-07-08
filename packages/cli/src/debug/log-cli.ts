@@ -51,9 +51,12 @@ export async function runLogCommand(subcmd: string, args: string[]): Promise<voi
 		case "spans":
 			await listSpans(db, args);
 			break;
+		case "chain":
+			await analyzeChain(db, args);
+			break;
 		default:
 			console.error(`Unknown store subcommand: ${subcmd}`);
-			console.error("Available: sessions, events, trace, summary, tail, cause, spans");
+			console.error("Available: sessions, events, trace, summary, tail, cause, spans, chain");
 			process.exit(1);
 	}
 }
@@ -507,4 +510,108 @@ async function walkCause(db: Client, args: string[]): Promise<void> {
 		const label = i === chain.length - 1 ? " = ROOT" : "";
 		console.log(`${indent}${arrow} ${s.name} (${s.spanId}, ${s.duration}ms)${detail}${label}`);
 	}
+}
+
+/** Analyze the full message round-trip chain for the latest (or specified) session. */
+async function analyzeChain(db: Client, args: string[]): Promise<void> {
+	let sessionId = args[0];
+	if (!sessionId) {
+		const latest = (
+			await db.execute({ sql: "SELECT session_id FROM events WHERE type='llm.input' ORDER BY timestamp DESC LIMIT 1", args: [] })
+		).rows[0];
+		if (!latest) {
+			console.error("No sessions with llm.input found.");
+			process.exit(1);
+		}
+		sessionId = String(latest.session_id);
+	}
+
+	console.log(`\n[Round-trip chain analysis — session ${sessionId}]\n`);
+
+	const count = async (type: string): Promise<number> => {
+		const r = await db.execute({
+			sql: "SELECT count(*) as c FROM events WHERE session_id = ? AND type = ?",
+			args: [sessionId, type] as InValue[],
+		});
+		return Number(r.rows[0]?.c ?? 0);
+	};
+
+	const countLike = async (pattern: string): Promise<number> => {
+		const r = await db.execute({
+			sql: "SELECT count(*) as c FROM events WHERE session_id = ? AND type LIKE ?",
+			args: [sessionId, pattern] as InValue[],
+		});
+		return Number(r.rows[0]?.c ?? 0);
+	};
+
+	const firstPayload = async (type: string, field: string): Promise<string> => {
+		const r = await db.execute({
+			sql: `SELECT json_extract(payload, '$.${field}') as v FROM events WHERE session_id = ? AND type = ? LIMIT 1`,
+			args: [sessionId, type] as InValue[],
+		});
+		const v = r.rows[0]?.v;
+		return typeof v === "string" ? v.slice(0, 60) : String(v ?? "—");
+	};
+
+	const ok = (label: string) => console.log(`  ✅  ${label}`);
+	const fail = (label: string) => console.log(`  ❌  ${label}`);
+	const info = (label: string) => console.log(`      ${label}`);
+
+	const check = async (n: number, label: string) => {
+		if (n > 0) ok(`${label} (${n})`);
+		else fail(`${label} (0)`);
+		return n;
+	};
+
+	console.log("── Backend ──");
+	const input = await check(await count("llm.input"), "1. llm.input (user message)");
+	if (input > 0) info(`   text: "${await firstPayload("llm.input", "text")}"`);
+
+	await check(await count("llm:phase:enter"), "2. llm:phase (context assembly)");
+	await check(await count("llm:http:start"), "3. llm:http:start (HTTP call)");
+
+	const thinking = await count("llm.thinking");
+	const chunks = await count("llm.chunk");
+	await check(thinking, `4. llm.thinking (thinking chunks)`);
+	await check(chunks, `5. llm.chunk (reply chunks)`);
+
+	const httpDone = await check(await count("llm:http:done"), "6. llm:http:done (stream end)");
+	const response = await check(await count("llm.response"), "7. llm.response (final reply)");
+	if (response > 0) info(`   text: "${await firstPayload("llm.response", "text")}"`);
+
+	console.log("\n── Observer bridge ──");
+	const converts = await check(await count("observer:convert"), "8. observer:convert (bus→AgentEvent)");
+	if (converts > 0) {
+		const r = await db.execute({
+			sql: "SELECT json_extract(payload, '$.observerCount') as oc FROM events WHERE session_id = ? AND type = 'observer:convert' LIMIT 1",
+			args: [sessionId] as InValue[],
+		});
+		info(`   observerCount: ${String(r.rows[0]?.oc ?? "?")}`);
+	}
+
+	await check(await count("observer:deliver"), "9. observer:deliver (callback invoked)");
+	await check(await count("observer:turn-complete"), "10. observer:turn-complete");
+
+	console.log("\n── TUI pipeline ──");
+	await check(await count("tui:observer"), "11. tui:observer (TUI callback)");
+	await check(await count("tui:dispatch"), "12. tui:dispatch (state update)");
+	await check(await count("turn.start"), "13. turn.start (TUI turn begin)");
+	await check(await count("turn.complete"), "14. turn.complete (TUI turn end)");
+
+	console.log("\n── Errors ──");
+	const errors = await countLike("%error%");
+	if (errors > 0) {
+		fail(`${errors} error event(s):`);
+		const errRows = (
+			await db.execute({
+				sql: "SELECT type, SUBSTR(json_extract(payload, '$.message'), 1, 60) as msg FROM events WHERE session_id = ? AND type LIKE '%error%' LIMIT 5",
+				args: [sessionId] as InValue[],
+			})
+		).rows;
+		for (const row of errRows) info(`   ${String(row.type)}: ${String(row.msg ?? "")}`);
+	} else {
+		ok("No error events");
+	}
+
+	console.log("");
 }

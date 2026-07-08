@@ -138,7 +138,7 @@ export function createAdapter(_opts: unknown): Adapter {
 });
 
 describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
-	it("returns null when organs.yaml does not exist", () => {
+	it("returns null when adapters.yaml does not exist", () => {
 		const dir = makeTmp();
 		process.env.ALEF_PM_ROOT = dir;
 		try {
@@ -150,7 +150,7 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 
 	it("parses a flat string list", () => {
 		const dir = makeTmp();
-		writeFileSync(join(dir, "organs.yaml"), "adapters:\n  - fs\n  - shell\n");
+		writeFileSync(join(dir, "adapters.yaml"), "adapters:\n  - fs\n  - shell\n");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
 			const result = loadUserAdaptersConfig();
@@ -165,7 +165,7 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 	it("parses object entries with name, path, and actions", () => {
 		const dir = makeTmp();
 		writeFileSync(
-			join(dir, "organs.yaml"),
+			join(dir, "adapters.yaml"),
 			[
 				"adapters:",
 				"  - name: fs",
@@ -187,7 +187,7 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 
 	it("returns null for a file with no organs key", () => {
 		const dir = makeTmp();
-		writeFileSync(join(dir, "organs.yaml"), "model: anthropic/claude\n");
+		writeFileSync(join(dir, "adapters.yaml"), "model: anthropic/claude\n");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
 			expect(loadUserAdaptersConfig()).toBeNull();
@@ -198,7 +198,7 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 
 	it("returns null for an empty file", () => {
 		const dir = makeTmp();
-		writeFileSync(join(dir, "organs.yaml"), "");
+		writeFileSync(join(dir, "adapters.yaml"), "");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
 			expect(loadUserAdaptersConfig()).toBeNull();

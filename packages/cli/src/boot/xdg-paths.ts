@@ -59,12 +59,6 @@ export const ALEF_STATE_DIR = join(XDG_STATE_HOME, "alef");
 /** Alef cache directory ($XDG_CACHE_HOME/alef) */
 export const ALEF_CACHE_DIR = join(XDG_CACHE_HOME, "alef");
 
-/**
- * Legacy ~/.alef path — used for backward compatibility.
- * New installations should use XDG paths.
- */
-export const LEGACY_ALEF_DIR = join(homedir(), ".alef");
-
 // ---------------------------------------------------------------------------
 // Specific paths
 // ---------------------------------------------------------------------------

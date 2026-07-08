@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -28,13 +27,5 @@ export function resolveAlefAgentDir(): string {
 	if (envDir?.trim()) {
 		return expandTildePath(envDir.trim());
 	}
-	if (process.platform === "linux") {
-		const xdgAgentDir = join(resolveXdgConfigHome(), "alef", "agent");
-		const legacyAgentDir = join(homedir(), ".alef", "agent");
-		if (existsSync(legacyAgentDir)) {
-			return legacyAgentDir;
-		}
-		return xdgAgentDir;
-	}
-	return join(homedir(), ".alef", "agent");
+	return join(resolveXdgConfigHome(), "alef", "agent");
 }

@@ -4,7 +4,7 @@ import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { ProcessTerminal, type SelectItem, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
+import { ProcessTerminal, type SelectItem, SelectList, setTraceSink, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { type ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
@@ -34,6 +34,7 @@ export async function runTuiMode(
 	opts: InteractiveOptions & { terminal?: Terminal },
 	store?: SessionStore,
 ): Promise<void> {
+	setTraceSink(traceEvent);
 	const terminal = opts.terminal ?? new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();

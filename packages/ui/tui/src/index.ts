@@ -124,6 +124,8 @@ export { Derived, Store } from "./reactive.js";
 export { StdinBuffer, type StdinBufferEventMap, type StdinBufferOptions } from "./stdin-buffer.js";
 // Terminal interface and implementations
 export { ProcessTerminal, type Terminal } from "./terminal.js";
+// Trace bridge — pluggable trace sink for render error visibility
+export { setTraceSink } from "./trace-bridge.js";
 // Terminal image support
 export {
 	allocateImageId,

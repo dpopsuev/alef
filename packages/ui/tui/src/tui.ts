@@ -9,6 +9,7 @@ import { performance } from "node:perf_hooks";
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
 import { type Component, CURSOR_MARKER, isFocusable, type RenderMeta } from "./component.js";
 import { isKeyRelease, matchesKey } from "./keys.js";
+import { traceEvent } from "./trace-bridge.js";
 import type { Terminal } from "./terminal.js";
 import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
 import { extractSegments, normalizeTerminalOutput, sliceByColumn, sliceWithWidth, truncateToWidth, visibleWidth } from "./utils.js";
@@ -221,6 +222,8 @@ export class TUI extends Container {
 	private previousHeight = 0;
 	private focusedComponent: Component | null = null;
 	private inputListeners = new Set<InputListener>();
+	private renderErrorCount = 0;
+	private static readonly MAX_RENDER_ERRORS = 5;
 
 	/** Global callback for debug key (Shift+Ctrl+D). Called before input is forwarded to focused component. */
 	public onDebug?: () => void;
@@ -512,9 +515,10 @@ export class TUI extends Container {
 				this.lastRenderAt = performance.now();
 				try {
 					this.doRender();
+					this.renderErrorCount = 0;
 					renderLog("force-render complete");
 				} catch (err) {
-					renderLog(`RENDER ERROR ${String(err)}`);
+					this.handleRenderError(err);
 				}
 			});
 			return;
@@ -540,14 +544,26 @@ export class TUI extends Container {
 			this.lastRenderAt = performance.now();
 			try {
 				this.doRender();
+				this.renderErrorCount = 0;
 			} catch (err) {
-				renderLog(`RENDER ERROR ${String(err)}`);
+				this.handleRenderError(err);
 			}
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- doRender() may set renderRequested=true via requestRender() callback
 			if (this.renderRequested) {
 				this.scheduleRender();
 			}
 		}, delay);
+	}
+
+	private handleRenderError(err: unknown): void {
+		this.renderErrorCount++;
+		const msg = err instanceof Error ? err.message : String(err);
+		renderLog(`RENDER ERROR (${this.renderErrorCount}/${TUI.MAX_RENDER_ERRORS}) ${msg}`);
+		traceEvent("tui:render:error", { error: msg, count: this.renderErrorCount });
+		if (this.renderErrorCount >= TUI.MAX_RENDER_ERRORS) {
+			traceEvent("tui:render:halted", { after: this.renderErrorCount });
+			this.stopped = true;
+		}
 	}
 
 	private handleInput(data: string): void {

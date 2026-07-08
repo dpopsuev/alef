@@ -153,8 +153,8 @@ export class Markdown implements Component {
 
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i];
-			const nextToken = tokens[i + 1];
-			const tokenLines = this.renderToken(token, contentWidth, nextToken.type);
+			const nextType = i + 1 < tokens.length ? tokens[i + 1].type : undefined;
+			const tokenLines = this.renderToken(token, contentWidth, nextType);
 			renderedLines.push(...tokenLines);
 		}
 
@@ -410,9 +410,9 @@ export class Markdown implements Component {
 			const renderedQuoteLines: string[] = [];
 			for (let i = 0; i < quoteTokens.length; i++) {
 				const quoteToken = quoteTokens[i];
-				const nextQuoteToken = quoteTokens[i + 1];
+				const nextType = i + 1 < quoteTokens.length ? quoteTokens[i + 1].type : undefined;
 				renderedQuoteLines.push(
-					...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken.type, quoteInlineStyleContext),
+					...this.renderToken(quoteToken, quoteContentWidth, nextType, quoteInlineStyleContext),
 				);
 			}
 

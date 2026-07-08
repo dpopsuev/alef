@@ -976,7 +976,6 @@ export class TUI extends Container {
 			return targetScreenRow - currentScreenRow;
 		};
 
-		// Render all components to get new lines
 		let newLines = this.render(width);
 
 		// Composite overlays into the rendered lines (before differential compare)

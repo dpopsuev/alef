@@ -213,12 +213,20 @@ export function dispatchTuiEvent(
 		return { ...state, pendingFooterShown: false, turnStartedAt: e.timestamp };
 	}
 
-	/** Handle turn complete event. */
+	/** Handle turn complete event (from submit handler — dot notation). */
 	function onTurnComplete(e: Extract<TuiEvent, { type: "turn.complete" }>): TuiState {
 		resetUIComponents(ui);
 		promptConsole.stopThinking();
 		promptConsole.hidePendingFooter();
 		return { ...state, pendingFooterShown: false, pendingTokenFooter: e.tokenFooter };
+	}
+
+	/** Handle turn-complete AgentEvent (from bus observer — hyphen notation). */
+	function onBusTurnComplete(): TuiState {
+		resetUIComponents(ui);
+		promptConsole.stopThinking();
+		promptConsole.hidePendingFooter();
+		return { ...state, pendingFooterShown: false };
 	}
 
 	/** Handle turn abort event. */
@@ -529,6 +537,7 @@ export function dispatchTuiEvent(
 		"tool-chunk": onToolChunk,
 		"tool-stall": onToolStall,
 		"tool-validation-error": onToolValidationError,
+		"turn-complete": onBusTurnComplete,
 		"turn-error": onLlmTurnError,
 		"message-queued": onMessageQueued,
 		"task-progress": onTaskProgress,

@@ -1,3 +1,4 @@
+import { checkChannelViolation } from "./channel-registry.js";
 import type {
 	Bus,
 	BusChannel,
@@ -177,15 +178,25 @@ export class InProcessBus {
 	/** Return an unscoped Bus interface backed by this InProcessBus. */
 	asBus(): Bus {
 		type InternalHandler = (e: BusMessage) => void | Promise<void>;
+		const warnOnViolation = (channel: "command" | "event" | "notification", type: string) => {
+			const expected = checkChannelViolation(type, channel);
+			if (expected) {
+				process.stderr.write(`[bus] channel violation: "${type}" published on ${channel}, expected ${expected}\n`);
+			}
+		};
 		const commandChannel: BusChannel<"command"> = {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- CommandHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.command.on(type, handler as InternalHandler),
-			publish: (e) => this._buses.command.emit(e),
+			publish: (e) => {
+				warnOnViolation("command", e.type);
+				this._buses.command.emit(e);
+			},
 		};
 		const eventChannel: BusChannel<"event"> = {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- EventHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.event.on(type, handler as InternalHandler),
 			publish: (e) => {
+				warnOnViolation("event", e.type);
 				this._buses.command.evictCorrelation(e.correlationId);
 				this._buses.event.emit(e);
 			},
@@ -193,7 +204,10 @@ export class InProcessBus {
 		const notificationChannel: BusChannel<"notification"> = {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- NotificationHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.notification.on(type, handler as InternalHandler),
-			publish: (e) => this._buses.notification.emit(e),
+			publish: (e) => {
+				warnOnViolation("notification", e.type);
+				this._buses.notification.emit(e);
+			},
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}

@@ -1,3 +1,4 @@
+import { Traced } from "@dpopsuev/alef-kernel/log";
 /**
  * SessionLog — tap command and event buses, write every event to the session JSONL.
  *
@@ -70,6 +71,7 @@ export class SessionLog implements Adapter {
 		this._summaryWriter = summaryWriter;
 	}
 
+	@Traced
 	mount(bus: Bus): () => void {
 		const startedAt = Date.now();
 		let turns = 0;

@@ -25,6 +25,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { Traced } from "@dpopsuev/alef-kernel/log";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { EventStream } from "./sse.js";
 
@@ -243,6 +244,7 @@ export class RouterAdapter implements Adapter {
 	}
 
 	/** Subscribe to bus events and start the HTTP server, returning an unmount function. */
+	@Traced
 	mount(bus: Bus): () => void {
 		if (this.server) throw new Error("RouterAdapter already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.

@@ -1,3 +1,4 @@
+import { Traced } from "@dpopsuev/alef-kernel/log";
 /**
  * LoopGuard — production loop guard.
  *
@@ -105,6 +106,7 @@ export class LoopGuard implements Adapter {
 			});
 	}
 
+	@Traced
 	mount(bus: Bus): () => void {
 		// pending: toolCallId → PendingCall (buffered until event result arrives)
 		// interactionCounts: Map<type, Map<interactionHash, count>>

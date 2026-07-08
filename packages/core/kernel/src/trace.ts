@@ -170,3 +170,45 @@ export const LogField = {
 	profile: "profile",
 	status: "status",
 } as const;
+
+// ---------------------------------------------------------------------------
+// @Traced method decorator — automatic OTel span per method call
+// ---------------------------------------------------------------------------
+
+import { trace } from "@opentelemetry/api";
+
+const _tracedTracer = trace.getTracer("alef.traced", "0.0.1");
+
+/**
+ * Method decorator that wraps a class method with an OTel span.
+ * Span name: `{ClassName}.{methodName}`.
+ * Records exceptions and sets span status on error.
+ *
+ * Usage:
+ *   class SessionLog implements Adapter {
+ *     @Traced
+ *     mount(bus: Bus) { ... }
+ *   }
+ */
+export function Traced(_target: unknown, propertyKey: string, descriptor: PropertyDescriptor): void {
+	const original = descriptor.value as (...args: unknown[]) => unknown;
+	descriptor.value = function (this: { constructor: { name: string } }, ...args: unknown[]): unknown {
+		const spanName = `${this.constructor.name}.${propertyKey}`;
+		return _tracedTracer.startActiveSpan(spanName, (span) => {
+			try {
+				const result = original.apply(this, args);
+				if (result instanceof Promise) {
+					return result
+						.then((v) => { span.end(); return v; })
+						.catch((e: unknown) => { span.recordException(e instanceof Error ? e : new Error(String(e))); span.end(); throw e; });
+				}
+				span.end();
+				return result;
+			} catch (e) {
+				span.recordException(e instanceof Error ? e : new Error(String(e)));
+				span.end();
+				throw e;
+			}
+		});
+	};
+}

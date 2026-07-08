@@ -41,5 +41,8 @@ export {
 	buildEventResult,
 	extractToolCallId,
 } from "./event-builders.js";
+export { withAutoTrace } from "./auto-trace.js";
+export { intersectBudgets, withLimits, type Budget } from "./budget.js";
+export { canonicalChannel, checkChannelViolation } from "./channel-registry.js";
 export { InProcessBus, type BusOptions, type WatchdogOptions } from "./in-process-bus.js";
 export { Watchdog } from "./watchdog.js";

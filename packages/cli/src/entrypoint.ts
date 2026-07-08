@@ -85,17 +85,23 @@ async function getStorage(): Promise<StorageFactory> {
 }
 
 if (args.debugSubcmd) {
-	const storage = await getStorage();
 	switch (args.debugSubcmd) {
-		case "session":
+		case "session": {
+			const storage = await getStorage();
 			await runDebugSession(args.debugSubcmdArgs, args.cwd, storage.sessions);
+			await supervisor.stopAll();
 			break;
+		}
+		case "tui": {
+			const { runDebugTui } = await import("./debug/debug-tui.js");
+			await runDebugTui(args.debugSubcmdArgs, args.cwd);
+			break;
+		}
 		default:
 			console.error(`Unknown debug subcommand: ${args.debugSubcmd}`);
-			console.error("Available: session");
+			console.error("Available: session, tui");
 			process.exit(1);
 	}
-	await supervisor.stopAll();
 	process.exit(0);
 }
 

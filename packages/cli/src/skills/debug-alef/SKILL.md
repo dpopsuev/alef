@@ -38,84 +38,92 @@ Every user interaction follows a chain. Trace it before looking at code.
 11. bus command/llm.response (stream done)                → reply published
 ```
 
-### Tool call round-trip
-
-```
- 1. LLM emits tool_use      → stream-turn parses tool block
- 2. notification/llm.tool-start
- 3. dispatchTools            → reasoner/tool-dispatch.ts
- 4. command/{tool.name}      → adapter handler executes
- 5. event/{tool.name}        → result published
- 6. notification/llm.tool-end
- 7. Result fed back to LLM
-```
-
-### Subagent round-trip
-
-```
- 1. LLM calls agent.run     → tools/agent/adapter.ts
- 2. InProcessStrategy.send   → engine/in-process.ts
- 3. SubagentFactory          → core/agent/subagent-factory.ts
- 4. Inner agent loop         → own bus, own reasoner
- 5. Inner chunks relay       → notification/agent.run.inner
- 6. connectObservers maps    → inner-tool-start, inner-chunk
- 7. Outer LLM receives toolResult
-```
-
 ### Symptom → chain break map
 
-| Symptom | Chain break | Check |
-|---------|-------------|-------|
-| TUI stuck on "thinking" | 6→7: chunks not converted | `signalToAgentEvent` switch |
-| Nothing after send | 2→3: send didn't publish | `llm.input` in events |
-| Tool pill stuck active | 5→6: tool-end not emitted | `llm.tool-end` in events |
-| Subagent reply missing | 5→6: inner events not relayed | `agent.run.inner` notifications |
-| Reply text empty | 11: response has no text | Provider response parsing |
+| Symptom | Chain break | Check with |
+|---------|-------------|------------|
+| TUI stuck on "thinking" | 6→7: chunks not converted | `alef log chain` |
+| Nothing after send | 2→3: send didn't publish | `alef log chain` |
+| Tool pill stuck active | 5→6: tool-end not emitted | `alef log events <id> --type 'llm.tool-%'` |
+| Subagent reply missing | 5→6: inner events not relayed | `alef log events <id> --type 'agent.run.inner'` |
+| Reply text empty | 11: response has no text | `alef log chain` |
 
 ---
 
-## Step 2: ASSESS — Trace the Actual Session
+## Step 2: ASSESS — Diagnose via CLI
+
+### One-command chain analysis
 
 ```bash
-# Find the session
-sqlite3 ~/.alef/alef.db \
-  "SELECT session_id, type, SUBSTR(json_extract(payload,'$.text'),1,80)
-   FROM events WHERE type='llm.input' ORDER BY timestamp DESC LIMIT 5"
-
-# Full event trace (skip adapter.loaded)
-sqlite3 ~/.alef/alef.db \
-  "SELECT bus, type, SUBSTR(json_extract(payload,'$.text'),1,80)
-   FROM events WHERE session_id='ID' AND type NOT LIKE 'adapter%'
-   ORDER BY timestamp"
-
-# Errors only
-sqlite3 ~/.alef/alef.db \
-  "SELECT bus, type, json_extract(payload,'$.err')
-   FROM events WHERE session_id='ID' AND type LIKE '%error%'
-   ORDER BY timestamp"
-
-# Tool-call pairing (start without end = hung)
-sqlite3 ~/.alef/alef.db \
-  "SELECT type, json_extract(payload,'$.callId'), json_extract(payload,'$.name')
-   FROM events WHERE session_id='ID'
-   AND type IN ('llm.tool-start','llm.tool-end') ORDER BY timestamp"
+alef log chain              # latest session — shows ✅/❌ per link
+alef log chain <session-id> # specific session
 ```
+
+This checks all 14 links and reports which fired and which didn't.
+
+### Drill into specific areas
+
+```bash
+alef log sessions                         # list sessions (newest first)
+alef log sessions --search "refactor"     # search by text
+alef log events <id> --errors             # errors only
+alef log events <id> --type 'llm.%'       # LLM events
+alef log events <id> --type 'observer:%'  # observer bridge events
+alef log events <id> --type 'tui:%'       # TUI pipeline events
+alef log events <id> --adapter fs         # tool-specific events
+alef log events <id> --corr <prefix>      # one correlationId
+alef log trace <id> <correlationId>       # full turn trace
+alef log tail --errors                    # latest session errors
+```
+
+### Causal analysis
+
+```bash
+alef log spans <id>           # list OTel spans with parent IDs
+alef log cause <span-id>      # walk backwards to root cause
+```
+
+### Interactive TUI observation
+
+```bash
+alef debug tui "Hello" --reply "world"   # spawn, send, capture pane
+alef debug tui --attach                  # spawn and attach interactively
+```
+
+### Tool-call pairing
+
+```bash
+alef debug session            # analyze latest session for unpaired tool calls
+```
+
+### Escape hatch
+
+If `alef log` doesn't expose the data you need, raw sqlite3 is the escape hatch:
+
+```bash
+sqlite3 ~/.alef/alef.db "YOUR QUERY"
+```
+
+**If you reach for sqlite3, it means the CLI is missing an API.** File a need in Scribe to extend `alef log` with the query you needed. The goal is zero raw SQL in debugging workflows.
 
 ### Instrumentation audit
 
-| Chain link | Debug event | OTel span | Tested? |
-|-----------|-------------|-----------|---------|
-| LLM HTTP | `llm:http:start/done` | `chat {model}` | ✅ |
-| Tool dispatch | `tool:start/end` | `alef.command/{type}` | ✅ |
-| Phase pipeline | `llm:phase:enter/exit` | — | ✅ |
-| connectObservers | — | — | ❌ |
-| dispatchTuiEvent | — | — | ✅ |
-| Delegation | `delegate:strategy:start/done` | — | ❌ |
-| Boot | `boot` | — | ✅ |
+| Chain link | Debug event | Tested? |
+|-----------|-------------|---------|
+| LLM HTTP | `llm:http:start/done/error` | ✅ |
+| Tool dispatch | `tool:start/end` | ✅ |
+| Phase pipeline | `llm:phase:enter/exit` | ✅ |
+| connectObservers | `observer:convert/deliver/turn-complete` | ✅ |
+| TUI observer | `tui:observer` | ✅ |
+| TUI dispatch | `tui:dispatch` | ✅ |
+| Delegation | `delegate:strategy:start/done` | ❌ |
+| Boot | `boot` | ✅ |
 
 ---
 
 ## Step 3: INSTRUMENT — Add Observability if Missing
+
+If the chain analysis shows ❌ at a link with no debug event, add one:
 
 ```typescript
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
@@ -124,6 +132,8 @@ traceEvent("my:event:start", { input });
 traceEvent("my:event:done", { result, elapsedMs });
 traceEvent("my:event:error", { err: String(error) });
 ```
+
+After adding instrumentation, reproduce the bug again and re-run `alef log chain` to see the new events.
 
 ---
 
@@ -140,6 +150,7 @@ traceEvent("my:event:error", { err: String(error) });
 | TUI state | `dispatchTuiEvent` | `client/events.ts` |
 | Tool execution | `AdapterHarness` | `@dpopsuev/alef-testkit/adapter-harness` |
 | Full E2E | `createE2eSession` | `@dpopsuev/alef-testkit/e2e` |
+| Test suite | `test.run` tool | `@dpopsuev/alef-tool-eval` |
 
 ### Scripted LLM patterns
 
@@ -166,19 +177,6 @@ expect(tui.output()).toContain("test reply");
 tui.kill();
 ```
 
-### TUI observation via tmux (interactive debugging)
-
-```bash
-tmux new-session -d -s repro -x 120 -y 30 \
-  "ALEF_SCRIPTED_REPLIES='[\"reply\"]' ALEF_DEBUG=1 npx tsx packages/cli/src/entrypoint.ts"
-sleep 3
-tmux capture-pane -t repro -p
-tmux send-keys -t repro "Hello" Enter
-sleep 2
-tmux capture-pane -t repro -p
-tmux kill-session -t repro
-```
-
 ### Test template (RED)
 
 ```typescript
@@ -200,6 +198,12 @@ Fix the code, run the test:
 
 ```bash
 npx vitest run packages/path/to/test.test.ts
+```
+
+Or use the test.run tool for the LLM to run tests directly:
+
+```
+test.run({ package: "packages/core/agent/test", file: "signal-to-agent-event" })
 ```
 
 ---
@@ -225,15 +229,20 @@ Test: FILE — WHAT_IT_VERIFIES
 
 ## Quick Reference
 
-### CLI tools
+### CLI debug commands
 
 ```bash
 alef log sessions                    # list sessions
 alef log events <id> --errors       # errors
+alef log events <id> --type 'X'    # filter by type
 alef log trace <id> <correlationId> # one turn
 alef log spans <id>                 # OTel spans
 alef log cause <span-id>            # causal chain
+alef log chain                      # full round-trip diagnostic
+alef log chain <id>                 # specific session
 alef debug session                  # tool-call pairing
+alef debug tui "prompt" --reply "r" # TUI observation
+alef debug tui --attach             # interactive TUI
 ```
 
 ### Env vars

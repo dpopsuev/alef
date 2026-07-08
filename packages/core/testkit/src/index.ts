@@ -37,5 +37,6 @@ export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
 export { defineStubAdapter, type StubHandler } from "./stub-adapter.js";
 export { createRemoteHarness, type RemoteSessionHarness, type RemoteSessionHarnessOptions } from "./remote-session-harness.js";
+export { createTmuxHarness, type TmuxHarness, type TmuxHarnessOptions } from "./tmux-harness.js";
 export { createTuiHarness, type TuiHarness, type TuiHarnessOptions } from "./tui-harness.js";
 export { TurnDriver } from "./turn-driver.js";

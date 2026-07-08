@@ -13,6 +13,7 @@ function parseDebugTuiArgs(argv: string[]): {
 	prompt: string | undefined;
 	reply: string;
 	attach: boolean;
+	live: boolean;
 	cols: number;
 	rows: number;
 	timeoutMs: number;
@@ -20,6 +21,7 @@ function parseDebugTuiArgs(argv: string[]): {
 	let prompt: string | undefined;
 	let reply = "(debug reply)";
 	let attach = false;
+	let live = false;
 	let cols = DEFAULT_COLS;
 	let rows = DEFAULT_ROWS;
 	let timeoutMs = DEFAULT_TIMEOUT_MS;
@@ -30,6 +32,8 @@ function parseDebugTuiArgs(argv: string[]): {
 			reply = argv[++i];
 		} else if (arg === "--attach") {
 			attach = true;
+		} else if (arg === "--live") {
+			live = true;
 		} else if (arg === "--cols" && argv[i + 1]) {
 			cols = parseInt(argv[++i], 10);
 		} else if (arg === "--rows" && argv[i + 1]) {
@@ -41,7 +45,7 @@ function parseDebugTuiArgs(argv: string[]): {
 		}
 	}
 
-	return { prompt, reply, attach, cols, rows, timeoutMs };
+	return { prompt, reply, attach, live, cols, rows, timeoutMs };
 }
 
 /** Capture the current tmux pane content. */
@@ -74,16 +78,17 @@ export async function runDebugTui(args: string[], cwd: string): Promise<void> {
 	const tsx = resolve(root, "node_modules/tsx/dist/cli.mjs");
 	const main = resolve(root, "packages/cli/src/entrypoint.ts");
 
-	const repliesJson = JSON.stringify([opts.reply]);
-	const cmd = `ALEF_SCRIPTED_REPLIES='${repliesJson}' ALEF_DEBUG=1 TSX_TSCONFIG_PATH='${resolve(root, "tsconfig.json")}' ${process.execPath} ${tsx} ${main}`;
+	const envParts = [`ALEF_DEBUG=1`, `TSX_TSCONFIG_PATH='${resolve(root, "tsconfig.json")}'`];
+	if (!opts.live) {
+		envParts.push(`ALEF_SCRIPTED_REPLIES='${JSON.stringify([opts.reply])}'`);
+	}
+	const cmd = `${envParts.join(" ")} ${process.execPath} ${tsx} ${main}`;
 
-	execFileSync("tmux", [
-		"new-session", "-d",
-		"-s", SESSION_NAME,
-		"-x", String(opts.cols),
-		"-y", String(opts.rows),
-		cmd,
-	], { cwd, stdio: "ignore" });
+	execFileSync(
+		"tmux",
+		["new-session", "-d", "-s", SESSION_NAME, "-x", String(opts.cols), "-y", String(opts.rows), cmd],
+		{ cwd, stdio: "ignore" },
+	);
 
 	console.error(`[debug tui] spawned in tmux session '${SESSION_NAME}' (${opts.cols}×${opts.rows})`);
 
@@ -114,7 +119,8 @@ export async function runDebugTui(args: string[], cwd: string): Promise<void> {
 	console.error("[debug tui] TUI ready");
 
 	if (opts.prompt) {
-		execFileSync("tmux", ["send-keys", "-t", SESSION_NAME, opts.prompt, "Enter"], { stdio: "ignore" });
+		execFileSync("tmux", ["send-keys", "-t", SESSION_NAME, "-l", opts.prompt], { stdio: "ignore" });
+		execFileSync("tmux", ["send-keys", "-t", SESSION_NAME, "Enter"], { stdio: "ignore" });
 		console.error(`[debug tui] sent: "${opts.prompt}"`);
 		await new Promise((r) => setTimeout(r, RENDER_SETTLE_MS));
 	}

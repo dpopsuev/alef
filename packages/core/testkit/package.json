@@ -26,6 +26,7 @@
     "./scripted-reasoner": "./src/scripted-reasoner.ts",
     "./stub-adapter": "./src/stub-adapter.ts",
     "./remote-harness": "./src/remote-session-harness.ts",
+    "./tmux-harness": "./src/tmux-harness.ts",
     "./tui-harness": "./src/tui-harness.ts",
     "./turn-driver": "./src/turn-driver.ts",
     "./vitest-config": "./src/vitest-config.ts"

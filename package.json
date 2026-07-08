@@ -43,6 +43,8 @@
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",
 		"@arethetypeswrong/cli": "0.18.4",
 		"@biomejs/biome": "2.3.5",
+		"@opentelemetry/auto-instrumentations-node": "0.78.0",
+		"@opentelemetry/instrumentation": "0.220.0",
 		"@types/diff": "^8.0.0",
 		"@types/node": "^22.10.5",
 		"@types/update-notifier": "6.0.8",

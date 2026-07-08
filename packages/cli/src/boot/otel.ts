@@ -8,19 +8,31 @@
  * Falls back to InMemorySpanExporter if the database is not available.
  */
 
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
 import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
 let memoryExporter: InMemorySpanExporter | undefined;
 let provider: NodeTracerProvider | undefined;
 
-/** Register the OTel tracer provider with an in-memory span exporter. */
+/** Register the OTel tracer provider with an in-memory span exporter and auto-instrumentation. */
 export function setupOTel(): void {
 	memoryExporter = new InMemorySpanExporter();
 	provider = new NodeTracerProvider({
 		spanProcessors: [new SimpleSpanProcessor(memoryExporter)],
 	});
 	provider.register();
+
+	registerInstrumentations({
+		instrumentations: [
+			getNodeAutoInstrumentations({
+				"@opentelemetry/instrumentation-http": { enabled: true },
+				"@opentelemetry/instrumentation-dns": { enabled: false },
+				"@opentelemetry/instrumentation-fs": { enabled: false },
+			}),
+		],
+	});
 }
 
 /** Replace the in-memory exporter with a SQLite-backed one once the database is available. */

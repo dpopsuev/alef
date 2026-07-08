@@ -83,7 +83,10 @@ export async function runTuiMode(
 		tui.requestRender();
 	};
 
-	session.subscribe((event) => dispatch(event));
+	session.subscribe((event) => {
+		traceEvent("tui:observer", { type: event.type });
+		dispatch(event);
+	});
 
 	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store, tuiStore);
 

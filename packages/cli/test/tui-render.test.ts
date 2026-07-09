@@ -174,6 +174,62 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		).toContain("render-test-marker");
 	}, 15_000);
 
+	it("context window updates in status bar after state-changed event", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("ctx-test")]);
+
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const args = { ...parseArgs([]), cwd, noTui: false };
+		const model = faux.getModel();
+
+		const { session } = await createLocalSession(
+			args,
+			{},
+			SILENT_LOGGER,
+			store,
+			EMPTY_LOADED,
+			model,
+			STUB_STORAGE,
+			buildIdentityContext(store),
+		);
+
+		const terminal = new MockTerminal(120, 40);
+		const { runTuiMode } = await import("../src/client/runner.js");
+		const tuiDone = runTuiMode(session, {
+			cwd: args.cwd,
+			modelId: "faux/test",
+			sessionId: store.id,
+			contextWindow: model.contextWindow,
+			getModel: () => model.id,
+			setModel: () => {},
+			getThinking: () => "off",
+			setThinking: () => {},
+			terminal,
+		});
+
+		for (let i = 0; i < 40; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+			if (terminal.output.length > 0) break;
+		}
+
+		const beforeContent = terminal.stripAnsi();
+		expect(beforeContent).toContain("128k");
+
+		session.setModel("claude-opus-4-6");
+
+		for (let i = 0; i < 20; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+			if (terminal.stripAnsi().includes("1000k") || terminal.stripAnsi().includes("1.0M")) break;
+		}
+
+		session.dispose();
+		await Promise.race([tuiDone, new Promise((r) => setTimeout(r, 500))]);
+
+		const afterContent = terminal.stripAnsi();
+		expect(afterContent, "status bar should show updated context window after model switch").toMatch(/1000k|1\.0M/);
+	}, 15_000);
+
 	it("renders LLM response text to terminal after message round-trip", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("mock terminal reply")]);

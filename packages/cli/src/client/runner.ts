@@ -68,7 +68,9 @@ export async function runTuiMode(
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	const signalHandlers = getUiSignalHandlers();
+	let liveContextWindow = session.state.contextWindow;
 	const dispatch = (event: TuiEvent): void => {
+		if (event.type === "state-changed") liveContextWindow = event.contextWindow;
 		const prev = tuiState;
 		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
@@ -77,6 +79,7 @@ export async function runTuiMode(
 			inputTokens: tuiState.sessionInputTokens,
 			outputTokens: tuiState.sessionOutputTokens,
 			contextUsed: tuiState.contextFillTokens,
+			contextWindow: liveContextWindow,
 			thinkingLevel: session.getThinking(),
 			compacted: isCompacted(),
 			costUsd: tuiState.sessionCostUsd,

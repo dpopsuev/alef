@@ -81,6 +81,8 @@ export class SessionHandle implements Session {
 
 	setModel(id: string): void {
 		this._currentModel = this._modelFactory(id);
+		this.state.modelId = this._currentModel.id;
+		this.state.contextWindow = this._currentModel.contextWindow;
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
 		else this._thinkingState.level ??= "medium";

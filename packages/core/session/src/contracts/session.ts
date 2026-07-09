@@ -88,8 +88,8 @@ export interface DirectiveView {
  */
 export interface SessionState {
 	readonly id: string;
-	readonly modelId: string;
-	readonly contextWindow: number;
+	modelId: string;
+	contextWindow: number;
 }
 
 // ---------------------------------------------------------------------------

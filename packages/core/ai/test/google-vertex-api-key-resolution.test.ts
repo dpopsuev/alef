@@ -49,7 +49,7 @@ import { getModel } from "../src/models/llm.js";
 import { streamGoogleVertex } from "../src/providers/google/vertex.js";
 import type { Context, Model } from "../src/types.js";
 
-const model = getModel("google-vertex", "gemini-3-flash-preview");
+const model = getModel("google-vertex", "gemini-3-flash-preview")! as Model<"google-vertex">;
 const context: Context = {
 	messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
 };

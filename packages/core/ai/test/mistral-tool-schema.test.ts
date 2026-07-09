@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { complete } from "../src/stream.js";
-import type { Context, Model } from "../src/types.js";
+import type { Api, Context, Model } from "../src/types.js";
 
 interface MistralToolPayload {
 	tools?: Array<{
@@ -16,8 +16,8 @@ interface MistralToolPayload {
 
 describe("Mistral tool schema serialization", { tags: ["unit"] }, () => {
 	it("strips TypeBox symbol keys before the SDK validates tool schemas", async () => {
-		const model: Model<"mistral-conversations"> = {
-			...getModel("mistral", "devstral-medium-latest"),
+		const model: Model<Api> = {
+			...getModel("mistral", "devstral-medium-latest")!,
 			baseUrl: "http://127.0.0.1:9",
 		};
 		const parameters = Type.Object({

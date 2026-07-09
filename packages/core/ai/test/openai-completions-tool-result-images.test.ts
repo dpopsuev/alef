@@ -55,7 +55,7 @@ function buildToolResult(toolCallId: string, timestamp: number): ToolResultMessa
 
 describe("openai-completions convertMessages", { tags: ["unit"] }, () => {
 	it("batches tool-result images after consecutive tool results", () => {
-		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
+		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!;
 		const model: Model<"openai-completions"> = {
 			...baseModel,
 			api: "openai-completions",

@@ -18,7 +18,7 @@ const testTool: Tool<typeof testToolSchema> = {
 
 describe.skipIf(!HAVE_REAL_LLM)("OpenAI Responses reasoning replay e2e", { tags: ["real-llm"] }, () => {
 	it("skips reasoning-only history after an aborted turn", { retry: 2 }, async () => {
-		const model = getModel("openai", "gpt-5-mini");
+		const model = getModel("openai", "gpt-5-mini")!;
 
 		const apiKey = getEnvApiKey("openai");
 		if (!apiKey) {
@@ -90,8 +90,8 @@ describe.skipIf(!HAVE_REAL_LLM)("OpenAI Responses reasoning replay e2e", { tags:
 		// 5. Without fix: OpenAI returns 400 "function_call without required reasoning item"
 		// 6. With fix: tool calls/results converted to text, conversation continues
 
-		const modelA = getModel("openai", "gpt-5-mini");
-		const modelB = getModel("openai", "gpt-5.2-codex");
+		const modelA = getModel("openai", "gpt-5-mini")!;
+		const modelB = getModel("openai", "gpt-5.2-codex")!;
 
 		const apiKey = getEnvApiKey("openai");
 		if (!apiKey) {
@@ -189,8 +189,8 @@ describe.skipIf(!HAVE_REAL_LLM)("OpenAI Responses reasoning replay e2e", { tags:
 		// 4. Tool call ID is Anthropic format (toolu_xxx), no OpenAI pairing history
 		// 5. Should work because foreign IDs have no pairing expectation
 
-		const anthropicModel = getModel("anthropic", "claude-sonnet-4-5");
-		const codexModel = getModel("openai", "gpt-5.2-codex");
+		const anthropicModel = getModel("anthropic", "claude-sonnet-4-5")!;
+		const codexModel = getModel("openai", "gpt-5.2-codex")!;
 
 		const anthropicApiKey = getEnvApiKey("anthropic");
 		const openaiApiKey = getEnvApiKey("openai");

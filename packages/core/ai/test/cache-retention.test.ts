@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { stream } from "../src/stream.js";
-import type { Context, Model } from "../src/types.js";
+import type { Api, Context, Model } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 
 describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
@@ -28,7 +28,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		it.skipIf(!process.env.ANTHROPIC_API_KEY)(
 			"should use default cache TTL (no ttl field) when ALEF_CACHE_RETENTION is not set",
 			async () => {
-				const model = getModel("anthropic", "claude-haiku-4-5");
+				const model = getModel("anthropic", "claude-haiku-4-5")!;
 				let capturedPayload: any = null;
 
 				const s = stream(model, context, {
@@ -51,7 +51,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 
 		it.skipIf(!process.env.ANTHROPIC_API_KEY)("should use 1h cache TTL when ALEF_CACHE_RETENTION=long", async () => {
 			process.env.ALEF_CACHE_RETENTION = "long";
-			const model = getModel("anthropic", "claude-haiku-4-5");
+			const model = getModel("anthropic", "claude-haiku-4-5")!;
 			let capturedPayload: any = null;
 
 			const s = stream(model, context, {
@@ -75,7 +75,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			process.env.ALEF_CACHE_RETENTION = "long";
 
 			// Create a model with a different baseUrl (simulating a proxy)
-			const baseModel = getModel("anthropic", "claude-haiku-4-5");
+			const baseModel = getModel("anthropic", "claude-haiku-4-5")!;
 			const proxyModel = {
 				...baseModel,
 				baseUrl: "https://my-proxy.example.com/v1",
@@ -92,7 +92,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			const { streamAnthropic } = await import("../src/providers/anthropic.js");
 
 			try {
-				const s = streamAnthropic(proxyModel, context, {
+				const s = streamAnthropic(proxyModel as Model<"anthropic-messages">, context, {
 					apiKey: "fake-key",
 					onPayload: (payload) => {
 						capturedPayload = payload;
@@ -112,12 +112,12 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should omit ttl when supportsLongCacheRetention is false", async () => {
-			const baseModel = getModel("anthropic", "claude-haiku-4-5");
+			const baseModel = getModel("anthropic", "claude-haiku-4-5")!;
 			const proxyModel = {
 				...baseModel,
 				baseUrl: "https://my-proxy.example.com/v1",
 				compat: { supportsLongCacheRetention: false },
-			};
+			} as unknown as Model<"anthropic-messages">;
 			let capturedPayload: any = null;
 
 			const { streamAnthropic } = await import("../src/providers/anthropic.js");
@@ -143,13 +143,13 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should omit cache_control when cacheRetention is none", async () => {
-			const baseModel = getModel("anthropic", "claude-haiku-4-5");
+			const baseModel = getModel("anthropic", "claude-haiku-4-5")!;
 			let capturedPayload: any = null;
 
 			const { streamAnthropic } = await import("../src/providers/anthropic.js");
 
 			try {
-				const s = streamAnthropic(baseModel, context, {
+				const s = streamAnthropic(baseModel as Model<"anthropic-messages">, context, {
 					apiKey: "fake-key",
 					cacheRetention: "none",
 					onPayload: (payload) => {
@@ -169,13 +169,13 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should add cache_control to string user messages", async () => {
-			const baseModel = getModel("anthropic", "claude-haiku-4-5");
+			const baseModel = getModel("anthropic", "claude-haiku-4-5")!;
 			let capturedPayload: any = null;
 
 			const { streamAnthropic } = await import("../src/providers/anthropic.js");
 
 			try {
-				const s = streamAnthropic(baseModel, context, {
+				const s = streamAnthropic(baseModel as Model<"anthropic-messages">, context, {
 					apiKey: "fake-key",
 					onPayload: (payload) => {
 						capturedPayload = payload;
@@ -197,13 +197,13 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should set 1h cache TTL when cacheRetention is long", async () => {
-			const baseModel = getModel("anthropic", "claude-haiku-4-5");
+			const baseModel = getModel("anthropic", "claude-haiku-4-5")!;
 			let capturedPayload: any = null;
 
 			const { streamAnthropic } = await import("../src/providers/anthropic.js");
 
 			try {
-				const s = streamAnthropic(baseModel, context, {
+				const s = streamAnthropic(baseModel as Model<"anthropic-messages">, context, {
 					apiKey: "fake-key",
 					cacheRetention: "long",
 					onPayload: (payload) => {
@@ -227,7 +227,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		it.skipIf(!process.env.OPENAI_API_KEY)(
 			"should not set prompt_cache_retention when ALEF_CACHE_RETENTION is not set",
 			async () => {
-				const model = getModel("openai", "gpt-4o-mini");
+				const model = getModel("openai", "gpt-4o-mini")!;
 				let capturedPayload: any = null;
 
 				const s = stream(model, context, {
@@ -250,7 +250,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			"should set prompt_cache_retention to 24h when ALEF_CACHE_RETENTION=long",
 			async () => {
 				process.env.ALEF_CACHE_RETENTION = "long";
-				const model = getModel("openai", "gpt-4o-mini");
+				const model = getModel("openai", "gpt-4o-mini")!;
 				let capturedPayload: any = null;
 
 				const s = stream(model, context, {
@@ -273,7 +273,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			process.env.ALEF_CACHE_RETENTION = "long";
 
 			// Create a model with a different baseUrl (simulating a proxy)
-			const baseModel = getModel("openai", "gpt-4o-mini");
+			const baseModel = getModel("openai", "gpt-4o-mini")!;
 			const proxyModel = {
 				...baseModel,
 				baseUrl: "https://my-proxy.example.com/v1",
@@ -284,7 +284,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
-				const s = streamOpenAIResponses(proxyModel, context, {
+				const s = streamOpenAIResponses(proxyModel as Model<"openai-responses">, context, {
 					apiKey: "fake-key",
 					onPayload: (payload) => {
 						capturedPayload = payload;
@@ -305,7 +305,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 
 		it("should omit prompt_cache_retention when supportsLongCacheRetention is false", async () => {
 			const model = {
-				...getModel("openai", "gpt-4o-mini"),
+				...getModel("openai", "gpt-4o-mini")!,
 				compat: { supportsLongCacheRetention: false },
 			};
 			let capturedPayload: any = null;
@@ -313,7 +313,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
-				const s = streamOpenAIResponses(model, context, {
+				const s = streamOpenAIResponses(model as Model<"openai-responses">, context, {
 					apiKey: "fake-key",
 					cacheRetention: "long",
 					sessionId: "session-compat-false",
@@ -334,13 +334,13 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should omit prompt_cache_key when cacheRetention is none", async () => {
-			const model = getModel("openai", "gpt-4o-mini");
+			const model = getModel("openai", "gpt-4o-mini")!;
 			let capturedPayload: any = null;
 
 			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
-				const s = streamOpenAIResponses(model, context, {
+				const s = streamOpenAIResponses(model as Model<"openai-responses">, context, {
 					apiKey: "fake-key",
 					cacheRetention: "none",
 					sessionId: "session-1",
@@ -362,13 +362,13 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 
 		it("should set prompt_cache_retention when cacheRetention is long", async () => {
-			const model = getModel("openai", "gpt-4o-mini");
+			const model = getModel("openai", "gpt-4o-mini")!;
 			let capturedPayload: any = null;
 
 			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
-				const s = streamOpenAIResponses(model, context, {
+				const s = streamOpenAIResponses(model as Model<"openai-responses">, context, {
 					apiKey: "fake-key",
 					cacheRetention: "long",
 					sessionId: "session-2",

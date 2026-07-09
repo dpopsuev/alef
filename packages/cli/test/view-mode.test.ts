@@ -107,7 +107,7 @@ function makeAgentSession(extraAdapters: import("@dpopsuev/alef-kernel/adapter")
 			if (text) lastReply = text;
 		},
 	});
-	const llm = createAgentLoop({ model: faux.getModel(), apiKey: "faux" });
+	const llm = createAgentLoop({ model: faux.getModel()!, apiKey: "faux" });
 
 	for (const adapter of extraAdapters) agent.load(adapter);
 	agent.load(llm);
@@ -130,8 +130,8 @@ function makeAgentSession(extraAdapters: import("@dpopsuev/alef-kernel/adapter")
 	});
 
 	const session: Session = {
-		state: { id: "test", modelId: faux.getModel().id, contextWindow: 128_000 },
-		getModel: () => faux.getModel().id,
+		state: { id: "test", modelId: faux.getModel()!.id, contextWindow: 128_000 },
+		getModel: () => faux.getModel()!.id,
 		setModel: () => {},
 		getThinking: () => "off",
 		setThinking: () => {},

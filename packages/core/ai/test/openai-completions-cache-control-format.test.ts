@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { streamOpenAICompletions } from "../src/providers/openai/completions.js";
-import type { Model } from "../src/types.js";
+import type { Api, Model } from "../src/types.js";
 
 interface CacheControl {
 	type: "ephemeral";
@@ -72,13 +72,13 @@ vi.mock("openai", () => {
 });
 
 async function capturePayload(
-	model: Model<"openai-completions">,
+	model: Model<Api>,
 	options?: { cacheRetention?: "none" | "short" | "long" },
 ): Promise<CapturedParams> {
 	const timestamp = Date.now();
 
 	await streamOpenAICompletions(
-		model,
+		model as Model<"openai-completions">,
 		{
 			systemPrompt: "System prompt",
 			messages: [{ role: "user", content: "Hello", timestamp }],
@@ -153,7 +153,7 @@ describe("openai-completions cacheControlFormat", { tags: ["unit"] }, () => {
 	});
 
 	it("preserves Anthropic-style cache markers for OpenRouter Anthropic models", async () => {
-		const model = getModel("openrouter", "anthropic/claude-sonnet-4");
+		const model = getModel("openrouter", "anthropic/claude-sonnet-4")!;
 		const params = await capturePayload(model);
 		expectAnthropicCacheMarkers(params);
 	});

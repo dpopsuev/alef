@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getEnvApiKey } from "../src/env-api-keys.js";
 import { getModels, getProviders } from "../src/models/llm.js";
 import { complete } from "../src/stream.js";
-import type { Api, KnownProvider, Model, ProviderStreamOptions, Tool } from "../src/types.js";
+import type { Api, Model, ProviderStreamOptions, Tool } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
@@ -21,19 +21,19 @@ const echoTool: Tool<typeof echoToolSchema> = {
 
 interface AnthropicEagerE2ECase {
 	name: string;
-	provider: KnownProvider;
+	provider: string;
 	model: Model<"anthropic-messages">;
 	apiKey: string | undefined;
 }
 
-function getE2EApiKey(provider: KnownProvider): string | undefined {
+function getE2EApiKey(provider: string): string | undefined {
 	if (provider === "github-copilot") {
 		return githubCopilotToken;
 	}
 	return getEnvApiKey(provider);
 }
 
-function getAnthropicMessagesModels(provider: KnownProvider): Model<"anthropic-messages">[] {
+function getAnthropicMessagesModels(provider: string): Model<"anthropic-messages">[] {
 	const models = getModels(provider) as Model<Api>[];
 	return models.filter((model) => model.api === "anthropic-messages") as Model<"anthropic-messages">[];
 }
@@ -66,7 +66,7 @@ function getProbePriority(model: Model<"anthropic-messages">): number {
 }
 
 function selectOneCasePerProvider(cases: AnthropicEagerE2ECase[]): AnthropicEagerE2ECase[] {
-	const byProvider = new Map<KnownProvider, AnthropicEagerE2ECase[]>();
+	const byProvider = new Map<string, AnthropicEagerE2ECase[]>();
 	for (const testCase of cases) {
 		const providerCases = byProvider.get(testCase.provider) ?? [];
 		providerCases.push(testCase);

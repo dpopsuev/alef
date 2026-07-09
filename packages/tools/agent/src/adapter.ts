@@ -279,11 +279,11 @@ export function createAgentAdapter(
 	): Promise<Record<string, unknown>> {
 		try {
 			const { getProviders, getModels } = await import("@dpopsuev/alef-ai/models");
-			const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
+			const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders());
 			const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
 			for (const p of providers) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed from getProviders()
-				for (const m of getModels(p as never)) {
+				 
+				for (const m of getModels(p)) {
 					result.push({ provider: p, id: m.id, name: m.name, contextWindow: m.contextWindow });
 				}
 			}

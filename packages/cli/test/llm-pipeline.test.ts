@@ -34,7 +34,7 @@ function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRe
 	const agent = new Agent();
 
 	const llm = createAgentLoop({
-		model: faux.getModel(),
+		model: faux.getModel()!,
 		apiKey: "faux",
 		systemPrompt: opts.systemPrompt,
 		phaseTimeoutMs: opts.phaseTimeoutMs,

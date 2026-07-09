@@ -46,7 +46,7 @@ vi.mock("@aws-sdk/client-bedrock-runtime", () => {
 
 import { getModel } from "../src/models/llm.js";
 import { streamBedrock } from "../src/providers/amazon-bedrock.js";
-import type { Context, Model } from "../src/types.js";
+import type { Api, Context, Model } from "../src/types.js";
 
 const context: Context = {
 	messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
@@ -83,22 +83,22 @@ afterEach(() => {
 	}
 });
 
-async function captureClientConfig(model: Model<"bedrock-converse-stream">): Promise<Record<string, unknown>> {
-	await streamBedrock(model, context, { cacheRetention: "none" }).result();
+async function captureClientConfig(model: Model<Api>): Promise<Record<string, unknown>> {
+	await streamBedrock(model as Model<"bedrock-converse-stream">, context, { cacheRetention: "none" }).result();
 	expect(bedrockMock.constructorCalls).toHaveLength(1);
 	return bedrockMock.constructorCalls[0]!;
 }
 
 describe("bedrock endpoint resolution", { tags: ["unit"] }, () => {
 	it("assigns eu-central-1 runtime URLs to built-in EU inference profiles", () => {
-		const model = getModel("amazon-bedrock", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0");
+		const model = getModel("amazon-bedrock", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
 
 		expect(model.baseUrl).toBe("https://bedrock-runtime.eu-central-1.amazonaws.com");
 	});
 
 	it("does not pin standard AWS endpoints when AWS_REGION is configured", async () => {
 		process.env.AWS_REGION = "us-east-2";
-		const model = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7");
+		const model = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7")!;
 
 		const config = await captureClientConfig(model);
 
@@ -107,7 +107,7 @@ describe("bedrock endpoint resolution", { tags: ["unit"] }, () => {
 	});
 
 	it("derives region from a built-in EU endpoint when no region or profile is configured", async () => {
-		const model = getModel("amazon-bedrock", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0");
+		const model = getModel("amazon-bedrock", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
 
 		const config = await captureClientConfig(model);
 
@@ -117,8 +117,8 @@ describe("bedrock endpoint resolution", { tags: ["unit"] }, () => {
 
 	it("still passes custom Bedrock endpoints through to the SDK client", async () => {
 		process.env.AWS_REGION = "us-west-2";
-		const baseModel = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7");
-		const model: Model<"bedrock-converse-stream"> = {
+		const baseModel = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7")!;
+		const model: Model<Api> = {
 			...baseModel,
 			baseUrl: "https://bedrock-vpc.example.com",
 		};

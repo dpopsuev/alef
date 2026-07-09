@@ -80,7 +80,7 @@ describe("openai-completions prompt caching", { tags: ["unit"] }, () => {
 	});
 
 	function createModel(overrides: Partial<Model<"openai-completions">> = {}): Model<"openai-completions"> {
-		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
+		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!;
 		return {
 			...(baseModel as Omit<Model<"openai-completions">, "api">),
 			api: "openai-completions",

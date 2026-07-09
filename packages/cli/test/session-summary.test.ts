@@ -34,7 +34,7 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 		const summaries = new SqliteSummaryStore(client);
 		const agent = new Agent();
 		const log = new SessionLog(store, "test-model", undefined, (s) => summaries.write(s));
-		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);
+		agent.load(createAgentLoop({ model: faux.getModel()!, apiKey: "faux-key" })).load(log);
 		const controller = new AgentController(agent);
 
 		await controller.send("hello", "user", 10_000);

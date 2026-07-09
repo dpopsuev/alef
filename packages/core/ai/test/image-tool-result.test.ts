@@ -209,7 +209,7 @@ async function handleToolWithTextAndImageResult<TApi extends Api>(
 
 describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider (gemini-2.5-flash)", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
+		const llm = getModel("google", "gemini-2.5-flash")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -221,7 +221,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider (gpt-4o-mini)", () => {
-		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
+		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!;
 		void _compat;
 		const llm: Model<"openai-completions"> = {
 			...baseModel,
@@ -238,7 +238,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider (gpt-5-mini)", () => {
-		const llm = getModel("openai", "gpt-5-mini");
+		const llm = getModel("openai", "gpt-5-mini")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -250,7 +250,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses Provider (gpt-4o-mini)", () => {
-		const llm = getModel("azure-openai-responses", "gpt-4o-mini");
+		const llm = getModel("azure-openai-responses", "gpt-4o-mini")!;
 		const azureDeploymentName = resolveAzureDeploymentName(llm.id);
 		const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
 
@@ -264,7 +264,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Provider (claude-haiku-4-5)", () => {
-		const model = getModel("anthropic", "claude-haiku-4-5");
+		const model = getModel("anthropic", "claude-haiku-4-5")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(model);
@@ -276,7 +276,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter Provider (glm-4.5v)", () => {
-		const llm = getModel("openrouter", "z-ai/glm-4.5v");
+		const llm = getModel("openrouter", "z-ai/glm-4.5v")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -288,7 +288,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral Provider (pixtral-12b)", () => {
-		const llm = getModel("mistral", "pixtral-12b");
+		const llm = getModel("mistral", "pixtral-12b")!;
 
 		it("should handle tool result with only image", { retry: 5, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -300,7 +300,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI Provider (Kimi-K2.6)", () => {
-		const llm = getModel("together", "moonshotai/Kimi-K2.6");
+		const llm = getModel("together", "moonshotai/Kimi-K2.6")!;
 		const options = { reasoningEffort: "high" } satisfies StreamOptionsWithExtras;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
@@ -313,7 +313,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.XIAOMI_API_KEY)("Xiaomi MiMo (API billing) Provider (mimo-v2.5-pro)", () => {
-		const llm = getModel("xiaomi", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi", "mimo-v2.5-pro")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -334,7 +334,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY)(
 		"Xiaomi MiMo Token Plan (CN) Provider (mimo-v2.5-pro)",
 		() => {
-			const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro")!;
 
 			it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 				await handleToolWithImageResult(llm);
@@ -351,7 +351,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY)(
 		"Xiaomi MiMo Token Plan (AMS) Provider (mimo-v2.5-pro)",
 		() => {
-			const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro")!;
 
 			it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 				await handleToolWithImageResult(llm);
@@ -368,7 +368,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY)(
 		"Xiaomi MiMo Token Plan (SGP) Provider (mimo-v2.5-pro)",
 		() => {
-			const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro")!;
 
 			it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 				await handleToolWithImageResult(llm);
@@ -383,7 +383,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	);
 
 	describe.skipIf(!process.env.KIMI_API_KEY)("Kimi For Coding Provider (kimi-for-coding)", () => {
-		const llm = getModel("kimi-coding", "kimi-for-coding");
+		const llm = getModel("kimi-coding", "kimi-for-coding")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -395,7 +395,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("Vercel AI Gateway Provider (google/gemini-2.5-flash)", () => {
-		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash");
+		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -407,7 +407,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	});
 
 	describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock Provider (claude-sonnet-4-5)", () => {
-		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0");
+		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
 
 		it("should handle tool result with only image", { retry: 3, timeout: 30000 }, async () => {
 			await handleToolWithImageResult(llm);
@@ -423,7 +423,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 	// =========================================================================
 
 	describe("Anthropic OAuth Provider (claude-sonnet-4-5)", () => {
-		const model = getModel("anthropic", "claude-sonnet-4-5");
+		const model = getModel("anthropic", "claude-sonnet-4-5")!;
 
 		it.skipIf(!anthropicOAuthToken)(
 			"should handle tool result with only image",
@@ -447,7 +447,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"gpt-4o - should handle tool result with only image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await handleToolWithImageResult(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -456,7 +456,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"gpt-4o - should handle tool result with text and image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await handleToolWithTextAndImageResult(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -465,7 +465,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"claude-sonnet-4 - should handle tool result with only image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await handleToolWithImageResult(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -474,7 +474,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"claude-sonnet-4 - should handle tool result with text and image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await handleToolWithTextAndImageResult(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -485,7 +485,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"gpt-5.2-codex - should handle tool result with only image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await handleToolWithImageResult(llm, { apiKey: openaiCodexToken });
 			},
 		);
@@ -494,7 +494,7 @@ describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"]
 			"gpt-5.2-codex - should handle tool result with text and image",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await handleToolWithTextAndImageResult(llm, { apiKey: openaiCodexToken });
 			},
 		);

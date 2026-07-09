@@ -1,5 +1,5 @@
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
-import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { ModelConfig } from "./resolve.js";
 
 /**
@@ -46,8 +46,8 @@ export function resolveProfile(cfg: ModelConfig): ResolvedProfile | null {
 
 	for (const provider of profile.providers ?? []) {
 		if (!(getProviders() as readonly string[]).includes(provider)) continue;
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() above
-		for (const m of getModels(provider as KnownProvider)) {
+		 
+		for (const m of getModels(provider)) {
 			if (profile.models && !matchesPattern(m.id, profile.models)) continue;
 			models.push({ provider, model: m });
 		}

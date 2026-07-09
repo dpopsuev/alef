@@ -31,7 +31,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hi there", timestamp: Date.now() }],
 		};
 
-		const response = await complete(registration.getModel(), context);
+		const response = await complete(registration.getModel()!, context);
 		expect(response.content).toEqual([{ type: "text", text: "hello world" }]);
 		expect(response.usage.input).toBeGreaterThan(0);
 		expect(response.usage.output).toBeGreaterThan(0);
@@ -48,7 +48,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			}),
 		]);
 
-		const response = await complete(registration.getModel(), {
+		const response = await complete(registration.getModel()!, {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
 		});
 
@@ -74,9 +74,9 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		expect(registration.models.map((model) => model.id)).toEqual(["faux-fast", "faux-thinker"]);
-		expect(registration.getModel()).toBe(registration.models[0]);
-		expect(registration.getModel("faux-fast")?.reasoning).toBe(false);
-		expect(registration.getModel("faux-thinker")?.reasoning).toBe(true);
+		expect(registration.getModel()!).toBe(registration.models[0]);
+		expect(registration.getModel("faux-fast")!?.reasoning).toBe(false);
+		expect(registration.getModel("faux-thinker")!?.reasoning).toBe(true);
 
 		const fast = await complete(registration.getModel("faux-fast")!, {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
@@ -98,7 +98,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		registrations.push(registration);
 		registration.setResponses([fauxAssistantMessage("hello")]);
 
-		const response = await complete(registration.getModel(), {
+		const response = await complete(registration.getModel()!, {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
 		});
 
@@ -116,9 +116,9 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
 		};
 
-		const first = await complete(registration.getModel(), context);
-		const second = await complete(registration.getModel(), context);
-		const exhausted = await complete(registration.getModel(), context);
+		const first = await complete(registration.getModel()!, context);
+		const second = await complete(registration.getModel()!, context);
+		const exhausted = await complete(registration.getModel()!, context);
 
 		expect(first.content).toEqual([{ type: "text", text: "first" }]);
 		expect(second.content).toEqual([{ type: "text", text: "second" }]);
@@ -137,17 +137,17 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
 		};
 
-		expect((await complete(registration.getModel(), context)).content).toEqual([{ type: "text", text: "first" }]);
+		expect((await complete(registration.getModel()!, context)).content).toEqual([{ type: "text", text: "first" }]);
 		expect(registration.getPendingResponseCount()).toBe(0);
 
 		registration.setResponses([fauxAssistantMessage("second")]);
 		expect(registration.getPendingResponseCount()).toBe(1);
-		expect((await complete(registration.getModel(), context)).content).toEqual([{ type: "text", text: "second" }]);
+		expect((await complete(registration.getModel()!, context)).content).toEqual([{ type: "text", text: "second" }]);
 
 		registration.appendResponses([fauxAssistantMessage("third"), fauxAssistantMessage("fourth")]);
 		expect(registration.getPendingResponseCount()).toBe(2);
-		expect((await complete(registration.getModel(), context)).content).toEqual([{ type: "text", text: "third" }]);
-		expect((await complete(registration.getModel(), context)).content).toEqual([{ type: "text", text: "fourth" }]);
+		expect((await complete(registration.getModel()!, context)).content).toEqual([{ type: "text", text: "third" }]);
+		expect((await complete(registration.getModel()!, context)).content).toEqual([{ type: "text", text: "fourth" }]);
 		expect(registration.getPendingResponseCount()).toBe(0);
 	});
 
@@ -158,7 +158,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			async (context, _options, state) => fauxAssistantMessage(`${context.messages.length}:${state.callCount}`),
 		]);
 
-		const response = await complete(registration.getModel(), {
+		const response = await complete(registration.getModel()!, {
 			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
 		});
 
@@ -175,7 +175,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		const events = await collectEvents(
-			stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		);
 
 		expect(events).toHaveLength(1);
@@ -220,7 +220,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			tools: [tool],
 		};
 
-		const response = await complete(registration.getModel(), context);
+		const response = await complete(registration.getModel()!, context);
 		const promptText = [
 			"system:sys",
 			"user:hello\n[image:image/png:4]",
@@ -251,7 +251,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
 		};
 
-		const first = await complete(registration.getModel(), context, {
+		const first = await complete(registration.getModel()!, context, {
 			sessionId: "session-1",
 			cacheRetention: "short",
 		});
@@ -259,14 +259,14 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		context.messages.push(first);
 		context.messages.push({ role: "user", content: "follow up", timestamp: Date.now() + 1 });
 
-		const second = await complete(registration.getModel(), context, {
+		const second = await complete(registration.getModel()!, context, {
 			sessionId: "session-2",
 			cacheRetention: "short",
 		});
 		expect(second.usage.cacheRead).toBe(0);
 		expect(second.usage.cacheWrite).toBeGreaterThan(0);
 
-		const third = await complete(registration.getModel(), context);
+		const third = await complete(registration.getModel()!, context);
 		expect(third.usage.cacheRead).toBe(0);
 		expect(third.usage.cacheWrite).toBe(0);
 	});
@@ -281,7 +281,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
 		};
 
-		const first = await complete(registration.getModel(), context, {
+		const first = await complete(registration.getModel()!, context, {
 			sessionId: "session-1",
 			cacheRetention: "short",
 		});
@@ -291,7 +291,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		context.messages.push(first);
 		context.messages.push({ role: "user", content: "follow up", timestamp: Date.now() + 1 });
 
-		const second = await complete(registration.getModel(), context, {
+		const second = await complete(registration.getModel()!, context, {
 			sessionId: "session-1",
 			cacheRetention: "short",
 		});
@@ -308,10 +308,10 @@ describe("faux provider", { tags: ["unit"] }, () => {
 			messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
 		};
 
-		await complete(registration.getModel(), context, { sessionId: "session-1", cacheRetention: "none" });
+		await complete(registration.getModel()!, context, { sessionId: "session-1", cacheRetention: "none" });
 		context.messages.push(fauxAssistantMessage("first"));
 		context.messages.push({ role: "user", content: "follow up", timestamp: Date.now() + 1 });
-		const second = await complete(registration.getModel(), context, {
+		const second = await complete(registration.getModel()!, context, {
 			sessionId: "session-1",
 			cacheRetention: "none",
 		});
@@ -335,7 +335,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 
 		const events: string[] = [];
 		const toolCallDeltas: string[] = [];
-		const s = stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] });
+		const s = stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] });
 		for await (const event of s) {
 			events.push(event.type);
 			if (event.type === "toolcall_delta") {
@@ -364,7 +364,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		const events = await collectEvents(
-			stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		);
 
 		expect(events.map((event) => event.type)).toEqual([
@@ -396,7 +396,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		const events = await collectEvents(
-			stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		);
 
 		expect(events.filter((event) => event.type === "toolcall_start")).toHaveLength(2);
@@ -415,7 +415,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		const events = await collectEvents(
-			stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		);
 
 		expect(events.map((event) => event.type)).toEqual(["start", "text_start", "text_delta", "text_end", "error"]);
@@ -440,7 +440,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		]);
 
 		const events = await collectEvents(
-			stream(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			stream(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		);
 
 		expect(events.map((event) => event.type)).toEqual(["start", "text_start", "text_delta", "text_end", "error"]);
@@ -462,7 +462,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		controller.abort();
 		const events = await collectEvents(
 			stream(
-				registration.getModel(),
+				registration.getModel()!,
 				{ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] },
 				{ signal: controller.signal },
 			),
@@ -485,7 +485,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		const events: string[] = [];
 		let textDeltaCount = 0;
 		const s = stream(
-			registration.getModel(),
+			registration.getModel()!,
 			{ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] },
 			{ signal: controller.signal },
 		);
@@ -518,7 +518,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		const events: string[] = [];
 		let thinkingDeltaCount = 0;
 		const s = stream(
-			registration.getModel(),
+			registration.getModel()!,
 			{ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] },
 			{ signal: controller.signal },
 		);
@@ -559,7 +559,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		const events: string[] = [];
 		let toolCallDeltaCount = 0;
 		const s = stream(
-			registration.getModel(),
+			registration.getModel()!,
 			{ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] },
 			{ signal: controller.signal },
 		);
@@ -584,7 +584,7 @@ describe("faux provider", { tags: ["unit"] }, () => {
 		registration.unregister();
 
 		await expect(
-			complete(registration.getModel(), { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
+			complete(registration.getModel()!, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }),
 		).rejects.toThrow(`No API provider registered for api: ${registration.api}`);
 	});
 });

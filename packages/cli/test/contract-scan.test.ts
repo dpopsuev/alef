@@ -34,7 +34,7 @@ function stubFactory(_model: Model<Api>): SubagentFactory {
 
 const faux = registerFauxProvider();
 const delegateAdapter = createAgentAdapter({
-	strategies: { explore: new InProcessStrategy([], stubFactory(faux.getModel())) },
+	strategies: { explore: new InProcessStrategy([], stubFactory(faux.getModel()!)) },
 });
 
 const adapters: Array<{ name: string; adapter: Adapter }> = [

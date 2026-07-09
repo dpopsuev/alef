@@ -35,7 +35,7 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 		]);
 
 		const fsOrgan = createAdapter({ cwd: "/tmp" });
-		const factory = buildSubagentFactory({ model: faux.getModel() });
+		const factory = buildSubagentFactory({ model: faux.getModel()! });
 		const session = factory({ adapters: [fsOrgan] });
 		disposes.push(() => session.dispose());
 
@@ -63,7 +63,7 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 		]);
 
 		const fsOrgan = createAdapter({ cwd: "/tmp" });
-		const factory = buildSubagentFactory({ model: faux.getModel() });
+		const factory = buildSubagentFactory({ model: faux.getModel()! });
 		const strategy = new InProcessStrategy([fsOrgan], factory, "You are a test agent.");
 
 		const reply = await strategy.send({ text: "List files" });

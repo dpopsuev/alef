@@ -49,7 +49,7 @@ async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";
 	const model =
-		getModel(provider as "anthropic", "claude-haiku-4-5" as never) ??
+		getModel(provider as "anthropic", "claude-haiku-4-5" as never)! ??
 		getModel("anthropic", "claude-haiku-4-5" as never);
 
 	const agent = new Agent();

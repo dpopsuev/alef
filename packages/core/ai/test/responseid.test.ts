@@ -25,7 +25,7 @@ async function expectResponseId<TApi extends Api>(model: Model<TApi>, options: S
 
 describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
+		const llm = getModel("google", "gemini-2.5-flash")!;
 
 		it("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
 			await expectResponseId(llm);
@@ -38,7 +38,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 		const vertexApiKey = process.env.GOOGLE_CLOUD_API_KEY;
 		const isVertexConfigured = Boolean(vertexProject && vertexLocation);
 		const vertexOptions = { project: vertexProject, location: vertexLocation } as const;
-		const llm = getModel("google-vertex", "gemini-3-flash-preview");
+		const llm = getModel("google-vertex", "gemini-3-flash-preview")!;
 
 		it.skipIf(!isVertexConfigured)("should expose responseId with ADC", { retry: 3, timeout: 30000 }, async () => {
 			await expectResponseId(llm, vertexOptions);
@@ -50,7 +50,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider", () => {
-		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
+		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!;
 		void _compat;
 		const llm: Model<"openai-completions"> = {
 			...baseModel,
@@ -63,7 +63,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider", () => {
-		const llm = getModel("openai", "gpt-5-mini");
+		const llm = getModel("openai", "gpt-5-mini")!;
 
 		it("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
 			await expectResponseId(llm);
@@ -71,7 +71,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Provider", () => {
-		const llm = getModel("anthropic", "claude-sonnet-4-5");
+		const llm = getModel("anthropic", "claude-sonnet-4-5")!;
 
 		it("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
 			await expectResponseId(llm);
@@ -79,7 +79,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses Provider", () => {
-		const llm = getModel("azure-openai-responses", "gpt-4o-mini");
+		const llm = getModel("azure-openai-responses", "gpt-4o-mini")!;
 		const azureDeploymentName = resolveAzureDeploymentName(llm.id);
 		const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
 
@@ -89,7 +89,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral Provider", () => {
-		const llm = getModel("mistral", "devstral-medium-latest");
+		const llm = getModel("mistral", "devstral-medium-latest")!;
 
 		it("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
 			await expectResponseId(llm);
@@ -98,7 +98,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 
 	describe("GitHub Copilot Provider", () => {
 		it.skipIf(!githubCopilotToken)("OpenAI path should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			const llm = getModel("github-copilot", "gpt-5.3-codex");
+			const llm = getModel("github-copilot", "gpt-5.3-codex")!;
 			await expectResponseId(llm, { apiKey: githubCopilotToken });
 		});
 
@@ -106,7 +106,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 			"Anthropic path should expose responseId",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await expectResponseId(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -114,7 +114,7 @@ describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 
 	describe("OpenAI Codex Provider", () => {
 		it.skipIf(!openaiCodexToken)("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			const llm = getModel("openai-codex", "gpt-5.2-codex");
+			const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 			await expectResponseId(llm, { apiKey: openaiCodexToken });
 		});
 	});

@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe("Fireworks models", { tags: ["unit"] }, () => {
 	it("registers the default Kimi K2.6 model via Anthropic-compatible Messages API", () => {
-		const model = getModel("fireworks", "accounts/fireworks/models/kimi-k2p6");
+		const model = getModel("fireworks", "accounts/fireworks/models/kimi-k2p6")!;
 
 		expect(model).toBeDefined();
 		expect(model.api).toBe("anthropic-messages");
@@ -33,7 +33,7 @@ describe("Fireworks models", { tags: ["unit"] }, () => {
 	});
 
 	it("registers the Fire Pass turbo router model", () => {
-		const model = getModel("fireworks", "accounts/fireworks/routers/kimi-k2p6-turbo");
+		const model = getModel("fireworks", "accounts/fireworks/routers/kimi-k2p6-turbo")!;
 
 		expect(model).toBeDefined();
 		expect(model.api).toBe("anthropic-messages");

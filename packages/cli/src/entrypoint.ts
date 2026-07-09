@@ -255,6 +255,8 @@ const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
+import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
+
 // Session service — the mediator between agent and UI surfaces
 supervisor.register(
 	createSessionServiceDescriptor({

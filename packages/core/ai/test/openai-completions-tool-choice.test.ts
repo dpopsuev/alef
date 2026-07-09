@@ -249,11 +249,11 @@ describe("openai-completions tool_choice", { tags: ["unit"] }, () => {
 	});
 
 	it("stores z.ai tool_stream support in model compat metadata", () => {
-		expect(getModel("zai", "glm-5.1")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.7")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.7")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-5-turbo")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.5-air")?.compat?.zaiToolStream).toBeUndefined();
+		expect((getModel("zai", "glm-5.1")!?.compat as any)?.zaiToolStream).toBe(true);
+		expect((getModel("zai", "glm-4.7")!?.compat as any)?.zaiToolStream).toBe(true);
+		expect((getModel("zai", "glm-4.7")!?.compat as any)?.zaiToolStream).toBe(true);
+		expect((getModel("zai", "glm-5-turbo")!?.compat as any)?.zaiToolStream).toBe(true);
+		expect((getModel("zai", "glm-4.5-air")!?.compat as any)?.zaiToolStream).toBeUndefined();
 	});
 
 	it("omits tool_stream for unsupported z.ai models", async () => {

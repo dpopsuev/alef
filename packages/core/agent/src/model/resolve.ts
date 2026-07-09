@@ -100,9 +100,8 @@ const DEFAULT_MODEL_PER_PROVIDER: Partial<Record<KnownProvider, string>> = {
 function lookupModel(provider: string, modelId: string): Model<Api> | undefined {
 	const providers: readonly string[] = getProviders();
 	if (!providers.includes(provider)) return undefined;
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() above
-	const models = getModels(provider as KnownProvider);
-	return (models as Model<Api>[]).find((m) => m.id === modelId);
+	const models = getModels(provider);
+	return models.find((m) => m.id === modelId);
 }
 
 /**
@@ -151,10 +150,10 @@ export function buildModel(id: string): Model<Api> {
 	}
 
 	const allProviders = getProviders();
-	const matches: Array<{ provider: KnownProvider; model: Model<Api> }> = [];
+	const matches: Array<{ provider: string; model: Model<Api> }> = [];
 	for (const provider of allProviders) {
 		const models = getModels(provider);
-		const found = (models as Model<Api>[]).find((m) => m.id === id);
+		const found = models.find((m) => m.id === id);
 		if (found) matches.push({ provider, model: found });
 	}
 

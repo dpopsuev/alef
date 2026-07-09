@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { streamSimple } from "../src/stream.js";
-import type { Context, Model, SimpleStreamOptions } from "../src/types.js";
+import type { Api, Context, Model, SimpleStreamOptions } from "../src/types.js";
 
 interface AnthropicThinkingPayload {
 	thinking?: { type: string; budget_tokens?: number; display?: string };
@@ -15,11 +15,11 @@ function makePayloadCaptureContext(): Context {
 }
 
 async function capturePayload(
-	model: Model<"anthropic-messages">,
+	model: Model<Api>,
 	options?: SimpleStreamOptions,
 ): Promise<AnthropicThinkingPayload> {
 	let capturedPayload: AnthropicThinkingPayload | undefined;
-	const payloadCaptureModel: Model<"anthropic-messages"> = {
+	const payloadCaptureModel: Model<Api> = {
 		...model,
 		baseUrl: "http://127.0.0.1:9",
 	};
@@ -67,7 +67,7 @@ function countPongs(text: string): number {
 	return text.match(/\bpong\b/gi)?.length ?? 0;
 }
 
-async function runWithoutReasoning(model: Model<"anthropic-messages">): Promise<RunResult> {
+async function runWithoutReasoning(model: Model<Api>): Promise<RunResult> {
 	const s = streamSimple(model, makeE2EContext(), {
 		temperature: 0,
 		maxTokens: 160,
@@ -105,35 +105,35 @@ async function runWithoutReasoning(model: Model<"anthropic-messages">): Promise<
 
 describe("Anthropic thinking disable payload", { tags: ["unit"] }, () => {
 	it("sends thinking.type=disabled for budget-based reasoning models when thinking is off", async () => {
-		const payload = await capturePayload(getModel("anthropic", "claude-sonnet-4-5"));
+		const payload = await capturePayload(getModel("anthropic", "claude-sonnet-4-5")!);
 
 		expect(payload.thinking).toEqual({ type: "disabled" });
 		expect(payload.output_config).toBeUndefined();
 	});
 
 	it("sends thinking.type=disabled for adaptive reasoning models when thinking is off", async () => {
-		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-6"));
+		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-6")!);
 
 		expect(payload.thinking).toEqual({ type: "disabled" });
 		expect(payload.output_config).toBeUndefined();
 	});
 
 	it("sends thinking.type=disabled for Claude Opus 4.7 when thinking is off", async () => {
-		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7"));
+		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7")!);
 
 		expect(payload.thinking).toEqual({ type: "disabled" });
 		expect(payload.output_config).toBeUndefined();
 	});
 
 	it("uses adaptive thinking for Claude Opus 4.7 when reasoning is enabled", async () => {
-		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7"), { reasoning: "high" });
+		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7")!, { reasoning: "high" });
 
 		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
 		expect(payload.output_config).toEqual({ effort: "high" });
 	});
 
 	it("maps xhigh reasoning to effort=xhigh for Claude Opus 4.7", async () => {
-		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7"), { reasoning: "xhigh" });
+		const payload = await capturePayload(getModel("anthropic", "claude-opus-4-7")!, { reasoning: "xhigh" });
 
 		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
 		expect(payload.output_config).toEqual({ effort: "xhigh" });
@@ -142,7 +142,7 @@ describe("Anthropic thinking disable payload", { tags: ["unit"] }, () => {
 
 describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic thinking disable E2E", { tags: ["real-llm"] }, () => {
 	it("disables thinking for Claude reasoning models", { retry: 2, timeout: 30000 }, async () => {
-		const result = await runWithoutReasoning(getModel("anthropic", "claude-sonnet-4-5"));
+		const result = await runWithoutReasoning(getModel("anthropic", "claude-sonnet-4-5")!);
 
 		expect(result.thinkingEventCount).toBe(0);
 		expect(result.thinkingCharCount).toBe(0);

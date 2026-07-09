@@ -38,7 +38,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		// Inner factory: responds after INNER_DELAY_MS
 		// Without fix: outer timeout = HTTP_TIMEOUT_MS (200ms) < INNER_DELAY_MS (500ms) → timeout
 		// With fix: outer timeout = schema default (600_000ms) >> INNER_DELAY_MS → success
-		const innerFactory = buildSubagentFactory({ model: innerFaux.getModel() });
+		const innerFactory = buildSubagentFactory({ model: innerFaux.getModel()! });
 		innerFaux.setResponses([
 			async () => {
 				await new Promise<void>((r) => setTimeout(r, INNER_DELAY_MS));
@@ -75,7 +75,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agent.load(createContextAssembler());
 
 		const outerLlm = createAgentLoop({
-			model: outerFaux.getModel(),
+			model: outerFaux.getModel()!,
 			timeoutMs: HTTP_TIMEOUT_MS,
 			// Full schemas — used by toOuterTimeoutMs to read the 600s default
 			schemaResolver: (name) => agent.tools.find((t) => t.name === name),
@@ -100,7 +100,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		const outerFaux = registerFauxProvider();
 		const innerFaux = registerFauxProvider();
 
-		const innerFactory = buildSubagentFactory({ model: innerFaux.getModel() });
+		const innerFactory = buildSubagentFactory({ model: innerFaux.getModel()! });
 		innerFaux.setResponses([
 			async () => {
 				await new Promise<void>((r) => setTimeout(r, INNER_DELAY_MS));
@@ -133,7 +133,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agent.load(createContextAssembler());
 
 		const outerLlm = createAgentLoop({
-			model: outerFaux.getModel(),
+			model: outerFaux.getModel()!,
 			timeoutMs: HTTP_TIMEOUT_MS,
 			// getFullTools intentionally absent — bug path
 		});

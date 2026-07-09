@@ -86,7 +86,7 @@ async function testTokensOnAbort<TApi extends Api>(llm: Model<TApi>, options: St
 
 describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
+		const llm = getModel("google", "gemini-2.5-flash")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm, { thinking: { enabled: true } });
@@ -107,7 +107,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider", () => {
-		const llm = getModel("openai", "gpt-5.4-mini");
+		const llm = getModel("openai", "gpt-5.4-mini")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm, { reasoningEffort: "low" });
@@ -115,7 +115,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses Provider", () => {
-		const llm = getModel("azure-openai-responses", "gpt-4o-mini");
+		const llm = getModel("azure-openai-responses", "gpt-4o-mini")!;
 		const azureDeploymentName = resolveAzureDeploymentName(llm.id);
 		const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
 
@@ -125,7 +125,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Provider", () => {
-		const llm = getModel("anthropic", "claude-sonnet-4-6");
+		const llm = getModel("anthropic", "claude-sonnet-4-6")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -133,7 +133,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XAI_API_KEY)("xAI Provider", () => {
-		const llm = getModel("xai", "grok-code-fast-1");
+		const llm = getModel("xai", "grok-code-fast-1")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -141,7 +141,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.GROQ_API_KEY)("Groq Provider", () => {
-		const llm = getModel("groq", "openai/gpt-oss-20b");
+		const llm = getModel("groq", "openai/gpt-oss-20b")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -149,7 +149,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.CEREBRAS_API_KEY)("Cerebras Provider", () => {
-		const llm = getModel("cerebras", "gpt-oss-120b");
+		const llm = getModel("cerebras", "gpt-oss-120b")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -157,7 +157,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!hasCloudflareWorkersAICredentials())("Cloudflare Workers AI Provider", () => {
-		const llm = getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6");
+		const llm = getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -165,7 +165,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!hasCloudflareAiGatewayCredentials())("Cloudflare AI Gateway Provider", () => {
-		const llm = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6");
+		const llm = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -173,7 +173,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.HF_TOKEN)("Hugging Face Provider", () => {
-		const llm = getModel("huggingface", "moonshotai/Kimi-K2.5");
+		const llm = getModel("huggingface", "moonshotai/Kimi-K2.5")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -181,7 +181,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI Provider", () => {
-		const llm = getModel("together", "moonshotai/Kimi-K2.6");
+		const llm = getModel("together", "moonshotai/Kimi-K2.6")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -189,7 +189,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.ZAI_API_KEY)("zAI Provider", () => {
-		const llm = getModel("zai", "glm-4.5-air");
+		const llm = getModel("zai", "glm-4.5-air")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -197,7 +197,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral Provider", () => {
-		const llm = getModel("mistral", "devstral-medium-latest");
+		const llm = getModel("mistral", "devstral-medium-latest")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -205,7 +205,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.MINIMAX_API_KEY)("MiniMax Provider", () => {
-		const llm = getModel("minimax", "MiniMax-M2.7");
+		const llm = getModel("minimax", "MiniMax-M2.7")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -213,7 +213,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.KIMI_API_KEY)("Kimi For Coding Provider", () => {
-		const llm = getModel("kimi-coding", "kimi-for-coding");
+		const llm = getModel("kimi-coding", "kimi-for-coding")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -221,7 +221,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("Vercel AI Gateway Provider", () => {
-		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash");
+		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);
@@ -229,7 +229,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_API_KEY)("Xiaomi MiMo (API billing) Provider", () => {
-		const llm = getModel("xiaomi", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi", "mimo-v2.5-pro")!;
 
 		// FIXME(xiaomi): Xiaomi's Anthropic-compatible stream does not populate
 		// usage in the message_start event the way Anthropic does — usage only
@@ -242,7 +242,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY)("Xiaomi MiMo Token Plan (CN) Provider", () => {
-		const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro")!;
 
 		// FIXME(xiaomi): see the API-billing block above — same upstream streaming
 		// usage limitation applies to Token Plan endpoints.
@@ -252,7 +252,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY)("Xiaomi MiMo Token Plan (AMS) Provider", () => {
-		const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro")!;
 
 		// FIXME(xiaomi): see the API-billing block above — same upstream streaming
 		// usage limitation applies to Token Plan endpoints.
@@ -262,7 +262,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY)("Xiaomi MiMo Token Plan (SGP) Provider", () => {
-		const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro")!;
 
 		// FIXME(xiaomi): see the API-billing block above — same upstream streaming
 		// usage limitation applies to Token Plan endpoints.
@@ -276,7 +276,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	// =========================================================================
 
 	describe("Anthropic OAuth Provider", () => {
-		const llm = getModel("anthropic", "claude-sonnet-4-6");
+		const llm = getModel("anthropic", "claude-sonnet-4-6")!;
 
 		it.skipIf(!anthropicOAuthToken)(
 			"should include token stats when aborted mid-stream",
@@ -292,7 +292,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 			"gpt-4o - should include token stats when aborted mid-stream",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await testTokensOnAbort(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -301,7 +301,7 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 			"claude-sonnet-4 - should include token stats when aborted mid-stream",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await testTokensOnAbort(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -312,14 +312,14 @@ describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 			"gpt-5.2-codex - should include token stats when aborted mid-stream",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await testTokensOnAbort(llm, { apiKey: openaiCodexToken });
 			},
 		);
 	});
 
 	describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock Provider", () => {
-		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0");
+		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
 
 		it("should include token stats when aborted mid-stream", { retry: 3, timeout: 30000 }, async () => {
 			await testTokensOnAbort(llm);

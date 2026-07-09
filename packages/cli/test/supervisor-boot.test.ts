@@ -90,7 +90,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 				log: SILENT_LOGGER,
 				store,
 				loaded: EMPTY_LOADED,
-				model: faux.getModel(),
+				model: faux.getModel()!,
 				storage: STUB_STORAGE,
 			},
 			faux,
@@ -218,7 +218,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			log: SILENT_LOGGER,
 			store,
 			loaded: EMPTY_LOADED,
-			model: faux.getModel(),
+			model: faux.getModel()!,
 			storage: STUB_STORAGE,
 		};
 

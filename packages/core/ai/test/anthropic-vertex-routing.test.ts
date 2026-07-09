@@ -103,7 +103,7 @@ describe("Anthropic Vertex routing", { tags: ["unit"] }, () => {
 		vi.stubEnv("GOOGLE_CLOUD_LOCATION", "global");
 		vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-api-key-test");
 
-		const model = getModel("anthropic", "claude-sonnet-4-6");
+		const model = getModel("anthropic", "claude-sonnet-4-6")!;
 		const result = await streamSimple(model, createContext(), {
 			apiKey: "sk-ant-oat01-test",
 		}).result();
@@ -125,7 +125,7 @@ describe("Anthropic Vertex routing", { tags: ["unit"] }, () => {
 		vi.stubEnv("GOOGLE_CLOUD_PROJECT", "vertex-fallback-project");
 		vi.stubEnv("CLOUD_ML_REGION", "global");
 
-		const model = getModel("anthropic", "claude-sonnet-4-6");
+		const model = getModel("anthropic", "claude-sonnet-4-6")!;
 		const result = await streamSimple(model, createContext()).result();
 
 		expect(result.stopReason).toBe("stop");

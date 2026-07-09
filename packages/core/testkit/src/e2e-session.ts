@@ -62,8 +62,8 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed to union for getModel lookup
-	const model = getModel(provider as "anthropic", modelId as never);
+	const model = getModel(provider, modelId);
+	if (!model) throw new Error(`Model ${provider}/${modelId} not found in registry`);
 
 	const agent = new Agent();
 	let reply = "";

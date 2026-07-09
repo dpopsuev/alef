@@ -21,7 +21,7 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 
 		const bus = new InProcessBus();
 		const llm = createAgentLoop({
-			model: faux.getModel(),
+			model: faux.getModel()!,
 			apiKey: "faux-key",
 		});
 		unmounts.push(llm.mount(bus.asBus()));

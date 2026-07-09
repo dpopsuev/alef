@@ -21,7 +21,7 @@ function makeAgent(opts: { timeoutMs?: number } = {}) {
 	const agent = new Agent();
 	agent.load(
 		createAgentLoop({
-			model: faux.getModel(),
+			model: faux.getModel()!,
 			apiKey: "faux-key",
 		}),
 	);

@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { streamAnthropic } from "../src/providers/anthropic.js";
-import type { Context, ToolCall } from "../src/types.js";
+import type { Context, Model, ToolCall } from "../src/types.js";
 
 function createSseResponse(events: Array<{ event: string; data: string }>): Response {
 	const body = events.map(({ event, data }) => `event: ${event}\ndata: ${data}\n`).join("\n");
@@ -80,7 +80,7 @@ function createFakeAnthropicClient(response: Response): Anthropic {
 
 describe("Anthropic raw SSE parsing", { tags: ["unit"] }, () => {
 	it("repairs malformed SSE JSON and malformed streamed tool JSON", async () => {
-		const model = getModel("anthropic", "claude-haiku-4-5");
+		const model = getModel("anthropic", "claude-haiku-4-5")! as Model<"anthropic-messages"> as Model<"anthropic-messages">;
 		const context: Context = {
 			messages: [{ role: "user", content: "Use the edit tool.", timestamp: Date.now() }],
 			tools: [
@@ -167,7 +167,7 @@ describe("Anthropic raw SSE parsing", { tags: ["unit"] }, () => {
 	});
 
 	it("ignores unknown SSE events after message_stop", async () => {
-		const model = getModel("anthropic", "claude-haiku-4-5");
+		const model = getModel("anthropic", "claude-haiku-4-5")! as Model<"anthropic-messages"> as Model<"anthropic-messages">;
 		const context: Context = {
 			messages: [{ role: "user", content: "Say hello.", timestamp: Date.now() }],
 		};

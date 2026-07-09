@@ -84,7 +84,7 @@ describe("RemoteSession ↔ RouterAdapter", { tags: ["integration"] }, () => {
 		cleanups.push(() => remote.dispose());
 		await remote.ready();
 
-		expect(remote.getModel()).toBe("test-model");
+		expect(remote.getModel()!).toBe("test-model");
 		expect(remote.state.contextWindow).toBe(128_000);
 	}, 10_000);
 });

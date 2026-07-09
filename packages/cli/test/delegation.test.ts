@@ -97,7 +97,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const capturedEvents: string[] = [];
 
 		// Inner strategy: InProcessStrategy with inner faux LLM
-		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
+		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()!));
 
 		// Adapter-delegate with the inner strategy registered as 'explore'
 		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
@@ -115,7 +115,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		});
 		f.mount(
 			createAgentLoop({
-				model: outerFaux.getModel(),
+				model: outerFaux.getModel()!,
 				apiKey: "outer-key",
 			}),
 		);
@@ -160,7 +160,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Inner LLM never responds — causes InProcessStrategy to time out
 		// (no response set on innerFaux, so it returns an error)
 
-		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
+		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()!));
 		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
@@ -173,7 +173,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		});
 		f.mount(
 			createAgentLoop({
-				model: outerFaux.getModel(),
+				model: outerFaux.getModel()!,
 				apiKey: "outer-key",
 			}),
 		);
@@ -229,7 +229,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			},
 		);
 
-		const innerStrategy = new InProcessStrategy([readerAdapter], makeTestFactory(innerFaux.getModel()));
+		const innerStrategy = new InProcessStrategy([readerAdapter], makeTestFactory(innerFaux.getModel()!));
 		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
@@ -242,7 +242,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		});
 		f.mount(
 			createAgentLoop({
-				model: outerFaux.getModel(),
+				model: outerFaux.getModel()!,
 				apiKey: "outer-key",
 			}),
 		);
@@ -309,7 +309,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		});
 		f.mount(
 			createAgentLoop({
-				model: outerFaux.getModel(),
+				model: outerFaux.getModel()!,
 				apiKey: "outer-key",
 			}),
 		);
@@ -381,7 +381,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		});
 		f.mount(
 			createAgentLoop({
-				model: outerFaux.getModel(),
+				model: outerFaux.getModel()!,
 				apiKey: "outer-key",
 			}),
 		);

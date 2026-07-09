@@ -285,7 +285,7 @@ async function testUnpairedHighSurrogate<TApi extends Api>(llm: Model<TApi>, opt
 
 describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Unicode Handling", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
+		const llm = getModel("google", "gemini-2.5-flash")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -301,7 +301,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider Unicode Handling", () => {
-		const llm = getModel("openai", "gpt-4o-mini");
+		const llm = getModel("openai", "gpt-4o-mini")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -317,7 +317,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider Unicode Handling", () => {
-		const llm = getModel("openai", "gpt-5-mini");
+		const llm = getModel("openai", "gpt-5-mini")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -333,7 +333,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses Provider Unicode Handling", () => {
-		const llm = getModel("azure-openai-responses", "gpt-4o-mini");
+		const llm = getModel("azure-openai-responses", "gpt-4o-mini")!;
 		const azureDeploymentName = resolveAzureDeploymentName(llm.id);
 		const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
 
@@ -351,7 +351,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Provider Unicode Handling", () => {
-		const llm = getModel("anthropic", "claude-haiku-4-5");
+		const llm = getModel("anthropic", "claude-haiku-4-5")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -371,7 +371,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	// =========================================================================
 
 	describe("Anthropic OAuth Provider Unicode Handling", () => {
-		const llm = getModel("anthropic", "claude-haiku-4-5");
+		const llm = getModel("anthropic", "claude-haiku-4-5")!;
 
 		it.skipIf(!anthropicOAuthToken)("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm, { apiKey: anthropicOAuthToken });
@@ -399,7 +399,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-4o - should handle emoji in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await testEmojiInToolResults(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -408,7 +408,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-4o - should handle real-world LinkedIn comment data with emoji",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await testRealWorldLinkedInData(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -417,7 +417,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-4o - should handle unpaired high surrogate (0xD83D) in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "gpt-5-mini");
+				const llm = getModel("github-copilot", "gpt-5-mini")!;
 				await testUnpairedHighSurrogate(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -426,7 +426,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"claude-sonnet-4 - should handle emoji in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await testEmojiInToolResults(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -435,7 +435,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"claude-sonnet-4 - should handle real-world LinkedIn comment data with emoji",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await testRealWorldLinkedInData(llm, { apiKey: githubCopilotToken });
 			},
 		);
@@ -444,14 +444,14 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"claude-sonnet-4 - should handle unpaired high surrogate (0xD83D) in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5");
+				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
 				await testUnpairedHighSurrogate(llm, { apiKey: githubCopilotToken });
 			},
 		);
 	});
 
 	describe.skipIf(!process.env.XAI_API_KEY)("xAI Provider Unicode Handling", () => {
-		const llm = getModel("xai", "grok-4.3");
+		const llm = getModel("xai", "grok-4.3")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -467,7 +467,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.GROQ_API_KEY)("Groq Provider Unicode Handling", () => {
-		const llm = getModel("groq", "openai/gpt-oss-20b");
+		const llm = getModel("groq", "openai/gpt-oss-20b")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -483,7 +483,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.CEREBRAS_API_KEY)("Cerebras Provider Unicode Handling", () => {
-		const llm = getModel("cerebras", "gpt-oss-120b");
+		const llm = getModel("cerebras", "gpt-oss-120b")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -499,7 +499,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!hasCloudflareWorkersAICredentials())("Cloudflare Workers AI Provider Unicode Handling", () => {
-		const llm = getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6");
+		const llm = getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -515,7 +515,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!hasCloudflareAiGatewayCredentials())("Cloudflare AI Gateway Provider Unicode Handling", () => {
-		const llm = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6");
+		const llm = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -531,7 +531,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.HF_TOKEN)("Hugging Face Provider Unicode Handling", () => {
-		const llm = getModel("huggingface", "moonshotai/Kimi-K2.5");
+		const llm = getModel("huggingface", "moonshotai/Kimi-K2.5")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -547,7 +547,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI Provider Unicode Handling", () => {
-		const llm = getModel("together", "moonshotai/Kimi-K2.6");
+		const llm = getModel("together", "moonshotai/Kimi-K2.6")!;
 		const options = { reasoningEffort: "high" } satisfies StreamOptionsWithExtras;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
@@ -564,7 +564,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.ZAI_API_KEY)("zAI Provider Unicode Handling", () => {
-		const llm = getModel("zai", "glm-4.5-air");
+		const llm = getModel("zai", "glm-4.5-air")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -580,7 +580,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral Provider Unicode Handling", () => {
-		const llm = getModel("mistral", "devstral-medium-latest");
+		const llm = getModel("mistral", "devstral-medium-latest")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -596,7 +596,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.MINIMAX_API_KEY)("MiniMax Provider Unicode Handling", () => {
-		const llm = getModel("minimax", "MiniMax-M2.7");
+		const llm = getModel("minimax", "MiniMax-M2.7")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -612,7 +612,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.XIAOMI_API_KEY)("Xiaomi MiMo (API billing) Provider Unicode Handling", () => {
-		const llm = getModel("xiaomi", "mimo-v2.5-pro");
+		const llm = getModel("xiaomi", "mimo-v2.5-pro")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -630,7 +630,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY)(
 		"Xiaomi MiMo Token Plan (CN) Provider Unicode Handling",
 		() => {
-			const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro")!;
 
 			it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 				await testEmojiInToolResults(llm);
@@ -653,7 +653,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY)(
 		"Xiaomi MiMo Token Plan (AMS) Provider Unicode Handling",
 		() => {
-			const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro")!;
 
 			it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 				await testEmojiInToolResults(llm);
@@ -676,7 +676,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY)(
 		"Xiaomi MiMo Token Plan (SGP) Provider Unicode Handling",
 		() => {
-			const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro");
+			const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro")!;
 
 			it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 				await testEmojiInToolResults(llm);
@@ -697,7 +697,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	);
 
 	describe.skipIf(!process.env.KIMI_API_KEY)("Kimi For Coding Provider Unicode Handling", () => {
-		const llm = getModel("kimi-coding", "kimi-k2-thinking");
+		const llm = getModel("kimi-coding", "kimi-k2-thinking")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -713,7 +713,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("Vercel AI Gateway Provider Unicode Handling", () => {
-		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash");
+		const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -729,7 +729,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 	});
 
 	describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock Provider Unicode Handling", () => {
-		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0");
+		const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
 
 		it("should handle emoji in tool results", { retry: 3, timeout: 30000 }, async () => {
 			await testEmojiInToolResults(llm);
@@ -749,7 +749,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-5.2-codex - should handle emoji in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await testEmojiInToolResults(llm, { apiKey: openaiCodexToken });
 			},
 		);
@@ -758,7 +758,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-5.2-codex - should handle real-world LinkedIn comment data with emoji",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await testRealWorldLinkedInData(llm, { apiKey: openaiCodexToken });
 			},
 		);
@@ -767,7 +767,7 @@ describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["integration"] },
 			"gpt-5.2-codex - should handle unpaired high surrogate (0xD83D) in tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex");
+				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
 				await testUnpairedHighSurrogate(llm, { apiKey: openaiCodexToken });
 			},
 		);

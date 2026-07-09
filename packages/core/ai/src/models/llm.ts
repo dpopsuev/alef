@@ -1,54 +1,34 @@
-import { MODELS } from "./llm.generated.js";
-import type { Api, KnownProvider, Model, ModelThinkingLevel, Usage } from "../types.js";
+import type { Api, Model, ModelThinkingLevel, Usage } from "../types.js";
+import { buildRegistryFromSnapshot, fetchModelsDev, mergeModelsDevEntries } from "./models-dev.js";
 
 const COST_PER_MILLION = 1_000_000;
 
-const modelRegistry: Map<string, Map<string, Model<Api>>> = new Map();
+const modelRegistry = buildRegistryFromSnapshot();
 
-// Initialize registry from MODELS on module load
-for (const [provider, models] of Object.entries(MODELS)) {
-	const providerModels = new Map<string, Model<Api>>();
-	for (const [id, model] of Object.entries(models)) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generated MODELS entries conform to Model<Api>
-		providerModels.set(id, model as Model<Api>);
-	}
-	modelRegistry.set(provider, providerModels);
+let _refreshed = false;
+
+/** Fetch fresh model metadata from models.dev and merge into the registry. */
+export async function refreshModelRegistry(): Promise<void> {
+	if (_refreshed) return;
+	_refreshed = true;
+	const entries = await fetchModelsDev();
+	if (entries.length > 0) mergeModelsDevEntries(modelRegistry, entries);
 }
 
-type ModelApi<
-	TProvider extends KnownProvider,
-	TModelId extends keyof (typeof MODELS)[TProvider],
-> = (typeof MODELS)[TProvider][TModelId] extends { api: infer TApi } ? (TApi extends Api ? TApi : never) : never;
-
-/**
- *
- */
-export function getModel<TProvider extends KnownProvider, TModelId extends keyof (typeof MODELS)[TProvider]>(
-	provider: TProvider,
-	modelId: TModelId,
-): Model<ModelApi<TProvider, TModelId>> {
-	const providerModels = modelRegistry.get(provider);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
-	return providerModels?.get(modelId as string) as Model<ModelApi<TProvider, TModelId>>;
+/** Look up a model by provider and ID. Returns undefined if not found. */
+export function getModel(provider: string, modelId: string): Model<Api> | undefined {
+	return modelRegistry.get(provider)?.get(modelId);
 }
 
-/**
- *
- */
-export function getProviders(): KnownProvider[] {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- registry keys are KnownProvider strings from MODELS
-	return Array.from(modelRegistry.keys()) as KnownProvider[];
+/** List all known provider names. */
+export function getProviders(): string[] {
+	return Array.from(modelRegistry.keys());
 }
 
-/**
- *
- */
-export function getModels<TProvider extends KnownProvider>(
-	provider: TProvider,
-): Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[] {
+/** List all models for a provider. */
+export function getModels(provider: string): Model<Api>[] {
 	const models = modelRegistry.get(provider);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
-	return models ? (Array.from(models.values()) as Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[]) : [];
+	return models ? Array.from(models.values()) : [];
 }
 
 /**

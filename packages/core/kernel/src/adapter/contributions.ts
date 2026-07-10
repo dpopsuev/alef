@@ -82,28 +82,28 @@ export interface PortDefinition {
 	readonly cardinality: PortCardinality;
 }
 
-/** Read-only snapshot of a plan tree scoped to a specific node. */
+/** Read-only snapshot of a plan tree scoped to a specific step. */
 export interface PlanScopeData {
 	readonly parentPlanId: string;
-	readonly rootNodeId: string;
-	readonly nodes: ReadonlyArray<{
+	readonly rootStepId: string;
+	readonly steps: ReadonlyArray<{
 		id: string;
 		parent: string | null;
 		label: string;
-		status: "pending" | "active" | "done" | "pruned" | "deferred";
+		status: "pending" | "active" | "done" | "failed" | "dropped";
 		depth: number;
 		result?: string;
-		feedback?: string;
 	}>;
-	readonly intention: string;
-	readonly inception: { current: string; desired: string; delta: string } | null;
+	readonly current: string;
+	readonly desired: string;
+	readonly verify: string;
 }
 
-/** Event describing a mutation to a plan node (checkpoint, complete, expand, etc.). */
+/** Event describing a mutation to a plan step. */
 export interface PlanUpdateEvent {
 	readonly planId: string;
-	readonly nodeId: string;
-	readonly action: "checkpoint" | "complete" | "expand" | "assess" | "refine";
+	readonly stepId: string;
+	readonly action: "start" | "done" | "fail" | "drop";
 	readonly payload?: Record<string, unknown>;
 }
 

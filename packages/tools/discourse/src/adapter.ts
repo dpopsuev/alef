@@ -12,6 +12,7 @@ import type { Post } from "./types.js";
  */
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
+	actorAddress?: string;
 }
 
 const FORUM_POST = {
@@ -84,7 +85,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, content, author } = ctx.payload;
-		const post = store.append(topic, thread, author ?? "agent", content);
+		const post = store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content);
 		return withDisplay(
 			{ posted: true, topic, thread, timestamp: post.timestamp },
 			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },

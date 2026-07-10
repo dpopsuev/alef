@@ -82,6 +82,7 @@ const PLAN_CLOSE = {
 /** Options for the plan adapter, extending base with a session directory. */
 export interface PlanAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
+	actorAddress?: string;
 }
 
 /** Return the on-disk path for the plan JSON file. */
@@ -97,6 +98,15 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	/** Publish a bus notification with the given type and payload. */
 	function emit(type: string, payload: Record<string, unknown>): void {
 		mountedBus?.notification.publish({ type, payload, correlationId: "" });
+	}
+
+	/** Auto-post a typed record to discourse for audit trail. */
+	function postToDiscourse(planId: string, thread: string, content: Record<string, unknown>): void {
+		mountedBus?.command.publish({
+			type: "discourse.post",
+			correlationId: "",
+			payload: { topic: "plan", thread: planId, content, author: opts.actorAddress ?? "plan-adapter" },
+		});
 	}
 
 	/** Load the active plan from disk or return the cached instance. */
@@ -119,6 +129,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		const id = `plan-${randomUUID().replace(/-/g, "").slice(0, SHORT_ID_LENGTH)}`;
 		activePlan = new PlanGraph(id, ctx.payload.current, ctx.payload.desired, ctx.payload.verify, planPath(opts.sessionDir));
 		emit("plan.opened", { planId: id });
+		postToDiscourse(id, id, { type: "plan:opened", current: ctx.payload.current, desired: ctx.payload.desired, verify: ctx.payload.verify });
 		return withDisplay({ id, phase: "open" }, { text: `Plan ${id} opened.\nCurrent: ${ctx.payload.current}\nDesired: ${ctx.payload.desired}\nVerify: ${ctx.payload.verify}`, mimeType: "text/plain" });
 	}
 
@@ -150,6 +161,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				const step = plan.startStep(stepId);
 				if (!step) return withDisplay({ error: "cannot start" }, { text: `Cannot start ${stepId}`, mimeType: "text/plain" });
 				emit("step.started", { planId: plan.id, stepId, label: step.label });
+				postToDiscourse(plan.id, plan.id, { type: "step:started", stepId, label: step.label });
 				emit("plan.intent", { text: step.label });
 				emit("plan.tree", { tree: plan.renderTree() });
 				const next = plan.nextReady();
@@ -160,8 +172,9 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				if (!outcome) return withDisplay({ error: "cannot complete" }, { text: `Cannot complete ${stepId}`, mimeType: "text/plain" });
 				const { step, gateResults } = outcome;
 				if (step.status === "done") {
-					emit("step.completed", { planId: plan.id, stepId, result: step.result });
 					const s = plan.stats();
+					emit("step.completed", { planId: plan.id, stepId, result: step.result });
+					postToDiscourse(plan.id, plan.id, { type: "step:completed", stepId, result: step.result, progress: s });
 					const next = plan.nextReady();
 					emit("plan.tree", { tree: plan.renderTree() });
 					if (!next) emit("plan.intent", { text: "" });
@@ -172,6 +185,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				}
 				emit("step.failed", { planId: plan.id, stepId, gateResults });
 				const failedGates = gateResults.filter((g) => !g.passed).map((g) => `${g.gate.type}:${g.gate.target} — ${g.output}`);
+				postToDiscourse(plan.id, plan.id, { type: "step:failed", stepId, failedGates });
 				return withDisplay(
 					{ stepId, status: "failed", gateResults, failedGates },
 					{ text: `Gates failed for ${stepId}:\n${failedGates.join("\n")}`, mimeType: "text/plain" },
@@ -181,6 +195,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				const step = plan.failStep(stepId, result ?? "failed");
 				if (!step) return withDisplay({ error: "cannot fail" }, { text: `Cannot fail ${stepId}`, mimeType: "text/plain" });
 				emit("step.failed", { planId: plan.id, stepId, reason: result });
+				postToDiscourse(plan.id, plan.id, { type: "step:failed", stepId, reason: result ?? "failed" });
 				return withDisplay({ stepId, status: "failed" }, { text: `Failed: ${step.label} — ${result ?? "no reason"}`, mimeType: "text/plain" });
 			}
 			case "drop": {
@@ -219,6 +234,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		if (!plan) return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 		plan.close(ctx.payload.summary);
 		emit("plan.closed", { planId: plan.id, summary: ctx.payload.summary });
+		postToDiscourse(plan.id, plan.id, { type: "plan:closed", summary: ctx.payload.summary, stats: plan.stats() });
 		emit("plan.intent", { text: "" });
 		emit("plan.tree", { tree: "" });
 		const summary = plan.renderSummary();
@@ -250,6 +266,15 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			sources: [{ name: "plan-file", kind: "file" }],
 			onMount: (bus: Bus) => {
 				mountedBus = bus;
+				bus.notification.subscribe("llm.turn-error", (event) => {
+					const plan = loadOrCreate();
+					if (!plan || plan.phase !== "working") return;
+					const active = plan.toJSON().steps.find((s) => s.status === "active");
+					if (!active) return;
+					const payload = event.payload;
+					const msg = typeof payload.message === "string" ? payload.message : "LLM error";
+					postToDiscourse(plan.id, plan.id, { type: "step:error", stepId: active.id, error: msg });
+				});
 			},
 			contributions: {
 				"context.assemble": contextStage,

@@ -63,6 +63,30 @@ function formatContextPost(p: Post): string {
 /**
  *
  */
+/** Find questions without matching answers across all threads. */
+function findUnansweredQuestions(store: DiscourseStore): Post[] {
+	const allPosts = store.readNewPosts(0);
+	const questions = new Map<string, Post>();
+	const answered = new Set<string>();
+
+	for (const post of allPosts) {
+		if (typeof post.content === "object" && post.content !== null) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- content is validated as object above
+			const c = post.content as Record<string, unknown>;
+			if (c.type === "question" && typeof c.responseId === "string") {
+				questions.set(c.responseId, post);
+			} else if (c.type === "answer" && typeof c.responseId === "string") {
+				answered.add(c.responseId);
+			}
+		}
+	}
+
+	return [...questions.entries()]
+		.filter(([id]) => !answered.has(id))
+		.map(([, post]) => post);
+}
+
+/** Create the discourse adapter with forum tools and question-aware context injection. */
 export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	const store = new DiscourseStore(opts.sessionDir);
 	let lastReadTs = Date.now();
@@ -70,11 +94,20 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	// eslint-disable-next-line @typescript-eslint/require-await
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		const newPosts = store.readNewPosts(lastReadTs);
-		if (newPosts.length === 0) return {};
+		const blocks: string[] = [];
 
-		lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
-		const block = `[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`;
-		return { messages: injectContextBlock(input.messages, block) };
+		if (newPosts.length > 0) {
+			lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
+			blocks.push(`[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`);
+		}
+
+		const unanswered = findUnansweredQuestions(store);
+		if (unanswered.length > 0) {
+			blocks.push(`[QUESTIONS — ${unanswered.length} unanswered]\n${unanswered.map((q) => `[${q.topic}/${q.thread}] @${q.author}: ${typeof q.content === "object" && q.content !== null && "text" in q.content ? String((q.content as Record<string, unknown>).text) : String(q.content)}`).join("\n")}`);
+		}
+
+		if (blocks.length === 0) return {};
+		return { messages: injectContextBlock(input.messages, blocks.join("\n\n")) };
 	};
 
 	/**

@@ -179,7 +179,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					emit("plan.tree", { tree: plan.renderTree() });
 					if (!next) emit("plan.intent", { text: "" });
 					return withDisplay(
-						{ stepId, status: "done", gateResults, progress: s, next: next?.id ?? null },
+						{ stepId, status: "done", gateResults, progress: s, next: next?.id ?? null, inspector: step.inspector ?? null },
 						{ text: `Done: ${step.label} (${s.done}/${s.total}). Next: ${next?.id ?? "none"}`, mimeType: "text/plain" },
 					);
 				}
@@ -259,9 +259,12 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			labels: ["plan", "reasoning"],
 			directives: [
 				"Use plan.open to define where you are and where you want to be.",
-				"Use plan.steps to break the work into verifiable steps.",
+				"Use plan.steps to break the work into verifiable steps. Each step is a desired state.",
 				"Use plan.advance to start, complete, fail, or drop steps. Gates run automatically on completion.",
-				"The plan state is injected into your context automatically.",
+				"The plan state is injected into your context automatically. Follow the 'Next:' step.",
+				"Autopilot loop: plan.advance(start) → do the work → plan.advance(done) → follow the next step. Repeat until all steps done, then plan.close.",
+				"If gates fail on completion, the step status becomes 'failed'. Fix the issue and call plan.advance(start) to retry.",
+				"Steps with dependsOn wait for ALL dependencies to complete before becoming eligible.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
 			onMount: (bus: Bus) => {

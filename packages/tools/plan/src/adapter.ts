@@ -38,7 +38,7 @@ const PLAN_STEPS = {
 	inputSchema: z.object({
 		steps: z.array(z.object({
 			label: z.string().min(10).max(80).describe("Step desired state: 3-12 words"),
-			parent: z.string().optional().describe("Parent step ID. Omit for root."),
+			dependsOn: z.array(z.string()).optional().describe("Step IDs this step depends on. Omit for root steps."),
 			gates: z.array(gateSchema).optional().describe("Deterministic assertions that must pass on completion"),
 			inspector: inspectorSchema.optional().describe("LLM inspector assigned at planning time"),
 		})).min(1),
@@ -129,7 +129,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		if (!plan) return withDisplay({ error: "no plan" }, { text: "No active plan. Use plan.open first.", mimeType: "text/plain" });
 
 		const created = ctx.payload.steps.map((s) =>
-			plan.addStep(s.label, s.parent ?? null, s.gates ?? [], s.inspector),
+			plan.addStep(s.label, s.dependsOn ?? [], s.gates ?? [], s.inspector),
 		);
 		return withDisplay(
 			{ added: created.length, ids: created.map((s) => s.id) },

@@ -28,13 +28,12 @@ export interface Inspector {
 /** Lifecycle status of a plan step. */
 export type StepStatus = "pending" | "active" | "done" | "failed" | "dropped";
 
-/** A single step in the plan graph with gates and optional inspector. */
+/** A single step in the plan DAG with gates and optional inspector. */
 export interface Step {
 	id: string;
 	label: string;
-	parent: string | null;
+	dependsOn: string[];
 	status: StepStatus;
-	depth: number;
 	gates: Gate[];
 	inspector?: Inspector;
 	result?: string;
@@ -59,12 +58,12 @@ export interface PlanData {
 	updatedAt: number;
 }
 
-/** Directed step graph with gate-guarded transitions and disk persistence. */
+/** Directed acyclic step graph with gate-guarded transitions and disk persistence. */
 export class PlanGraph {
 	private data: PlanData;
 	private diskPath: string | null;
 	private stepIndex = new Map<string, Step>();
-	private childIndex = new Map<string, string[]>();
+	private dependentsIndex = new Map<string, string[]>();
 	private seq = 0;
 
 	constructor(id: string, current: string, desired: string, verify: string, diskPath: string | null = null) {
@@ -98,13 +97,14 @@ export class PlanGraph {
 
 	private rebuildIndex(): void {
 		this.stepIndex.clear();
-		this.childIndex.clear();
+		this.dependentsIndex.clear();
 		for (const step of this.data.steps) {
 			this.stepIndex.set(step.id, step);
-			const parentKey = step.parent ?? "__root__";
-			const children = this.childIndex.get(parentKey) ?? [];
-			children.push(step.id);
-			this.childIndex.set(parentKey, children);
+			for (const dep of step.dependsOn) {
+				const deps = this.dependentsIndex.get(dep) ?? [];
+				deps.push(step.id);
+				this.dependentsIndex.set(dep, deps);
+			}
 		}
 		this.seq = this.data.steps.length;
 	}
@@ -148,28 +148,67 @@ export class PlanGraph {
 		return slug;
 	}
 
-	addStep(label: string, parent: string | null, gates: Gate[] = [], inspector?: Inspector): Step {
+	addStep(label: string, dependsOn: string[] = [], gates: Gate[] = [], inspector?: Inspector): Step {
 		const words = label.trim().split(/\s+/);
 		if (words.length < MIN_LABEL_WORDS) throw new Error(`Step label too short (${words.length} words, min ${MIN_LABEL_WORDS}): "${label}"`);
 		if (words.length > MAX_LABEL_WORDS) throw new Error(`Step label too long (${words.length} words, max ${MAX_LABEL_WORDS}): "${label}"`);
-		if (parent && !this.stepIndex.has(parent)) throw new Error(`parent step ${parent} not found`);
+		for (const dep of dependsOn) {
+			if (!this.stepIndex.has(dep)) throw new Error(`dependency step ${dep} not found`);
+		}
 
 		const id = this.slugify(label);
-		const depth = parent ? (this.stepIndex.get(parent)?.depth ?? 0) + 1 : 0;
-		const step: Step = { id, label, parent, status: "pending", depth, gates };
+		const step: Step = { id, label, dependsOn, status: "pending", gates };
 		if (inspector) step.inspector = inspector;
 
 		this.data.steps.push(step);
 		this.stepIndex.set(id, step);
 		this.seq++;
 
-		const parentKey = parent ?? "__root__";
-		const children = this.childIndex.get(parentKey) ?? [];
-		children.push(id);
-		this.childIndex.set(parentKey, children);
+		for (const dep of dependsOn) {
+			const deps = this.dependentsIndex.get(dep) ?? [];
+			deps.push(id);
+			this.dependentsIndex.set(dep, deps);
+		}
+
+		if (this.hasCycle()) {
+			this.data.steps.pop();
+			this.stepIndex.delete(id);
+			this.seq--;
+			for (const dep of dependsOn) {
+				const deps = this.dependentsIndex.get(dep);
+				if (deps) deps.pop();
+			}
+			throw new Error(`adding step "${label}" would create a cycle`);
+		}
 
 		this.touch();
 		return step;
+	}
+
+	private hasCycle(): boolean {
+		const inDegree = new Map<string, number>();
+		for (const step of this.data.steps) {
+			if (!inDegree.has(step.id)) inDegree.set(step.id, 0);
+			for (const dep of step.dependsOn) {
+				inDegree.set(step.id, (inDegree.get(step.id) ?? 0) + 1);
+				if (!inDegree.has(dep)) inDegree.set(dep, 0);
+			}
+		}
+		const queue: string[] = [];
+		for (const [id, deg] of inDegree) {
+			if (deg === 0) queue.push(id);
+		}
+		let visited = 0;
+		while (queue.length > 0) {
+			const current = queue.shift()!;
+			visited++;
+			for (const dependent of this.dependentsIndex.get(current) ?? []) {
+				const newDeg = (inDegree.get(dependent) ?? 1) - 1;
+				inDegree.set(dependent, newDeg);
+				if (newDeg === 0) queue.push(dependent);
+			}
+		}
+		return visited < this.data.steps.length;
 	}
 
 	startStep(id: string): Step | null {
@@ -239,21 +278,31 @@ export class PlanGraph {
 		return this.stepIndex.get(id);
 	}
 
-	children(parentId: string | null): Step[] {
-		const key = parentId ?? "__root__";
-		return (this.childIndex.get(key) ?? [])
+	dependents(stepId: string): Step[] {
+		return (this.dependentsIndex.get(stepId) ?? [])
 			.map((id) => this.stepIndex.get(id))
 			.filter((s): s is Step => s !== undefined);
 	}
 
+	roots(): Step[] {
+		return this.data.steps.filter((s) => s.dependsOn.length === 0);
+	}
+
+	private isReady(step: Step): boolean {
+		if (step.status !== "pending") return false;
+		if (step.dependsOn.length === 0) return true;
+		return step.dependsOn.every((dep) => this.stepIndex.get(dep)?.status === "done");
+	}
+
 	nextReady(): Step | null {
 		for (const step of this.data.steps) {
-			if (step.status !== "pending") continue;
-			if (!step.parent) return step;
-			const parentStep = this.stepIndex.get(step.parent);
-			if (parentStep && (parentStep.status === "active" || parentStep.status === "done")) return step;
+			if (this.isReady(step)) return step;
 		}
 		return null;
+	}
+
+	allReady(): Step[] {
+		return this.data.steps.filter((s) => this.isReady(s));
 	}
 
 	stats(): { total: number; done: number; pending: number; active: number; failed: number; dropped: number } {
@@ -289,27 +338,23 @@ export class PlanGraph {
 
 	renderTree(): string {
 		const lines: string[] = [];
-		const render = (step: Step, prefix: string, isLast: boolean): void => {
+		for (let i = 0; i < this.data.steps.length; i++) {
+			const step = this.data.steps[i]!;
+			const isLast = i === this.data.steps.length - 1;
 			const branch = isLast ? "└── " : "├── ";
 			const active = step.status === "active" ? "  ◄" : "";
-			lines.push(`${prefix}${branch}${PlanGraph.glyph(step.status)} ${step.id}${active}`);
+			const deps = step.dependsOn.length > 0 ? `  [after: ${step.dependsOn.join(", ")}]` : "";
+			lines.push(`${branch}${PlanGraph.glyph(step.status)} ${step.id}${active}${deps}`);
 			if (step.status === "active") {
+				const pad = isLast ? "    " : "│   ";
 				for (const g of step.gates) {
 					const gateStr = g.expect ? `${g.type}: ${g.target} = ${g.expect}` : `${g.type}: ${g.target}`;
-					lines.push(`${prefix}${isLast ? "    " : "│   "}   gate: [${gateStr}]`);
+					lines.push(`${pad}   gate: [${gateStr}]`);
 				}
 				if (step.inspector) {
-					lines.push(`${prefix}${isLast ? "    " : "│   "}   inspector: [${step.inspector.type}: ${step.inspector.prompt.slice(0, 60)}]`);
+					lines.push(`${pad}   inspector: [${step.inspector.type}: ${step.inspector.prompt.slice(0, 60)}]`);
 				}
 			}
-			const kids = this.children(step.id);
-			for (let i = 0; i < kids.length; i++) {
-				render(kids[i]!, `${prefix}${isLast ? "    " : "│   "}`, i === kids.length - 1);
-			}
-		};
-		const roots = this.children(null);
-		for (let i = 0; i < roots.length; i++) {
-			render(roots[i]!, "", i === roots.length - 1);
 		}
 		return lines.join("\n");
 	}

@@ -88,10 +88,9 @@ export interface PlanScopeData {
 	readonly rootStepId: string;
 	readonly steps: ReadonlyArray<{
 		id: string;
-		parent: string | null;
+		dependsOn: string[];
 		label: string;
 		status: "pending" | "active" | "done" | "failed" | "dropped";
-		depth: number;
 		result?: string;
 	}>;
 	readonly current: string;

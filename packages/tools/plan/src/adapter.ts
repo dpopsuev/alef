@@ -129,6 +129,10 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		const id = `plan-${randomUUID().replace(/-/g, "").slice(0, SHORT_ID_LENGTH)}`;
 		activePlan = new PlanGraph(id, ctx.payload.current, ctx.payload.desired, ctx.payload.verify, planPath(opts.sessionDir));
 		emit("plan.opened", { planId: id });
+		emit("plan.dss", {
+			intent: ctx.payload.desired,
+			dimensions: [{ domain: "plan", key: "verify", target: ctx.payload.verify, priority: 1 }],
+		});
 		postToDiscourse(id, id, { type: "plan:opened", current: ctx.payload.current, desired: ctx.payload.desired, verify: ctx.payload.verify });
 		return withDisplay({ id, phase: "open" }, { text: `Plan ${id} opened.\nCurrent: ${ctx.payload.current}\nDesired: ${ctx.payload.desired}\nVerify: ${ctx.payload.verify}`, mimeType: "text/plain" });
 	}
@@ -174,6 +178,19 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				if (step.status === "done") {
 					const s = plan.stats();
 					emit("step.completed", { planId: plan.id, stepId, result: step.result });
+					mountedBus?.event.publish({
+						type: "plan.gate-results",
+						correlationId: "",
+						payload: { stepId },
+						isError: false,
+						conditions: gateResults.map((g) => ({
+							domain: "plan",
+							key: g.gate.target,
+							value: g.passed,
+							confidence: 1,
+							observedAt: Date.now(),
+						})),
+					});
 					postToDiscourse(plan.id, plan.id, { type: "step:completed", stepId, result: step.result, progress: s });
 					const next = plan.nextReady();
 					emit("plan.tree", { tree: plan.renderTree() });

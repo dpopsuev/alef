@@ -38,6 +38,7 @@ export interface ServiceCreateOpts {
 	bus?: Bus;
 	logger?: AdapterLogger;
 	supervisor?: ServiceRegistry;
+	actorAddress?: string;
 }
 
 /**

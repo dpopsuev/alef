@@ -282,7 +282,14 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		},
 		mount(bus: Bus): () => void {
 			const offAdapter = innerAdapter.mount(bus);
-			if (!options.trackConcurrentOps) return offAdapter;
+			const offDss = bus.notification.subscribe("plan.dss", (event) => {
+				const p = event.payload;
+				if (typeof p.intent === "string" && Array.isArray(p.dimensions)) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- plan.dss payload matches DesiredStateSpec shape by convention
+					desiredState = p as unknown as DesiredStateSpec;
+				}
+			});
+			if (!options.trackConcurrentOps) return () => { offAdapter(); offDss(); };
 
 			const inflightExcluded = makeInflightExcluded(replyType);
 			const offMotor = bus.command.subscribe("*", (event) => {
@@ -306,6 +313,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 
 			return () => {
 				offAdapter();
+				offDss();
 				offMotor();
 				offSense();
 				inflight.clear();

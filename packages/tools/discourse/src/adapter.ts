@@ -63,8 +63,8 @@ function formatContextPost(p: Post): string {
 /**
  *
  */
-/** Find questions without matching answers across all threads. */
-function findUnansweredQuestions(store: DiscourseStore): Post[] {
+/** Find questions without matching answers, optionally filtered by target @address. */
+function findUnansweredQuestions(store: DiscourseStore, actorAddress?: string): Post[] {
 	const allPosts = store.readNewPosts(0);
 	const questions = new Map<string, Post>();
 	const answered = new Set<string>();
@@ -74,7 +74,9 @@ function findUnansweredQuestions(store: DiscourseStore): Post[] {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- content is validated as object above
 			const c = post.content as Record<string, unknown>;
 			if (c.type === "question" && typeof c.responseId === "string") {
-				questions.set(c.responseId, post);
+				if (!actorAddress || !c.target || c.target === actorAddress) {
+					questions.set(c.responseId, post);
+				}
 			} else if (c.type === "answer" && typeof c.responseId === "string") {
 				answered.add(c.responseId);
 			}
@@ -101,7 +103,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 			blocks.push(`[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`);
 		}
 
-		const unanswered = findUnansweredQuestions(store);
+		const unanswered = findUnansweredQuestions(store, opts.actorAddress);
 		if (unanswered.length > 0) {
 			blocks.push(`[QUESTIONS — ${unanswered.length} unanswered]\n${unanswered.map((q) => `[${q.topic}/${q.thread}] @${q.author}: ${typeof q.content === "object" && q.content !== null && "text" in q.content ? String((q.content as Record<string, unknown>).text) : String(q.content)}`).join("\n")}`);
 		}

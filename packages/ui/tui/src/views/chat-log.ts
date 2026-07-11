@@ -10,7 +10,7 @@ import type { Component } from "../component.js";
 import { Collapsible } from "../components/collapsible.js";
 import { Markdown } from "../components/markdown.js";
 import { Pad } from "../components/pad.js";
-import { Text as TuiText } from "../components/text.js";
+import type { Text as TuiText } from "../components/text.js";
 import type { ThemeTokens } from "../theme-types.js";
 import type { Container } from "../tui.js";
 import {
@@ -57,7 +57,7 @@ export class ChatLog {
 	addAgentReply(text: string): void {
 		const block = new AgentBlock(this.chat, this.t);
 		block.start();
-		block.addContent(new TuiText(text, 0, 0));
+		block.addContent(new Markdown(text, 0, 0, makeMarkdownTheme(this.t)));
 		block.end();
 	}
 

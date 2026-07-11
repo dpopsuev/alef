@@ -3,7 +3,7 @@ import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-	{ ignores: ["**/*.d.ts"] },
+	{ ignores: ["**/*.d.ts", "**/*.generated.ts"] },
 
 	// ── Cycle detection: blocks circular imports at commit time ──────────
 	{

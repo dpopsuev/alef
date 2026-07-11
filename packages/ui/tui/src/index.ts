@@ -1,5 +1,8 @@
 // Core TUI interfaces and classes
 
+// Types
+export type { ImageAttachment } from "./types/attachment.js";
+
 // Theme primitives
 export {
 	bg,

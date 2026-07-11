@@ -3,7 +3,10 @@ import { type Component, CURSOR_MARKER, type Focusable, type TuiHandle } from ".
 import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { decodePrintableKey, matchesKey } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
+import { getImageDimensions } from "../terminal-image.js";
+import type { ImageAttachment } from "../types/attachment.js";
 import { UndoStack } from "../undo-stack.js";
+import { bufferToBase64, readClipboardImage } from "../utils/clipboard-image.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, truncateToWidth, visibleWidth } from "../utils.js";
 import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list.js";
 
@@ -238,6 +241,9 @@ export class Editor implements Component, Focusable {
 	private theme: EditorTheme;
 	private paddingX: number = 0;
 
+	// Image attachments
+	private attachments: ImageAttachment[] = [];
+
 	// Store last render width for cursor navigation
 	private lastWidth: number = 80;
 
@@ -291,7 +297,7 @@ export class Editor implements Component, Focusable {
 	// Undo support
 	private undoStack = new UndoStack<EditorState>();
 
-	public onSubmit?: (text: string) => void;
+	public onSubmit?: (text: string, attachments?: ImageAttachment[]) => void;
 	public onChange?: (text: string) => void;
 	public disableSubmit: boolean = false;
 
@@ -587,6 +593,23 @@ export class Editor implements Component, Focusable {
 
 			// Control character - cancel and fall through to normal handling
 			this.jumpMode = null;
+		}
+
+
+		// Check for Ctrl+V / Cmd+V BEFORE bracketed paste processing
+		// This allows image paste to intercept clipboard image data
+		if (matchesKey(data, "ctrl+v") || matchesKey(data, "super+v")) {
+			try {
+				const pasted = this.handleImagePaste();
+				// If no image was pasted (clipboard has text), fall back to normal paste
+				// The bracketed paste handler below will handle it
+				if (!pasted && !this.isInPaste) {
+					// Trigger system paste (will invoke bracketed paste if available)
+				}
+			} catch {
+				// Ignore clipboard errors
+			}
+			return;
 		}
 
 		// Handle bracketed paste mode
@@ -1170,7 +1193,7 @@ export class Editor implements Component, Focusable {
 		this.lastAction = null;
 
 		if (this.onChange) this.onChange("");
-		if (this.onSubmit) this.onSubmit(result);
+		if (this.onSubmit) this.onSubmit(result, this.getAttachments());
 	}
 
 	private handleBackspace(): void {
@@ -2268,4 +2291,124 @@ export class Editor implements Component, Focusable {
 		if (!this.autocompleteState || !this.autocompleteProvider) return;
 		this.requestAutocomplete({ force: this.autocompleteState === "force", explicitTab: false });
 	}
+	/**
+	 * Get current image attachments
+	 */
+	getAttachments(): ImageAttachment[] {
+		return [...this.attachments];
+	}
+
+	/**
+	 * Clear all image attachments
+	 */
+	clearAttachments(): void {
+		this.attachments = [];
+	}
+
+	/**
+	 * Get attachment count summary string.
+	 * @returns String like "(1 image)" or "(2 images)" or empty string if no attachments
+	 */
+	getAttachmentSummary(): string {
+		const count = this.attachments.length;
+		if (count === 0) return "";
+		if (count === 1) return "(1 image)";
+		return `(${count} images)`;
+	}
+
+	/**
+	 * Remove the most recent attachment.
+	 * Can be used for Ctrl+Z attachment removal.
+	 * @returns true if an attachment was removed, false if no attachments
+	 */
+	removeLastAttachment(): boolean {
+		if (this.attachments.length === 0) {
+			return false;
+		}
+		this.attachments.pop();
+		this.tui.requestRender();
+		return true;
+	}
+
+	/**
+	 * Format file size for display.
+	 * @param size - Size in bytes
+	 * @returns Formatted string like "1.2MB" or "45.3KB"
+	 */
+	private formatFileSize(size: number): string {
+		const sizeKB = (size / 1024).toFixed(1);
+		const sizeMB = (size / (1024 * 1024)).toFixed(1);
+		return size > 1024 * 1024 ? `${sizeMB}MB` : `${sizeKB}KB`;
+	}
+
+	/**
+	 * Handle image paste from clipboard
+	 * Reads clipboard, creates ImageAttachment, and inserts visual marker
+	 * @returns true if image was pasted, false if clipboard has no image
+	 */
+	handleImagePaste(): boolean {
+		try {
+			// Read image from clipboard
+			const clipboardImage = readClipboardImage();
+			if (!clipboardImage) {
+				return false;
+			}
+
+			// Convert buffer to base64
+			const base64Content = bufferToBase64(clipboardImage.data);
+
+			// Generate unique ID (matching Web UI pattern)
+			const timestamp = Date.now();
+			const random = Math.random();
+			const id = `screenshot_${timestamp}_${random}`;
+
+			// Determine file extension from MIME type
+			const extension = clipboardImage.mimeType.split("/")[1] ?? "png";
+			const fileName = `screenshot.${extension}`;
+
+			// Calculate size
+			const size = clipboardImage.data.length;
+
+			// Get image dimensions if available
+			const dimensions = getImageDimensions(base64Content, clipboardImage.mimeType);
+
+			// Create attachment
+			const attachment: ImageAttachment = {
+				id,
+				type: "image",
+				fileName,
+				mimeType: clipboardImage.mimeType,
+				size,
+				content: base64Content,
+			};
+
+			// Add to attachments array
+			this.attachments.push(attachment);
+
+			// Format size for display
+			const displaySize = this.formatFileSize(size);
+
+			// Build enhanced marker with dimensions if available
+			// Example: [📷 screenshot.png 1920x1080 1.2MB]
+			let marker = `[📷 ${fileName}`;
+			if (dimensions) {
+				marker += ` ${dimensions.widthPx}x${dimensions.heightPx}`;
+			}
+			marker += ` ${displaySize}]`;
+
+			// Insert marker at cursor using existing method
+			// This handles undo, history reset, and onChange notification
+			this.insertTextAtCursor(marker);
+
+			// Request render to update display
+			this.tui.requestRender();
+
+			return true;
+		} catch (error) {
+			// Silently fail on clipboard errors
+			console.error("Error pasting image:", error);
+			return false;
+		}
+	}
+
 }

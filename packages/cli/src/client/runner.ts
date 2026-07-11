@@ -114,7 +114,10 @@ export async function runTuiMode(
 		session,
 		writer,
 		forums,
-		addToHistory: (text) => editor.addToHistory(text),
+		addToHistory: (text) => {
+			editor.addToHistory(text);
+			editor.clearAttachments();
+		},
 		addHistoryEntry: (text) => historyProvider.addEntry(text),
 		clearEditor: () => editor.setText(""),
 		dispatch,

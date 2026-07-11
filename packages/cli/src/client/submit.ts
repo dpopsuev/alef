@@ -1,6 +1,7 @@
 import { parseAtAddress } from "@dpopsuev/alef-agent/identity/routes";
 import { InputPatternRegistry } from "@dpopsuev/alef-agent/input-patterns";
 import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { ImageAttachment } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import type { TuiEvent } from "./events.js";
 import type { TuiHandlerContext } from "./handlers.js";
@@ -24,6 +25,21 @@ export interface SubmitConfig {
 	ctx: () => TuiHandlerContext;
 	onThinkingStop: () => void;
 	forums?: { switchTo(name: string): unknown; list(): string[]; active: string };
+}
+
+/**
+ * Convert image attachments to text description.
+ * Note: Full image support requires extending Session.send() to accept content arrays.
+ * For now, we append a text description of the attachments.
+ */
+function attachmentsToText(attachments: ImageAttachment[]): string {
+	if (attachments.length === 0) return "";
+	const descriptions = attachments.map((att) => {
+		const dims = att.width && att.height ? ` ${att.width}x${att.height}` : "";
+		const size = (att.size / 1024 / 1024).toFixed(2);
+		return `[Image: ${att.fileName}${dims} ${size}MB]`;
+	});
+	return `\n\n${descriptions.join("\n")}`;
 }
 
 /**
@@ -119,7 +135,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 		},
 	});
 
-	return async (rawText: string): Promise<void> => {
+	return async (rawText: string, attachments: ImageAttachment[] = []): Promise<void> => {
 		const text = rawText.trim();
 		if (!text) return;
 
@@ -127,12 +143,13 @@ export function createSubmitHandler(config: SubmitConfig) {
 
 		// Execute regular message
 		const sendFn = session.send;
+		const messageWithAttachments = text + attachmentsToText(attachments);
 		await executeMessage({
 			text,
-			message: text,
+			message: messageWithAttachments,
 			executor: sendFn
 				? async () => {
-						await sendFn(text, SEND_TIMEOUT_MS);
+						await sendFn(messageWithAttachments, SEND_TIMEOUT_MS);
 					}
 				: undefined,
 			session,

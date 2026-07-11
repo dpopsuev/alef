@@ -452,7 +452,6 @@ export class Markdown implements Component {
 			lines.push("");
 		};
 
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const renderDefault = (): void => {
 			// Handle any other token types as plain text
 			if ("text" in token && typeof token.text === "string") {
@@ -473,8 +472,8 @@ export class Markdown implements Component {
 			space: renderSpace,
 		};
 
-		const renderer = tokenRenderers[token.type];
-		renderer!();
+		const renderer = tokenRenderers[token.type] ?? renderDefault;
+		renderer();
 
 		return lines;
 	}

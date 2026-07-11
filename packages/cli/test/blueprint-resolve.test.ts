@@ -49,4 +49,9 @@ describe("blueprintRegistry.resolve", { tags: ["unit"] }, () => {
 		expect(resolved).toBeDefined();
 		expect(resolved).not.toBe(defaultResolved);
 	});
+
+	it("getDefaultName returns the canonical registry name of the default blueprint", () => {
+		const defaultName = blueprintRegistry.getDefaultName();
+		expect(defaultName).toBe("alef-coding-agent");
+	});
 });

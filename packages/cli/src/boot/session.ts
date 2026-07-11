@@ -182,7 +182,9 @@ export async function createLocalSession(
 	let llmController: AbortController | undefined;
 	const currentModel = model;
 
-	const resolvedBlueprintName = loaded.blueprintName ?? "(default)";
+	// Resolve the blueprint name from the registry, falling back to loaded.blueprintName
+	// When no explicit blueprint is provided, we use the default blueprint's registered name
+	const resolvedBlueprintName = loaded.blueprintName ?? blueprintRegistry.getDefaultName() ?? "(default)";
 	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName) ?? blueprintRegistry.resolve();
 	if (!stackFactory) {
 		throw new Error(

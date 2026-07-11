@@ -75,14 +75,22 @@ export type BlueprintFactory = (opts: BlueprintStackOptions) => Promise<Blueprin
 class BlueprintRegistry {
 	private readonly _factories = new Map<string, BlueprintFactory>();
 	private _default: BlueprintFactory | undefined;
+	private _defaultName: string | undefined;
 
 	register(name: string, factory: BlueprintFactory, options?: { isDefault?: boolean }): void {
 		this._factories.set(name, factory);
-		if (options?.isDefault) this._default = factory;
+		if (options?.isDefault) {
+			this._default = factory;
+			this._defaultName = name;
+		}
 	}
 
 	resolve(name?: string): BlueprintFactory | undefined {
 		return name ? this._factories.get(name) : this._default;
+	}
+
+	getDefaultName(): string | undefined {
+		return this._defaultName;
 	}
 
 	list(): string[] {

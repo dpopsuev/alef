@@ -1,7 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { execSync } from "node:child_process";
 
+/**
+ * Runtime environment configuration for the supervisor.
+ */
 export interface RuntimeEnvironment {
   mode: "development" | "production";
   canHotReload: boolean;
@@ -28,10 +30,12 @@ export function detectEnvironment(cwd: string): RuntimeEnvironment {
     try {
       const pkgPath = join(cwd, "package.json");
       if (existsSync(pkgPath)) {
-        const pkg = JSON.parse(
-          execSync(`cat ${pkgPath}`, { encoding: "utf-8" })
-        );
-        buildCommand = pkg.scripts?.build || pkg.scripts?.["build:all"] || null;
+        const pkgContent = readFileSync(pkgPath, "utf-8");
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const pkg = JSON.parse(pkgContent);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-type-assertion
+        const scripts = pkg.scripts as Record<string, string> | undefined;
+        buildCommand = scripts?.build ?? scripts?.["build:all"] ?? null;
       }
     } catch {
       // Ignore errors

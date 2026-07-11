@@ -7,6 +7,7 @@ import { getImageDimensions } from "../terminal-image.js";
 import type { ImageAttachment } from "../types/attachment.js";
 import { UndoStack } from "../undo-stack.js";
 import { bufferToBase64, readClipboardImage } from "../utils/clipboard-image.js";
+import { processImage, getProcessingOptions } from "../utils/image-processing.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, truncateToWidth, visibleWidth } from "../utils.js";
 import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list.js";
 
@@ -215,6 +216,8 @@ export interface EditorTheme {
 export interface EditorOptions {
 	paddingX?: number;
 	autocompleteMaxVisible?: number;
+	/** Image processing quality: 'general' (1568px), 'spatial' (2576px), or 'cost-optimized' (1024px). Default: 'general' */
+	processingQuality?: 'general' | 'spatial' | 'cost-optimized';
 }
 
 const SLASH_COMMAND_SELECT_LIST_LAYOUT: SelectListLayoutOptions = {
@@ -240,6 +243,9 @@ export class Editor implements Component, Focusable {
 	protected tui: TuiHandle;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
+
+	// Image processing quality setting
+	private processingQuality: 'general' | 'spatial' | 'cost-optimized' = 'general';
 
 	// Image attachments
 	private attachments: ImageAttachment[] = [];
@@ -333,6 +339,7 @@ export class Editor implements Component, Focusable {
 		this.paddingX = Number.isFinite(paddingX) ? Math.max(0, Math.floor(paddingX)) : 0;
 		const maxVisible = options.autocompleteMaxVisible ?? 5;
 		this.autocompleteMaxVisible = Number.isFinite(maxVisible) ? Math.max(3, Math.min(20, Math.floor(maxVisible))) : 5;
+		this.processingQuality = options.processingQuality ?? 'general';
 	}
 
 	/** Set of currently valid paste IDs, for marker-aware segmentation. */
@@ -600,12 +607,15 @@ export class Editor implements Component, Focusable {
 		// This allows image paste to intercept clipboard image data
 		if (matchesKey(data, "ctrl+v") || matchesKey(data, "super+v")) {
 			try {
-				const pasted = this.handleImagePaste();
-				// If no image was pasted (clipboard has text), fall back to normal paste
-				// The bracketed paste handler below will handle it
-				if (!pasted && !this.isInPaste) {
-					// Trigger system paste (will invoke bracketed paste if available)
-				}
+				// Handle async image paste - don't block on it
+				void this.handleImagePaste().then((pasted) => {
+					// If image was pasted, request render to show the marker
+					if (pasted) {
+						this.tui.requestRender();
+					}
+					// If no image was pasted (clipboard has text), the bracketed paste 
+					// handler will handle it
+				});
 			} catch {
 				// Ignore clipboard errors
 			}
@@ -2343,10 +2353,11 @@ export class Editor implements Component, Focusable {
 
 	/**
 	 * Handle image paste from clipboard
-	 * Reads clipboard, creates ImageAttachment, and inserts visual marker
+	 * Reads clipboard, processes image for optimal API submission, creates ImageAttachment, 
+	 * and inserts visual marker with before/after stats.
 	 * @returns true if image was pasted, false if clipboard has no image
 	 */
-	handleImagePaste(): boolean {
+	async handleImagePaste(): Promise<boolean> {
 		try {
 			// Read image from clipboard
 			const clipboardImage = readClipboardImage();
@@ -2354,47 +2365,84 @@ export class Editor implements Component, Focusable {
 				return false;
 			}
 
-			// Convert buffer to base64
-			const base64Content = bufferToBase64(clipboardImage.data);
+			// Process image for optimal API submission
+			const processed = await processImage(
+				clipboardImage.data,
+				getProcessingOptions(this.processingQuality)
+			);
+
+			// Convert processed buffer to base64
+			const base64Content = bufferToBase64(processed.buffer);
 
 			// Generate unique ID (matching Web UI pattern)
 			const timestamp = Date.now();
 			const random = Math.random();
 			const id = `screenshot_${timestamp}_${random}`;
 
-			// Determine file extension from MIME type
-			const extension = clipboardImage.mimeType.split("/")[1] ?? "png";
+			// Determine file extension from processed MIME type
+			const extension = processed.mimeType.split("/")[1] ?? "png";
 			const fileName = `screenshot.${extension}`;
 
-			// Calculate size
-			const size = clipboardImage.data.length;
-
-			// Get image dimensions if available
-			const dimensions = getImageDimensions(base64Content, clipboardImage.mimeType);
-
-			// Create attachment
+			// Create attachment with processed image data
 			const attachment: ImageAttachment = {
 				id,
 				type: "image",
 				fileName,
-				mimeType: clipboardImage.mimeType,
-				size,
+				mimeType: processed.mimeType,
+				size: processed.processedSize,
 				content: base64Content,
+				width: processed.width,
+				height: processed.height,
 			};
 
 			// Add to attachments array
 			this.attachments.push(attachment);
 
-			// Format size for display
-			const displaySize = this.formatFileSize(size);
+			// Calculate compression stats
+			const compressionRatio = ((1 - processed.processedSize / processed.originalSize) * 100).toFixed(0);
+			const displaySize = this.formatFileSize(processed.processedSize);
 
-			// Build enhanced marker with dimensions if available
-			// Example: [📷 screenshot.png 1920x1080 1.2MB]
+			// Build enhanced marker with before/after stats
 			let marker = `[📷 ${fileName}`;
-			if (dimensions) {
-				marker += ` ${dimensions.widthPx}x${dimensions.heightPx}`;
+			
+			// Check if image was resized by comparing with max dimension
+			const options = getProcessingOptions(this.processingQuality);
+			const maxDim = options.maxDimension ?? 1568;
+			
+			// Try to get original dimensions from the buffer
+			let originalDimensions: { widthPx: number; heightPx: number } | null = null;
+			try {
+				const originalBase64 = bufferToBase64(clipboardImage.data);
+				originalDimensions = getImageDimensions(originalBase64, clipboardImage.mimeType);
+			} catch {
+				// Ignore if we can't get dimensions
 			}
-			marker += ` ${displaySize}]`;
+
+			// Show before/after dimensions if resized
+			if (originalDimensions) {
+				const wasResized = 
+					originalDimensions.widthPx > maxDim || 
+					originalDimensions.heightPx > maxDim;
+				
+				if (wasResized) {
+					marker += ` ${originalDimensions.widthPx}x${originalDimensions.heightPx}→${processed.width}x${processed.height}`;
+				} else {
+					marker += ` ${processed.width}x${processed.height}`;
+				}
+			} else {
+				marker += ` ${processed.width}x${processed.height}`;
+			}
+
+			// Show size reduction if significant (>5%)
+			const wasCompressed = Number.parseInt(compressionRatio, 10) > 5;
+			if (wasCompressed) {
+				const originalSize = this.formatFileSize(processed.originalSize);
+				marker += ` ${originalSize}→${displaySize} (-${compressionRatio}%)`;
+			} else {
+				marker += ` ${displaySize}`;
+			}
+
+			marker += `]`;
 
 			// Insert marker at cursor using existing method
 			// This handles undo, history reset, and onChange notification

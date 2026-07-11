@@ -186,9 +186,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 			description: "Forum — shared message forum for multi-agent coordination. Pull-based: agents read when ready.",
 			labels: ["discourse", "forum", "multi-agent", "experimental"],
 			directives: [
-				"Use discourse.post to share findings, reviews, and feedback with other agents.",
-				"Use discourse.read to check what others have posted.",
-				"New forum posts appear automatically in your context on each turn.",
+				"Use discourse for agent-to-agent coordination: sharing findings, asking questions, coordinating reviews, and leaving structured feedback. Discourse is for communication between agents.",
+				"Prefer discourse.post over creating files when findings are for other agents. Files are for deliverables; discourse is for collaboration.",
+				"Post with discourse.post({topic, thread, content}). Read others' posts with discourse.read({topic, thread}). List topics with discourse.list().",
+				"Forum posts auto-inject into context each turn - no polling needed.",
 			],
 			sources: [{ name: "discourse-files", kind: "file" }],
 			contributions: {

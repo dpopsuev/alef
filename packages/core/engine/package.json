@@ -43,7 +43,8 @@
   },
   "dependencies": {
     "@dpopsuev/alef-blueprint": "workspace:*",
-    "@dpopsuev/alef-kernel": "workspace:*"
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-session": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

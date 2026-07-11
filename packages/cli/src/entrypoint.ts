@@ -15,6 +15,7 @@ import { dirname } from "node:path";
 import { resolveStartupModel, setModelConfigProvider } from "@dpopsuev/alef-agent/model";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-storage/service";
+import { createHotReloadDescriptor, detectEnvironment } from "@dpopsuev/alef-supervisor";
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { isTermDark } from "is-term-dark";
@@ -210,6 +211,9 @@ import { setModelLogger } from "@dpopsuev/alef-agent/model";
 
 setModelLogger({ warn: (msg) => log.warn(msg), error: (msg) => log.error(msg) });
 
+const env = detectEnvironment(args.cwd);
+log.info({ mode: env.mode, hotReload: env.canHotReload }, "Runtime environment");
+
 const storage = await getStorage();
 
 import { upgradeToSqliteExporter } from "./boot/otel.js";
@@ -257,6 +261,18 @@ const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 
+// Enable hot-reload in development
+if (env.canHotReload) {
+	supervisor.register(
+		createHotReloadDescriptor({
+			buildCommand: env.buildCommand!,
+			swap: supervisor.swap.bind(supervisor),
+			sessionServiceName: "session",
+			cwd: args.cwd,
+		}),
+	);
+}
+
 // Session service — the mediator between agent and UI surfaces
 supervisor.register(
 	createSessionServiceDescriptor({
@@ -278,7 +294,7 @@ supervisor.register(createTuiServiceDescriptor({ args, store: session }));
 
 // Theme
 const [isDark, terminalPalette] = await Promise.all([
-	isTermDark().then((r) => r ?? true),
+	isTermDark().then((r: boolean | null | undefined) => r ?? true),
 	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)),
 ]);
 loadTheme(

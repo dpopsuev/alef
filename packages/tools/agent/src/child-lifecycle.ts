@@ -178,7 +178,7 @@ export async function handleAsk(
 		sender: "human",
 		timeoutMs: maxMs,
 		onInnerEvent: deps.publishInnerSignal
-			? (_callId, innerType, innerPayload) =>
+			? (_callId: string, innerType: string, innerPayload: Record<string, unknown>) =>
 					deps.publishInnerSignal?.(innerType, { ...innerPayload, callId: parentCallId }, ctx.correlationId)
 			: undefined,
 	});
@@ -215,7 +215,7 @@ export async function handleRace(
 					sender: "human",
 					timeoutMs: maxMs,
 					onInnerEvent: deps.publishInnerSignal
-						? (_callId, innerType, innerPayload) =>
+						? (_callId: string, innerType: string, innerPayload: Record<string, unknown>) =>
 								deps.publishInnerSignal?.(
 									innerType,
 									{ ...innerPayload, callId: parentCallId },
@@ -285,7 +285,7 @@ export async function handleConverse(
 				sender: "human",
 				timeoutMs: remainingMs,
 				onInnerEvent: deps.publishInnerSignal
-					? (_callId, innerType, innerPayload) =>
+					? (_callId: string, innerType: string, innerPayload: Record<string, unknown>) =>
 							deps.publishInnerSignal?.(innerType, { ...innerPayload, callId: parentCallId }, ctx.correlationId)
 					: undefined,
 			});
@@ -419,18 +419,28 @@ export async function handlePromote(
 	spec.adapters = adapters;
 	doc.spec = spec;
 	writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
-	const underSupervisor = process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function";
-	if (underSupervisor) {
-		process.send?.({ type: "rebuild" });
-		return withDisplay(
-			{ promoted: true, adapterPath, blueprintPath },
-			{ text: `Promoted ${adapterPath} — supervisor rebuild triggered`, mimeType: "text/plain" },
-		);
+	
+	// Check for hot-reload capability via global function
+	const canHotReload = typeof (globalThis as any).alefRequestRebuild === "function";
+	if (canHotReload) {
+		try {
+			await (globalThis as any).alefRequestRebuild();
+			return withDisplay(
+				{ promoted: true, adapterPath, blueprintPath },
+				{ text: `Promoted ${adapterPath} — hot reload complete`, mimeType: "text/plain" },
+			);
+		} catch (err) {
+			return withDisplay(
+				{ promoted: false, reason: String(err), adapterPath, blueprintPath },
+				{ text: `Wrote ${adapterPath} to blueprint but reload failed: ${String(err)}`, mimeType: "text/plain" },
+			);
+		}
 	}
+	
 	return withDisplay(
-		{ promoted: false, reason: "not running under supervisor", adapterPath, blueprintPath },
+		{ promoted: false, reason: "hot reload not available", adapterPath, blueprintPath },
 		{
-			text: `Wrote ${adapterPath} to blueprint but not under supervisor — restart to apply`,
+			text: `Wrote ${adapterPath} to blueprint but hot reload not available — restart to apply`,
 			mimeType: "text/plain",
 		},
 	);

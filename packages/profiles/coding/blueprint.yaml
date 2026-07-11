@@ -23,6 +23,8 @@ adapters:
     package: "@dpopsuev/alef-tool-agent"
   - name: skills
     package: "@dpopsuev/alef-tool-skills"
+  - name: plan
+    package: "@dpopsuev/alef-tool-plan"
 
 capabilities:
   orchestration: true

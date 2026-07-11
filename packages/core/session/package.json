@@ -6,17 +6,50 @@
   "main": "./src/contracts/session.ts",
   "types": "./dist/contracts/session.d.ts",
   "exports": {
-    "./contracts": "./src/contracts/session.ts",
-    "./storage": "./src/contracts/storage.ts",
-    "./store": "./src/store.ts",
-    "./agent": "./src/agent.ts",
-    "./context": "./src/context/index.ts",
-    "./compaction": "./src/context/compaction.ts",
-    "./summarizer": "./src/context/summarizer.ts",
-    "./scoring": "./src/context/scoring.ts",
-    "./tracing": "./src/tracing/index.ts",
-    "./replay": "./src/tracing/replayer.ts",
-    "./redact": "./src/redact.ts"
+    "./contracts": {
+      "types": "./dist/contracts/session.d.ts",
+      "default": "./src/contracts/session.ts"
+    },
+    "./storage": {
+      "types": "./dist/contracts/storage.d.ts",
+      "default": "./src/contracts/storage.ts"
+    },
+    "./store": {
+      "types": "./dist/store.d.ts",
+      "default": "./src/store.ts"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "default": "./src/agent.ts"
+    },
+    "./context": {
+      "types": "./dist/context/index.d.ts",
+      "default": "./src/context/index.ts"
+    },
+    "./compaction": {
+      "types": "./dist/context/compaction.d.ts",
+      "default": "./src/context/compaction.ts"
+    },
+    "./summarizer": {
+      "types": "./dist/context/summarizer.d.ts",
+      "default": "./src/context/summarizer.ts"
+    },
+    "./scoring": {
+      "types": "./dist/context/scoring.d.ts",
+      "default": "./src/context/scoring.ts"
+    },
+    "./tracing": {
+      "types": "./dist/tracing/index.d.ts",
+      "default": "./src/tracing/index.ts"
+    },
+    "./replay": {
+      "types": "./dist/tracing/replayer.d.ts",
+      "default": "./src/tracing/replayer.ts"
+    },
+    "./redact": {
+      "types": "./dist/redact.d.ts",
+      "default": "./src/redact.ts"
+    }
   },
   "files": [
     "dist"

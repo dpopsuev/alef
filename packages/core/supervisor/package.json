@@ -6,9 +6,9 @@
   "main": "./src/lifecycle.ts",
   "types": "./dist/lifecycle.d.ts",
   "exports": {
+    ".": "./src/index.ts",
     "./lifecycle": "./src/lifecycle.ts",
     "./supervisor": "./src/supervisor.ts",
-
     "./scheduler": "./src/scheduler.ts",
     "./package-manager": "./src/package-manager.ts"
   },

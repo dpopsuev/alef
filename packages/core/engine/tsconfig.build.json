@@ -24,6 +24,9 @@
 		},
 		{
 			"path": "../kernel/tsconfig.build.json"
+		},
+		{
+			"path": "../session/tsconfig.build.json"
 		}
 	]
 }

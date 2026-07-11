@@ -24,20 +24,20 @@ function readVersion(): string {
 	}
 }
 
-/** Extract date portion (YYYY-MM-DD) from git commit date. */
-function readCommitDate(): string {
+/** Extract timestamp (YYYY-MM-DD HH:MM) from git commit date. */
+function readCommitTimestamp(): string {
 	const fullDate = exec("git show -s --format=%ci HEAD");
 	if (fullDate === "unknown") return "unknown";
-	// Extract just the YYYY-MM-DD portion
-	const match = fullDate.match(/^(\d{4}-\d{2}-\d{2})/);
+	// Extract YYYY-MM-DD HH:MM portion (drop seconds and timezone)
+	const match = fullDate.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
 	return match?.[1] ?? "unknown";
 }
 
-/** Compile-time metadata: semver, git hash, branch, commit date, and build timestamp. */
+/** Compile-time metadata: semver, git hash, branch, commit timestamp, and build timestamp. */
 export const BUILD_INFO = {
 	version: readVersion(),
 	gitHash: exec("git rev-parse --short HEAD"),
 	gitBranch: exec("git rev-parse --abbrev-ref HEAD"),
-	gitCommitDate: readCommitDate(),
+	gitCommitTimestamp: readCommitTimestamp(),
 	buildTimestamp: new Date().toISOString(),
 } as const;

@@ -18,7 +18,7 @@ export interface DashboardFooterOptions {
 	dimStyle: (text: string) => string;
 	warnStyle: (text: string) => string;
 	errorStyle: (text: string) => string;
-	buildInfo?: { version: string; gitHash: string; gitCommitDate?: string };
+	buildInfo?: { version: string; gitHash: string; gitCommitTimestamp?: string };
 }
 
 /**
@@ -182,11 +182,11 @@ export class DashboardFooter implements Component {
 		}
 
 		if (this.opts.buildInfo) {
-			const { version, gitHash, gitCommitDate } = this.opts.buildInfo;
-			// For dev builds, include commit date in format: v{version}@{hash} ({date})
+			const { version, gitHash, gitCommitTimestamp } = this.opts.buildInfo;
+			// For dev builds, include commit timestamp in format: v{version}@{hash} ({timestamp})
 			// For released versions, use format: v{version}@{hash}
-			const versionStr = version === "dev" && gitCommitDate && gitCommitDate !== "unknown"
-				? `v${version}@${gitHash} (${gitCommitDate})`
+			const versionStr = version === "dev" && gitCommitTimestamp && gitCommitTimestamp !== "unknown"
+				? `v${version}@${gitHash} (${gitCommitTimestamp})`
 				: `v${version}@${gitHash}`;
 			segments.push(dimStyle(versionStr));
 		}

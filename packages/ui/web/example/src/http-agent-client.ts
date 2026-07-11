@@ -97,11 +97,21 @@ export class HttpAgentClient implements Agent {
 	}
 
 	async prompt(input: string | AgentMessage): Promise<void> {
-		const text =
-			typeof input === "string" ? input : ((input as any).content?.find((c: any) => c.type === "text")?.text ?? "");
-		if (!text.trim()) return;
+		// Extract content from input
+		let content: any;
+		if (typeof input === "string") {
+			content = [{ type: "text", text: input }];
+		} else if ((input as any).content) {
+			content = (input as any).content;
+		} else {
+			return; // No valid content
+		}
 
-		const userMessage: AgentMessage = { role: "user", content: [{ type: "text", text }] } as any;
+		// Validate we have at least some text
+		const hasText = content.some((c: any) => c.type === "text" && c.text?.trim());
+		if (!hasText) return;
+
+		const userMessage: AgentMessage = { role: "user", content } as any;
 		this.state.push(userMessage);
 		this.state.isStreaming = true;
 
@@ -111,10 +121,11 @@ export class HttpAgentClient implements Agent {
 		this.emit({ type: "message_end", message: userMessage });
 
 		try {
+			// Send content array to the new API
 			await fetch(`${this.baseUrl}/message`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ text }),
+				body: JSON.stringify({ content }),
 			});
 		} catch (err) {
 			this.state.isStreaming = false;

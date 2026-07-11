@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
 import type { CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { Agent } from "./agent.js";
 
@@ -36,7 +37,7 @@ export class AgentController {
 		agent.signal.addEventListener("abort", () => this.dispose(), { once: true });
 	}
 
-	send(text: string, sender = "human", timeoutMs = 30_000): Promise<string> {
+	send(content: string | (TextContent | ImageContent)[], sender = "human", timeoutMs = 30_000): Promise<string> {
 		if (this.disposed) return Promise.reject(new Error("AgentController: disposed"));
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
@@ -46,15 +47,23 @@ export class AgentController {
 				reject(new Error(`AgentController.send timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
 			this.pending.set(correlationId, { resolve, reject, timer });
-			this.receive(text, sender, correlationId);
+			this.receive(content, sender, correlationId);
 		});
 	}
 
-	receive(text: string, sender = "human", correlationId = randomUUID()): void {
+	receive(content: string | (TextContent | ImageContent)[], sender = "human", correlationId = randomUUID()): void {
 		if (this.disposed) return;
+		// Normalize content to array for internal handling
+		const contentArray: (TextContent | ImageContent)[] = typeof content === "string" 
+			? [{ type: "text", text: content }] 
+			: content;
+		
+		// For backward compatibility, extract text from first text block
+		const text = contentArray.find((c): c is TextContent => c.type === "text")?.text ?? "";
+		
 		this.agent.publishEvent({
 			type: this.triggerEvent,
-			payload: { text, sender },
+			payload: { text, sender, content: contentArray },
 			correlationId,
 			isError: false,
 		});

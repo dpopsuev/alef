@@ -29,7 +29,7 @@ async function createRouter(
 		host: args.host,
 		allowedEvents,
 		triggerEvent: "llm.input",
-		onMessage: (text) => session.receive?.(text),
+		onMessage: (content) => session.receive?.(content),
 		getState: () => ({
 			modelId: session.getModel(),
 			thinking: session.getThinking(),

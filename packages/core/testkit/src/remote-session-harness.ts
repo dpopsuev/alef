@@ -44,7 +44,7 @@ export async function createRemoteHarness(opts: RemoteSessionHarnessOptions): Pr
 	const router = createRouterAdapter({
 		port: opts.port ?? 0,
 		triggerEvent: "llm.input",
-		onMessage: (text) => controller.receive(text, "user"),
+		onMessage: (content) => controller.receive(content, "user"),
 		getState: () => ({ modelId: "test-model", thinking: "off", contextWindow: 128_000 }),
 		getHistory: () => [],
 	});

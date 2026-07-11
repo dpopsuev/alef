@@ -1,3 +1,4 @@
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
 import type { AgentEvent, Session, SessionState } from "./contracts/session.js";
 
 const DEFAULT_SEND_TIMEOUT_MS = 300_000;
@@ -7,8 +8,8 @@ const DEFAULT_SEND_TIMEOUT_MS = 300_000;
  */
 export interface AgentSessionDeps {
 	state: SessionState;
-	send: (text: string, sender: string, timeoutMs?: number) => Promise<string>;
-	receive: (text: string, sender: string) => void;
+	send: (content: string | (TextContent | ImageContent)[], sender: string, timeoutMs?: number) => Promise<string>;
+	receive: (content: string | (TextContent | ImageContent)[], sender: string) => void;
 	dispose: () => void;
 	observers?: Set<(event: AgentEvent) => void>;
 }
@@ -54,12 +55,12 @@ export class AgentSession implements Session {
 		for (const obs of this._observers) obs(event);
 	}
 
-	async send(text: string, timeoutMs = DEFAULT_SEND_TIMEOUT_MS): Promise<string> {
-		return this._deps.send(text, "human", timeoutMs);
+	async send(content: string | (TextContent | ImageContent)[], timeoutMs = DEFAULT_SEND_TIMEOUT_MS): Promise<string> {
+		return this._deps.send(content, "human", timeoutMs);
 	}
 
-	receive(text: string): void {
-		this._deps.receive(text, "human");
+	receive(content: string | (TextContent | ImageContent)[]): void {
+		this._deps.receive(content, "human");
 	}
 
 	dispose(): void {

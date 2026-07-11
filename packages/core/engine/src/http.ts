@@ -24,6 +24,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Traced } from "@dpopsuev/alef-kernel/log";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -72,14 +73,17 @@ export interface RouterOptions {
 	 */
 	allowedEvents?: string[];
 	/**
-	 * Called when POST /message is received with a validated text payload.
+	 * Called when POST /message is received with a validated text or content payload.
 	 * Use this to route user messages through the AgentController:
-	 * onMessage: (text) => dialog.receive(text, 'user')
+	 * onMessage: (content) => dialog.receive(content, 'user')
 	 *
 	 * When not provided, the router publishes on command/triggerEvent directly
 	 * (ambient agents can set triggerEvent to their own event type).
+	 * 
+	 * Accepts either a simple string or an array of TextContent | ImageContent blocks.
+	 * For backward compatibility, { text: string } is automatically converted to a text content block.
 	 */
-	onMessage?: (text: string) => void;
+	onMessage?: (content: string | (TextContent | ImageContent)[]) => void;
 	/**
 	 * Command event type published when onMessage is absent.
 	 */
@@ -130,7 +134,7 @@ export class RouterAdapter implements Adapter {
 		host: string;
 		allowedEvents: string[];
 		triggerEvent: string;
-		onMessage?: (text: string) => void;
+		onMessage?: (content: string | (TextContent | ImageContent)[]) => void;
 		getState?: () => Record<string, unknown>;
 		onSetModel?: (id: string) => void;
 		onSetThinking?: (level: string) => void;
@@ -356,14 +360,35 @@ export class RouterAdapter implements Adapter {
 	private handleMessage(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
 		this.readJsonBody(req)
 			.then((parsed) => {
-				if (typeof parsed.text !== "string") {
-					return this.sendJson(res, HTTP.BAD_REQUEST, { error: 'body must be { "text": string }' });
+				// Support both old format { text: string } and new format { content: [...] }
+				let content: string | (TextContent | ImageContent)[];
+				let text: string;
+				
+				if (typeof parsed.text === "string") {
+					// Backward compatibility: { text: string }
+					content = parsed.text;
+					text = parsed.text;
+				} else if (Array.isArray(parsed.content)) {
+					// New format: { content: (TextContent | ImageContent)[] }
+					content = parsed.content;
+					// Extract text for backward-compatible bus event
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by Array.isArray
+					text = (parsed.content as (TextContent | ImageContent)[]).find((c): c is TextContent => c.type === "text")?.text ?? "";
+				} else {
+					return this.sendJson(res, HTTP.BAD_REQUEST, { 
+						error: 'body must be { "text": string } or { "content": [...] }' 
+					});
 				}
+				
 				const correlationId = randomUUID();
 				if (this.options.onMessage) {
-					this.options.onMessage(parsed.text);
+					this.options.onMessage(content);
 				} else {
-					bus.command.publish({ type: this.options.triggerEvent, payload: { role: "user", text: parsed.text }, correlationId });
+					bus.command.publish({ 
+						type: this.options.triggerEvent, 
+						payload: { role: "user", text, content }, 
+						correlationId 
+					});
 				}
 				this.sendJson(res, HTTP.ACCEPTED, { ok: true, correlationId });
 			})

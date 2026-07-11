@@ -1,3 +1,5 @@
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+
 // ---------------------------------------------------------------------------
 // AgentEvent — typed output from the agent to any observer.
 // Types are owned here; they are structurally identical to reasoner types
@@ -116,8 +118,8 @@ export interface Session {
 
 	dispose(): void | Promise<void>;
 
-	send?(text: string, timeoutMs?: number): Promise<string>;
-	receive?(text: string): void;
+	send?(content: string | (TextContent | ImageContent)[], timeoutMs?: number): Promise<string>;
+	receive?(content: string | (TextContent | ImageContent)[]): void;
 
 	getDirective?(): DirectiveView | undefined;
 

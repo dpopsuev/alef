@@ -12,16 +12,23 @@ interface HotReloadOpts {
   cwd: string;
 }
 
+/**
+ * Create a hot reload service descriptor for automatic code rebuilding and session swapping.
+ * @param opts - Configuration options for hot reload behavior
+ * @returns A service descriptor that can be registered with the supervisor
+ */
 export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescriptor {
   return {
     name: 'hot-reload',
     restart: 'permanent',
     shareable: true,
     
+    // eslint-disable-next-line @typescript-eslint/require-await
     async create({ logger }: ServiceCreateOpts) {
       let active = false;
       
       // Expose rebuild trigger globally
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (globalThis as any).alefRequestRebuild = async () => {
         logger?.info({}, 'Hot reload: build starting');
         
@@ -56,16 +63,20 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
         adapters: [],
         tools: [],
         
+        // eslint-disable-next-line @typescript-eslint/require-await
         async start() {
           active = true;
           logger?.info({}, 'Hot reload service ready');
         },
         
+        // eslint-disable-next-line @typescript-eslint/require-await
         async stop() {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
           delete (globalThis as any).alefRequestRebuild;
           active = false;
         },
         
+        // eslint-disable-next-line @typescript-eslint/require-await
         async health() {
           return active;
         },

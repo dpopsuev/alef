@@ -389,7 +389,6 @@ export async function handleStatus(
 /**
  *
  */
-// eslint-disable-next-line @typescript-eslint/require-await
 export async function handlePromote(
 	deps: ChildLifecycleDeps,
 	ctx: { payload: { adapterPath: string; blueprintPath?: string } },
@@ -421,9 +420,11 @@ export async function handlePromote(
 	writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
 	
 	// Check for hot-reload capability via global function
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
 	const canHotReload = typeof (globalThis as any).alefRequestRebuild === "function";
 	if (canHotReload) {
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
 			await (globalThis as any).alefRequestRebuild();
 			return withDisplay(
 				{ promoted: true, adapterPath, blueprintPath },

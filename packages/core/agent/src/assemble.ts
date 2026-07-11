@@ -138,6 +138,10 @@ export function signalToAgentEvent(
 					text: typeof innerPayload.text === "string" ? innerPayload.text : "",
 				};
 			}
+			// Suppress stall events from child processes - they're noisy and don't add value
+			if (innerType === "llm.tool-stall") {
+				return null;
+			}
 			return null;
 		}
 		case "llm.message-queued":

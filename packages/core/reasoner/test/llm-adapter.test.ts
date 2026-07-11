@@ -876,7 +876,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 });
 
 // ---------------------------------------------------------------------------
-// tool-stall LlmEvent — the TUI pill "⏳ no output for Ns" display
+// tool-stall LlmEvent — the TUI displays "tool-name: running for Xs..."
 // ---------------------------------------------------------------------------
 
 describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {

@@ -424,7 +424,7 @@ export function dispatchTuiEvent(
 	/** Handle tool stall warning. */
 	function onToolStall(e: Extract<TuiEvent, { type: "tool-stall" }>): TuiState {
 		promptConsole.pulse();
-		promptConsole.updateInFlightCallChunk(e.callId, `⏳ no output for ${Math.round(e.lastChunkMs / 1_000)}s`);
+		promptConsole.updateInFlightCallChunk(e.callId, `${e.name}: running for ${Math.round(e.elapsedMs / 1_000)}s...`);
 		return state;
 	}
 

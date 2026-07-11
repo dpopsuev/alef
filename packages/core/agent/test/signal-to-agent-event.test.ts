@@ -151,6 +151,14 @@ describe("signalToAgentEvent — bus→AgentEvent bridge", { tags: ["unit"] }, (
 		expect(result).toBeNull();
 	});
 
+	it("agent.run.inner with llm.tool-stall → null (suppressed)", () => {
+		const result = signalToAgentEvent(msg("agent.run.inner", {
+			callId: "parent-1", innerType: "llm.tool-stall",
+			innerPayload: { callId: "inner-1", name: "shell.exec", elapsedMs: 5000, lastChunkMs: 3000 },
+		}));
+		expect(result).toBeNull();
+	});
+
 	it("agent.run.inner with unknown innerType → null", () => {
 		const result = signalToAgentEvent(msg("agent.run.inner", {
 			callId: "c-1", innerType: "unknown.event", innerPayload: {},

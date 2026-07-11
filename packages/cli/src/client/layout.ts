@@ -47,6 +47,7 @@ export async function buildLayout(
 		sessionId: opts.sessionId,
 		cwd: opts.cwd,
 		store: tuiStore,
+		blueprintName: opts.blueprintName,
 		requestRender: () => tui.requestRender(),
 		style: (s) => boldColor(s, t.accentFg),
 		dimStyle: (s) => color(s, t.mutedFg),

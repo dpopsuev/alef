@@ -31,6 +31,8 @@ export interface InteractiveOptions {
 	agentAddress?: string;
 	/** Route table for @-mention routing. */
 	actorRoutes?: ActorRouteTable;
+	/** Blueprint/profile name for display */
+	blueprintName?: string;
 }
 
 /** Drive a read-eval-print loop over stdin, sending each line to the session. */

@@ -10,6 +10,7 @@ export interface TuiState {
 	contextUsed: number;
 	compacted: boolean;
 	costUsd: number;
+	blueprintName?: string;
 }
 
 /**

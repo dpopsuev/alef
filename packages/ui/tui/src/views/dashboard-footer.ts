@@ -12,6 +12,7 @@ export interface DashboardFooterOptions {
 	sessionId: string;
 	cwd: string;
 	store: TuiStateStore;
+	blueprintName?: string;
 	requestRender: () => void;
 	style: (text: string) => string;
 	dimStyle: (text: string) => string;
@@ -175,6 +176,10 @@ export class DashboardFooter implements Component {
 
 		const thinkingSuffix = s.thinkingLevel && s.thinkingLevel !== "none" ? ` (${s.thinkingLevel})` : "";
 		segments.push(style(`${modelShort}${thinkingSuffix}`));
+
+		if (this.opts.blueprintName) {
+			segments.push(dimStyle(`[${this.opts.blueprintName}]`));
+		}
 
 		if (this.opts.buildInfo) {
 			segments.push(dimStyle(`v${this.opts.buildInfo.version}@${this.opts.buildInfo.gitHash}`));

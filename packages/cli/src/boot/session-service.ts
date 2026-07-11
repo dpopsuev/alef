@@ -28,6 +28,7 @@ export interface SessionService extends ManagedService {
 	readonly resolvedModelDisplay: string;
 	readonly humanAddress: string;
 	readonly agentAddress: string;
+	readonly blueprintName: string;
 	readonly setupSurface: () => Promise<{ port: number; router: RouterAdapter } | undefined>;
 }
 
@@ -47,6 +48,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				resolvedModelDisplay,
 				humanAddress,
 				agentAddress,
+				blueprintName,
 				setupSurface,
 			} = await createLocalSession(
 				opts.args,
@@ -69,6 +71,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				resolvedModelDisplay,
 				humanAddress,
 				agentAddress,
+				blueprintName,
 				setupSurface,
 				start: () => Promise.resolve(),
 				stop() {

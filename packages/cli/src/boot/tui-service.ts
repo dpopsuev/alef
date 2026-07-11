@@ -40,6 +40,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				setThinking: (level: string) => sessionSvc.session.setThinking(level),
 				humanAddress: sessionSvc.humanAddress,
 				agentAddress: sessionSvc.agentAddress,
+				blueprintName: sessionSvc.blueprintName,
 			};
 
 			const viewer = selectViewMode(opts.args, interactiveOpts, opts.store);

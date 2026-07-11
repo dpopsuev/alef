@@ -31,11 +31,33 @@ export interface ProcessedImage {
  *
  * @param buffer - Input image buffer
  * @param options - Processing configuration options
+ * @param timeoutMs - Processing timeout in milliseconds (default: 30000)
  * @returns Processed image with metadata
+ * @throws Error if processing times out or fails
  */
 export async function processImage(
 	buffer: Buffer,
 	options: ImageProcessingOptions = {},
+	timeoutMs: number = 30000,
+): Promise<ProcessedImage> {
+	return Promise.race([
+		processImageInternal(buffer, options),
+		new Promise<ProcessedImage>((_, reject) =>
+			setTimeout(
+				() => reject(new Error("Image processing timeout - image too large or complex")),
+				timeoutMs,
+			),
+		),
+	]);
+}
+
+/**
+ * Internal image processing implementation.
+ * Separated from public API to enable timeout wrapping.
+ */
+async function processImageInternal(
+	buffer: Buffer,
+	options: ImageProcessingOptions,
 ): Promise<ProcessedImage> {
 	const {
 		quality = "standard",

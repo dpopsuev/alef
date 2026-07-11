@@ -7,7 +7,7 @@ import { getImageDimensions } from "../terminal-image.js";
 import type { ImageAttachment } from "../types/attachment.js";
 import { UndoStack } from "../undo-stack.js";
 import { bufferToBase64, readClipboardImage } from "../utils/clipboard-image.js";
-import { processImage, getProcessingOptions } from "../utils/image-processing.js";
+import { processImage, getProcessingOptions, type ProcessedImage } from "../utils/image-processing.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, truncateToWidth, visibleWidth } from "../utils.js";
 import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list.js";
 
@@ -2355,6 +2355,7 @@ export class Editor implements Component, Focusable {
 	 * Handle image paste from clipboard
 	 * Reads clipboard, processes image for optimal API submission, creates ImageAttachment, 
 	 * and inserts visual marker with before/after stats.
+	 * Falls back to original image if processing fails or times out.
 	 * @returns true if image was pasted, false if clipboard has no image
 	 */
 	async handleImagePaste(): Promise<boolean> {
@@ -2365,81 +2366,134 @@ export class Editor implements Component, Focusable {
 				return false;
 			}
 
-			// Process image for optimal API submission
-			const processed = await processImage(
-				clipboardImage.data,
-				getProcessingOptions(this.processingQuality)
-			);
+			// Try to process image for optimal API submission (with 30s timeout)
+			let processed: ProcessedImage | null = null;
+			let processingError: string | null = null;
+			
+			try {
+				processed = await processImage(
+					clipboardImage.data,
+					getProcessingOptions(this.processingQuality),
+					30000 // 30 second timeout
+				);
+			} catch (error) {
+				// Processing failed or timed out - fall back to original image
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				if (errorMessage.includes("timeout")) {
+					processingError = "processing timeout";
+					console.warn("Image processing timeout - using original image");
+				} else {
+					processingError = "processing failed";
+					console.warn("Image processing failed - using original image:", error);
+				}
+			}
 
-			// Convert processed buffer to base64
-			const base64Content = bufferToBase64(processed.buffer);
+			// Use processed image if available, otherwise fall back to original
+			const imageBuffer = processed ? processed.buffer : clipboardImage.data;
+			const imageMimeType = processed ? processed.mimeType : clipboardImage.mimeType;
+			const imageSize = processed ? processed.processedSize : clipboardImage.data.length;
+
+			// Convert to base64
+			const base64Content = bufferToBase64(imageBuffer);
+
+			// Get dimensions (try from processed first, then from original)
+			let width: number;
+			let height: number;
+			
+			if (processed) {
+				width = processed.width;
+				height = processed.height;
+			} else {
+				// Try to get dimensions from original image
+				try {
+					const dims = getImageDimensions(base64Content, imageMimeType);
+					width = dims?.widthPx ?? 0;
+					height = dims?.heightPx ?? 0;
+				} catch {
+					// Fall back to placeholder dimensions if we can't read them
+					width = 0;
+					height = 0;
+				}
+			}
 
 			// Generate unique ID (matching Web UI pattern)
 			const timestamp = Date.now();
 			const random = Math.random();
 			const id = `screenshot_${timestamp}_${random}`;
 
-			// Determine file extension from processed MIME type
-			const extension = processed.mimeType.split("/")[1] ?? "png";
+			// Determine file extension from MIME type
+			const extension = imageMimeType.split("/")[1] ?? "png";
 			const fileName = `screenshot.${extension}`;
 
-			// Create attachment with processed image data
+			// Create attachment
 			const attachment: ImageAttachment = {
 				id,
 				type: "image",
 				fileName,
-				mimeType: processed.mimeType,
-				size: processed.processedSize,
+				mimeType: imageMimeType,
+				size: imageSize,
 				content: base64Content,
-				width: processed.width,
-				height: processed.height,
+				width,
+				height,
 			};
 
 			// Add to attachments array
 			this.attachments.push(attachment);
 
-			// Calculate compression stats
-			const compressionRatio = ((1 - processed.processedSize / processed.originalSize) * 100).toFixed(0);
-			const displaySize = this.formatFileSize(processed.processedSize);
-
-			// Build enhanced marker with before/after stats
+			// Build marker with stats
 			let marker = `[📷 ${fileName}`;
-			
-			// Check if image was resized by comparing with max dimension
-			const options = getProcessingOptions(this.processingQuality);
-			const maxDim = options.maxDimension ?? 1568;
-			
-			// Try to get original dimensions from the buffer
-			let originalDimensions: { widthPx: number; heightPx: number } | null = null;
-			try {
-				const originalBase64 = bufferToBase64(clipboardImage.data);
-				originalDimensions = getImageDimensions(originalBase64, clipboardImage.mimeType);
-			} catch {
-				// Ignore if we can't get dimensions
-			}
 
-			// Show before/after dimensions if resized
-			if (originalDimensions) {
-				const wasResized = 
-					originalDimensions.widthPx > maxDim || 
-					originalDimensions.heightPx > maxDim;
-				
-				if (wasResized) {
-					marker += ` ${originalDimensions.widthPx}x${originalDimensions.heightPx}→${processed.width}x${processed.height}`;
+			if (processed) {
+				// Successfully processed - show compression stats
+				const compressionRatio = ((1 - processed.processedSize / processed.originalSize) * 100).toFixed(0);
+				const displaySize = this.formatFileSize(processed.processedSize);
+
+				// Check if image was resized by comparing with max dimension
+				const options = getProcessingOptions(this.processingQuality);
+				const maxDim = options.maxDimension ?? 1568;
+
+				// Try to get original dimensions from the buffer
+				let originalDimensions: { widthPx: number; heightPx: number } | null = null;
+				try {
+					const originalBase64 = bufferToBase64(clipboardImage.data);
+					originalDimensions = getImageDimensions(originalBase64, clipboardImage.mimeType);
+				} catch {
+					// Ignore if we can't get dimensions
+				}
+
+				// Show before/after dimensions if resized
+				if (originalDimensions) {
+					const wasResized =
+						originalDimensions.widthPx > maxDim ||
+						originalDimensions.heightPx > maxDim;
+
+					if (wasResized) {
+						marker += ` ${originalDimensions.widthPx}x${originalDimensions.heightPx}→${processed.width}x${processed.height}`;
+					} else {
+						marker += ` ${processed.width}x${processed.height}`;
+					}
 				} else {
 					marker += ` ${processed.width}x${processed.height}`;
 				}
-			} else {
-				marker += ` ${processed.width}x${processed.height}`;
-			}
 
-			// Show size reduction if significant (>5%)
-			const wasCompressed = Number.parseInt(compressionRatio, 10) > 5;
-			if (wasCompressed) {
-				const originalSize = this.formatFileSize(processed.originalSize);
-				marker += ` ${originalSize}→${displaySize} (-${compressionRatio}%)`;
+				// Show size reduction if significant (>5%)
+				const wasCompressed = Number.parseInt(compressionRatio, 10) > 5;
+				if (wasCompressed) {
+					const originalSize = this.formatFileSize(processed.originalSize);
+					marker += ` ${originalSize}→${displaySize} (-${compressionRatio}%)`;
+				} else {
+					marker += ` ${displaySize}`;
+				}
 			} else {
+				// Used original image - show dimensions and size with warning
+				const displaySize = this.formatFileSize(imageSize);
+				if (width > 0 && height > 0) {
+					marker += ` ${width}x${height}`;
+				}
 				marker += ` ${displaySize}`;
+				if (processingError) {
+					marker += ` ⚠️ ${processingError}`;
+				}
 			}
 
 			marker += `]`;

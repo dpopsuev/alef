@@ -28,6 +28,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
+		getParentDirectives: opts.getParentDirectives,
 		domainAdapters: opts.domainAdapters,
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,

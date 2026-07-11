@@ -54,6 +54,7 @@ export interface DelegationStackOptions {
 	cwd: string;
 	factory: SubagentFactory;
 	contextWindow: number;
+	getParentDirectives?: () => Promise<string>;
 	domainAdapters?: readonly Adapter[];
 	sessionStore?: unknown;
 	writableRoots?: readonly string[];
@@ -121,6 +122,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	const parentAdapterNames = new Set(resolvedDomainAdapters.map((a: Adapter) => a.name));
 	const agentAdapter = injected.createAgentAdapter({
 		cwd,
+		getParentDirectives: opts.getParentDirectives,
 		strategies: { explore: exploreStrategy, general: generalStrategy },
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,

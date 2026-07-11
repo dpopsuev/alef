@@ -197,10 +197,13 @@ export async function createLocalSession(
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
+	const getParentDirectives = async () => Promise.resolve(directives.build(directivesBudgetChars));
+
 	const stack = await stackFactory({
 		cwd: args.cwd,
 		model,
 		getSignal: () => llmController?.signal,
+		getParentDirectives,
 		sessionStore: store,
 		domainAdapters: adapters,
 		subagentFactory,

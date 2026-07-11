@@ -35,6 +35,7 @@ export interface BlueprintStackOptions {
 	cwd: string;
 	model: Model<Api>;
 	getSignal?: () => AbortSignal | undefined;
+	getParentDirectives?: () => Promise<string>;
 	onRetry?: (attempt: number, reason: string) => void;
 	sessionStore?: SessionStore;
 	/**

@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-supervisor",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Service lifecycle management for Alef tools",
   "type": "module",
   "main": "./src/lifecycle.ts",

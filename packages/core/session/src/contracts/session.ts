@@ -98,13 +98,28 @@ export interface SessionState {
 }
 
 // ---------------------------------------------------------------------------
+// AdapterManagementSession — optional capability port for hot adapter ops
+// ---------------------------------------------------------------------------
+
+/**
+ * Capability surface for loading, unloading, and reloading adapters at runtime.
+ * Sessions that do not support adapter management omit this port entirely.
+ */
+export interface AdapterManagementSession {
+	loadAdapter(path: string): Promise<void>;
+	unloadAdapter(name: string): boolean;
+	reloadAdapter(name: string, path: string): Promise<void>;
+	readonly adapters: ReadonlyArray<{ name: string; description?: string }>;
+}
+
+// ---------------------------------------------------------------------------
 // Session — Strategy interface
 // ---------------------------------------------------------------------------
 
 /**
  *
  */
-export interface Session {
+export interface Session extends Partial<AdapterManagementSession> {
 	readonly state: SessionState;
 
 	getModel(): string;
@@ -113,11 +128,6 @@ export interface Session {
 	setThinking(level: string): void;
 
 	setTurnController(ctrl: AbortController | undefined): void;
-
-	loadAdapter?(path: string): Promise<void>;
-	unloadAdapter?(name: string): boolean;
-	reloadAdapter?(name: string, path: string): Promise<void>;
-	readonly adapters?: ReadonlyArray<{ name: string; description?: string }>;
 
 	dispose(): void | Promise<void>;
 

@@ -41,6 +41,7 @@ interface RunningService {
 	instance: ManagedService;
 	restartTimestamps: number[];
 	healthTimer?: ReturnType<typeof setInterval>;
+	restartInFlight?: boolean;
 }
 
 /**
@@ -166,7 +167,12 @@ export class Supervisor implements ServiceRegistry {
 
 		const enriched = { ...opts, supervisor: this as ServiceRegistry };
 		const next = await entry.descriptor.create(enriched);
-		await next.start();
+		try {
+			await next.start();
+		} catch (err) {
+			await next.stop().catch(() => {});
+			throw err;
+		}
 
 		if (handoff) await handoff(entry.instance, next);
 
@@ -204,23 +210,36 @@ export class Supervisor implements ServiceRegistry {
 	}
 
 	private async checkHealth(entry: RunningService, opts: ServiceCreateOpts): Promise<void> {
-		const healthy = await entry.instance.health().catch(() => false);
-		if (healthy) return;
+		if (entry.restartInFlight) return;
+		entry.restartInFlight = true;
 
-		const now = Date.now();
-		entry.restartTimestamps = entry.restartTimestamps.filter((t) => now - t < RESTART_WINDOW_MS);
-		if (entry.restartTimestamps.length >= MAX_RESTARTS) return;
+		try {
+			const healthy = await entry.instance.health().catch(() => false);
+			if (healthy) return;
 
-		const attempt = entry.restartTimestamps.length;
-		const delay = RESTART_BACKOFF_MS[Math.min(attempt, RESTART_BACKOFF_MS.length - 1)];
-		entry.restartTimestamps.push(now);
+			const now = Date.now();
+			entry.restartTimestamps = entry.restartTimestamps.filter((t) => now - t < RESTART_WINDOW_MS);
+			if (entry.restartTimestamps.length >= MAX_RESTARTS) {
+				opts.logger?.error(
+					{ service: entry.descriptor.name, restarts: entry.restartTimestamps.length },
+					"Service health exhausted — restart budget exceeded",
+				);
+				return;
+			}
 
-		await new Promise((r) => setTimeout(r, delay));
-		await entry.instance.stop().catch(() => {});
+			const attempt = entry.restartTimestamps.length;
+			const delay = RESTART_BACKOFF_MS[Math.min(attempt, RESTART_BACKOFF_MS.length - 1)];
+			entry.restartTimestamps.push(now);
 
-		const enriched = { ...opts, supervisor: this as ServiceRegistry };
-		const newInstance = await entry.descriptor.create(enriched);
-		await newInstance.start();
-		entry.instance = newInstance;
+			await new Promise((r) => setTimeout(r, delay));
+			await entry.instance.stop().catch(() => {});
+
+			const enriched = { ...opts, supervisor: this as ServiceRegistry };
+			const newInstance = await entry.descriptor.create(enriched);
+			await newInstance.start();
+			entry.instance = newInstance;
+		} finally {
+			entry.restartInFlight = false;
+		}
 	}
 }

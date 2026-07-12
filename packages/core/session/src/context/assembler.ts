@@ -1,5 +1,13 @@
-import type { Message } from "@dpopsuev/alef-ai/types";
 import type { Turn } from "../contracts/storage.js";
+
+/**
+ *
+ */
+export interface AssembledMessage {
+	role: string;
+	content: unknown;
+	timestamp?: number;
+}
 
 const ARG_DISPLAY_MAX_LENGTH = 80;
 
@@ -198,10 +206,10 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
  *    plain-text turns from llm.response events (ScriptedReasoner path or
  *    first turn before any checkpoint has been written).
  */
-export function turnsToMessages(turns: Turn[]): Message[] {
+export function turnsToMessages(turns: Turn[]): AssembledMessage[] {
 	const now = Date.now();
 
-	let baseHistory: Message[] | undefined;
+	let baseHistory: AssembledMessage[] | undefined;
 	let baseFoundAt = -1;
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
 		for (let j = turns[i]!.events.length - 1; j >= 0; j--) {
@@ -211,8 +219,8 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 			if (!isDialogMessage && !isCheckpoint) continue;
 			const hist = e.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- array-guarded payload cast to Message[]
-				baseHistory = hist as Message[];
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- array-guarded payload cast to AssembledMessage[]
+				baseHistory = hist as AssembledMessage[];
 				baseFoundAt = i;
 				break outer;
 			}
@@ -220,7 +228,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	}
 
 	const abortedFrom = baseFoundAt + 1; // 0 when no base found → scans all turns
-	const abortedMessages: Message[] = [];
+	const abortedMessages: AssembledMessage[] = [];
 	for (let i = abortedFrom; i < turns.length; i++) {
 		const turn = turns[i]!;
 		if (turn.events.some((e) => e.type === "llm.response")) continue;
@@ -244,7 +252,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 		return abortedMessages.length ? [...baseHistory, ...abortedMessages] : baseHistory;
 	}
 
-	const messages: Message[] = [];
+	const messages: AssembledMessage[] = [];
 	for (const turn of turns) {
 		for (const event of turn.events) {
 			if (event.type !== "llm.response") continue;

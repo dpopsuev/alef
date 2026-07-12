@@ -62,7 +62,6 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*"
   },
   "devDependencies": {

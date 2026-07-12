@@ -260,9 +260,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session
-      '@dpopsuev/alef-tool-meta':
-        specifier: workspace:*
-        version: link:../../tools/meta
     devDependencies:
       typescript:
         specifier: ^5.9.2
@@ -276,6 +273,9 @@ importers:
       '@aws-sdk/client-bedrock-runtime':
         specifier: ^3.1030.0
         version: 3.1075.0
+      '@dpopsuev/alef-kernel':
+        specifier: workspace:*
+        version: link:../kernel
       '@google/genai':
         specifier: ^1.40.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))
@@ -319,6 +319,9 @@ importers:
       '@dpopsuev/alef-ai':
         specifier: workspace:*
         version: link:../ai
+      '@dpopsuev/alef-engine':
+        specifier: workspace:*
+        version: link:../engine
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -372,9 +375,6 @@ importers:
 
   packages/core/engine:
     dependencies:
-      '@dpopsuev/alef-blueprint':
-        specifier: workspace:*
-        version: link:../blueprint
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -496,9 +496,6 @@ importers:
 
   packages/core/session:
     dependencies:
-      '@dpopsuev/alef-ai':
-        specifier: workspace:*
-        version: link:../ai
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -4730,6 +4727,7 @@ packages:
 
   libsql@0.5.29:
     resolution: {integrity: sha512-8lMP8iMgiBzzoNbAPQ59qdVcj6UaE/Vnm+fiwX4doX4Narook0a4GPKWBEv+CR8a1OwbfkgL18uBfBjWdF0Fzg==}
+    cpu: [x64, arm64, wasm32, arm]
     os: [darwin, linux, win32]
 
   lie@3.3.0:

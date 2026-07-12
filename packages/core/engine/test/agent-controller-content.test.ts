@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import { AgentController } from "../src/agent-controller.js";
 import type { Agent } from "../src/agent.js";
 

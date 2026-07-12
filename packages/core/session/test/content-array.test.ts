@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import { AgentSession } from "../src/agent.js";
 import type { SessionState } from "../src/contracts/session.js";
 

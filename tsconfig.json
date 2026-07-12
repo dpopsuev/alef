@@ -140,6 +140,9 @@
 			"@dpopsuev/alef-kernel/reconciliation": [
 				"./packages/core/kernel/src/reconciliation.ts"
 			],
+			"@dpopsuev/alef-kernel/content": [
+				"./packages/core/kernel/src/content.ts"
+			],
 			"@dpopsuev/alef-kernel/*": [
 				"./packages/core/kernel/src/*.ts"
 			],

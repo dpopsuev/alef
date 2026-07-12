@@ -180,6 +180,32 @@ export default tseslint.config(
 		},
 	},
 
+	// ── Ports-and-adapters: session/engine must not import alef-ai ────────
+	{
+		files: [
+			"packages/core/session/src/**/*.ts",
+			"packages/core/engine/src/**/*.ts",
+		],
+		rules: {
+			"no-restricted-imports": ["error", {
+				patterns: [
+					{
+						group: ["../index", "../index.js", "../../index", "../../index.js"],
+						message: "Do not import from barrel files. Import from the source module directly.",
+					},
+					{
+						group: ["@dpopsuev/alef-tool-*"],
+						message: "Core packages must not import from tool packages. Use adapter contributions or injection instead.",
+					},
+					{
+						group: ["@dpopsuev/alef-ai", "@dpopsuev/alef-ai/*"],
+						message: "Session/engine ports must not import @dpopsuev/alef-ai. Use @dpopsuev/alef-kernel/content and inject LLM callbacks at the composition root.",
+					},
+				],
+			}],
+		},
+	},
+
 	// ── Architectural boundary: tools must not import other tools ────────
 	// Each tool adapter is independent. Shared adapter infrastructure lives
 	// in mcp-registry (exempted via ignores — those tools depend on it legitimately).

@@ -55,6 +55,11 @@
       "source": "./src/reconciliation.ts",
       "import": "./src/reconciliation.ts",
       "default": "./src/reconciliation.ts"
+    },
+    "./content": {
+      "source": "./src/content.ts",
+      "import": "./src/content.ts",
+      "default": "./src/content.ts"
     }
   },
   "files": [

@@ -24,7 +24,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Traced } from "@dpopsuev/alef-kernel/log";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";

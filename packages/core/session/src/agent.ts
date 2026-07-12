@@ -1,4 +1,4 @@
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import type { AgentEvent, Session, SessionState } from "./contracts/session.js";
 
 const DEFAULT_SEND_TIMEOUT_MS = 300_000;

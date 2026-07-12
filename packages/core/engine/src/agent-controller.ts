@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import type { CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { Agent } from "./agent.js";
 

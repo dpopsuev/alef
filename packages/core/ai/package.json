@@ -107,6 +107,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*",
     "@anthropic-ai/sdk": "^0.91.1",
     "@aws-sdk/client-bedrock-runtime": "^3.1030.0",
     "@google/genai": "^1.40.0",

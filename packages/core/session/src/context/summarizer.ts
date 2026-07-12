@@ -1,6 +1,3 @@
-import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import { completeSimple } from "@dpopsuev/alef-ai/stream";
-
 const SUMMARIZATION_SYSTEM_PROMPT =
 	"You are a context summarization assistant. Read the conversation and produce a structured summary. Do NOT continue the conversation.";
 
@@ -28,6 +25,21 @@ Keep it concise. Preserve exact file paths and function names.`;
 const MESSAGE_PREVIEW_MAX_CHARS = 500;
 const FALLBACK_MESSAGE_COUNT = 10;
 const FALLBACK_LINE_MAX_CHARS = 120;
+
+/**
+ *
+ */
+export interface SummarizerCompleteInput {
+	systemPrompt: string;
+	messages: Array<{ role: "user"; content: string; timestamp: number }>;
+}
+
+/**
+ *
+ */
+export type SummarizerComplete = (input: SummarizerCompleteInput) => Promise<{
+	content: Array<{ type: string; text?: string }>;
+}>;
 
 /**
  *
@@ -67,15 +79,15 @@ function fallbackSummary(messages: readonly unknown[]): string {
 /**
  *
  */
-export function createLlmSummarizer(model: Model<Api>): (messages: readonly unknown[]) => Promise<string> {
+export function createLlmSummarizer(complete: SummarizerComplete): (messages: readonly unknown[]) => Promise<string> {
 	return async (messages) => {
 		const conversation = formatConversation(messages);
 		try {
-			const response = await completeSimple(model, {
+			const response = await complete({
 				systemPrompt: SUMMARIZATION_SYSTEM_PROMPT,
 				messages: [
 					{
-						role: "user" as const,
+						role: "user",
 						content: SUMMARIZATION_USER_TEMPLATE.replace("{conversation}", conversation),
 						timestamp: Date.now(),
 					},
@@ -83,7 +95,7 @@ export function createLlmSummarizer(model: Model<Api>): (messages: readonly unkn
 			});
 			const text = response.content
 				.filter((b) => b.type === "text")
-				.map((b) => (b as { text: string }).text)
+				.map((b) => b.text ?? "")
 				.join("");
 			return text || "[Context compacted — earlier turns summarized]";
 		} catch {

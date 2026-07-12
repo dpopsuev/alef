@@ -1,4 +1,4 @@
-import type { ImageContent, TextContent } from "@dpopsuev/alef-ai/types";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 
 // ---------------------------------------------------------------------------
 // AgentEvent — typed output from the agent to any observer.
@@ -75,10 +75,13 @@ export type AgentEvent =
  *
  */
 export interface DirectiveView {
-	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[] }>;
+	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[]; contentPreview?: string }>;
 	enable(id: string): void;
 	disable(id: string): void;
 	toggle(id: string): void;
+	replace(id: string, content: string): void;
+	add(id: string, priority: number, content: string, tags?: string[]): void;
+	remove(id: string): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,25 +129,4 @@ export interface Session {
 	subscribe(observer: (event: AgentEvent) => void): () => void;
 
 	cancelToolCall?(callId: string, toolName: string): void;
-}
-
-// ---------------------------------------------------------------------------
-// Type-narrowing helpers
-// ---------------------------------------------------------------------------
-
-/**
- *
- */
-export function canSend(session: Session): session is Session & { send: NonNullable<Session["send"]> } {
-	return typeof session.send === "function";
-}
-
-/**
- *
- */
-export function canManageAdapters(session: Session): session is Session & {
-	loadAdapter: NonNullable<Session["loadAdapter"]>;
-	unloadAdapter: NonNullable<Session["unloadAdapter"]>;
-} {
-	return typeof session.loadAdapter === "function" && typeof session.unloadAdapter === "function";
 }

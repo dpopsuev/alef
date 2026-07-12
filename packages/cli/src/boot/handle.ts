@@ -165,14 +165,34 @@ export class SessionHandle implements Session {
 
 	getDirective(): DirectiveView {
 		const d = this._directives;
+		const CONTENT_PREVIEW_MAX = 80;
 		return {
 			list: () =>
-				d
-					.list({ enabled: undefined })
-					.map((b) => ({ id: b.id, priority: b.priority, enabled: b.enabled, tags: b.tags })),
-			enable: (id) => d.enable(id),
-			disable: (id) => d.disable(id),
-			toggle: (id) => d.toggle(id),
+				d.list({ enabled: undefined }).map((b) => ({
+					id: b.id,
+					priority: b.priority,
+					enabled: b.enabled,
+					tags: b.tags,
+					contentPreview: typeof b.content === "string" ? b.content.slice(0, CONTENT_PREVIEW_MAX) : undefined,
+				})),
+			enable: (id) => {
+				d.enable(id);
+			},
+			disable: (id) => {
+				d.disable(id);
+			},
+			toggle: (id) => {
+				d.toggle(id);
+			},
+			replace: (id, content) => {
+				d.replace(id, content);
+			},
+			add: (id, priority, content, tags) => {
+				d.register({ id, priority, content, enabled: true, tags });
+			},
+			remove: (id) => {
+				d.unregister(id);
+			},
 		};
 	}
 

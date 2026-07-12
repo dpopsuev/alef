@@ -1,11 +1,11 @@
 const META_AGENT_TIMEOUT_MS = 60_000;
+
 import { autoDetectModel, buildModel } from "@dpopsuev/alef-agent/model";
 import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { DirectiveView } from "@dpopsuev/alef-session/contracts";
-// eslint-disable-next-line no-restricted-imports -- meta-agent is a composition root; createMetaAdapter needed directly
-import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-tool-meta";
+import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 
 const META_SYSTEM_PROMPT =
 	"You are the :meta command inside Alef, a coding agent. " +
@@ -28,13 +28,10 @@ export async function runMetaAgent(
 ): Promise<string> {
 	const model = modelId ? buildModel(modelId) : autoDetectModel();
 	if (!model) throw new Error("No model available for :meta — set ALEF_MODEL or configure a provider API key");
-	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
-	// from getDirectiveAdapter() satisfies the full interface.
 	const adapters: Adapter[] = [
 		createMetaAdapter({
 			dialogEventType: "llm.input",
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DirectiveView is a structural subset of DirectiveAdapter; runtime object satisfies both
-			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
+			getDirective,
 		}),
 	];
 	const factory = buildSubagentFactory({ model: model, baseSystemPrompt: META_SYSTEM_PROMPT });

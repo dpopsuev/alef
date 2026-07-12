@@ -12,6 +12,11 @@
       "types": "./dist/cli/presentation.d.ts",
       "import": "./src/cli/presentation.ts",
       "default": "./src/cli/presentation.ts"
+    },
+    "./meta-agent": {
+      "source": "./src/meta-agent.ts",
+      "import": "./src/meta-agent.ts",
+      "default": "./src/meta-agent.ts"
     }
   },
   "files": [

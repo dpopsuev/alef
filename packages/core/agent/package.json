@@ -23,7 +23,6 @@
     "./subagent-factory": "./src/subagent-factory.ts",
     "./build-llm": "./src/build-llm.ts",
     "./create-agent": "./src/create-agent.ts",
-    "./meta-agent": "./src/meta-agent.ts",
     "./workflow": "./src/workflow/index.ts"
   },
   "scripts": {
@@ -36,8 +35,7 @@
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
-    "@dpopsuev/alef-session": "workspace:*",
-    "@dpopsuev/alef-tool-meta": "workspace:*"
+    "@dpopsuev/alef-session": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

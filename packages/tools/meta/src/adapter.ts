@@ -33,19 +33,12 @@ import {
 	renameSession,
 	searchSessions,
 } from "./session-queries.js";
+import type { DirectiveView } from "@dpopsuev/alef-session/contracts";
 
 /**
- *
+ * @deprecated Use DirectiveView from @dpopsuev/alef-session/contracts
  */
-export interface DirectiveAdapter {
-	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[]; contentPreview: string }>;
-	enable(id: string): void;
-	disable(id: string): void;
-	toggle(id: string): void;
-	replace(id: string, content: string): void;
-	add(id: string, priority: number, content: string, tags?: string[]): void;
-	remove(id: string): void;
-}
+export type DirectiveAdapter = DirectiveView;
 
 /**
  *
@@ -60,7 +53,7 @@ export interface AgentPrototypeAdapter {
  *
  */
 export interface MetaAdapterOptions {
-	getDirective?: () => DirectiveAdapter | undefined;
+	getDirective?: () => DirectiveView | undefined;
 	/** Agent adapter for prototype.plug/unplug/list. Omit to disable prototype tools. */
 	agent?: AgentPrototypeAdapter;
 	/** Load an adapter from a TypeScript file path. Injected by local-session. */

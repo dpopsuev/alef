@@ -11,7 +11,7 @@ import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { type SelectItem, SelectList, type SelectListTheme, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
-import type { ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
+import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../../boot/auth.js";
 import { getConfig } from "../../boot/config.js";
 import type { InteractiveOptions } from "../../boot/interactive.js";
@@ -20,14 +20,11 @@ import { color, getProviderColor, setThemeByName, statusGlyph, type ThemeTokens 
 
 /** Shared context passed to every TUI command handler. */
 export interface TuiHandlerContext {
-	tuiStore?: TuiStateStore;
 	t: ThemeTokens;
 	writer: ChatLog;
 	opts?: InteractiveOptions;
 	tui: {
 		stop(): void;
-		removeChild(c: unknown): void;
-		addChild(c: unknown): void;
 		requestRender(force?: boolean): void;
 	};
 	session: Session;
@@ -456,7 +453,7 @@ const meta = {
 		ctx.writer.addNotice("[meta] \u2508");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			const m = await import("@dpopsuev/alef-agent/meta-agent");
+			const m = await import("../../meta-agent.js");
 			let accumulated = "";
 			const reply = await m.runMetaAgent(
 				prompt,

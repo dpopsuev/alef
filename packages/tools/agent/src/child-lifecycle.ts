@@ -56,6 +56,7 @@ export interface ChildLifecycleDeps {
 	publishInnerSignal?: (type: string, payload: Record<string, unknown>, correlationId: string) => void;
 	allowedBlueprints?: readonly string[];
 	parentAdapterNames?: ReadonlySet<string>;
+	logger?: { warn: (fields: Record<string, unknown>, message: string) => void; info?: (fields: Record<string, unknown>, message: string) => void };
 }
 
 /**
@@ -168,6 +169,12 @@ export async function handleAsk(
 		replyEvent: deps.replyEvent,
 		stallMs,
 		onStall: () => {
+			deps.publishInnerSignal?.(
+				"agent.child.stalled",
+				{ name: childName, callId: parentCallId },
+				ctx.correlationId,
+			);
+			deps.logger?.warn({ child: childName }, "Child stalled — stopping");
 			entry.process.kill("SIGTERM");
 			void deps.supervisor.stop(childName);
 			deps.strategies.delete(childName);

@@ -6,7 +6,7 @@
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, AdapterLogger, CommandHandlerCtx, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -184,9 +184,11 @@ export function guardCommand(command: string, rules: readonly GuardRule[] = DEFA
 // Streaming handler
 // ---------------------------------------------------------------------------
 
+type ShellExecPayload = { command: string; timeout?: number };
+
 /** Stream a shell command's stdout/stderr via spawn, with timeout and stall detection. */
 async function* streamExec(
-	ctx: { payload: { command: string; timeout?: number } },
+	ctx: CommandHandlerCtx<ShellExecPayload>,
 	opts: ShellAdapterOptions,
 ): AsyncIterable<Record<string, unknown>> {
 	const { command, timeout } = ctx.payload;
@@ -211,6 +213,8 @@ async function* streamExec(
 	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
 
+	ctx.log.info({ command, timeoutMs, cwd: opts.cwd }, "shell.exec start");
+
 	const shellCfg = getShellConfig(opts.shellPath);
 	const child = spawn(shellCfg.shell, [...shellCfg.args, resolvedCommand], {
 		cwd: opts.cwd,
@@ -221,14 +225,19 @@ async function* streamExec(
 	let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
 	let stallTimer: ReturnType<typeof setInterval> | undefined;
+	let stallKillTimer: ReturnType<typeof setTimeout> | undefined;
 
 	if (timeoutMs !== undefined) {
 		// lint-ignore: RAWTIMER hard wall-clock cap (safety net)
 		sigkillTimer = setTimeout(() => {
 			timeout$.timedOut = true;
+			ctx.log.warn({ pid: child.pid, timeoutMs }, "shell.exec timeout — SIGTERM");
 			child.kill("SIGTERM");
 			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
-			sigkillTimer2 = setTimeout(() => child.kill("SIGKILL"), 5000);
+			sigkillTimer2 = setTimeout(() => {
+				ctx.log.warn({ pid: child.pid }, "shell.exec timeout — SIGKILL");
+				child.kill("SIGKILL");
+			}, 5000);
 		}, timeoutMs);
 	}
 
@@ -249,9 +258,14 @@ async function* streamExec(
 					stallCount++;
 					if (stallCount >= STALL_THRESHOLD) {
 						timeout$.timedOut = true;
+						ctx.log.warn({ pid: child.pid, stallCount }, "shell.exec stalled — SIGTERM");
 						child.kill("SIGTERM");
-						// lint-ignore: RAWTIMER SIGKILL escalation
-						setTimeout(() => child.kill("SIGKILL"), 5000);
+						if (stallKillTimer) clearTimeout(stallKillTimer);
+						// lint-ignore: RAWTIMER SIGKILL escalation after stall SIGTERM
+						stallKillTimer = setTimeout(() => {
+							ctx.log.warn({ pid: child.pid }, "shell.exec stalled — SIGKILL");
+							child.kill("SIGKILL");
+						}, 5000);
 					}
 				} else {
 					stallCount = 0;
@@ -282,12 +296,15 @@ async function* streamExec(
 		const raw = Buffer.concat(chunks).toString("utf-8");
 		const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
 		if (timeout$.timedOut) {
+			ctx.log.warn({ exitCode, timeoutMs }, "shell.exec timed out");
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- timeoutMs is guaranteed defined when timedOut is true
 			throw new ShellTimeoutError(timeoutMs as number, exitCode, tr.content);
 		}
 		if (exitCode !== 0) {
+			ctx.log.warn({ exitCode }, "shell.exec non-zero exit");
 			throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
 		}
+		ctx.log.info({ exitCode, bytes: tr.totalBytes }, "shell.exec done");
 		const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
 		yield withDisplay(
 			{
@@ -302,6 +319,7 @@ async function* streamExec(
 	} finally {
 		if (sigkillTimer) clearTimeout(sigkillTimer);
 		if (sigkillTimer2) clearTimeout(sigkillTimer2);
+		if (stallKillTimer) clearTimeout(stallKillTimer);
 		if (stallTimer) clearInterval(stallTimer);
 	}
 }
@@ -311,12 +329,16 @@ async function* streamExec(
 // ---------------------------------------------------------------------------
 
 /** Pool of persistent PTY sessions keyed by working directory for reuse across calls. */
-class PtyPool {
+export class PtyPool {
 	private readonly manager = new PTYManager();
 	private readonly sessions = new Map<string, string>();
 
 	constructor() {
 		this.manager.registerAdapter(new ShellAdapter());
+	}
+
+	get size(): number {
+		return this.sessions.size;
 	}
 
 	async getOrCreate(cwd: string): Promise<{ id: string; manager: PTYManager }> {
@@ -333,6 +355,13 @@ class PtyPool {
 		return { id: handle.id, manager: this.manager };
 	}
 
+	async evict(cwd: string): Promise<void> {
+		const id = this.sessions.get(cwd);
+		if (!id) return;
+		this.sessions.delete(cwd);
+		await this.manager.stop(id);
+	}
+
 	async dispose(): Promise<void> {
 		for (const [, id] of this.sessions) {
 			await this.manager.stop(id);
@@ -347,7 +376,7 @@ class PtyPool {
 
 /** Stream a shell command through a persistent PTY session with timeout enforcement. */
 async function* streamExecPty(
-	ctx: { payload: { command: string; timeout?: number } },
+	ctx: CommandHandlerCtx<ShellExecPayload>,
 	opts: ShellAdapterOptions,
 	pool: PtyPool,
 ): AsyncIterable<Record<string, unknown>> {
@@ -369,6 +398,8 @@ async function* streamExecPty(
 	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
 	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 
+	ctx.log.info({ command, timeoutMs, cwd: opts.cwd, mode: "pty" }, "shell.exec start");
+
 	const { id, manager } = await pool.getOrCreate(opts.cwd);
 	const terminal = manager.attachTerminal(id);
 	if (!terminal) throw new Error("shell.exec: failed to attach to PTY session");
@@ -380,6 +411,7 @@ async function* streamExecPty(
 		if (timeoutMs) {
 			// lint-ignore: RAWTIMER hard wall-clock cap for PTY command
 			timer = setTimeout(() => {
+				ctx.log.warn({ timeoutMs, cwd: opts.cwd }, "shell.exec PTY timeout");
 				reject(new ShellTimeoutError(timeoutMs, -1, chunks.join("")));
 			}, timeoutMs);
 		}
@@ -400,12 +432,17 @@ async function* streamExecPty(
 
 	try {
 		await readyPromise;
-	} finally {
+	} catch (error) {
 		offData();
+		await pool.evict(opts.cwd);
+		ctx.log.warn({ cwd: opts.cwd, poolSize: pool.size }, "shell.exec PTY session evicted");
+		throw error;
 	}
+	offData();
 
 	const raw = chunks.join("");
 	const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+	ctx.log.info({ bytes: tr.totalBytes, mode: "pty" }, "shell.exec done");
 	const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
 	yield withDisplay(
 		{
@@ -427,8 +464,8 @@ async function* streamExecPty(
 export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 	const pool = options.usePty ? new PtyPool() : null;
 	const exec = pool
-		? (ctx: { payload: { command: string; timeout?: number } }) => streamExecPty(ctx, options, pool)
-		: (ctx: { payload: { command: string; timeout?: number } }) => streamExec(ctx, options);
+		? (ctx: CommandHandlerCtx<ShellExecPayload>) => streamExecPty(ctx, options, pool)
+		: (ctx: CommandHandlerCtx<ShellExecPayload>) => streamExec(ctx, options);
 
 	const adapter = defineAdapter(
 		"shell",

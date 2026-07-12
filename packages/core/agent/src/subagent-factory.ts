@@ -3,7 +3,7 @@ const RANDOM_ID_RADIX = 36;
 const RANDOM_ID_LENGTH = 10;
 import { assembleAgentServer } from "@dpopsuev/alef-agent/assemble";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
+import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";

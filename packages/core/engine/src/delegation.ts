@@ -1,19 +1,9 @@
 /**
- * Delegation stack builder — materializes adapters, creates explore/general
- * strategies, and wires the context assembly contextAssembly.
- *
- * Used by blueprint profiles (coding, factory) to build the full adapter stack.
+ * Delegation stack builder — wires explore/general strategies and context assembly
+ * from prebuilt adapters injected by the composition root (profiles).
  */
 
-import type { AdapterFactoryOptions } from "@dpopsuev/alef-blueprint/materializer";
-import type { CompiledAgentAdapterDefinition } from "@dpopsuev/alef-blueprint/types";
-import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
-import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import {
-	DEFAULT_COMPILED_DEFINITION,
-	materializeBlueprint,
-	materializeDefaultAdapters,
-} from "@dpopsuev/alef-blueprint/materializer";
+import type { SubagentFactory } from "./subagent-port.js";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
@@ -34,11 +24,6 @@ ALWAYS read a file with fs.read before editing it with fs.edit.
 ALWAYS call tools.describe(["tool-name"]) before first use of any tool.
 Batch parallel reads. Answer the question first.`;
 
-const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
-	{ name: "fs", actions: [], toolNames: ["fs.read", "fs.grep", "fs.find"] },
-	{ name: "web", actions: [], toolNames: [] },
-];
-
 /** Injected factory functions the delegation stack uses to create cross-cutting adapters. */
 export interface DelegationAdapters {
 	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
@@ -55,17 +40,19 @@ export interface DelegationStackOptions {
 	factory: SubagentFactory;
 	contextWindow: number;
 	getParentDirectives?: () => Promise<string>;
-	domainAdapters?: readonly Adapter[];
+	domainAdapters: readonly Adapter[];
+	exploreAdapters: readonly Adapter[];
+	generalAdapters: readonly Adapter[];
 	sessionStore?: unknown;
 	writableRoots?: readonly string[];
-	exploreAdapterDefs?: CompiledAgentAdapterDefinition[];
 	explorePrompt?: string;
 	generalPrompt?: string;
 	extraAdapters?: Adapter[];
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
 	adapters: DelegationAdapters;
-	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
+	allowedBlueprints?: readonly string[];
+	materializeAdapters: (names: string[]) => Promise<Adapter[]>;
 }
 
 /** Materialized adapter set with explore/general strategies and context assembly pipeline. */
@@ -76,26 +63,27 @@ export interface DelegationStack {
 	generalAdapters: Adapter[];
 }
 
-/** Materialize adapters, wire explore/general strategies, and assemble the context pipeline. */
+/** Wire explore/general strategies and assemble the context pipeline from prebuilt adapters. */
 export async function buildDelegationStack(opts: DelegationStackOptions): Promise<DelegationStack> {
 	const {
 		cwd,
 		factory,
 		contextWindow,
-		exploreAdapterDefs = DEFAULT_EXPLORE_ADAPTERS,
+		exploreAdapters,
+		generalAdapters,
+		domainAdapters,
 		explorePrompt = EXPLORE_SYSTEM_PROMPT,
 		generalPrompt = GENERAL_SYSTEM_PROMPT,
 		extraAdapters = [],
 		excludeNames = [],
 		adapters: injected,
+		materializeAdapters,
+		allowedBlueprints = [],
 	} = opts;
-	const materialiOpts = { cwd, resolveService: opts.resolveService };
 
-	const [resolvedDomainAdapters, { adapters: exploreAdapters }, { adapters: generalAdapters }] = await Promise.all([
-		opts.domainAdapters ? Promise.resolve([...opts.domainAdapters]) : materializeDefaultAdapters(cwd),
-		materializeBlueprint({ ...DEFAULT_COMPILED_DEFINITION, adapters: [...exploreAdapterDefs] }, materialiOpts),
-		materializeBlueprint(DEFAULT_COMPILED_DEFINITION, materialiOpts),
-	]);
+	const resolvedDomainAdapters = [...domainAdapters];
+	const resolvedExploreAdapters = [...exploreAdapters];
+	const resolvedGeneralAdapters = [...generalAdapters];
 
 	const contextAssembly = createContextAssembler();
 
@@ -114,8 +102,8 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		contextAssembly.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
 	}
 
-	const exploreStrategy = new InProcessStrategy(exploreAdapters, factory, explorePrompt);
-	const generalStrategy = new InProcessStrategy(generalAdapters, factory, generalPrompt);
+	const exploreStrategy = new InProcessStrategy(resolvedExploreAdapters, factory, explorePrompt);
+	const generalStrategy = new InProcessStrategy(resolvedGeneralAdapters, factory, generalPrompt);
 	injected.strategyRegistry?.register("explore", exploreStrategy);
 	injected.strategyRegistry?.register("general", generalStrategy);
 
@@ -127,17 +115,10 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,
 		parentAdapterNames,
-		allowedBlueprints: blueprintRegistry.list(),
+		allowedBlueprints,
 		materializeAdapters: async (names: string[]) => {
 			const allowed = names.filter((n: string) => parentAdapterNames.has(n));
-			const { adapters: materializedAdapters } = await materializeBlueprint(
-				{
-					...DEFAULT_COMPILED_DEFINITION,
-					adapters: allowed.map((n: string) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
-				},
-				materialiOpts,
-			);
-			return materializedAdapters;
+			return materializeAdapters(allowed);
 		},
 		subagentFactory: factory,
 	});
@@ -174,5 +155,10 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	const adapters: Adapter[] = [...allAdapters, toolShell, contextAssembly];
 
-	return { adapters, contextAssembly, exploreAdapters, generalAdapters };
+	return {
+		adapters,
+		contextAssembly,
+		exploreAdapters: resolvedExploreAdapters,
+		generalAdapters: resolvedGeneralAdapters,
+	};
 }

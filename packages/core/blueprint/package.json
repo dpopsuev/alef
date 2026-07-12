@@ -29,6 +29,7 @@
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-engine": "workspace:*",
     "jiti": "^2.7.0",
     "typebox": "^1.1.24",
     "yaml": "^2.8.2"

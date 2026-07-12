@@ -11,6 +11,7 @@
     "./catalog": "./src/tool-catalog.ts",
     "./delegation": "./src/delegation.ts",
     "./in-process": "./src/in-process.ts",
+    "./subagent-port": "./src/subagent-port.ts",
     "./remote": "./src/remote-strategy.ts",
     "./http": "./src/http.ts"
   },
@@ -42,7 +43,6 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*"
   },

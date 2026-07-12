@@ -1,4 +1,4 @@
-import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-blueprint/registry";
+import type { SubagentFactory } from "./subagent-port.js";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Watchdog } from "@dpopsuev/alef-kernel/bus";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
-export type { SubagentFactory, SubagentFactoryOptions };
+export type { SubagentFactory, SubagentFactoryOptions, SubagentSession } from "./subagent-port.js";
 
 /** Runs a subagent in the same process with stall detection and abort support. */
 export class InProcessStrategy implements ExecutionStrategy {

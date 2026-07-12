@@ -1,32 +1,10 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
 
-/**
- *
- */
-export interface SubagentFactoryOptions {
-	adapters: readonly Adapter[];
-	onChunk?: (chunk: string) => void;
-	onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
-	systemPrompt?: string;
-	/** Soft token budget. When exceeded, a "wrap up" message is injected instead of hard-aborting. */
-	tokenBudget?: number;
-	/** Override the model for this subagent (e.g. 'claude-haiku-4-5' for cheap exploration). */
-	modelOverride?: string;
-}
-
-/**
- *
- */
-export type SubagentSession = Session;
-
-/**
- *
- */
-export type SubagentFactory = (opts: SubagentFactoryOptions) => SubagentSession;
+export type { SubagentFactory, SubagentFactoryOptions, SubagentSession } from "@dpopsuev/alef-engine/subagent-port";
 
 /**
  *

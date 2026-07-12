@@ -165,9 +165,6 @@ export interface TuiPromptConsole {
 	showToast(message: string, durationMs?: number): void;
 	showBackgroundTask(taskId: string, profile: string): void;
 	updateBackgroundTask(taskId: string, status: "completed" | "failed", detail?: string): void;
-	buildFlowLayout(): unknown | null;
-	showCancellableLoader(message: string, onAbort: () => void): unknown;
-	removeCancellableLoader(loader: unknown): void;
 }
 
 /** Composite of all UI components needed by the TUI event dispatcher. */

@@ -9,6 +9,7 @@ export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./markdown-theme
 export { OutputPanel } from "./output-panel.js";
 export { ReplyBlock } from "./reply-block.js";
 export { prependSessionHistory, appendDisplayBlocks, type SessionHistoryOptions } from "./session-history.js";
+export { renderDisplayBlocksToLines } from "./render-preview.js";
 export { accentColorize, spinnerFrame } from "./spinner.js";
 export { type TuiState, TuiStateStore } from "./state.js";
 export * from "./theme.js";

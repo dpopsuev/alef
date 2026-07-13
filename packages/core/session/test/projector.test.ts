@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	formatPreviewLines,
 	projectSessionRecords,
+	selectTranscriptBlocks,
 	type SessionRecordProjection,
 } from "../src/context/projector.js";
 
@@ -68,6 +69,32 @@ describe("projectSessionRecords", { tags: ["unit"] }, () => {
 		const blocks = projectSessionRecords([rec("event", "llm.input", { text: "  hello \n  world  " })]);
 
 		expect(blocks[0]).toEqual({ kind: "user", text: "hello world" });
+	});
+});
+
+describe("selectTranscriptBlocks", { tags: ["unit"] }, () => {
+	it("keeps plan blocks and the last maxTurns user turns with tools", () => {
+		const blocks = projectSessionRecords(
+			[
+				rec("event", "llm.input", { text: "old" }),
+				rec("command", "fs.read", { path: "/old" }),
+				rec("event", "llm.input", { text: "mid" }),
+				rec("command", "llm.response", { text: "mid reply" }),
+				rec("event", "llm.input", { text: "new" }),
+				rec("command", "fs.edit", { path: "/new" }),
+			],
+			{
+				plan: { phase: "ship", desired: "preview", current: "wiring" },
+			},
+		);
+
+		expect(selectTranscriptBlocks(blocks, 2)).toEqual([
+			{ kind: "plan", phase: "ship", desired: "preview", lines: ["wiring"] },
+			{ kind: "user", text: "mid" },
+			{ kind: "assistant", text: "mid reply" },
+			{ kind: "user", text: "new" },
+			{ kind: "tool", name: "fs.edit", summary: "/new" },
+		]);
 	});
 });
 

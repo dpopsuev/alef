@@ -35,7 +35,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 		expect(await preview.getSessionNameSource(store.id)).toBeUndefined();
 	});
 
-	it("getSessionPreview returns recent events in chronological order", async () => {
+	it("getSessionPreview returns shared projector blocks in chronological order", async () => {
 		const { client, cleanup } = await makeTestDatabase();
 		cleanups.push(cleanup);
 		const factory = new SqliteStorageFactory(client);
@@ -47,35 +47,35 @@ describe("session preview", { tags: ["integration"] }, () => {
 		await store.append({ bus: "command", type: "fs.read", correlationId: "t2", payload: { path: "/tmp" }, timestamp: 3000 });
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t3", payload: { text: "second question" }, timestamp: 4000 });
 
-		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 10);
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 10);
 
-		expect(preview.length).toBe(4);
-		expect(preview[0]).toContain("▸");
-		expect(preview[0]).toContain("first question");
-		expect(preview[1]).toContain("◂");
-		expect(preview[1]).toContain("first answer");
-		expect(preview[2]).toContain("●");
-		expect(preview[2]).toContain("fs.read");
-		expect(preview[3]).toContain("▸");
-		expect(preview[3]).toContain("second question");
+		expect(preview).toEqual([
+			{ kind: "user", text: "first question" },
+			{ kind: "assistant", text: "first answer" },
+			{ kind: "tool", name: "fs.read", summary: "/tmp" },
+			{ kind: "user", text: "second question" },
+		]);
 	});
 
-	it("getSessionPreview returns at most maxLines entries", async () => {
+	it("getSessionPreview keeps the last maxTurns user turns", async () => {
 		const { client, cleanup } = await makeTestDatabase();
 		cleanups.push(cleanup);
 		const factory = new SqliteStorageFactory(client);
 
 		const store = await SqliteSessionStore.create(client, "/tmp/preview");
-		for (let i = 0; i < 20; i++) {
+		for (let i = 0; i < 8; i++) {
 			await store.append({ bus: "event", type: "llm.input", correlationId: `t${i}`, payload: { text: `msg ${i}` }, timestamp: i * 1000 });
 		}
 
-		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 5);
-		expect(preview.length).toBe(5);
-		expect(preview[4]).toContain("msg 19");
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 3);
+		expect(preview).toEqual([
+			{ kind: "user", text: "msg 5" },
+			{ kind: "user", text: "msg 6" },
+			{ kind: "user", text: "msg 7" },
+		]);
 	});
 
-	it("getSessionPreview returns LIFO — most recent events shown last", async () => {
+	it("getSessionPreview returns LIFO — most recent turns shown last", async () => {
 		const { client, cleanup } = await makeTestDatabase();
 		cleanups.push(cleanup);
 		const factory = new SqliteStorageFactory(client);
@@ -84,8 +84,8 @@ describe("session preview", { tags: ["integration"] }, () => {
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t1", payload: { text: "old message" }, timestamp: 1000 });
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t2", payload: { text: "new message" }, timestamp: 2000 });
 
-		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 5);
-		expect(preview[0]).toContain("old message");
-		expect(preview[1]).toContain("new message");
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 5);
+		expect(preview[0]).toEqual({ kind: "user", text: "old message" });
+		expect(preview[1]).toEqual({ kind: "user", text: "new message" });
 	});
 });

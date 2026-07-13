@@ -1,3 +1,4 @@
+import type { DisplayBlock } from "@dpopsuev/alef-session/context";
 import type { SessionNameSource, SessionStore } from "@dpopsuev/alef-session/storage";
 
 /**
@@ -94,7 +95,8 @@ export interface SessionStoreFactory {
 export interface SessionPreviewProvider {
 	getSessionName(sessionId: string): Promise<string | undefined>;
 	getSessionNameSource(sessionId: string): Promise<SessionNameSource | undefined>;
-	getSessionPreview(sessionId: string, maxLines: number): Promise<string[]>;
+	/** Shared transcript projector blocks for the last `maxTurns` user turns (plan/state included). */
+	getSessionPreview(sessionId: string, maxTurns: number): Promise<DisplayBlock[]>;
 }
 
 /**

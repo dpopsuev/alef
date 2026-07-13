@@ -31,21 +31,16 @@ describe("session preview — realistic fixture", { tags: ["integration"] }, () 
 			await store.append({ ...e, payload: { ...e.payload } });
 		}
 
-		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 10);
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 10);
 
-		expect(preview.length).toBeGreaterThan(0);
-
-		const hasUserMessage = preview.some((l) => l.includes("▸") && l.includes("Smoke test"));
-		expect(hasUserMessage).toBe(true);
-
-		const hasAgentReply = preview.some((l) => l.includes("◂") && l.includes("spawn two agents"));
-		expect(hasAgentReply).toBe(true);
-
-		const hasToolCall = preview.some((l) => l.includes("●") && l.includes("agent.spawn"));
-		expect(hasToolCall).toBe(true);
-
-		const hasSecondUser = preview.some((l) => l.includes("▸") && l.includes("What did you find"));
-		expect(hasSecondUser).toBe(true);
+		expect(preview).toEqual([
+			{ kind: "user", text: "Smoke test, spawn two subagents." },
+			{ kind: "assistant", text: "I'll spawn two agents to explore the codebase." },
+			{ kind: "tool", name: "agent.spawn", summary: "coding" },
+			{ kind: "tool", name: "fs.read", summary: "/tmp/test.ts" },
+			{ kind: "assistant", text: "The analysis is complete." },
+			{ kind: "user", text: "What did you find?" },
+		]);
 	});
 
 	it("shows most recent activity when session has many events", async () => {
@@ -59,9 +54,15 @@ describe("session preview — realistic fixture", { tags: ["integration"] }, () 
 			await store.append({ bus: "notification", type: "llm.result", correlationId: `t${i}`, payload: { text: `answer ${i}` }, timestamp: i * 1000 + 500 });
 		}
 
-		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 6);
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 3);
 
-		expect(preview.length).toBe(6);
-		expect(preview[preview.length - 1]).toContain("answer 49");
+		expect(preview).toEqual([
+			{ kind: "user", text: "question 47" },
+			{ kind: "assistant", text: "answer 47" },
+			{ kind: "user", text: "question 48" },
+			{ kind: "assistant", text: "answer 48" },
+			{ kind: "user", text: "question 49" },
+			{ kind: "assistant", text: "answer 49" },
+		]);
 	});
 });

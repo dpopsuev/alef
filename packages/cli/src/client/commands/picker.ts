@@ -22,6 +22,10 @@ export interface PickerOptions {
 	allowFilter?: boolean;
 	listWidthFraction?: number;
 	terminal?: Terminal;
+	/** Extra status line under the mode hint (e.g. scope indicator). */
+	statusLine?: () => string;
+	/** Tab in normal mode — e.g. toggle cwd/all scope. Return new items. */
+	onToggleScope?: () => SelectItem[] | Promise<SelectItem[]>;
 }
 
 /** Route raw key input to the preview list, search input, or close action. */
@@ -30,6 +34,8 @@ function handlePickerInput(
 	list: PreviewSelectList,
 	searchInput: Input | undefined,
 	close: () => void,
+	onToggleScope?: () => SelectItem[] | Promise<SelectItem[]>,
+	onScopeToggled?: (items: SelectItem[]) => void,
 ): boolean {
 	const kb = getKeybindings();
 
@@ -40,6 +46,14 @@ function handlePickerInput(
 
 	if (list.mode === "normal" && (kb.matches(data, "tui.select.cancel") || kb.matches(data, "app.quit"))) {
 		close();
+		return true;
+	}
+
+	if (list.mode === "normal" && matchesKey(data, "tab") && onToggleScope) {
+		void Promise.resolve(onToggleScope()).then((items) => {
+			list.setItems(items);
+			onScopeToggled?.(items);
+		});
 		return true;
 	}
 
@@ -70,11 +84,14 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		const terminal = opts.terminal ?? new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		const normalHint = `  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}  Enter select  Esc cancel`;
+		const scopeHint = opts.onToggleScope ? "  Tab scope" : "";
+		const normalHint = `  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}${scopeHint}  Enter select  Esc cancel`;
 		const insertHint = "  INSERT  type to filter  Esc → normal";
 
 		const modeLabel = new Text(color(normalHint, t.mutedFg), 0, 0);
+		const statusLabel = new Text(color(opts.statusLine?.() ?? "", t.mutedFg), 0, 0);
 		tui.addChild(modeLabel);
+		tui.addChild(statusLabel);
 		tui.addChild(new Text("", 0, 0));
 
 		const searchInput = opts.allowFilter ? new Input() : undefined;
@@ -92,6 +109,10 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 			previewFn: (item) => opts.previewFn(item, () => tui.requestRender()),
 		});
 
+		const refreshStatus = () => {
+			statusLabel.setText(color(opts.statusLine?.() ?? "", t.mutedFg));
+		};
+
 		const close = () => {
 			tui.stop();
 			resolve(undefined);
@@ -106,7 +127,10 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
-			handlePickerInput(data, previewList, searchInput, close);
+			handlePickerInput(data, previewList, searchInput, close, opts.onToggleScope, () => {
+				refreshStatus();
+				tui.requestRender();
+			});
 			tui.requestRender();
 			return true;
 		};

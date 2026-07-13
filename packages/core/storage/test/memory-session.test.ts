@@ -41,6 +41,15 @@ describe("InMemorySessionStore", { tags: ["unit"] }, () => {
 		expect(store.name()).toBeUndefined();
 		await store.setName("test session");
 		expect(store.name()).toBe("test session");
+		expect(store.nameSource()).toBe("user");
+	});
+
+	it("auto name does not overwrite user name", async () => {
+		const store = new InMemorySessionStore();
+		await store.setName("user", { source: "user" });
+		await store.setName("auto", { source: "auto" });
+		expect(store.name()).toBe("user");
+		expect(store.nameSource()).toBe("user");
 	});
 
 	it("filters adapter history by prefix", async () => {

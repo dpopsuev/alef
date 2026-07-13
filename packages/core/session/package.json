@@ -23,20 +23,28 @@
       "default": "./src/agent.ts"
     },
     "./context": {
-      "types": "./dist/context/index.d.ts",
+      "types": "./src/context/index.ts",
       "default": "./src/context/index.ts"
     },
     "./compaction": {
-      "types": "./dist/context/compaction.d.ts",
+      "types": "./src/context/compaction.ts",
       "default": "./src/context/compaction.ts"
     },
     "./summarizer": {
-      "types": "./dist/context/summarizer.d.ts",
+      "types": "./src/context/summarizer.ts",
       "default": "./src/context/summarizer.ts"
     },
     "./scoring": {
-      "types": "./dist/context/scoring.d.ts",
+      "types": "./src/context/scoring.ts",
       "default": "./src/context/scoring.ts"
+    },
+    "./projector": {
+      "types": "./src/context/projector.ts",
+      "default": "./src/context/projector.ts"
+    },
+    "./metadata": {
+      "types": "./src/context/metadata.ts",
+      "default": "./src/context/metadata.ts"
     },
     "./tracing": {
       "types": "./dist/tracing/index.d.ts",

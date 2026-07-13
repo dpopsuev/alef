@@ -5,17 +5,15 @@ description: >
   Does not code directly. Spawns domain-expert agents for execution.
   Plans, coordinates, observes, and closes.
 
+  workflow/wire is assembly (injected by the stack factory), not an SBOM adapter.
+
 adapters:
   - name: agent
     package: "@dpopsuev/alef-tool-agent"
   - name: factory
     package: "@dpopsuev/alef-tool-factory"
-  - name: discourse
-    package: "@dpopsuev/alef-tool-discourse"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
-  - name: workflow
-    package: "@dpopsuev/alef-tool-workflow"
   - name: skills
     package: "@dpopsuev/alef-tool-skills"
 

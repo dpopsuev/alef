@@ -1,4 +1,4 @@
-import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { SessionNameSource, SessionStore } from "@dpopsuev/alef-session/storage";
 
 /**
  *
@@ -64,11 +64,27 @@ export interface AuthStore {
 /**
  *
  */
+export interface SessionListEntry {
+	id: string;
+	path: string;
+	mtime: Date;
+	/** Absolute project cwd when known (sqlite). */
+	cwd?: string;
+	name?: string;
+	tags?: string[];
+	searchBlob?: string;
+}
+
+/**
+ *
+ */
 export interface SessionStoreFactory {
 	create(cwd: string): Promise<SessionStore>;
 	resume(cwd: string, id: string): Promise<SessionStore>;
 	resumeLatest(cwd: string): Promise<SessionStore | null>;
-	list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>>;
+	list(cwd: string): Promise<SessionListEntry[]>;
+	/** All sessions across cwd scopes, newest first. */
+	listAll(): Promise<SessionListEntry[]>;
 	prune(cwd: string): Promise<number>;
 }
 
@@ -77,6 +93,7 @@ export interface SessionStoreFactory {
  */
 export interface SessionPreviewProvider {
 	getSessionName(sessionId: string): Promise<string | undefined>;
+	getSessionNameSource(sessionId: string): Promise<SessionNameSource | undefined>;
 	getSessionPreview(sessionId: string, maxLines: number): Promise<string[]>;
 }
 
@@ -87,5 +104,6 @@ export interface StorageFactory {
 	daemonRegistry(): DaemonRegistry;
 	summaryStore(): SummaryStore;
 	authStore(): AuthStore;
+	sessionPreview(): SessionPreviewProvider;
 	readonly sessions: SessionStoreFactory;
 }

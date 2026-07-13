@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, describe, expect, it } from "vitest";
 import { createPlanAdapter } from "../src/adapter.js";
 import { PlanGraph } from "../src/graph.js";
@@ -255,13 +255,26 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(summary).toContain("create-the-index-page");
 	});
 
-	it("renderTree shows dependsOn for fan-in steps", () => {
+	it("renderTree shows header counts and step labels", () => {
+		const plan = new PlanGraph("p1", "a", "b", "c", null);
+		const a = plan.addStep("define the base interfaces");
+		plan.addStep("write the api reference docs", [a.id]);
+		plan.startStep(a.id);
+		const tree = plan.renderTree();
+		expect(tree).toContain("Plan · working on 1 · 0/2 done");
+		expect(tree).toContain("● define the base interfaces");
+		expect(tree).toContain("○ write the api reference docs");
+		expect(tree).not.toContain("├──");
+	});
+
+	it("renderSummary includes step labels from sticky tree", () => {
 		const plan = new PlanGraph("p1", "a", "b", "c", null);
 		const a = plan.addStep("define the base interfaces");
 		const b = plan.addStep("write the api reference docs", [a.id]);
 		plan.addStep("build the final index page", [a.id, b.id]);
-		const tree = plan.renderTree();
-		expect(tree).toContain("[after:");
+		const summary = plan.renderSummary();
+		expect(summary).toContain("build the final index page");
+		expect(summary).toContain("Plan · working on 1 · 0/3 done");
 	});
 
 	it("persists to disk and loads back", () => {

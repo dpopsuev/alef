@@ -81,6 +81,18 @@ export class PreviewSelectList implements Component {
 		this.list.setFilter(filter);
 	}
 
+	setItems(items: SelectItem[]): void {
+		this.list.setItems(items);
+		if (items.length > 0) {
+			this._selectedItem = items[0];
+			this.currentPreview = this.previewFn(items[0]);
+		} else {
+			this._selectedItem = undefined;
+			this.currentPreview = [];
+		}
+		this.previewScrollOffset = 0;
+	}
+
 	handleInput(data: string): boolean {
 		const viResult = this.vi.handleKey(data);
 		if (viResult === "mode-change") {

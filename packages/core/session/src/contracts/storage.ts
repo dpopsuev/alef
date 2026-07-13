@@ -73,6 +73,28 @@ export interface Turn {
 	typeWeight: number;
 }
 
+/** Who last set the session display name — user freezes auto overwrite. */
+export type SessionNameSource = "user" | "auto";
+
+/** Who last set session tags — user freezes LLM overwrite. */
+export type SessionTagsSource = "user" | "auto";
+
+/**
+ *
+ */
+export interface SetNameOptions {
+	/** Defaults to `"user"`. Auto names no-op when a user name is already set. */
+	source?: SessionNameSource;
+}
+
+/**
+ *
+ */
+export interface SetTagsOptions {
+	/** Defaults to `"user"`. Auto tags no-op when user-owned tags are set. */
+	source?: SessionTagsSource;
+}
+
 /**
  *
  */
@@ -85,5 +107,15 @@ export interface SessionStore {
 	hitCounts(): Promise<Map<string, number>>;
 	adapterHistory(adapterName: string): Promise<StorageRecord[]>;
 	name(): string | undefined;
-	setName(name: string): Promise<void>;
+	/** Provenance of the current name, if any. */
+	nameSource(): SessionNameSource | undefined;
+	setName(name: string, options?: SetNameOptions): Promise<void>;
+	/** Session tags. Empty when unset. */
+	tags(): readonly string[];
+	/** Provenance of the current tags, if any. */
+	tagsSource(): SessionTagsSource | undefined;
+	setTags(tags: readonly string[], options?: SetTagsOptions): Promise<void>;
+	/** Concatenated text used for picker/content search. */
+	searchBlob(): string | undefined;
+	setSearchBlob(blob: string): Promise<void>;
 }

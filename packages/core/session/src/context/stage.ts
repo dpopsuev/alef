@@ -1,6 +1,13 @@
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import type { SessionStore } from "../contracts/storage.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, DEFAULT_RECENT_GUARANTEE, HISTORY_BUDGET_FRACTION, turnsToMessages } from "./assembler.js";
+import {
+	assembleTurns,
+	DEFAULT_CONTEXT_WINDOW_POLICY,
+	DEFAULT_RECENT_GUARANTEE,
+	HISTORY_BUDGET_FRACTION,
+	turnsToMessages,
+} from "./assembler.js";
+import { eventsAfterCompaction, latestCompaction } from "./compaction.js";
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
@@ -31,17 +38,37 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 		const currentUserMsg = msgs.at(-1);
 		if (!currentUserMsg) return {};
 
-		const [turns, hitCounts] = await Promise.all([session.turns(), session.hitCounts()]);
+		const [turns, hitCounts, events] = await Promise.all([
+			session.turns(),
+			session.hitCounts(),
+			session.events(),
+		]);
 		if (turns.length === 0) return {};
 
+		const compaction = latestCompaction(events);
+		const keptEventIds = compaction
+			? new Set(
+					eventsAfterCompaction(events, compaction)
+						.map((e) => e.hash)
+						.filter((h): h is string => typeof h === "string"),
+				)
+			: undefined;
+
 		const query = typeof currentUserMsg.content === "string" ? currentUserMsg.content : "";
-		const selected = assembleTurns(turns, {
+		let selected = assembleTurns(turns, {
 			query,
 			contextWindow,
 			hitCounts,
 			policy: { recentGuarantee: DEFAULT_RECENT_GUARANTEE },
 		});
-		if (selected.length === 0) return {};
+		if (keptEventIds && keptEventIds.size > 0) {
+			selected = selected.filter((turn) => turn.events.some((e) => e.hash && keptEventIds.has(e.hash)));
+		} else if (compaction) {
+			const kept = eventsAfterCompaction(events, compaction);
+			const keptTimestamps = new Set(kept.map((e) => e.timestamp));
+			selected = selected.filter((turn) => turn.events.some((e) => keptTimestamps.has(e.timestamp)));
+		}
+		if (selected.length === 0 && !compaction) return {};
 
 		const budgetTotal = Math.floor(contextWindow * HISTORY_BUDGET_FRACTION);
 		const maxSingleTurnCost = Math.floor(budgetTotal * DEFAULT_CONTEXT_WINDOW_POLICY.maxSingleTurnFraction);
@@ -63,7 +90,8 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 		});
 
 		const projected = turnsToMessages(selected);
-		if (projected.length === 0) return {};
+		const summary =
+			compaction && typeof compaction.payload.summary === "string" ? compaction.payload.summary : undefined;
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Message[] to internal RawMsg shape
 		const projectedMsgs = projected as unknown as RawMsg[];
@@ -74,6 +102,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 
 		const assembled: RawMsg[] = [
 			...(systemMsg ? [systemMsg] : []),
+			...(summary ? [{ role: "user", content: summary }] : []),
 			...projectedMsgs,
 			...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 		];

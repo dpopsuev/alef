@@ -50,7 +50,7 @@ export type AgentEvent =
 	| { type: "turn-complete"; reply: string }
 	| { type: "turn-error"; message: string }
 	| { type: "token-usage"; usage: TokensConsumed }
-	| { type: "message-queued"; queueLength: number }
+	| { type: "message-queued"; queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" }
 	| { type: "subagent-identity"; callId: string; color: string; address: string; modelId?: string }
 	| { type: "subagent-token-usage"; callId: string; input: number; output: number }
 	| { type: "inner-tool-start"; parentCallId: string; callId: string; name: string; args: Record<string, unknown> }
@@ -132,11 +132,23 @@ export interface Session extends Partial<AdapterManagementSession> {
 	dispose(): void | Promise<void>;
 
 	send?(content: string | (TextContent | ImageContent)[], timeoutMs?: number): Promise<string>;
-	receive?(content: string | (TextContent | ImageContent)[]): void;
+	receive?(
+		content: string | (TextContent | ImageContent)[],
+		opts?: { delivery?: "steer" | "followUp" | "nextTurn" },
+	): void;
 
 	getDirective?(): DirectiveView | undefined;
 
 	subscribe(observer: (event: AgentEvent) => void): () => void;
 
 	cancelToolCall?(callId: string, toolName: string): void;
+
+	/**
+	 * LLM-backed summarizer for manual :compact / durable compaction.
+	 * Required for interactive compaction; tests may inject a fake.
+	 */
+	summarizeForCompaction?(
+		messages: readonly unknown[],
+		opts?: { instructions?: string; priorSummary?: string },
+	): Promise<string> | string;
 }

@@ -1,100 +1,105 @@
 /**
- * Session history eager load — prepends prior turns into the chat view.
+ * Session history eager load — prepends prior turns into the chat view via the shared projector.
  *
  * Called once during layout construction when resuming a session.
- * Reads the last `maxTurns` turns from the session store and renders
- * them as chat components at the top of the chat Container.
- *
- * The "lazy" part (appending more as the user scrolls up) is a future
- * enhancement once Container gains scroll-position detection.
  */
 
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import {
+	type DisplayBlock,
+	loadPlanPreview,
+	projectSessionRecords,
+	type SessionRecordProjection,
+} from "@dpopsuev/alef-session/context";
 import type { ChatLog } from "./chat-log.js";
+
+const DEFAULT_MAX_TURNS = 5;
+const EVENTS_PER_TURN_ESTIMATE = 8;
+const MIN_EVENT_WINDOW = 40;
 
 /**
  *
  */
 export interface SessionHistoryOptions {
-	/** Maximum number of prior turns to load eagerly. Default: 5. */
+	/** Maximum number of prior dialog turns to prefer. Default: 5. */
 	maxTurns?: number;
-}
-
-interface TurnPair {
-	userText: string;
-	agentText: string;
+	/** Project cwd for plan.json sidecar. */
+	cwd?: string;
 }
 
 /**
- * Read last N turn pairs (llm.input + llm.response) from the store's event cache.
- * Pairs events by correlationId: user message from event/llm.input,
- * agent reply from command/llm.response.
+ * Map projected display blocks onto ChatLog write APIs.
  */
-async function readRecentTurns(store: SessionStore, maxTurns: number): Promise<TurnPair[]> {
-	// Access the session's events via the store — llm events
-	// are on event/command buses. Use turns() instead which groups
-	// by correlationId and includes llm.input + llm.response events.
-	const turns = await store.turns();
-	const recent = turns.slice(-maxTurns);
-
-	const pairs: TurnPair[] = [];
-
-	for (const turn of recent) {
-		let userText: string | undefined;
-		let agentText: string | undefined;
-
-		for (const event of turn.events) {
-			if (event.bus === "event" && event.type === "llm.input") {
-				const t = (event.payload as { text?: string }).text;
-				if (t) userText = t;
+export function appendDisplayBlocks(writer: ChatLog, blocks: readonly DisplayBlock[]): void {
+	for (const block of blocks) {
+		switch (block.kind) {
+			case "plan": {
+				const steps = block.lines.length > 0 ? `\n  ${block.lines.join("\n  ")}` : "";
+				writer.addNotice(`◆ plan [${block.phase}] ${block.desired}${steps}`);
+				break;
 			}
-			if (event.bus === "command" && event.type === "llm.response") {
-				const t = (event.payload as { text?: string }).text;
-				if (t) agentText = t;
-			}
-		}
-
-		if (userText && agentText) {
-			pairs.push({ userText, agentText });
+			case "user":
+				writer.addUserMessage(block.text);
+				break;
+			case "assistant":
+				writer.addAgentReply(block.text);
+				break;
+			case "tool":
+				writer.addCompletedToolBlock(block.name, block.summary ?? "", 0, true, null, null);
+				break;
+			case "state":
+				writer.addNotice(`▨ ${block.label}: ${block.text}`);
+				break;
 		}
 	}
-
-	return pairs;
 }
 
 /**
- * Prepend session history into the chat view.
- *
- * Reads the last `maxTurns` completed turns from the store and prepends
- * them as chat pill components. Adds a divider notice above the history
- * to distinguish prior context from the current session.
- *
- * Only writes to the chat Container if there is history to show.
+ * Prepend session history into the chat view using the shared transcript projector.
  */
 export async function prependSessionHistory(
 	store: SessionStore,
 	writer: ChatLog,
 	opts: SessionHistoryOptions = {},
 ): Promise<void> {
-	const maxTurns = opts.maxTurns ?? 5;
-	const pairs = await readRecentTurns(store, maxTurns);
+	const maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;
+	const events = await store.events();
+	const windowSize = Math.max(maxTurns * EVENTS_PER_TURN_ESTIMATE, MIN_EVENT_WINDOW);
+	const recent = events.slice(-windowSize);
+	const records: SessionRecordProjection[] = recent.map((event) => ({
+		bus: event.bus,
+		type: event.type,
+		payload: event.payload,
+	}));
 
-	if (pairs.length === 0) return;
+	const plan = await loadPlanPreview(opts.cwd);
+	const blocks = projectSessionRecords(records, plan ? { plan } : undefined);
+	if (blocks.length === 0) return;
 
-	// Prepend in order (oldest first) — insertAt(0) each time would reverse,
-	// so render to a temp array and insertAt(0) the whole block.
-	const totalBefore = writer.container.children.length;
+	const dialogBlocks = blocks.filter((block) => block.kind === "user" || block.kind === "assistant");
+	const userCount = dialogBlocks.filter((block) => block.kind === "user").length;
+	const turnCount = Math.min(maxTurns, Math.max(1, userCount));
 
-	// Add a "resumed context" divider first (appears at top after all prepends).
-	writer.addNotice(`Resumed — ${pairs.length} prior turn${pairs.length === 1 ? "" : "s"} loaded`);
+	const planBlocks = blocks.filter((block) => block.kind === "plan" || block.kind === "state");
+	const transcript = blocks.filter((block) => block.kind !== "plan" && block.kind !== "state");
 
-	// Add turns in chronological order.
-	for (const pair of pairs) {
-		writer.addUserMessage(pair.userText);
-		writer.addAgentReply(pair.agentText);
+	// Keep last N user turns worth of transcript (tools between them included).
+	let usersSeen = 0;
+	const kept: DisplayBlock[] = [];
+	for (let i = transcript.length - 1; i >= 0; i--) {
+		const block = transcript[i]!;
+		kept.push(block);
+		if (block.kind === "user") {
+			usersSeen++;
+			if (usersSeen >= turnCount) break;
+		}
 	}
+	kept.reverse();
 
-	// Move the newly added children (from totalBefore onward) to the top.
+	const totalBefore = writer.container.children.length;
+	writer.addNotice(`Resumed — ${turnCount} prior turn${turnCount === 1 ? "" : "s"} loaded`);
+	appendDisplayBlocks(writer, [...planBlocks, ...kept]);
+
 	const newChildren = writer.container.children.splice(totalBefore);
 	for (let i = newChildren.length - 1; i >= 0; i--) {
 		const child = newChildren[i]!;

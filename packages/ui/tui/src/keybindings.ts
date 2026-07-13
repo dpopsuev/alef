@@ -55,6 +55,7 @@ export interface Keybindings {
 	// Generic input actions
 	"tui.input.newLine": true;
 	"tui.input.submit": true;
+	"tui.input.followUp": true;
 	"tui.input.tab": true;
 	"tui.input.shiftTab": true;
 	"tui.input.copy": true;
@@ -187,6 +188,7 @@ export const TUI_KEYBINDINGS = {
 	"tui.editor.undo": { defaultKeys: "ctrl+-", description: "Undo" },
 	"tui.input.newLine": { defaultKeys: "shift+enter", description: "Insert newline" },
 	"tui.input.submit": { defaultKeys: "enter", description: "Submit input" },
+	"tui.input.followUp": { defaultKeys: "alt+enter", description: "Queue as follow-up" },
 	"tui.input.tab": { defaultKeys: "tab", description: "Tab / autocomplete" },
 	"tui.input.shiftTab": { defaultKeys: "shift+tab", description: "Reverse tab / cycle backward" },
 	"tui.input.copy": { defaultKeys: "ctrl+c", description: "Copy selection" },

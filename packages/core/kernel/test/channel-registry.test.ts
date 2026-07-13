@@ -30,9 +30,12 @@ describe("bus channel registry", { tags: ["unit"] }, () => {
 		const notificationEvents = [
 			"llm.chunk", "llm.thinking", "llm.tool-start", "llm.tool-end",
 			"llm.tool-chunk", "llm.tool-stall", "llm.token-usage", "llm.result",
+			"context.compact.request", "context.compacted", "context.overflow-recovery",
+			"session.metadata.refresh", "plan.opened",
 		];
 		for (const type of notificationEvents) {
 			expect(canonicalChannel(type), `${type} should be notification`).toBe("notification");
 		}
 	});
 });
+

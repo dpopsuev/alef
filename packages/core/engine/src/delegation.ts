@@ -53,6 +53,8 @@ export interface DelegationStackOptions {
 	adapters: DelegationAdapters;
 	allowedBlueprints?: readonly string[];
 	materializeAdapters: (names: string[]) => Promise<Adapter[]>;
+	/** Policy-A plan retitle: called when plan.opened fires with desired text. */
+	onPlanOpened?: (desired: string) => void | Promise<void>;
 }
 
 /** Materialized adapter set with explore/general strategies and context assembly pipeline. */
@@ -125,13 +127,20 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
 	let lastTotalTokens = 0;
+	let pendingForceCompact: { instructions?: string } | undefined;
 	contextAssembly.addStage(
 		"compactor",
 		injected.createCompactionStage({
 			contextWindow,
 			summarize: opts.summarize,
+			sessionStore: opts.sessionStore ? () => opts.sessionStore : undefined,
 			publishSignal: (type: string, payload: Record<string, unknown>) => signalPublish?.(type, payload),
 			getLastTokenCount: () => lastTotalTokens,
+			pullForceCompact: () => {
+				const force = pendingForceCompact;
+				pendingForceCompact = undefined;
+				return force;
+			},
 		}),
 	);
 	const origMount = contextAssembly.mount.bind(contextAssembly);
@@ -141,10 +150,23 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
 			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
 		});
+		bus.notification.subscribe("context.compact.request", (event) => {
+			const instructions =
+				typeof event.payload.instructions === "string" ? event.payload.instructions : undefined;
+			pendingForceCompact = { instructions };
+		});
+		if (opts.onPlanOpened) {
+			const onPlanOpened = opts.onPlanOpened;
+			bus.notification.subscribe("plan.opened", (event) => {
+				const desired = typeof event.payload.desired === "string" ? event.payload.desired : "";
+				if (!desired) return;
+				void onPlanOpened(desired);
+			});
+		}
 		return origMount(bus);
 	};
 
-	const baseExclude = new Set(["agent", "factory", "skills", "compactor", ...excludeNames]);
+	const baseExclude = new Set(["agent", "compactor", ...excludeNames]);
 	const filteredDomain = resolvedDomainAdapters.filter((o: Adapter) => !baseExclude.has(o.name));
 	const allAdapters = [...filteredDomain, ...extraAdapters, agentAdapter];
 	const toolShell = createToolShellAdapter({

@@ -98,6 +98,18 @@ function registerContributions(
 			`compacted ${Number(payload.compactedTurns ?? 0)} turns, recovered ~${Math.round(saved / 1000)}k tokens`,
 		);
 	});
+	uiSignalHandlerKeys.add("context.overflow-recovery");
+	uiSignalHandlers.set("context.overflow-recovery", (payload, ui) => {
+		if (payload.willRetry) {
+			ui.setStatus("Context overflow detected, auto-compacting...");
+			return;
+		}
+		ui.setStatus(
+			typeof payload.errorMessage === "string" && payload.errorMessage
+				? payload.errorMessage
+				: "Context overflow recovery failed",
+		);
+	});
 }
 
 /** Assemble the system-prompt directive set from workspace files and adapter registrations. */
@@ -263,7 +275,16 @@ export async function createLocalSession(
 			llmController = c;
 		},
 		dispose: () => {},
-		receive: (text: string) => controller.receive(text, "user"),
+		receive: (content, opts?) => {
+			const text =
+				typeof content === "string"
+					? content
+					: content
+							.filter((part): part is { type: "text"; text: string } => part.type === "text")
+							.map((part) => part.text)
+							.join("");
+			controller.receive(text, "user", undefined, opts?.delivery);
+		},
 		subscribe: (obs: (event: AgentEvent) => void) => {
 			observers.add(obs);
 			return () => observers.delete(obs);

@@ -18,6 +18,8 @@ export interface SelectItem {
 	value: string;
 	label: string;
 	description?: string;
+	/** Extra haystack for fuzzy filter (tags, content blob). */
+	searchText?: string;
 }
 
 /**
@@ -83,9 +85,19 @@ export class SelectList implements Component {
 
 	setFilter(filter: string): void {
 		this.filteredItems = filter
-			? fuzzyFilter(this.items, filter, (item) => `${item.value} ${item.label} ${item.description ?? ""}`)
+			? fuzzyFilter(
+					this.items,
+					filter,
+					(item) => `${item.value} ${item.label} ${item.description ?? ""} ${item.searchText ?? ""}`,
+				)
 			: this.items;
 		this.selectedIndex = 0;
+	}
+
+	setItems(items: SelectItem[]): void {
+		this.items = items;
+		this.setFilter(this.searchBuffer);
+		this.notifySelectionChange();
 	}
 
 	setSelectedIndex(index: number): void {

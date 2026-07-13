@@ -1,11 +1,18 @@
 import type { Client } from "@libsql/client";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { SessionNameSource } from "@dpopsuev/alef-session/storage";
+import { formatPreviewLines, loadPlanPreview, projectSessionRecords } from "@dpopsuev/alef-session/context";
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
 import { SqliteSessionStore } from "./sqlite/session.js";
 import { SqliteSummaryStore } from "./sqlite/summary.js";
+
+/**
+ *
+ */
+function parseNameSource(value: unknown): SessionNameSource | undefined {
+	return value === "user" || value === "auto" ? value : undefined;
+}
 
 /**
  *
@@ -21,6 +28,7 @@ export class SqliteStorageFactory implements StorageFactory {
 			resume: (cwd, id) => SqliteSessionStore.resume(this.client, cwd, id),
 			resumeLatest: (cwd) => SqliteSessionStore.resumeLatest(this.client, cwd),
 			list: (cwd) => SqliteSessionStore.list(this.client, cwd),
+			listAll: () => SqliteSessionStore.listAll(this.client),
 			prune: (cwd) => SqliteSessionStore.prune(this.client, cwd),
 		};
 	}
@@ -32,35 +40,39 @@ export class SqliteStorageFactory implements StorageFactory {
 				const name = r.rows[0]?.name;
 				return typeof name === "string" ? name : undefined;
 			},
+			getSessionNameSource: async (sessionId) => {
+				const r = await this.client.execute({
+					sql: "SELECT name_source FROM sessions WHERE id = ?",
+					args: [sessionId],
+				});
+				return parseNameSource(r.rows[0]?.name_source);
+			},
 			getSessionPreview: async (sessionId, maxLines) => {
+				const meta = await this.client.execute({
+					sql: "SELECT cwd FROM sessions WHERE id = ?",
+					args: [sessionId],
+				});
+				const cwd = typeof meta.rows[0]?.cwd === "string" ? meta.rows[0].cwd : undefined;
+				const plan = await loadPlanPreview(cwd);
+
 				const r = await this.client.execute({
 					sql: `SELECT bus, type, payload FROM events
 						WHERE session_id = ? AND bus IN ('event', 'command', 'notification')
-						AND type NOT IN ('adapter.loaded', 'llm.chunk', 'llm.checkpoint', 'llm.thinking', 'context.assemble')
 						ORDER BY rowid DESC LIMIT ?`,
 					// eslint-disable-next-line no-magic-numbers
-					args: [sessionId, maxLines * 3],
+					args: [sessionId, Math.max(maxLines * 4, 40)],
 				});
-				const lines: string[] = [];
-				for (const row of [...r.rows].reverse()) {
+				const records = [...r.rows].reverse().map((row) => {
 					const bus = typeof row.bus === "string" ? row.bus : "";
 					const type = typeof row.type === "string" ? row.type : "";
 					const rawPayload = typeof row.payload === "string" ? row.payload : "{}";
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
 					const payload = JSON.parse(rawPayload) as Record<string, unknown>;
-					if (bus === "event" && type === "llm.input") {
-						const text = typeof payload.text === "string" ? payload.text : "";
-						// eslint-disable-next-line no-magic-numbers
-						if (text) lines.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-					} else if ((bus === "notification" && type === "llm.result") || (bus === "command" && type === "llm.response")) {
-						const text = typeof payload.text === "string" ? payload.text : "";
-						// eslint-disable-next-line no-magic-numbers
-						if (text) lines.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-					} else if (bus === "command" && !type.startsWith("llm.") && !type.startsWith("context.")) {
-						lines.push(`  ● ${type}`);
-					}
-				}
-				return lines.slice(-maxLines);
+					return { bus, type, payload };
+				});
+				const blocks = projectSessionRecords(records, plan ? { plan } : undefined);
+				const lines = formatPreviewLines(blocks, maxLines);
+				return lines.length > 0 ? lines : ["  (empty session)"];
 			},
 		};
 	}

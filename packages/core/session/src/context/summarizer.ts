@@ -20,6 +20,9 @@ Summarize this conversation. Use this format:
 ## Next Steps
 1. [What should happen next]
 
+## Tags
+[3-5 short lowercase tags, comma-separated, e.g. tui, bugfix, compaction]
+
 Keep it concise. Preserve exact file paths and function names.`;
 
 const MESSAGE_PREVIEW_MAX_CHARS = 500;
@@ -79,16 +82,23 @@ function fallbackSummary(messages: readonly unknown[]): string {
 /**
  *
  */
-export function createLlmSummarizer(complete: SummarizerComplete): (messages: readonly unknown[]) => Promise<string> {
-	return async (messages) => {
+export function createLlmSummarizer(
+	complete: SummarizerComplete,
+): (
+	messages: readonly unknown[],
+	opts?: { instructions?: string; priorSummary?: string },
+) => Promise<string> {
+	return async (messages, opts) => {
 		const conversation = formatConversation(messages);
+		const focus = opts?.instructions ? `\n\nAdditional focus instructions:\n${opts.instructions}` : "";
+		const prior = opts?.priorSummary ? `\n\nPrior compaction summary (fold forward):\n${opts.priorSummary}` : "";
 		try {
 			const response = await complete({
 				systemPrompt: SUMMARIZATION_SYSTEM_PROMPT,
 				messages: [
 					{
 						role: "user",
-						content: SUMMARIZATION_USER_TEMPLATE.replace("{conversation}", conversation),
+						content: SUMMARIZATION_USER_TEMPLATE.replace("{conversation}", conversation) + focus + prior,
 						timestamp: Date.now(),
 					},
 				],

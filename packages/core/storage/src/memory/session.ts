@@ -1,12 +1,39 @@
 import { randomUUID } from "node:crypto";
-import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session/storage";
+import type {
+	SessionNameSource,
+	SessionStore,
+	SessionTagsSource,
+	SetNameOptions,
+	SetTagsOptions,
+	StorageRecord,
+	Turn,
+} from "@dpopsuev/alef-session/storage";
 import { TurnIndexer } from "@dpopsuev/alef-session/store";
 
 const MEMORY_PATH_PREFIX = "memory:";
 const SESSION_ID_LENGTH = 8;
 const BUS_INTERNAL = "internal";
 const EVENT_SESSION_NAME = "session.name";
+const EVENT_SESSION_TAGS = "session.tags";
+const EVENT_SESSION_SEARCH_BLOB = "session.search_blob";
 const CORRELATION_META = "meta";
+const MAX_TAGS = 5;
+
+/**
+ *
+ */
+function normalizeTags(tags: readonly string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const raw of tags) {
+		const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
+		if (!tag || seen.has(tag)) continue;
+		seen.add(tag);
+		out.push(tag);
+		if (out.length >= MAX_TAGS) break;
+	}
+	return out;
+}
 
 /**
  *
@@ -18,6 +45,10 @@ export class InMemorySessionStore implements SessionStore {
 	private readonly _records: StorageRecord[] = [];
 	private readonly _indexer = new TurnIndexer();
 	private _name: string | undefined;
+	private _nameSource: SessionNameSource | undefined;
+	private _tags: string[] = [];
+	private _tagsSource: SessionTagsSource | undefined;
+	private _searchBlob: string | undefined;
 
 	constructor(id?: string) {
 		this.id = id ?? randomUUID().replace(/-/g, "").slice(0, SESSION_ID_LENGTH);
@@ -39,13 +70,57 @@ export class InMemorySessionStore implements SessionStore {
 		return this._name;
 	}
 
-	async setName(name: string): Promise<void> {
+	nameSource(): SessionNameSource | undefined {
+		return this._nameSource;
+	}
+
+	async setName(name: string, options?: SetNameOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this._nameSource === "user") return;
 		this._name = name;
+		this._nameSource = source;
 		await this.append({
 			bus: BUS_INTERNAL,
 			type: EVENT_SESSION_NAME,
 			correlationId: CORRELATION_META,
-			payload: { name },
+			payload: { name, source },
+			timestamp: Date.now(),
+		});
+	}
+
+	tags(): readonly string[] {
+		return this._tags;
+	}
+
+	tagsSource(): SessionTagsSource | undefined {
+		return this._tagsSource;
+	}
+
+	async setTags(tags: readonly string[], options?: SetTagsOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this._tagsSource === "user") return;
+		this._tags = normalizeTags(tags);
+		this._tagsSource = source;
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_TAGS,
+			correlationId: CORRELATION_META,
+			payload: { tags: this._tags, source },
+			timestamp: Date.now(),
+		});
+	}
+
+	searchBlob(): string | undefined {
+		return this._searchBlob;
+	}
+
+	async setSearchBlob(blob: string): Promise<void> {
+		this._searchBlob = blob;
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_SEARCH_BLOB,
+			correlationId: CORRELATION_META,
+			payload: { blob },
 			timestamp: Date.now(),
 		});
 	}

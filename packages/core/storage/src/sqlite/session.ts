@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session/storage";
+import type {
+	SessionNameSource,
+	SessionStore,
+	SessionTagsSource,
+	SetNameOptions,
+	SetTagsOptions,
+	StorageRecord,
+	Turn,
+} from "@dpopsuev/alef-session/storage";
 import { cwdHash, TurnIndexer } from "@dpopsuev/alef-session/store";
 import type { Client } from "@libsql/client";
+import type { SessionListEntry } from "../interfaces.js";
 
 const SQLITE_PATH_PREFIX = "sqlite:alef.db#";
 const MAX_WARM_EVENTS = 50_000;
@@ -10,7 +19,10 @@ const DEFAULT_PRUNE_MAX_AGE_DAYS = 30;
 const DEFAULT_PRUNE_MAX_COUNT = 50;
 const BUS_INTERNAL = "internal";
 const EVENT_SESSION_NAME = "session.name";
+const EVENT_SESSION_TAGS = "session.tags";
+const EVENT_SESSION_SEARCH_BLOB = "session.search_blob";
 const CORRELATION_META = "meta";
+const MAX_TAGS = 5;
 
 /**
  *
@@ -28,6 +40,62 @@ export function setEmbeddingCallback(cb: EmbeddingCallback | undefined): void { 
 function deriveAdapter(type: string): string | null {
 	const dot = type.indexOf(".");
 	return dot > 0 ? type.slice(0, dot) : null;
+}
+
+/**
+ *
+ */
+function parseNameSource(value: unknown): SessionNameSource | undefined {
+	return value === "user" || value === "auto" ? value : undefined;
+}
+
+/**
+ *
+ */
+function parseTagsSource(value: unknown): SessionTagsSource | undefined {
+	return value === "user" || value === "auto" ? value : undefined;
+}
+
+/**
+ *
+ */
+function rowToListEntry(row: Record<string, unknown>): SessionListEntry {
+	const id = typeof row.id === "string" ? row.id : "";
+	const entry: SessionListEntry = {
+		id,
+		path: `${SQLITE_PATH_PREFIX}${id}`,
+		mtime: new Date(Number(row.updated_at)),
+	};
+	if (typeof row.cwd === "string" && row.cwd) entry.cwd = row.cwd;
+	if (typeof row.name === "string" && row.name) entry.name = row.name;
+	if (typeof row.tags === "string" && row.tags) {
+		try {
+			const parsed = JSON.parse(row.tags) as unknown;
+			if (Array.isArray(parsed)) {
+				entry.tags = parsed.filter((t): t is string => typeof t === "string");
+			}
+		} catch {
+			/* ignore */
+		}
+	}
+	if (typeof row.search_blob === "string" && row.search_blob) entry.searchBlob = row.search_blob;
+	return entry;
+}
+
+/**
+ *
+ */
+function normalizeTags(tags: readonly string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const raw of tags) {
+		const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
+		if (!tag || seen.has(tag)) continue;
+		seen.add(tag);
+		out.push(tag);
+		if (out.length >= MAX_TAGS) break;
+	}
+	return out;
 }
 
 /**
@@ -125,20 +193,21 @@ export class SqliteSessionStore implements SessionStore {
 		return SqliteSessionStore.resume(client, cwd, typeof id === "string" ? id : "", version);
 	}
 
-	static async list(client: Client, cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
+	static async list(client: Client, cwd: string): Promise<SessionListEntry[]> {
 		const hash = cwdHash(cwd);
 		const result = await client.execute({
-			sql: "SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
+			sql: "SELECT id, cwd, name, tags, search_blob, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
 			args: [hash],
 		});
-		return result.rows.map((r) => {
-			const id = typeof r.id === "string" ? r.id : "";
-			return {
-				id,
-				path: `${SQLITE_PATH_PREFIX}${id}`,
-				mtime: new Date(Number(r.updated_at)),
-			};
+		return result.rows.map((r) => rowToListEntry(r as Record<string, unknown>));
+	}
+
+	static async listAll(client: Client): Promise<SessionListEntry[]> {
+		const result = await client.execute({
+			sql: "SELECT id, cwd, name, tags, search_blob, updated_at FROM sessions ORDER BY updated_at DESC",
+			args: [],
 		});
+		return result.rows.map((r) => rowToListEntry(r as Record<string, unknown>));
 	}
 
 	static async prune(client: Client, cwd: string, maxAgeDays = DEFAULT_PRUNE_MAX_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
@@ -222,15 +291,93 @@ export class SqliteSessionStore implements SessionStore {
 		return undefined;
 	}
 
-	async setName(name: string): Promise<void> {
+	nameSource(): SessionNameSource | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
+				return parseNameSource(r.payload.source) ?? "user";
+			}
+		}
+		return undefined;
+	}
+
+	async setName(name: string, options?: SetNameOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this.nameSource() === "user") return;
+
 		await this.append({
 			bus: BUS_INTERNAL,
 			type: EVENT_SESSION_NAME,
 			correlationId: CORRELATION_META,
-			payload: { name },
+			payload: { name, source },
 			timestamp: Date.now(),
 		});
-		await this._client.execute({ sql: "UPDATE sessions SET name = ? WHERE id = ?", args: [name, this.id] });
+		await this._client.execute({
+			sql: "UPDATE sessions SET name = ?, name_source = ? WHERE id = ?",
+			args: [name, source, this.id],
+		});
+	}
+
+	tags(): readonly string[] {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_TAGS && Array.isArray(r.payload.tags)) {
+				return r.payload.tags.filter((t): t is string => typeof t === "string");
+			}
+		}
+		return [];
+	}
+
+	tagsSource(): SessionTagsSource | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_TAGS) {
+				return parseTagsSource(r.payload.source) ?? "user";
+			}
+		}
+		return undefined;
+	}
+
+	async setTags(tags: readonly string[], options?: SetTagsOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this.tagsSource() === "user") return;
+
+		const normalized = normalizeTags(tags);
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_TAGS,
+			correlationId: CORRELATION_META,
+			payload: { tags: normalized, source },
+			timestamp: Date.now(),
+		});
+		await this._client.execute({
+			sql: "UPDATE sessions SET tags = ?, tags_source = ? WHERE id = ?",
+			args: [JSON.stringify(normalized), source, this.id],
+		});
+	}
+
+	searchBlob(): string | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_SEARCH_BLOB) {
+				return typeof r.payload.blob === "string" ? r.payload.blob : undefined;
+			}
+		}
+		return undefined;
+	}
+
+	async setSearchBlob(blob: string): Promise<void> {
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_SEARCH_BLOB,
+			correlationId: CORRELATION_META,
+			payload: { blob },
+			timestamp: Date.now(),
+		});
+		await this._client.execute({
+			sql: "UPDATE sessions SET search_blob = ? WHERE id = ?",
+			args: [blob, this.id],
+		});
 	}
 
 	turns(): Promise<Turn[]> {

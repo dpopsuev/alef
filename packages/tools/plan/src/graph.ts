@@ -328,7 +328,7 @@ export class PlanGraph {
 			case "active":
 				return "●";
 			case "failed":
-				return "✗";
+				return "▲";
 			case "dropped":
 				return "×";
 			default:
@@ -336,23 +336,27 @@ export class PlanGraph {
 		}
 	}
 
+	/** Sticky TUI strip: header counts + status rows (Alef geometric glyphs, not checkmarks). */
 	renderTree(): string {
-		const lines: string[] = [];
-		for (let i = 0; i < this.data.steps.length; i++) {
-			const step = this.data.steps[i]!;
-			const isLast = i === this.data.steps.length - 1;
-			const branch = isLast ? "└── " : "├── ";
-			const active = step.status === "active" ? "  ◄" : "";
-			const deps = step.dependsOn.length > 0 ? `  [after: ${step.dependsOn.join(", ")}]` : "";
-			lines.push(`${branch}${PlanGraph.glyph(step.status)} ${step.id}${active}${deps}`);
+		const s = this.stats();
+		const working = s.active > 0 ? s.active : s.pending > 0 ? 1 : 0;
+		const header =
+			s.total === 0
+				? "Plan · no steps yet"
+				: `Plan · working on ${working} · ${s.done}/${s.total} done`;
+		const lines: string[] = [header];
+
+		for (const step of this.data.steps) {
+			const marker = PlanGraph.glyph(step.status);
+			const focus = step.status === "active" ? "  ◄" : "";
+			lines.push(`  ${marker} ${step.label}${focus}`);
 			if (step.status === "active") {
-				const pad = isLast ? "    " : "│   ";
 				for (const g of step.gates) {
 					const gateStr = g.expect ? `${g.type}: ${g.target} = ${g.expect}` : `${g.type}: ${g.target}`;
-					lines.push(`${pad}   gate: [${gateStr}]`);
+					lines.push(`      gate · ${gateStr}`);
 				}
 				if (step.inspector) {
-					lines.push(`${pad}   inspector: [${step.inspector.type}: ${step.inspector.prompt.slice(0, 60)}]`);
+					lines.push(`      inspect · ${step.inspector.type}: ${step.inspector.prompt.slice(0, 60)}`);
 				}
 			}
 		}

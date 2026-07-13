@@ -259,13 +259,83 @@ describe("SqliteSessionStore.name + setName", { tags: ["unit"] }, () => {
 		await store.setName("my session");
 
 		expect(store.name()).toBe("my session");
+		expect(store.nameSource()).toBe("user");
 
 		const result = await client.execute({
-			sql: "SELECT name FROM sessions WHERE id = ?",
+			sql: "SELECT name, name_source FROM sessions WHERE id = ?",
 			args: [store.id],
 		});
 		const row = result.rows[0]!;
 		expect(String(row.name)).toBe("my session");
+		expect(String(row.name_source)).toBe("user");
+		client.close();
+	});
+
+	it("auto name does not overwrite user name", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await store.setName("user title", { source: "user" });
+		await store.setName("auto title", { source: "auto" });
+
+		expect(store.name()).toBe("user title");
+		expect(store.nameSource()).toBe("user");
+		client.close();
+	});
+
+	it("auto name applies when unset, then user can overwrite", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await store.setName("provisional", { source: "auto" });
+		expect(store.name()).toBe("provisional");
+		expect(store.nameSource()).toBe("auto");
+
+		await store.setName("manual", { source: "user" });
+		expect(store.name()).toBe("manual");
+		expect(store.nameSource()).toBe("user");
+		client.close();
+	});
+
+	it("persists tags and search blob", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await store.setTags(["TUI", "bugfix", "tui"]);
+		await store.setSearchBlob("picker preview overflow");
+
+		expect(store.tags()).toEqual(["tui", "bugfix"]);
+		expect(store.tagsSource()).toBe("user");
+		expect(store.searchBlob()).toBe("picker preview overflow");
+
+		const listed = await SqliteSessionStore.list(client, "/tmp/cwd");
+		const entry = listed.find((e) => e.id === store.id);
+		expect(entry?.tags).toEqual(["tui", "bugfix"]);
+		expect(entry?.searchBlob).toBe("picker preview overflow");
+		client.close();
+	});
+
+	it("auto setTags does not clobber user tags", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await store.setTags(["mine"], { source: "user" });
+		await store.setTags(["llm"], { source: "auto" });
+		expect(store.tags()).toEqual(["mine"]);
+		expect(store.tagsSource()).toBe("user");
+		client.close();
+	});
+});
+
+describe("SqliteSessionStore.listAll", { tags: ["unit"] }, () => {
+	it("returns sessions across cwd scopes with cwd and name", async () => {
+		const client = await makeClient();
+		const a = await SqliteSessionStore.create(client, "/tmp/a");
+		await a.setName("session a");
+		const b = await SqliteSessionStore.create(client, "/tmp/b");
+
+		const all = await SqliteSessionStore.listAll(client);
+		expect(all.length).toBeGreaterThanOrEqual(2);
+		const byId = new Map(all.map((e) => [e.id, e]));
+		expect(byId.get(a.id)?.cwd).toBe("/tmp/a");
+		expect(byId.get(a.id)?.name).toBe("session a");
+		expect(byId.get(b.id)?.cwd).toBe("/tmp/b");
 		client.close();
 	});
 });

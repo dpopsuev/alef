@@ -14,7 +14,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { SessionStore, StorageRecord, Turn } from "./contracts/storage.js";
+import type { SessionNameSource, SessionStore, SessionTagsSource, SetNameOptions, SetTagsOptions, StorageRecord, Turn } from "./contracts/storage.js";
 import { eventTypeWeight, extractContentLength } from "./context/scoring.js";
 
 const CWD_HASH_LENGTH = 12;
@@ -34,7 +34,45 @@ const MS_PER_SECOND = 1000;
 const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
 const BUS_INTERNAL = "internal" as const;
 const EVENT_SESSION_NAME = "session.name" as const;
+const EVENT_SESSION_TAGS = "session.tags" as const;
+const EVENT_SESSION_SEARCH_BLOB = "session.search_blob" as const;
 const CORRELATION_META = "meta";
+const MAX_SESSION_TAGS = 5;
+
+/**
+ *
+ */
+type SessionListMeta = {
+	name?: string;
+	tags?: string[];
+	searchBlob?: string;
+};
+
+/**
+ * Scan a JSONL session file for the latest name/tags/search_blob meta records.
+ */
+async function readSessionListMeta(path: string): Promise<SessionListMeta> {
+	try {
+		const raw = await readFile(path, "utf-8");
+		const meta: SessionListMeta = {};
+		for (const line of raw.split("\n")) {
+			if (!line.includes(`"bus":"${BUS_INTERNAL}"`)) continue;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL line to StorageRecord
+			const record = JSON.parse(line) as StorageRecord;
+			if (record.bus !== BUS_INTERNAL) continue;
+			if (record.type === EVENT_SESSION_NAME && typeof record.payload.name === "string") {
+				meta.name = record.payload.name;
+			} else if (record.type === EVENT_SESSION_TAGS && Array.isArray(record.payload.tags)) {
+				meta.tags = record.payload.tags.filter((t): t is string => typeof t === "string");
+			} else if (record.type === EVENT_SESSION_SEARCH_BLOB && typeof record.payload.blob === "string") {
+				meta.searchBlob = record.payload.blob;
+			}
+		}
+		return meta;
+	} catch {
+		return {};
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Session-scan helpers (previously session-scan.ts)
@@ -262,13 +300,85 @@ export class JsonlSessionStore {
 		return undefined;
 	}
 
+	nameSource(): SessionNameSource | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
+				const source = r.payload.source;
+				if (source === "user" || source === "auto") return source;
+				return "user";
+			}
+		}
+		return undefined;
+	}
+
 	/** Persist a human-readable name for this session (WAL — last record wins). */
-	async setName(name: string): Promise<void> {
+	async setName(name: string, options?: SetNameOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this.nameSource() === "user") return;
 		await this.append({
 			bus: BUS_INTERNAL,
 			type: EVENT_SESSION_NAME,
 			correlationId: CORRELATION_META,
-			payload: { name },
+			payload: { name, source },
+			timestamp: Date.now(),
+		});
+	}
+
+	tags(): readonly string[] {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_TAGS && Array.isArray(r.payload.tags)) {
+				return r.payload.tags.filter((t): t is string => typeof t === "string");
+			}
+		}
+		return [];
+	}
+
+	tagsSource(): SessionTagsSource | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_TAGS) {
+				const source = r.payload.source;
+				if (source === "user" || source === "auto") return source;
+				return "user";
+			}
+		}
+		return undefined;
+	}
+
+	async setTags(tags: readonly string[], options?: SetTagsOptions): Promise<void> {
+		const source = options?.source ?? "user";
+		if (source === "auto" && this.tagsSource() === "user") return;
+		const normalized = [...new Set(tags.map((t) => t.trim().toLowerCase().replace(/\s+/g, "-")).filter(Boolean))].slice(
+			0,
+			MAX_SESSION_TAGS,
+		);
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_TAGS,
+			correlationId: CORRELATION_META,
+			payload: { tags: normalized, source },
+			timestamp: Date.now(),
+		});
+	}
+
+	searchBlob(): string | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i]!;
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_SEARCH_BLOB) {
+				return typeof r.payload.blob === "string" ? r.payload.blob : undefined;
+			}
+		}
+		return undefined;
+	}
+
+	async setSearchBlob(blob: string): Promise<void> {
+		await this.append({
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_SEARCH_BLOB,
+			correlationId: CORRELATION_META,
+			payload: { blob },
 			timestamp: Date.now(),
 		});
 	}
@@ -290,7 +400,9 @@ export class JsonlSessionStore {
 		return removed;
 	}
 
-	static async list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
+	static async list(
+		cwd: string,
+	): Promise<Array<{ id: string; path: string; mtime: Date; name?: string; tags?: string[]; searchBlob?: string }>> {
 		try {
 			const dir = sessionDir(cwd);
 			const entries = await readdir(dir);
@@ -301,13 +413,38 @@ export class JsonlSessionStore {
 						const id = e.replace(".jsonl", "");
 						const p = join(dir, e);
 						const s = await stat(p);
-						return { id, path: p, mtime: s.mtime };
+						const meta = await readSessionListMeta(p);
+						return { id, path: p, mtime: s.mtime, ...meta };
 					}),
 			);
 			return sessions.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 		} catch {
 			return [];
 		}
+	}
+
+	static async listAll(): Promise<
+		Array<{ id: string; path: string; mtime: Date; cwd?: string; name?: string; tags?: string[]; searchBlob?: string }>
+	> {
+		const results: Array<{
+			id: string;
+			path: string;
+			mtime: Date;
+			cwd?: string;
+			name?: string;
+			tags?: string[];
+			searchBlob?: string;
+		}> = [];
+		await scanSessionFiles(async (id, path) => {
+			try {
+				const s = await stat(path);
+				const meta = await readSessionListMeta(path);
+				results.push({ id, path, mtime: s.mtime, ...meta });
+			} catch {
+				/* skip */
+			}
+		});
+		return results.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 	}
 
 	/**

@@ -112,6 +112,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	/** Load the active plan from disk or return the cached instance. */
 	function loadOrCreate(): PlanGraph | null {
 		if (activePlan) return activePlan;
+		if (!opts.sessionDir) return null;
 		activePlan = PlanGraph.load(planPath(opts.sessionDir));
 		return activePlan;
 	}
@@ -128,7 +129,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	async function handleOpen(ctx: CommandHandlerCtx<z.infer<typeof PLAN_OPEN.inputSchema>>): Promise<Record<string, unknown>> {
 		const id = `plan-${randomUUID().replace(/-/g, "").slice(0, SHORT_ID_LENGTH)}`;
 		activePlan = new PlanGraph(id, ctx.payload.current, ctx.payload.desired, ctx.payload.verify, planPath(opts.sessionDir));
-		emit("plan.opened", { planId: id });
+		emit("plan.opened", { planId: id, desired: ctx.payload.desired, current: ctx.payload.current });
 		emit("plan.dss", {
 			intent: ctx.payload.desired,
 			dimensions: [{ domain: "plan", key: "verify", target: ctx.payload.verify, priority: 1 }],
@@ -146,6 +147,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		const created = ctx.payload.steps.map((s) =>
 			plan.addStep(s.label, s.dependsOn ?? [], s.gates ?? [], s.inspector),
 		);
+		emit("plan.tree", { tree: plan.renderTree() });
 		return withDisplay(
 			{ added: created.length, ids: created.map((s) => s.id) },
 			{ text: `Added ${created.length} step(s): ${created.map((s) => s.id).join(", ")}`, mimeType: "text/plain" },
@@ -213,6 +215,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				if (!step) return withDisplay({ error: "cannot fail" }, { text: `Cannot fail ${stepId}`, mimeType: "text/plain" });
 				emit("step.failed", { planId: plan.id, stepId, reason: result });
 				postToDiscourse(plan.id, plan.id, { type: "step:failed", stepId, reason: result ?? "failed" });
+				emit("plan.tree", { tree: plan.renderTree() });
 				return withDisplay({ stepId, status: "failed" }, { text: `Failed: ${step.label} — ${result ?? "no reason"}`, mimeType: "text/plain" });
 			}
 			case "drop": {
@@ -275,13 +278,12 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			description: "Plan — define current→desired state, break into steps, verify each transition.",
 			labels: ["plan", "reasoning"],
 			directives: [
-				"Use plan.open to define where you are and where you want to be.",
-				"Use plan.steps to break the work into verifiable steps. Each step is a desired state.",
-				"Use plan.advance to start, complete, fail, or drop steps. Gates run automatically on completion.",
-				"The plan state is injected into your context automatically. Follow the 'Next:' step.",
-				"Autopilot loop: plan.advance(start) → do the work → plan.advance(done) → follow the next step. Repeat until all steps done, then plan.close.",
-				"If gates fail on completion, the step status becomes 'failed'. Fix the issue and call plan.advance(start) to retry.",
-				"Steps with dependsOn wait for ALL dependencies to complete before becoming eligible.",
+				"When the user request needs 3+ distinct steps, spans multiple files/systems, or is ambiguous — call plan.open before other tools. Skip the plan for single-shot lookups or one-line edits.",
+				"plan.open: state current (facts), desired (measurable end), verify (how we know done).",
+				"plan.steps: break work into verifiable steps (each label is a desired state, 3-12 words).",
+				"Autopilot: plan.advance(start) → do the work → plan.advance(done) → follow Next. Repeat; then plan.close.",
+				"The live plan is injected into context and shown in the TUI. Prefer advancing the open plan over reinventing the task list in prose.",
+				"If gates fail, status becomes failed — fix, then plan.advance(start) to retry. Steps with dependsOn wait for all deps.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
 			onMount: (bus: Bus) => {

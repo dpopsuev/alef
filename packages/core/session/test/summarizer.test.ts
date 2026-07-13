@@ -22,6 +22,23 @@ describe("createLlmSummarizer", { tags: ["unit"] }, () => {
 		expect(calls[0]?.messages[0]?.content).toContain("fix the bug");
 	});
 
+	it("folds instructions and prior summary into the LLM prompt", async () => {
+		const calls: SummarizerCompleteInput[] = [];
+		const summarize = createLlmSummarizer(async (input) => {
+			calls.push(input);
+			return { content: [{ type: "text", text: "ok" }] };
+		});
+
+		await summarize([{ role: "user", content: "work" }], {
+			instructions: "keep paths",
+			priorSummary: "earlier stuff",
+		});
+
+		const prompt = calls[0]?.messages[0]?.content ?? "";
+		expect(prompt).toContain("keep paths");
+		expect(prompt).toContain("earlier stuff");
+	});
+
 	it("falls back when complete throws", async () => {
 		const summarize = createLlmSummarizer(async () => {
 			throw new Error("provider down");

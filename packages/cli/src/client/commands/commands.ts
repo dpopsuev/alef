@@ -7,9 +7,10 @@
 
 import { install, load, reload, rollback, unload, upgrade } from "./adapter-cmds.js";
 import { login, logout } from "./auth-cmds.js";
-import { clear, createHelpCommand, detach, exit, session } from "./lifecycle-cmds.js";
+import { clear, compact, createHelpCommand, detach, exit, session } from "./lifecycle-cmds.js";
 import { directive, meta } from "./meta-cmds.js";
 import { stickies, sticky } from "./notes-cmds.js";
+import { rename, tag } from "./session-meta-cmds.js";
 import { model, profile, skills, theme, think } from "./settings-cmds.js";
 import { CommandRegistry } from "./types.js";
 
@@ -43,7 +44,10 @@ registry
 	.register(exit, "quit", "exit")
 	.register(detach)
 	.register(clear, "clear")
+	.register(compact)
 	.register(session)
+	.register(rename)
+	.register(tag)
 	.register(help, "h")
 	.register(login)
 	.register(logout)

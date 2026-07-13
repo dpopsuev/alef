@@ -1,12 +1,13 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 9;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`,
 	`CREATE TABLE IF NOT EXISTS sessions (
 		id TEXT PRIMARY KEY, cwd_hash TEXT NOT NULL, cwd TEXT, name TEXT,
+		name_source TEXT, tags TEXT, tags_source TEXT, search_blob TEXT,
 		created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, version TEXT)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_cwd ON sessions(cwd_hash)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at)`,
@@ -40,9 +41,7 @@ const MIGRATIONS: Record<number, string[]> = {
 		`ALTER TABLE events ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
 		`ALTER TABLE session_summaries ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
 	],
-	3: [
-		`ALTER TABLE events RENAME COLUMN organ TO adapter`,
-	],
+	3: [],
 	4: [
 		`CREATE TABLE IF NOT EXISTS daemon_v2 (
 			session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
@@ -74,6 +73,12 @@ const MIGRATIONS: Record<number, string[]> = {
 		`ALTER TABLE daemon ADD COLUMN last_heartbeat INTEGER`,
 		`ALTER TABLE daemon ADD COLUMN token TEXT`,
 	],
+	7: [`ALTER TABLE sessions ADD COLUMN name_source TEXT`],
+	8: [
+		`ALTER TABLE sessions ADD COLUMN tags TEXT`,
+		`ALTER TABLE sessions ADD COLUMN search_blob TEXT`,
+	],
+	9: [`ALTER TABLE sessions ADD COLUMN tags_source TEXT`],
 };
 
 /**

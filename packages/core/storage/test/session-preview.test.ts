@@ -17,8 +17,10 @@ describe("session preview", { tags: ["integration"] }, () => {
 		const store = await SqliteSessionStore.create(client, "/tmp/preview");
 		await store.setName("my analysis session");
 
-		const name = await factory.sessionPreview().getSessionName!(store.id);
+		const preview = factory.sessionPreview();
+		const name = await preview.getSessionName(store.id);
 		expect(name).toBe("my analysis session");
+		expect(await preview.getSessionNameSource(store.id)).toBe("user");
 	});
 
 	it("getSessionName returns undefined for unnamed sessions", async () => {
@@ -27,8 +29,10 @@ describe("session preview", { tags: ["integration"] }, () => {
 		const factory = new SqliteStorageFactory(client);
 
 		const store = await SqliteSessionStore.create(client, "/tmp/preview");
-		const name = await factory.sessionPreview().getSessionName!(store.id);
+		const preview = factory.sessionPreview();
+		const name = await preview.getSessionName(store.id);
 		expect(name).toBeUndefined();
+		expect(await preview.getSessionNameSource(store.id)).toBeUndefined();
 	});
 
 	it("getSessionPreview returns recent events in chronological order", async () => {

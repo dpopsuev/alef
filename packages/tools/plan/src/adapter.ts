@@ -102,22 +102,17 @@ const PLAN_CLOSE = {
 
 /** Options for the plan adapter — workspace-scoped multi-plan shelf. */
 export interface PlanAdapterOptions extends BaseAdapterOptions {
-	/** Workspace cwd (plans keyed by this). Prefer over sessionDir. */
-	cwd?: string;
+	/** Workspace cwd (plans keyed by this). */
+	cwd: string;
 	/** Override plans root for tests. Default: $XDG_DATA_HOME/alef/plans/<cwd-hash> */
 	plansRoot?: string;
-	/** @deprecated Prefer cwd. Still accepted as workspace fallback. */
-	sessionDir?: string;
 	actorAddress?: string;
 }
 
 /** Create the plan adapter with step management, gate evaluation, and context injection. */
 export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
-	const workspace = opts.cwd ?? opts.sessionDir;
-	if (!workspace) throw new Error("plan adapter requires cwd (or sessionDir)");
-
 	const store = new PlanStore({
-		cwd: workspace,
+		cwd: opts.cwd,
 		plansRoot: opts.plansRoot,
 	});
 

@@ -16,16 +16,20 @@ describe("PlanStore", { tags: ["unit"] }, () => {
 		for (const d of tmps.splice(0)) rmSync(d, { recursive: true, force: true });
 	});
 
-	it("create focuses the new plan and lists it as active", () => {
+	it("focusedPreview matches planPreviewFromData on focused graph", () => {
 		const root = makeRoot();
 		const store = new PlanStore({ cwd: "/proj", plansRoot: root });
-		const plan = store.create("no watchers", "stateful services shipped", "tests pass");
+		const plan = store.create("partial", "ship it", "tests green");
+		plan.addStep("first verification step");
+		plan.startStep("first-verification-step");
+		store.sync(plan);
 
-		expect(plan.desired).toBe("stateful services shipped");
-		expect(store.focused()?.id).toBe(plan.id);
-		expect(store.list()).toEqual([
-			expect.objectContaining({ id: plan.id, status: "active", desired: "stateful services shipped" }),
-		]);
+		expect(store.focusedPreview()).toEqual({
+			phase: "working",
+			desired: "ship it",
+			current: "partial",
+			stepSummary: "0/1 done · active: first-verification-step",
+		});
 	});
 
 	it("create auto-backlogs the previous focused plan", () => {

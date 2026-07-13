@@ -2,8 +2,30 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadPlanPreview } from "../src/context/plan-preview.js";
+import { loadPlanPreview, planPreviewFromData } from "../src/context/plan-preview.js";
 import { cwdHash } from "../src/store.js";
+
+describe("planPreviewFromData", { tags: ["unit"] }, () => {
+	it("builds stepSummary from shelf JSON", () => {
+		expect(
+			planPreviewFromData({
+				phase: "working",
+				desired: "ship it",
+				current: "partial",
+				steps: [{ id: "step-1", status: "active" }, { id: "step-2", status: "pending" }],
+			}),
+		).toEqual({
+			phase: "working",
+			desired: "ship it",
+			current: "partial",
+			stepSummary: "0/2 done · active: step-1",
+		});
+	});
+
+	it("returns undefined without phase/desired", () => {
+		expect(planPreviewFromData({ phase: "working" })).toBeUndefined();
+	});
+});
 
 describe("loadPlanPreview", { tags: ["unit"] }, () => {
 	const tmps: string[] = [];

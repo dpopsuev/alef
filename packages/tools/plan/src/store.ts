@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { planPreviewFromData, type PlanPreviewInput } from "@dpopsuev/alef-session/context";
 import { plansRootForCwd } from "@dpopsuev/alef-session/store";
 import { PlanGraph, type PlanPhase } from "./graph.js";
 
@@ -70,6 +71,13 @@ export class PlanStore {
 		const index = this.readIndex();
 		if (!index.focusedId) return null;
 		return this.load(index.focusedId);
+	}
+
+	/** Focused plan as session preview DTO (same path as loadPlanPreview). */
+	focusedPreview(): PlanPreviewInput | undefined {
+		const plan = this.focused();
+		if (!plan) return undefined;
+		return planPreviewFromData(plan.toJSON());
 	}
 
 	load(id: string): PlanGraph | null {

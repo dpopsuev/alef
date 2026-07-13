@@ -23,7 +23,7 @@ const DEFAULT_MAX_TURNS = 5;
 export interface SessionHistoryOptions {
 	/** Maximum number of prior dialog turns to prefer. Default: 5. */
 	maxTurns?: number;
-	/** Project cwd for plan.json sidecar. */
+	/** Project cwd for multi-plan shelf preview. */
 	cwd?: string;
 }
 

@@ -17,6 +17,7 @@ import {
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { PTYManager, ShellAdapter } from "pty-manager";
 import { z } from "zod";
+import { killProcessTree } from "./process-tree.js";
 import { getShellConfig, getShellEnv } from "./shell.js";
 
 // ---------------------------------------------------------------------------
@@ -186,18 +187,22 @@ export function guardCommand(command: string, rules: readonly GuardRule[] = DEFA
 
 type ShellExecPayload = { command: string; timeout?: number };
 
-/** Stream a shell command's stdout/stderr via spawn, with timeout and stall detection. */
-async function* streamExec(
-	ctx: CommandHandlerCtx<ShellExecPayload>,
-	opts: ShellAdapterOptions,
-): AsyncIterable<Record<string, unknown>> {
-	const { command, timeout } = ctx.payload;
+/**
+ *
+ */
+interface ResolvedShellExec {
+	command: string;
+	resolvedCommand: string;
+	timeoutMs: number | undefined;
+}
+
+/** Validate, guard, and resolve timeout/command prefix for shell.exec. */
+function resolveShellExec(payload: ShellExecPayload, opts: ShellAdapterOptions): ResolvedShellExec {
+	const { command, timeout } = payload;
 	if (!command) throw new Error("shell.exec: command is required");
 
 	const guard = guardCommand(command, opts.guardRules ?? DEFAULT_GUARD_RULES);
-	if (guard.blocked) {
-		throw new Error(guard.reason);
-	}
+	if (guard.blocked) throw new Error(guard.reason);
 
 	if (opts.blockedPatterns) {
 		for (const pattern of opts.blockedPatterns) {
@@ -206,12 +211,48 @@ async function* streamExec(
 			}
 		}
 	}
+
 	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
 	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
 	const requestedS = timeout ?? defaultS;
 	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
 	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
+	return { command, resolvedCommand, timeoutMs };
+}
+
+/** Final markdown display block for shell.exec output. */
+function displayShellOutput(tr: {
+	content: string;
+	truncated: boolean;
+	totalLines: number;
+	totalBytes: number;
+}, exitCode: number): Record<string, unknown> {
+	const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
+	return withDisplay(
+		{
+			output: tr.content,
+			exitCode,
+			truncated: tr.truncated,
+			totalLines: tr.totalLines,
+			totalBytes: tr.totalBytes,
+		},
+		{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
+	);
+}
+
+/** Hard-kill the shell process and any remaining children. */
+function hardKillShell(pid: number | undefined): void {
+	if (pid === undefined) return;
+	killProcessTree(pid);
+}
+
+/** Stream a shell command's stdout/stderr via spawn, with timeout and stall detection. */
+async function* streamExec(
+	ctx: CommandHandlerCtx<ShellExecPayload>,
+	opts: ShellAdapterOptions,
+): AsyncIterable<Record<string, unknown>> {
+	const { command, resolvedCommand, timeoutMs } = resolveShellExec(ctx.payload, opts);
 
 	ctx.log.info({ command, timeoutMs, cwd: opts.cwd }, "shell.exec start");
 
@@ -236,7 +277,7 @@ async function* streamExec(
 			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
 			sigkillTimer2 = setTimeout(() => {
 				ctx.log.warn({ pid: child.pid }, "shell.exec timeout — SIGKILL");
-				child.kill("SIGKILL");
+				hardKillShell(child.pid);
 			}, 5000);
 		}, timeoutMs);
 	}
@@ -264,7 +305,7 @@ async function* streamExec(
 						// lint-ignore: RAWTIMER SIGKILL escalation after stall SIGTERM
 						stallKillTimer = setTimeout(() => {
 							ctx.log.warn({ pid: child.pid }, "shell.exec stalled — SIGKILL");
-							child.kill("SIGKILL");
+							hardKillShell(child.pid);
 						}, 5000);
 					}
 				} else {
@@ -305,17 +346,7 @@ async function* streamExec(
 			throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
 		}
 		ctx.log.info({ exitCode, bytes: tr.totalBytes }, "shell.exec done");
-		const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
-		yield withDisplay(
-			{
-				output: tr.content,
-				exitCode,
-				truncated: tr.truncated,
-				totalLines: tr.totalLines,
-				totalBytes: tr.totalBytes,
-			},
-			{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
-		);
+		yield displayShellOutput(tr, exitCode);
 	} finally {
 		if (sigkillTimer) clearTimeout(sigkillTimer);
 		if (sigkillTimer2) clearTimeout(sigkillTimer2);
@@ -380,23 +411,7 @@ async function* streamExecPty(
 	opts: ShellAdapterOptions,
 	pool: PtyPool,
 ): AsyncIterable<Record<string, unknown>> {
-	const { command, timeout } = ctx.payload;
-	if (!command) throw new Error("shell.exec: command is required");
-
-	const guard = guardCommand(command, opts.guardRules ?? DEFAULT_GUARD_RULES);
-	if (guard.blocked) throw new Error(guard.reason);
-
-	if (opts.blockedPatterns) {
-		for (const pattern of opts.blockedPatterns) {
-			if (pattern.test(command)) throw new Error(`shell.exec: command blocked — matches '${pattern.source}'.`);
-		}
-	}
-
-	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
-	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
-	const requestedS = timeout ?? defaultS;
-	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
-	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
+	const { command, timeoutMs } = resolveShellExec(ctx.payload, opts);
 
 	ctx.log.info({ command, timeoutMs, cwd: opts.cwd, mode: "pty" }, "shell.exec start");
 
@@ -443,17 +458,7 @@ async function* streamExecPty(
 	const raw = chunks.join("");
 	const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
 	ctx.log.info({ bytes: tr.totalBytes, mode: "pty" }, "shell.exec done");
-	const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
-	yield withDisplay(
-		{
-			output: tr.content,
-			exitCode: 0,
-			truncated: tr.truncated,
-			totalLines: tr.totalLines,
-			totalBytes: tr.totalBytes,
-		},
-		{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
-	);
+	yield displayShellOutput(tr, 0);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,15 @@
-# @dpopsuev/alef-organ-shell
+# @dpopsuev/alef-tool-shell
 
-Shell organ runtime primitives for command execution.
+Shell tool for command execution via the Alef bus (`shell.exec`).
 
-This package provides:
+## Surface
 
-- shell process execution adapters (`PosixShellAdapter`, `WindowsShellAdapter`)
-- shell discovery/config (`getShellConfig`)
-- process lifecycle helpers (`waitForChildProcess`, process tree termination)
-- detached shell process tracking hooks for host shutdown cleanup
+- `createShellAdapter` — streaming spawn (default) or persistent PTY (`usePty`)
+- `getShellConfig` / `getShellEnv` — shell binary discovery and PATH helpers
+- `guardCommand` — command blocklist
+- `killProcessTree` — process-group / Windows tree kill used on hard timeout escalation
+
+## Not included
+
+One-shot platform spawn adapters (`PosixShellAdapter` / `WindowsShellAdapter`) were removed;
+execution lives entirely in the bus adapter path.

@@ -108,24 +108,3 @@ export function getShellEnv(options: { binDir?: string } = {}): NodeJS.ProcessEn
 		[pathKey]: updatedPath,
 	};
 }
-
-/** Strip non-printable control characters from shell output, keeping tabs and newlines. */
-export function sanitizeBinaryOutput(str: string): string {
-	return Array.from(str)
-		.filter((char) => {
-			const code = char.codePointAt(0);
-			if (code === undefined) return false;
-			if (code === 0x09 || code === 0x0a || code === 0x0d) return true;
-			if (code <= 0x1f) return false;
-			if (code >= 0xfff9 && code <= 0xfffb) return false;
-			return true;
-		})
-		.join("");
-}
-
-export {
-	killProcessTree,
-	killTrackedDetachedChildren,
-	trackDetachedChildPid,
-	untrackDetachedChildPid,
-} from "./process-tree.js";

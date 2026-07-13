@@ -12,6 +12,7 @@ import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { diffLines } from "diff";
 import { z } from "zod";
@@ -29,6 +30,8 @@ import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
+import { InMemoryEventStore } from "./event-store.js";
+import { WatchManager } from "./watch-manager.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -147,6 +150,48 @@ const FS_UNDO_TOOL = {
 	description: "Revert a file to its content before the last write/edit in this session.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("Path to the file to revert"),
+	}),
+};
+
+const FS_WATCH_TOOL = {
+	name: "fs.watch",
+	description:
+		"Watch files or directories for changes. Emits events when files are created, modified, or deleted. " +
+		"Service monitors continuously; agent receives notifications without polling. Returns a watchId for lifecycle management.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("File or directory to watch (relative or absolute)"),
+		events: z
+			.array(z.enum(["created", "modified", "deleted", "renamed"]))
+			.optional()
+			.describe("Filter to specific event types. Omit for all events."),
+		recursive: z.boolean().optional().describe("Watch subdirectories recursively (default: true)"),
+		debounceMs: z.number().optional().describe("Batch rapid changes (default: 100ms)"),
+		duration: z.number().optional().describe("Auto-unwatch after milliseconds. Omit for indefinite."),
+	}),
+};
+
+const FS_UNWATCH_TOOL = {
+	name: "fs.unwatch",
+	description: "Stop watching a file pattern. Releases resources and stops event emission.",
+	inputSchema: z.object({
+		watchId: z.string().min(1).describe("Watch ID returned by fs.watch"),
+	}),
+};
+
+const FS_TIMELINE_TOOL = {
+	name: "fs.timeline",
+	description:
+		"Query file modification history. Returns chronological events with timestamps, operation types, and diffs. " +
+		"Service maintains rolling history; agent can query even if it wasn't watching at the time.",
+	inputSchema: z.object({
+		path: z.string().optional().describe("Filter to specific file or directory. Omit for all."),
+		since: z.number().optional().describe("Unix timestamp (ms) — events after this time"),
+		until: z.number().optional().describe("Unix timestamp (ms) — events before or at this time"),
+		events: z
+			.array(z.enum(["created", "modified", "deleted", "renamed"]))
+			.optional()
+			.describe("Filter to specific event types"),
+		limit: z.number().optional().describe("Max events to return (default: 50)"),
 	}),
 };
 
@@ -571,6 +616,11 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const tracker = new FileTracker();
 	const allowedRoots = options.writableRoots ?? [options.cwd];
 	const resolve = (filePath: string) => resolveFilePath(options.cwd, filePath, allowedRoots);
+	
+	// Service state: watch manager and event store
+	const watchManager = new WatchManager();
+	const eventStore = new InMemoryEventStore();
+	let busRef: Bus | undefined;
 
 	return defineAdapter(
 		"fs",
@@ -654,6 +704,72 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 						{ text: `Reverted ${filePath} to pre-edit content.`, mimeType: "text/plain" },
 					);
 				}),
+				"fs.watch": typedAction(FS_WATCH_TOOL, async (ctx) => {
+					await Promise.resolve();
+					const { path: filePath, events, recursive, debounceMs, duration } = ctx.payload;
+					const absolutePath = resolve(filePath);
+					
+					const handle = watchManager.start(absolutePath, {
+						glob: filePath,
+						events,
+						recursive,
+						debounceMs,
+						duration,
+					}, (event) => {
+						// Record in timeline
+						eventStore.record(event);
+						// Emit to event bus
+						if (busRef) {
+							busRef.event.publish({
+								type: `file.${event.type}`,
+								correlationId: ctx.correlationId,
+								payload: {
+									watchId: handle.watchId,
+									path: event.path,
+									timestamp: event.timestamp,
+									trigger: event.trigger,
+								},
+								isError: false,
+							});
+						}
+					});
+					
+					return withDisplay(
+						{ watchId: handle.watchId, active: true, path: filePath },
+						{ text: `Watching **${filePath}** (watchId: ${handle.watchId})`, mimeType: "text/plain" },
+					);
+				}),
+				"fs.unwatch": typedAction(FS_UNWATCH_TOOL, async (ctx) => {
+					await Promise.resolve();
+					const { watchId } = ctx.payload;
+					watchManager.stop(watchId);
+					return withDisplay(
+						{ watchId, stopped: true },
+						{ text: `Stopped watching (watchId: ${watchId})`, mimeType: "text/plain" },
+					);
+				}),
+				"fs.timeline": typedAction(FS_TIMELINE_TOOL, async (ctx) => {
+					await Promise.resolve();
+					const { path: filePath, since, until, events, limit } = ctx.payload;
+					const absolutePath = filePath ? resolve(filePath) : undefined;
+					
+					const response = eventStore.query({
+						path: absolutePath,
+						since,
+						until,
+						events,
+						limit,
+					});
+					
+					const eventList = response.events.map(e => 
+						`${new Date(e.timestamp).toISOString()} ${e.type.padEnd(8)} ${e.path}`
+					).join('\n');
+					
+					return withDisplay(
+						{ events: response.events, total: response.total, oldest: response.oldest },
+						{ text: eventList || 'No events found', mimeType: "text/plain" },
+					);
+				}),
 			},
 		},
 		{
@@ -662,6 +778,13 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 			logger: options.logger,
 			description: "Read, write, edit, search, and find files within the workspace.",
 			labels: ["filesystem", "read", "write", "search"],
+			onMount: (bus) => {
+				busRef = bus;
+			},
+			onUnmount: () => {
+				watchManager.stopAll();
+				busRef = undefined;
+			},
 			contributions: {
 				port: {
 					name: "filesystem",

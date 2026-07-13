@@ -1,30 +1,26 @@
-const SESSION_PICKER_MAX_VISIBLE = 12;
-const SESSION_PREVIEW_TURNS_INITIAL = 10;
-const SESSION_PREVIEW_TURNS_STEP = 8;
-const SESSION_PREVIEW_TURNS_MAX = 64;
-
 /**
  * TUI session picker — vi-modal with preview pane, cwd/all scope, content search.
  */
 
-import type { DisplayBlock } from "@dpopsuev/alef-session/context";
 import type { SessionListEntry, SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import { renderDisplayBlocksToLines } from "@dpopsuev/alef-tui/views";
 import { getTheme } from "../theme.js";
 import { runPicker } from "./picker.js";
+import {
+	type PreviewCacheEntry,
+	previewPaneLines,
+	SESSION_PREVIEW_TURNS_INITIAL,
+	SESSION_PREVIEW_TURNS_MAX,
+	SESSION_PREVIEW_TURNS_STEP,
+	settlePreviewFailure,
+	settlePreviewSuccess,
+	shouldLoadPreview,
+} from "./session-preview-cache.js";
+
+const SESSION_PICKER_MAX_VISIBLE = 12;
 
 type SessionScope = "current" | "all";
-
-/**
- *
- */
-interface PreviewCacheEntry {
-	turns: number;
-	blocks: DisplayBlock[];
-	exhausted: boolean;
-	loading: boolean;
-}
 
 /**
  *
@@ -95,8 +91,7 @@ export async function pickSession(
 	const loadPreview = (sessionId: string, turns: number): void => {
 		if (!preview) return;
 		const existing = previewCache.get(sessionId);
-		if (existing?.loading) return;
-		if (existing && existing.turns >= turns) return;
+		if (!shouldLoadPreview(existing, turns)) return;
 
 		previewCache.set(sessionId, {
 			turns,
@@ -105,18 +100,16 @@ export async function pickSession(
 			loading: true,
 		});
 
-		void preview.getSessionPreview(sessionId, turns).then((blocks) => {
-			const prev = previewCache.get(sessionId);
-			const exhausted =
-				(prev?.blocks.length ?? 0) > 0 && blocks.length <= (prev?.blocks.length ?? 0) && turns > (prev?.turns ?? 0);
-			previewCache.set(sessionId, {
-				turns,
-				blocks,
-				exhausted: exhausted || turns >= SESSION_PREVIEW_TURNS_MAX,
-				loading: false,
-			});
-			requestRender?.();
-		});
+		void preview.getSessionPreview(sessionId, turns).then(
+			(blocks) => {
+				previewCache.set(sessionId, settlePreviewSuccess(previewCache.get(sessionId), turns, blocks));
+				requestRender?.();
+			},
+			(error: unknown) => {
+				previewCache.set(sessionId, settlePreviewFailure(previewCache.get(sessionId), turns, error));
+				requestRender?.();
+			},
+		);
 	};
 
 	const result = await runPicker({
@@ -150,13 +143,15 @@ export async function pickSession(
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
 			if (!preview) return ["  (preview unavailable)"];
 
-			const cached = previewCache.get(item.value);
-			if (cached && cached.blocks.length > 0) {
-				return renderDisplayBlocksToLines(cached.blocks, previewWidth, getTheme());
+			const pane = previewPaneLines(previewCache.get(item.value), (blocks) =>
+				renderDisplayBlocksToLines(blocks, previewWidth, getTheme()),
+			);
+			if (pane === "start-load") {
+				loadPreview(item.value, SESSION_PREVIEW_TURNS_INITIAL);
+				return ["  Loading..."];
 			}
-
-			loadPreview(item.value, SESSION_PREVIEW_TURNS_INITIAL);
-			return ["  Loading..."];
+			if (pane === "loading") return ["  Loading..."];
+			return pane;
 		},
 	});
 

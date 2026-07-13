@@ -48,9 +48,10 @@
     },
     "./mock-terminal": "./src/mock-terminal.ts"
   },
-  "dependencies": {
-    "@dpopsuev/alef-session": "workspace:*",
-    "chalk": "^5.5.0",
+	"dependencies": {
+		"@dpopsuev/alef-kernel": "workspace:*",
+		"@dpopsuev/alef-session": "workspace:*",
+		"chalk": "^5.5.0",
     "cli-highlight": "2.1.11",
     "get-east-asian-width": "^1.3.0",
     "marked": "^15.0.12",

@@ -70,6 +70,40 @@ export function withLlmContent(
 	return { ...metadata, content, _display: display };
 }
 
+/**
+ * Payload field names used to extract a human-readable key argument from a
+ * tool call — shown in TUI pills and concurrent-ops context.
+ */
+export const KEY_ARG_FIELDS = [
+	"command",
+	"path",
+	"url",
+	"pattern",
+	"glob",
+	"symbol",
+	"query",
+	"text",
+	"code",
+	"instruction",
+	"prompt",
+	"name",
+] as const;
+
+/** Default truncate length for key-arg display (first line). */
+export const KEY_ARG_MAX_LENGTH = 80;
+
+/** Extract the first non-empty human-readable argument from a tool-call payload. */
+export function pickKeyArg(payload: Record<string, unknown>, maxLength = KEY_ARG_MAX_LENGTH): string {
+	for (const key of KEY_ARG_FIELDS) {
+		const value = payload[key];
+		if (typeof value === "string" && value.length > 0) {
+			const firstLine = value.split("\n")[0]!.trim();
+			return firstLine.slice(0, maxLength);
+		}
+	}
+	return "";
+}
+
 /** Narrow a payload field to string, returning undefined if absent or wrong type. */
 export function getString(payload: Record<string, unknown>, key: string): string | undefined {
 	const v = payload[key];

@@ -83,9 +83,9 @@ describe("keyArgFromPayload — shell.exec command display", { tags: ["unit"] },
 		expect(result).toBe("npm run check");
 	});
 
-	it("truncates commands longer than 60 chars", () => {
-		const long = "a".repeat(80);
-		expect(keyArgFromPayload({ command: long })).toHaveLength(60);
+	it("truncates commands longer than 80 chars", () => {
+		const long = "a".repeat(100);
+		expect(keyArgFromPayload({ command: long })).toHaveLength(80);
 	});
 
 	it("returns empty string when command is absent", () => {

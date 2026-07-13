@@ -35,9 +35,9 @@ function getTheme() {
 describe("keyArgFromPayload", { tags: ["unit"] }, () => {
 	it("extracts path", () => expect(keyArgFromPayload({ path: "src/foo.ts" })).toBe("src/foo.ts"));
 	it("extracts command", () => expect(keyArgFromPayload({ command: "ls -la" })).toBe("ls -la"));
-	it("truncates to 60 chars", () => {
+	it("truncates to 80 chars", () => {
 		const long = "a".repeat(100);
-		expect(keyArgFromPayload({ path: long }).length).toBe(60);
+		expect(keyArgFromPayload({ path: long }).length).toBe(80);
 	});
 	it("returns empty string when no known key", () => expect(keyArgFromPayload({ foo: "bar" })).toBe(""));
 });

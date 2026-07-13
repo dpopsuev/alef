@@ -1,6 +1,6 @@
 import type { Adapter, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
-import { withDisplay } from "@dpopsuev/alef-kernel/payload";
+import { pickKeyArg, withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 import {
@@ -16,21 +16,9 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 /**
  * Payload field names used to extract a human-readable key argument from a
  * tool call — shown in TUI pills and in the concurrent-ops context block.
- * Lives here (not in spine) because it is a presentation hint, not a bus primitive.
- * runner/src/tui imports this; adapters themselves never reference it.
+ * Canonical definition lives in @dpopsuev/alef-kernel/payload.
  */
-export const KEY_ARG_FIELDS = [
-	"command",
-	"path",
-	"url",
-	"pattern",
-	"glob",
-	"symbol",
-	"query",
-	"text",
-	"code",
-	"instruction",
-] as const;
+export { KEY_ARG_FIELDS, pickKeyArg } from "@dpopsuev/alef-kernel/payload";
 
 import { z } from "zod";
 
@@ -91,7 +79,6 @@ export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTop
 // Factory
 // ---------------------------------------------------------------------------
 
-const KEY_ARG_MAX_LENGTH = 80;
 const MS_PER_SECOND = 1000;
 const CORRELATION_ID_DISPLAY_LENGTH = 8;
 const LLM_INPUT = "llm.input";
@@ -282,15 +269,6 @@ function makeInflightExcluded(replyType: string): Set<string> {
 /** Compose a unique map key from event type, correlation ID, and optional tool-call ID. */
 function inflightKey(type: string, correlationId: string, toolCallId: string | undefined): string {
 	return `${type}::${correlationId}::${toolCallId ?? ""}`;
-}
-
-/** Extract the first non-empty human-readable argument from a tool-call payload for display. */
-function pickKeyArg(payload: Record<string, unknown>): string {
-	for (const k of KEY_ARG_FIELDS) {
-		const v = payload[k];
-		if (typeof v === "string" && v.length > 0) return v.slice(0, KEY_ARG_MAX_LENGTH);
-	}
-	return "";
 }
 
 /**

@@ -7,8 +7,7 @@ import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { spinnerFrame } from "./spinner.js";
 import { bold, color, dim, glyph } from "./theme.js";
-
-const KEY_ARG_FIELDS = ["command", "path", "url", "pattern", "glob", "query", "text", "prompt", "name"] as const;
+import { pickKeyArg } from "@dpopsuev/alef-kernel/payload";
 
 /**
  *
@@ -75,14 +74,7 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
  *
  */
 export function keyArgFromPayload(args: Record<string, unknown>): string {
-	for (const key of KEY_ARG_FIELDS) {
-		const v = args[key];
-		if (typeof v === "string" && v.length > 0) {
-			const firstLine = v.split("\n")[0]!.trim();
-			return firstLine.slice(0, 60);
-		}
-	}
-	return "";
+	return pickKeyArg(args);
 }
 
 /**

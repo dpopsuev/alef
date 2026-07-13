@@ -3,7 +3,7 @@
  * Spins up a real HTTP server on a random port — no mocks.
  */
 import http from "node:http";
-import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createEvalAdapter } from "../src/adapter.js";
 import { collectEvents, postMessage } from "../src/http.js";

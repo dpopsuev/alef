@@ -80,7 +80,7 @@ describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 		expect(ev.isError).toBe(false);
 	});
 
-	it("allowed tool passes through to organ handler", async () => {
+	it("allowed tool passes through to adapter handler", async () => {
 		const bus = new InProcessBus();
 		const adapter = wrapWithPermissions(makePassthroughAdapter("fs"), ["fs.read"]);
 		adapter.mount(bus.asBus());

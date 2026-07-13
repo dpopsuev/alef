@@ -145,7 +145,15 @@ export function signalToAgentEvent(
 			return null;
 		}
 		case "llm.message-queued":
-			return { type: "message-queued", queueLength: Number(p.queueLength ?? 0) };
+			return {
+				type: "message-queued",
+				queueLength: Number(p.queueLength ?? 0),
+				text: typeof p.text === "string" ? p.text : undefined,
+				mode:
+					p.mode === "steer" || p.mode === "followUp" || p.mode === "nextTurn"
+						? p.mode
+						: undefined,
+			};
 		case "workflow.step":
 			return {
 				type: "workflow-step",

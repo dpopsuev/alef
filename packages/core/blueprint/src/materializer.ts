@@ -16,6 +16,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -188,28 +189,21 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = loadAgentDef
 	resolve(dirname(fileURLToPath(import.meta.url)), "../default-blueprint.yaml"),
 );
 
-/** The canonical alef-coding-agent adapter set — matches blueprint.yaml in packages/alef-coding-agent. */
-export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
-	name: "alef-coding-agent",
-	adapters: [
-		{ name: "fs", actions: [], toolNames: [] },
-		{ name: "shell", actions: [], toolNames: [] },
-		{ name: "nodesh", actions: [], toolNames: [] },
-		{ name: "code-intel", actions: [], toolNames: [] },
-		{ name: "git", actions: [], toolNames: [] },
-		{ name: "web", actions: [], toolNames: [] },
-		{ name: "agent", actions: [], toolNames: [] },
-		{ name: "factory", actions: [], toolNames: [] },
-		{ name: "skills", actions: [], toolNames: [] },
-	],
-	model: undefined,
-	children: [],
-	surfaces: [],
-	capabilities: { tools: [], orchestration: true },
-	memory: { session: "memory", working: {} },
-	policies: { appendSystemPrompt: [] },
-	hooks: { extensions: [] },
-};
+/**
+ * Resolve the published coding-agent SBOM YAML (package export ./blueprint).
+ * Falls back to default-blueprint.yaml when the profile package is unavailable.
+ */
+export function resolveCodingBlueprintPath(): string {
+	try {
+		const require = createRequire(import.meta.url);
+		return require.resolve("@dpopsuev/alef-coding-agent/blueprint");
+	} catch {
+		return resolve(dirname(fileURLToPath(import.meta.url)), "../default-blueprint.yaml");
+	}
+}
+
+/** Canonical alef-coding-agent adapter set — loaded from the profile SBOM YAML. */
+export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = loadAgentDefinition(resolveCodingBlueprintPath());
 
 /** Materialize the default coding agent adapter set for use in eval and test harnesses. */
 export async function materializeDefaultAdapters(cwd: string) {

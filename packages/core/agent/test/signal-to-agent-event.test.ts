@@ -98,9 +98,16 @@ describe("signalToAgentEvent — bus→AgentEvent bridge", { tags: ["unit"] }, (
 		expect(result).toEqual({ type: "turn-error", message: "rate limited" });
 	});
 
-	it("llm.message-queued → message-queued with queueLength", () => {
-		const result = signalToAgentEvent(msg("llm.message-queued", { queueLength: 3 }));
-		expect(result).toEqual({ type: "message-queued", queueLength: 3 });
+	it("llm.message-queued → message-queued with queueLength and text", () => {
+		const result = signalToAgentEvent(msg("llm.message-queued", { queueLength: 3, text: "hello" }));
+		expect(result).toEqual({ type: "message-queued", queueLength: 3, text: "hello" });
+	});
+
+	it("llm.message-queued → message-queued includes mode", () => {
+		const result = signalToAgentEvent(
+			msg("llm.message-queued", { queueLength: 1, text: "hi", mode: "steer" }),
+		);
+		expect(result).toEqual({ type: "message-queued", queueLength: 1, text: "hi", mode: "steer" });
 	});
 
 	it("agent.run.inner with agent.identity → subagent-identity", () => {

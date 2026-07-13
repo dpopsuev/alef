@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Verify every organ package referenced in blueprint YAMLs has a
+ * Verify every adapter package referenced in blueprint YAMLs has a
  * directory in node_modules — catches missing workspace links.
  *
  * Uses existsSync on node_modules path rather than require.resolve,
@@ -24,10 +24,10 @@ for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
 
 	const content = readFileSync(blueprintPath, "utf-8");
 	const blueprint = parse(content);
-	if (!blueprint?.organs || !Array.isArray(blueprint.organs)) continue;
+	if (!blueprint?.adapters || !Array.isArray(blueprint.adapters)) continue;
 
-	for (const organ of blueprint.organs) {
-		const pkg = organ.package ?? organ.name;
+	for (const adapter of blueprint.adapters) {
+		const pkg = adapter.package ?? adapter.name;
 		if (!pkg) continue;
 
 		// Resolve: explicit package name, or convention @dpopsuev/alef-adapter-{name}
@@ -44,7 +44,7 @@ for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
 }
 
 if (failures.length > 0) {
-	console.error(`\n❌ ${failures.length}/${checked} blueprint organ(s) not in node_modules:\n`);
+	console.error(`\n❌ ${failures.length}/${checked} blueprint adapter(s) not in node_modules:\n`);
 	for (const f of failures) {
 		console.error(`  ${f.blueprint}: ${f.package}`);
 		console.error(`    expected: ${f.dir}\n`);
@@ -53,4 +53,4 @@ if (failures.length > 0) {
 	process.exit(1);
 }
 
-console.log(`✅ All ${checked} blueprint organ packages found in node_modules`);
+console.log(`✅ All ${checked} blueprint adapter packages found in node_modules`);

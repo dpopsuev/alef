@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-kernel",
   "version": "0.0.2",
-  "description": "Canonical EDA bus, framework, and port registry for Alef organs",
+  "description": "Canonical EDA bus, framework, and port registry for Alef adapters",
   "type": "module",
   "main": "./src/adapter/index.ts",
   "types": "./dist/adapter.d.ts",
@@ -40,6 +40,11 @@
       "source": "./src/payload.ts",
       "import": "./src/payload.ts",
       "default": "./src/payload.ts"
+    },
+    "./sensitive": {
+      "source": "./src/sensitive.ts",
+      "import": "./src/sensitive.ts",
+      "default": "./src/sensitive.ts"
     },
     "./errors": {
       "source": "./src/errors.ts",

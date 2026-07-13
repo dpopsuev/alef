@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-meta",
   "version": "0.0.2",
-  "description": "Alef API organ \u2014 typed tools for querying sessions, config, organs, and PM history",
+  "description": "Alef API adapter \u2014 typed tools for querying sessions, config, adapters, and PM history",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

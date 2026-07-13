@@ -1,4 +1,6 @@
-import type { Command, LifecycleCmdCtx } from "./types.js";
+import { runManualCompact } from "./manual-compact.js";
+import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
+import { attempt } from "./types.js";
 
 export const exit: Command = {
 	name: "q",
@@ -30,12 +32,44 @@ export const clear: Command = {
 	},
 };
 
+export const compact: Command = {
+	name: "compact",
+	description: "Compact context now [/compact instructions]",
+	run(ctx: TuiHandlerContext, args: string[]) {
+		const instructions = args.join(" ").trim() || undefined;
+		attempt(ctx, async () => {
+			const store = ctx.store;
+			if (!store) {
+				ctx.writer.addNotice("(compaction unavailable — no session store)");
+				ctx.tui.requestRender();
+				return;
+			}
+			const summarize = ctx.session.summarizeForCompaction ?? ctx.opts?.summarize;
+			if (!summarize) {
+				ctx.writer.addNotice("(compaction unavailable — no LLM summarizer)");
+				ctx.tui.requestRender();
+				return;
+			}
+			const { notice } = await runManualCompact({ store, summarize, instructions });
+			ctx.writer.addNotice(notice);
+			ctx.tui.requestRender();
+		});
+	},
+};
+
 export const session: Command = {
 	name: "session",
 	description: "Show session info + resume command",
-	run(ctx: LifecycleCmdCtx) {
+	run(ctx: TuiHandlerContext) {
+		const store = ctx.store;
+		const name = store?.name();
+		const tags = store?.tags() ?? [];
+		const nameLine = name ? `name: ${name} (${store?.nameSource() ?? "?"})\n` : "";
+		const tagsLine = tags.length > 0 ? `tags: ${tags.join(", ")}\n` : "";
 		ctx.writer.addNotice(
 			`session: ${ctx.session.state.id}\n` +
+				nameLine +
+				tagsLine +
 				`model: ${ctx.session.state.modelId}\n` +
 				`To resume: alef --resume ${ctx.session.state.id}`,
 		);

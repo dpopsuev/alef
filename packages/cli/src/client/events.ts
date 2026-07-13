@@ -452,11 +452,14 @@ export function dispatchTuiEvent(
 
 	/** Handle queued message notification. */
 	function onMessageQueued(e: Extract<TuiEvent, { type: "message-queued" }>): TuiState {
-		writer.addNotice(
-			e.queueLength === 1
-				? "message queued — agent will receive it after the current turn"
-				: `${e.queueLength} messages queued`,
-		);
+		const promoted = promptConsole.syncPendingQueue({
+			queueLength: e.queueLength,
+			text: e.text,
+			mode: e.mode,
+		});
+		for (const text of promoted) {
+			writer.addUserMessage(text);
+		}
 		return state;
 	}
 

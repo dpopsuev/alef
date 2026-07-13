@@ -1,12 +1,12 @@
-import { BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { describe, expect, it, vi } from "vitest";
 import { createMcpRegistryAdapter } from "../src/adapter.js";
 
 describe("MCP Registry Integration", () => {
 	it("should search the MCP registry", async () => {
-		const organ = createMcpRegistryAdapter({ cwd: "/tmp" });
+		const adapter = createMcpRegistryAdapter({ cwd: "/tmp" });
 		const fixture = new BusFixture();
-		fixture.mount(organ);
+		fixture.mount(adapter);
 
 		try {
 			// Mock fetch for registry API
@@ -66,17 +66,17 @@ describe("MCP Registry Integration", () => {
 		}
 	});
 
-	it("should list loaded MCP organs", async () => {
-		const organ = createMcpRegistryAdapter({ cwd: "/tmp" });
+	it("should list loaded MCP adapters", async () => {
+		const adapter = createMcpRegistryAdapter({ cwd: "/tmp" });
 		const fixture = new BusFixture();
-		fixture.mount(organ);
+		fixture.mount(adapter);
 
 		try {
 			const result = await fixture.call("mcp.list", {});
 
 			expect(result.payload).toMatchObject({
 				count: 0,
-				organs: [],
+				adapters: [],
 			});
 
 			expect(result.payload._display).toBeDefined();
@@ -86,9 +86,9 @@ describe("MCP Registry Integration", () => {
 	});
 
 	it("should handle search errors gracefully", async () => {
-		const organ = createMcpRegistryAdapter({ cwd: "/tmp" });
+		const adapter = createMcpRegistryAdapter({ cwd: "/tmp" });
 		const fixture = new BusFixture();
-		fixture.mount(organ);
+		fixture.mount(adapter);
 
 		try {
 			global.fetch = vi.fn().mockResolvedValue({

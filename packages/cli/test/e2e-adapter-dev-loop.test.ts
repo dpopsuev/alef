@@ -73,14 +73,14 @@ describe("adapter dev loop via supervisor", { tags: ["e2e"] }, () => {
 
 		// ── Step 1: write echo adapter to disk ────────────────────────────
 		// Simulates what the agent does via nodesh.eval in the real loop.
-		const adapterPath = join(adapterDir, "echo-organ.ts");
+		const adapterPath = join(adapterDir, "echo-adapter.ts");
 		writeFileSync(
 			adapterPath,
 			`
 import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
-export function createOrgan() {
+export function createAdapter() {
  return defineAdapter("echo", {
  "command/echo.ping": {
  tool: {
@@ -121,7 +121,7 @@ export function createOrgan() {
 			bus,
 			"agent.spawn",
 			{
-				organs: [adapterPath],
+				adapters: [adapterPath],
 				cwd,
 			},
 			30_000,

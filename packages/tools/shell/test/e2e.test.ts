@@ -3,7 +3,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createShellAdapter } from "../src/adapter.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-shell — real LLM E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("shell — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM runs a shell command and reads its output", async () => {
 		const uuid = randomUUID();
 		const session = createE2eSession([createShellAdapter({ cwd: process.cwd() })]);

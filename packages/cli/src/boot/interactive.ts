@@ -33,6 +33,11 @@ export interface InteractiveOptions {
 	actorRoutes?: ActorRouteTable;
 	/** Blueprint/profile name for display */
 	blueprintName?: string;
+	/** Optional LLM summarizer override for :compact (tests / headless). */
+	summarize?: (
+		messages: readonly unknown[],
+		opts?: { instructions?: string; priorSummary?: string },
+	) => Promise<string> | string;
 }
 
 /** Drive a read-eval-print loop over stdin, sending each line to the session. */

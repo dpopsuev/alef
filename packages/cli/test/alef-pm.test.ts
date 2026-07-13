@@ -79,11 +79,11 @@ describe("init", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("install", { tags: ["unit"] }, () => {
-	it("writes generation 1 after organ install", async () => {
+	it("writes generation 1 after adapter install", async () => {
 		const { init, install } = await load();
 		init();
 		writeLock({});
-		const result = await install("@dpopsuev/organ-fs");
+		const result = await install("@dpopsuev/alef-tool-fs");
 		expect(result.generation).toBe(1);
 		expect(readCurrent()).toBe(1);
 		expect(existsSync(join(tmpRoot, "generations", "1.json"))).toBe(true);
@@ -92,9 +92,9 @@ describe("install", { tags: ["unit"] }, () => {
 	it("records lockfile in generation", async () => {
 		const { init, install } = await load();
 		init();
-		const lock = { packages: { "node_modules/@dpopsuev/organ-fs": { version: "0.1.2" } } };
+		const lock = { packages: { "node_modules/@dpopsuev/alef-tool-fs": { version: "0.1.2" } } };
 		writeLock(lock);
-		await install("@dpopsuev/organ-fs");
+		await install("@dpopsuev/alef-tool-fs");
 		const gen = readGen(1);
 		expect(JSON.parse(gen.lockfileContent)).toMatchObject(lock);
 	});
@@ -126,16 +126,16 @@ describe("rollback", { tags: ["unit"] }, () => {
 	it("restores lockfile from generation N and updates current", async () => {
 		const { init, upgrade, rollback } = await load();
 		init();
-		const lockV1 = { packages: { "node_modules/organ-fs": { version: "0.1.1" } } };
+		const lockV1 = { packages: { "node_modules/alef-tool-fs": { version: "0.1.1" } } };
 		writeLock(lockV1);
 		await upgrade(); // gen 1
-		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.2" } } });
+		writeLock({ packages: { "node_modules/alef-tool-fs": { version: "0.1.2" } } });
 		await upgrade(); // gen 2
 
 		await rollback(1);
 
 		const restored = JSON.parse(readFileSync(join(tmpRoot, "package-lock.json"), "utf-8")) as typeof lockV1;
-		expect(restored.packages["node_modules/organ-fs"].version).toBe("0.1.1");
+		expect(restored.packages["node_modules/alef-tool-fs"].version).toBe("0.1.1");
 		expect(readCurrent()).toBe(1);
 	});
 });
@@ -159,14 +159,14 @@ describe("generation lifecycle", { tags: ["unit"] }, () => {
 	it("records lockfile content, hash, and parent", async () => {
 		const { init, upgrade } = await load();
 		init();
-		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.2" } } });
+		writeLock({ packages: { "node_modules/alef-tool-fs": { version: "0.1.2" } } });
 		await upgrade(); // gen 1
-		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.3" } } });
+		writeLock({ packages: { "node_modules/alef-tool-fs": { version: "0.1.3" } } });
 		await upgrade(); // gen 2
 		const gen2 = readGen(2);
 		expect(gen2.parent).toBe(1);
 		expect(gen2.lockHash).toHaveLength(64);
-		expect(JSON.parse(gen2.lockfileContent).packages["node_modules/organ-fs"].version).toBe("0.1.3");
+		expect(JSON.parse(gen2.lockfileContent).packages["node_modules/alef-tool-fs"].version).toBe("0.1.3");
 	});
 });
 
@@ -252,10 +252,10 @@ describe("local-store", { tags: ["unit"] }, () => {
 		const { init, snapshotLocalAdapter, restoreLocalAdapter } = await load();
 		init();
 		const file = join(tmpRoot, "adapter.ts");
-		writeFileSync(file, "export function createOrgan() {}");
+		writeFileSync(file, "export function createAdapter() {}");
 		const hash = snapshotLocalAdapter(file);
 		expect(hash).toHaveLength(64);
-		expect(readFileSync(restoreLocalAdapter(hash, "adapter.ts"), "utf-8")).toBe("export function createOrgan() {}");
+		expect(readFileSync(restoreLocalAdapter(hash, "adapter.ts"), "utf-8")).toBe("export function createAdapter() {}");
 	});
 
 	it("restoreLocalAdapter throws when missing", async () => {
@@ -283,25 +283,25 @@ describe("resolveAdapterPath", { tags: ["unit"] }, () => {
 	it("returns undefined when not installed", async () => {
 		const { init, resolveAdapterPath } = await load();
 		init();
-		expect(resolveAdapterPath("organ-missing")).toBeUndefined();
+		expect(resolveAdapterPath("tool-missing")).toBeUndefined();
 	});
 
 	it("resolves under @dpopsuev namespace", async () => {
 		const { init, resolveAdapterPath } = await load();
 		init();
-		const dir = join(tmpRoot, "node_modules", "@dpopsuev", "organ-fs", "src");
+		const dir = join(tmpRoot, "node_modules", "@dpopsuev", "alef-tool-fs", "src");
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, "adapter.ts"), "");
-		expect(resolveAdapterPath("organ-fs")).toContain("adapter.ts");
+		expect(resolveAdapterPath("alef-tool-fs")).toContain("adapter.ts");
 	});
 
 	it("resolves directly under node_modules", async () => {
 		const { init, resolveAdapterPath } = await load();
 		init();
-		const dir = join(tmpRoot, "node_modules", "my-organ", "src");
+		const dir = join(tmpRoot, "node_modules", "my-adapter", "src");
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, "adapter.ts"), "");
-		expect(resolveAdapterPath("my-organ")).toContain("my-organ");
+		expect(resolveAdapterPath("my-adapter")).toContain("my-adapter");
 	});
 });
 

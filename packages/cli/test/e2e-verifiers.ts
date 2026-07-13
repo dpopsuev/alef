@@ -51,7 +51,7 @@ export function assertHashesPresent(records: ToolRecord[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// E2E-185: blueprint organ selection
+// E2E-185: blueprint adapter selection
 // ---------------------------------------------------------------------------
 
 /**
@@ -59,7 +59,7 @@ export function assertHashesPresent(records: ToolRecord[]): void {
  * required: exact type strings that must be present.
  * forbiddenPrefixes: event type prefixes (e.g. "code.", "shell.") that must be absent.
  */
-export function assertOrganSelection(records: ToolRecord[], required: string[], forbiddenPrefixes: string[]): void {
+export function assertAdapterSelection(records: ToolRecord[], required: string[], forbiddenPrefixes: string[]): void {
 	const types = new Set(records.map((r) => r.type));
 	for (const req of required) {
 		if (!types.has(req)) {

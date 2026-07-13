@@ -158,7 +158,7 @@ describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 		slot.fn = (chunk) => zone.receiveText(chunk);
 
-		for (const ch of "EDA organ-based agent reply.") slot.fn(ch);
+		for (const ch of "EDA tool-based agent reply.") slot.fn(ch);
 
 		zone.reset();
 		tui.requestRender(true);
@@ -166,7 +166,7 @@ describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 
 		const screen = screenText(terminal);
 		expect(screen).not.toContain("SHOULD_NOT_APPEAR");
-		expect(screen).toContain("EDA organ-based agent reply");
+		expect(screen).toContain("EDA tool-based agent reply");
 	});
 });
 

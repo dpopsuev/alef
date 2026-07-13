@@ -59,7 +59,7 @@ describe.skipIf(SKIP_LLM)("CLI output modes — real LLM", { tags: ["real-llm"] 
 		expect(typeof event.ts).toBe("number");
 	}, 60_000);
 
-	it("--cwd sets working directory for FsOrgan", async () => {
+	it("--cwd sets working directory for FsAdapter", async () => {
 		const result = await run([
 			"--cwd",
 			fileURLToPath(new URL("../../../agent/src", import.meta.url)),

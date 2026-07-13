@@ -1,25 +1,25 @@
 /**
  * Live demonstration of ServiceLayerOrchestrator with multiple agents
  * 
- * Simulates N agents sharing N organs with token conservation
+ * Simulates N agents sharing N adapters with token conservation
  */
 
-import { ServiceLayerOrchestrator } from "../packages/organ-service-layer/src/index.js";
+import { ServiceLayerOrchestrator } from "../packages/tools/service-layer/src/index.js";
 
-// Mock organ implementation
-interface MockOrganContext {
+// Mock adapter implementation
+interface MockAdapterContext {
 	payload: Record<string, unknown>;
 	correlationId: string;
 	log?: any;
 }
 
-function createMockOrgan(name: string, latencyMs: number = 100) {
+function createMockAdapter(name: string, latencyMs: number = 100) {
 	let executionCount = 0;
 	
 	const handlers = {
 		motor: {
 			[`${name}.read`]: {
-				handle: async (ctx: MockOrganContext) => {
+				handle: async (ctx: MockAdapterContext) => {
 					executionCount++;
 					console.log(`  ⚡ ${name}.read executing (call #${executionCount})`);
 					await new Promise(resolve => setTimeout(resolve, latencyMs));
@@ -32,7 +32,7 @@ function createMockOrgan(name: string, latencyMs: number = 100) {
 				},
 			},
 			[`${name}.search`]: {
-				handle: async (ctx: MockOrganContext) => {
+				handle: async (ctx: MockAdapterContext) => {
 					executionCount++;
 					console.log(`  ⚡ ${name}.search executing (call #${executionCount})`);
 					await new Promise(resolve => setTimeout(resolve, latencyMs));
@@ -72,15 +72,15 @@ async function demonstrateServiceLayer() {
 		enableMetrics: true,
 	});
 
-	// Register organs
-	console.log("\n📦 Registering organs...");
-	const fsOrgan = createMockOrgan("fs", 50);
-	const dbOrgan = createMockOrgan("db", 100);
-	const apiOrgan = createMockOrgan("api", 150);
+	// Register adapters
+	console.log("\n📦 Registering adapters...");
+	const fsAdapter = createMockAdapter("fs", 50);
+	const dbAdapter = createMockAdapter("db", 100);
+	const apiAdapter = createMockAdapter("api", 150);
 
-	orchestrator.registerOrgan(fsOrgan);
-	orchestrator.registerOrgan(dbOrgan);
-	orchestrator.registerOrgan(apiOrgan);
+	orchestrator.registerAdapter(fsAdapter);
+	orchestrator.registerAdapter(dbAdapter);
+	orchestrator.registerAdapter(apiAdapter);
 	console.log("  ✓ Registered: fs, db, api");
 
 	// Simulate 5 agents
@@ -88,9 +88,9 @@ async function demonstrateServiceLayer() {
 	console.log(`\n👥 Creating ${agentCount} agents...`);
 	const agents = Array.from({ length: agentCount }, (_, i) => ({
 		id: `agent-${i + 1}`,
-		organs: orchestrator.getOrgansForAgent(`agent-${i + 1}`),
+		adapters: orchestrator.getAdaptersForAgent(`agent-${i + 1}`),
 	}));
-	console.log(`  ✓ Created ${agentCount} agents with proxied organs`);
+	console.log(`  ✓ Created ${agentCount} agents with proxied adapters`);
 
 	// Scenario 1: Cache efficiency
 	console.log("\n" + "=".repeat(60));
@@ -100,7 +100,7 @@ async function demonstrateServiceLayer() {
 	const readPromises = agents.map(async (agent, i) => {
 		await new Promise(resolve => setTimeout(resolve, i * 10)); // Stagger requests
 		console.log(`  🤖 ${agent.id}: Requesting fs.read`);
-		return agent.organs[0]?.handlers?.motor?.["fs.read"]?.handle({
+		return agent.adapters[0]?.handlers?.motor?.["fs.read"]?.handle({
 			payload: { path: "shared-file.ts" },
 			correlationId: `${agent.id}-read-1`,
 		});
@@ -109,8 +109,8 @@ async function demonstrateServiceLayer() {
 	const results = await Promise.all(readPromises);
 	console.log("\n  📈 Results:");
 	console.log(`  - Total requests: ${agents.length}`);
-	console.log(`  - Actual executions: ${(fsOrgan as any).getExecutionCount()}`);
-	console.log(`  - Cache savings: ${agents.length - (fsOrgan as any).getExecutionCount()} requests`);
+	console.log(`  - Actual executions: ${(fsAdapter as any).getExecutionCount()}`);
+	console.log(`  - Cache savings: ${agents.length - (fsAdapter as any).getExecutionCount()} requests`);
 	
 	// Scenario 2: Request deduplication
 	console.log("\n" + "=".repeat(60));
@@ -119,7 +119,7 @@ async function demonstrateServiceLayer() {
 
 	const concurrentReads = agents.map(agent => {
 		console.log(`  🤖 ${agent.id}: Requesting db.read`);
-		return agent.organs[1]?.handlers?.motor?.["db.read"]?.handle({
+		return agent.adapters[1]?.handlers?.motor?.["db.read"]?.handle({
 			payload: { query: "SELECT * FROM users" },
 			correlationId: `${agent.id}-db-1`,
 		});
@@ -128,8 +128,8 @@ async function demonstrateServiceLayer() {
 	const dbResults = await Promise.all(concurrentReads);
 	console.log("\n  📈 Results:");
 	console.log(`  - Concurrent requests: ${agents.length}`);
-	console.log(`  - Actual executions: ${(dbOrgan as any).getExecutionCount()}`);
-	console.log(`  - Deduplication saved: ${agents.length - (dbOrgan as any).getExecutionCount()} executions`);
+	console.log(`  - Actual executions: ${(dbAdapter as any).getExecutionCount()}`);
+	console.log(`  - Deduplication saved: ${agents.length - (dbAdapter as any).getExecutionCount()} executions`);
 
 	// Scenario 3: Different requests (cache misses)
 	console.log("\n" + "=".repeat(60));
@@ -139,7 +139,7 @@ async function demonstrateServiceLayer() {
 	const uniqueRequests = await Promise.all(
 		agents.map(agent => {
 			console.log(`  🤖 ${agent.id}: Requesting unique file`);
-			return agent.organs[0]?.handlers?.motor?.["fs.read"]?.handle({
+			return agent.adapters[0]?.handlers?.motor?.["fs.read"]?.handle({
 				payload: { path: `${agent.id}-file.ts` },
 				correlationId: `${agent.id}-unique`,
 			});
@@ -176,26 +176,26 @@ async function demonstrateServiceLayer() {
 
 	console.log(`\n  Top Patterns:`);
 	stats.patterns.topActions.slice(0, 5).forEach(action => {
-		console.log(`  - ${action.organ}.${action.action}: ${action.count} calls`);
+		console.log(`  - ${action.adapter}.${action.action}: ${action.count} calls`);
 	});
 
 	// Scenario 4: Hot reload demonstration
 	console.log("\n" + "=".repeat(60));
 	console.log("📊 Scenario 4: Hot Reload (Blue-Green Deployment)\n");
 
-	console.log("  🔄 Reloading 'api' organ...");
-	const newApiOrgan = createMockOrgan("api", 75); // Faster version
-	await orchestrator.reloadOrgan("api", newApiOrgan);
-	console.log("  ✓ Organ reloaded, cache invalidated");
+	console.log("  🔄 Reloading 'api' adapter...");
+	const newApiAdapter = createMockAdapter("api", 75); // Faster version
+	await orchestrator.reloadAdapter("api", newApiAdapter);
+	console.log("  ✓ Adapter reloaded, cache invalidated");
 
 	// Agents get new proxies automatically
-	console.log("\n  🤖 Testing with reloaded organ...");
-	const reloadedAgent = orchestrator.getOrgansForAgent("agent-1");
-	await reloadedAgent[2]?.handlers?.motor?.["api.read"]?.handle({
+	console.log("\n  🤖 Testing with reloaded adapter...");
+	const reloadedAdapters = orchestrator.getAdaptersForAgent("agent-1");
+	await reloadedAdapters[2]?.handlers?.motor?.["api.read"]?.handle({
 		payload: { endpoint: "/users" },
 		correlationId: "reload-test",
 	});
-	console.log("  ✓ New organ working correctly");
+	console.log("  ✓ New adapter working correctly");
 
 	// Export final state
 	console.log("\n" + "=".repeat(60));

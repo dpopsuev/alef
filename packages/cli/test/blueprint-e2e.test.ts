@@ -82,7 +82,7 @@ describe("default tool set (no blueprint)", { tags: ["e2e"] }, () => {
 describe("--blueprint flag", { tags: ["e2e"] }, () => {
 	it("full fs + shell blueprint exposes all tools", async () => {
 		const dir = tmpDir();
-		writeFileSync(join(dir, "agent.yaml"), ["name: full", "organs:", "  - name: fs", "  - name: shell"].join("\n"));
+		writeFileSync(join(dir, "agent.yaml"), ["name: full", "adapters:", "  - name: fs", "  - name: shell"].join("\n"));
 
 		const result = await run(["--blueprint", join(dir, "agent.yaml"), "--list-tools"]);
 		expect(result.exitCode).toBe(0);
@@ -98,7 +98,7 @@ describe("--blueprint flag", { tags: ["e2e"] }, () => {
 		const dir = tmpDir();
 		writeFileSync(
 			join(dir, "agent.yaml"),
-			["name: readonly", "organs:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
+			["name: readonly", "adapters:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
 		);
 
 		const result = await run(["--blueprint", join(dir, "agent.yaml"), "--list-tools"]);
@@ -115,7 +115,7 @@ describe("--blueprint flag", { tags: ["e2e"] }, () => {
 
 	it("fs-only blueprint excludes shell.exec", async () => {
 		const dir = tmpDir();
-		writeFileSync(join(dir, "agent.yaml"), ["name: fs-only", "organs:", "  - name: fs"].join("\n"));
+		writeFileSync(join(dir, "agent.yaml"), ["name: fs-only", "adapters:", "  - name: fs"].join("\n"));
 
 		const result = await run(["--blueprint", join(dir, "agent.yaml"), "--list-tools"]);
 		expect(result.exitCode).toBe(0);
@@ -125,7 +125,7 @@ describe("--blueprint flag", { tags: ["e2e"] }, () => {
 		expect(tools).not.toContain("shell.exec");
 	});
 
-	it("empty organs blueprint exposes no tools", async () => {
+	it("empty adapters blueprint exposes no tools", async () => {
 		const dir = tmpDir();
 		writeFileSync(join(dir, "agent.yaml"), "name: empty\n");
 
@@ -142,7 +142,7 @@ describe("--blueprint flag", { tags: ["e2e"] }, () => {
 		const dir = tmpDir();
 		writeFileSync(
 			join(dir, "agent.yaml"),
-			["name: prompted", "systemPrompt: You are a helpful assistant.", "organs:", "  - name: fs"].join("\n"),
+			["name: prompted", "systemPrompt: You are a helpful assistant.", "adapters:", "  - name: fs"].join("\n"),
 		);
 
 		const result = await run(["--blueprint", join(dir, "agent.yaml"), "--list-tools"]);
@@ -159,7 +159,7 @@ describe("auto-discovery", { tags: ["e2e"] }, () => {
 		const dir = tmpDir();
 		writeFileSync(
 			join(dir, "agent.yaml"),
-			["name: discovered", "organs:", "  - name: fs", "    actions: [read]"].join("\n"),
+			["name: discovered", "adapters:", "  - name: fs", "    actions: [read]"].join("\n"),
 		);
 
 		const result = await run(["--cwd", dir, "--list-tools"]);
@@ -173,7 +173,7 @@ describe("auto-discovery", { tags: ["e2e"] }, () => {
 	it("auto-discovers .alef/agent.yaml", async () => {
 		const dir = tmpDir();
 		mkdirSync(join(dir, ".alef"), { recursive: true });
-		writeFileSync(join(dir, ".alef", "agent.yaml"), ["name: dotdir", "organs:", "  - name: shell"].join("\n"));
+		writeFileSync(join(dir, ".alef", "agent.yaml"), ["name: dotdir", "adapters:", "  - name: shell"].join("\n"));
 
 		const result = await run(["--cwd", dir, "--list-tools"]);
 		expect(result.exitCode).toBe(0);
@@ -183,7 +183,7 @@ describe("auto-discovery", { tags: ["e2e"] }, () => {
 		expect(tools).not.toContain("fs.read");
 	});
 
-	it("falls back to default organs when no blueprint in cwd", async () => {
+	it("falls back to default adapters when no blueprint in cwd", async () => {
 		const dir = tmpDir(); // empty dir, no agent.yaml
 
 		const result = await run(["--cwd", dir, "--list-tools"]);
@@ -198,11 +198,11 @@ describe("auto-discovery", { tags: ["e2e"] }, () => {
 	it("explicit --blueprint overrides auto-discovery", async () => {
 		const dir = tmpDir();
 		// Auto-discoverable blueprint with shell
-		writeFileSync(join(dir, "agent.yaml"), ["name: auto", "organs:", "  - name: shell"].join("\n"));
+		writeFileSync(join(dir, "agent.yaml"), ["name: auto", "adapters:", "  - name: shell"].join("\n"));
 
 		// Explicit blueprint with only fs (no shell)
 		const explicit = join(dir, "explicit.yaml");
-		writeFileSync(explicit, ["name: explicit", "organs:", "  - name: fs"].join("\n"));
+		writeFileSync(explicit, ["name: explicit", "adapters:", "  - name: fs"].join("\n"));
 
 		const result = await run(["--cwd", dir, "--blueprint", explicit, "--list-tools"]);
 		expect(result.exitCode).toBe(0);
@@ -254,11 +254,11 @@ describe("error handling", { tags: ["e2e"] }, () => {
 		expect(result.exitCode).toBe(1);
 	});
 
-	it("unknown organ actions are silently ignored — organs self-describe their tools", async () => {
+	it("unknown adapter actions are silently ignored — adapters self-describe their tools", async () => {
 		const dir = tmpDir();
 		writeFileSync(
 			join(dir, "bad.yaml"),
-			["name: bad", "organs:", "  - name: fs", "    actions: [teleport]"].join("\n"),
+			["name: bad", "adapters:", "  - name: fs", "    actions: [teleport]"].join("\n"),
 		);
 
 		// Unknown action = adapter mounts with zero tools (ablated). Not an error.
@@ -269,7 +269,7 @@ describe("error handling", { tags: ["e2e"] }, () => {
 
 	it("exits 1 when blueprint is missing required name field", async () => {
 		const dir = tmpDir();
-		writeFileSync(join(dir, "no-name.yaml"), "organs:\n  - name: fs\n");
+		writeFileSync(join(dir, "no-name.yaml"), "adapters:\n  - name: fs\n");
 
 		const result = await run(["--blueprint", join(dir, "no-name.yaml"), "--list-tools"]);
 		expect(result.exitCode).toBe(1);

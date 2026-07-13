@@ -12,11 +12,13 @@
  */
 
 import type { Directives } from "@dpopsuev/alef-agent/directives";
+import { completeSimple } from "@dpopsuev/alef-ai/stream";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "@dpopsuev/alef-session/contracts";
+import { createLlmSummarizer } from "@dpopsuev/alef-session/summarizer";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 
@@ -149,8 +151,8 @@ export class SessionHandle implements Session {
 		return this._controller.send(text, "human", timeoutMs);
 	};
 
-	receive(text: string): void {
-		this._controller.receive(text, "user");
+	receive(text: string, opts?: { delivery?: "steer" | "followUp" | "nextTurn" }): void {
+		this._controller.receive(text, "user", undefined, opts?.delivery);
 	}
 
 	cancelToolCall(callId: string, toolName: string): void {
@@ -162,6 +164,15 @@ export class SessionHandle implements Session {
 			errorMessage: "Cancelled by user",
 		});
 	}
+
+	summarizeForCompaction = createLlmSummarizer(async (input) => {
+		const assistant = await completeSimple(this._currentModel, input);
+		return {
+			content: assistant.content.map((block) =>
+				block.type === "text" ? { type: "text", text: block.text } : { type: block.type },
+			),
+		};
+	});
 
 	getDirective(): DirectiveView {
 		const d = this._directives;

@@ -974,7 +974,7 @@ proc.stderr.on("data", (chunk) => {
 		try {
 			await waitForOutput(supervisor, /router listening on/, 25_000);
 			// Supervisor logs the scope:packages path and proceeds to rebuild.
-			await waitForOutput(supervisor, /upgrading organs/, 15_000);
+			await waitForOutput(supervisor, /upgrading adapters/i, 15_000);
 		} finally {
 			supervisor.kill("SIGTERM");
 		}

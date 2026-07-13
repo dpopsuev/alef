@@ -14,7 +14,7 @@ packages/*/dist-firefox/
 
 # ESLint cache
 .eslintcache
-.tmp-organ-loop-*
+.tmp-adapter-loop-*
 
 # Editor / local tooling
 .cursor/
@@ -52,7 +52,7 @@ collect.sh
 
 # Stale empty directories from package renames
 packages/ai/
-packages/organ-security-policy/
+packages/tools/security-policy/
 packages/runner/
 packages/runner-tui/
 packages/adapter-*/

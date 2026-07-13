@@ -125,6 +125,7 @@ export async function runTuiMode(
 		onThinkingStop: () => {
 			if (promptConsole.isThinking) promptConsole.stopThinking();
 		},
+		isTurnActive: () => promptConsole.isThinking,
 	});
 
 	tui.addInputListener(

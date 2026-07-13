@@ -387,13 +387,13 @@ describe("handleColonCommand :reload — no reloadAdapter callback", { tags: ["u
 
 	it("shows 'not available' when reloadAdapter is not provided", () => {
 		const ctx = makeCtx({ session: makeSession({ reloadAdapter: undefined }) });
-		handleColonCommand(":reload my-organ /path/to/organ.ts", ctx);
+		handleColonCommand(":reload my-adapter /path/to/adapter.ts", ctx);
 		expect(chatText(ctx)).toContain("not available");
 	});
 
 	it("returns true in both cases (command recognised)", () => {
 		expect(handleColonCommand(":reload", makeCtx())).toBe(true);
-		expect(handleColonCommand(":reload my-organ /path/organ.ts", makeCtx())).toBe(true);
+		expect(handleColonCommand(":reload my-adapter /path/adapter.ts", makeCtx())).toBe(true);
 	});
 });
 
@@ -404,16 +404,16 @@ describe("handleColonCommand :reload — with reloadAdapter callback", { tags: [
 			called = [name, path];
 		});
 		const ctx = makeCtx({ session: makeSession({ reloadAdapter }) });
-		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
-		expect(chatText(ctx)).toContain("Reloading my-organ");
-		await vi.waitFor(() => expect(called).toEqual(["my-organ", "/organs/my-organ.ts"]));
+		handleColonCommand(":reload my-adapter /adapters/my-adapter.ts", ctx);
+		expect(chatText(ctx)).toContain("Reloading my-adapter");
+		await vi.waitFor(() => expect(called).toEqual(["my-adapter", "/adapters/my-adapter.ts"]));
 	});
 
 	it("shows 'Reloaded' notice after successful reload", async () => {
 		const reloadAdapter = vi.fn(async () => {});
 		const ctx = makeCtx({ session: makeSession({ reloadAdapter }) });
-		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
-		await vi.waitFor(() => expect(chatText(ctx)).toContain("Reloaded my-organ."));
+		handleColonCommand(":reload my-adapter /adapters/my-adapter.ts", ctx);
+		await vi.waitFor(() => expect(chatText(ctx)).toContain("Reloaded my-adapter."));
 	});
 
 	it("shows error notice when reloadAdapter rejects", async () => {
@@ -421,14 +421,14 @@ describe("handleColonCommand :reload — with reloadAdapter callback", { tags: [
 			throw new Error("jiti: module not found");
 		});
 		const ctx = makeCtx({ session: makeSession({ reloadAdapter }) });
-		handleColonCommand(":reload bad-organ /organs/bad.ts", ctx);
+		handleColonCommand(":reload bad-adapter /adapters/bad.ts", ctx);
 		await vi.waitFor(() => expect(chatText(ctx)).toContain("jiti: module not found"));
 	});
 
 	it("requests render after success and after failure", async () => {
 		const reloadAdapter = vi.fn(async () => {});
 		const ctx = makeCtx({ session: makeSession({ reloadAdapter }) });
-		handleColonCommand(":reload my-organ /path.ts", ctx);
+		handleColonCommand(":reload my-adapter /path.ts", ctx);
 		// First render: 'Reloading...' notice
 		expect(ctx.tui.requestRender).toHaveBeenCalled();
 		await vi.waitFor(() => expect(ctx.tui.requestRender).toHaveBeenCalledTimes(2));

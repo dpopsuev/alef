@@ -45,6 +45,7 @@ function noopUi() {
 			showToast: () => {},
 			showBackgroundTask: () => {},
 			updateBackgroundTask: () => {},
+			syncPendingQueue: () => [],
 			removeChildCall: (parentId: string, childId: string) => calls.push(`unchild:${parentId}->${childId}`),
 		},
 		tui: { requestRender: () => {} },

@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-testkit",
   "version": "0.0.2",
-  "description": "Test doubles and bus event recorders for the Alef nerve/organ system",
+  "description": "Test doubles and bus event recorders for the Alef nerve/adapter system",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -21,7 +21,7 @@
     "./memory-store": "./src/in-memory-session-store.ts",
     "./memory-storage": "./src/in-memory-storage.ts",
     "./mock-reasoner": "./src/mock-reasoner.ts",
-    "./organ": "./src/organ.ts",
+    "./adapter": "./src/adapter.ts",
     "./script": "./src/script.ts",
     "./scripted-reasoner": "./src/scripted-reasoner.ts",
     "./stub-adapter": "./src/stub-adapter.ts",

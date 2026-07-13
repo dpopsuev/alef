@@ -60,7 +60,7 @@ describe("AdapterContributions — tui and history slots", { tags: ["unit"] }, (
 		expect(contrib.history?.extractEntry({ path: "/tmp/foo.ts" })).toEqual({ path: "/tmp/foo.ts" });
 	});
 
-	it("both slots are optional — organ without tui/history still compiles", () => {
+	it("both slots are optional — adapter without tui/history still compiles", () => {
 		const contrib: AdapterContributions = {};
 		expect(contrib.ui).toBeUndefined();
 		expect(contrib.history).toBeUndefined();

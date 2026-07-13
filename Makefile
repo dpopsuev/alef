@@ -76,9 +76,9 @@ alef: ## Run Alef from source
 debug: ## Run Alef in debug mode
 	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 npx tsx packages/cli/src/entrypoint.ts
 
-.PHONY: organ
-organ: ## Create a new organ scaffold: make organ NAME=weather
-	@npx tsx scripts/create-organ.ts $(NAME)
+.PHONY: adapter
+adapter: ## Create a new adapter scaffold: make adapter NAME=weather
+	@npx tsx scripts/create-adapter.ts $(NAME)
 
 # ---------------------------------------------------------------------------
 # Original targets (preserved)

@@ -11,7 +11,7 @@ describe("shell timeout constants", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("shell timeout clamping (via organ motor event)", { tags: ["unit"] }, () => {
+describe("shell timeout clamping (via adapter motor event)", { tags: ["unit"] }, () => {
 	it("exports are correct types", () => {
 		expect(typeof DEFAULT_SHELL_TIMEOUT_S).toBe("number");
 		expect(typeof MAX_SHELL_TIMEOUT_S).toBe("number");

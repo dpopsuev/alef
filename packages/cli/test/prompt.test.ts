@@ -41,9 +41,9 @@ describe("createDefaultDirectives", { tags: ["unit"] }, () => {
 });
 
 describe("registerAdapters", { tags: ["unit"] }, () => {
-	it("includes organ directives in the scroll output", () => {
+	it("includes adapter directives in the scroll output", () => {
 		const scroll = createDefaultDirectives({ tools: FS_TOOLS, cwd: "/test" });
-		const organ = {
+		const adapter = {
 			name: "fs",
 			tools: FS_TOOLS,
 			directives: ["Always read a file before editing it."],
@@ -51,14 +51,14 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 			sources: [],
 			mount: () => () => {},
 		};
-		registerAdapters(scroll, [organ]);
+		registerAdapters(scroll, [adapter]);
 		const prompt = scroll.build();
 		expect(prompt).toContain("Always read a file before editing it.");
 	});
 
-	it("infrastructure organs passed to registerAdapters have their directives in the prompt", () => {
+	it("infrastructure adapters passed to registerAdapters have their directives in the prompt", () => {
 		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
-		const infraOrgan = {
+		const infraAdapter = {
 			name: "tools",
 			tools: [] as never[],
 			directives: ['Call tools.describe(["tool-name"]) before using any tool.'],
@@ -66,7 +66,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 			sources: [],
 			mount: () => () => {},
 		};
-		registerAdapters(scroll, [infraOrgan]);
+		registerAdapters(scroll, [infraAdapter]);
 		const prompt = scroll.build();
 		expect(prompt).toContain("tools.describe");
 	});
@@ -183,9 +183,9 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		expect(systemContent).toContain("hooks are mandatory");
 	});
 
-	it("organ directive registered via registerAdapters reaches the system message", async () => {
+	it("adapter directive registered via registerAdapters reaches the system message", async () => {
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
-		const organ = {
+		const adapter = {
 			name: "custom",
 			tools: [],
 			subscriptions: { command: [], event: [], notification: [] },
@@ -193,7 +193,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 			directives: ["CUSTOM_DIRECTIVE_SENTINEL"],
 			mount: () => () => {},
 		};
-		registerAdapters(d, [organ]);
+		registerAdapters(d, [adapter]);
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
 		expect(String(messages[0]!.content)).toContain("CUSTOM_DIRECTIVE_SENTINEL");

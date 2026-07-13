@@ -1,4 +1,4 @@
 import { defineProject, mergeConfig } from "vitest/config";
 import sharedConfig from "../../../vitest.shared.js";
 
-export default mergeConfig(sharedConfig, defineProject({ test: { name: "organ-shell" } }));
+export default mergeConfig(sharedConfig, defineProject({ test: { name: "shell" } }));

@@ -34,6 +34,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 		const session = {
 			turns: async () => [turn],
 			hitCounts: async () => new Map<string, number>(),
+			events: async () => [],
 			append: async () => {},
 		};
 		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
@@ -74,6 +75,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 		const session = {
 			turns: async () => [turnWithCheckpoint],
 			hitCounts: async () => new Map<string, number>(),
+			events: async () => [],
 			append: async () => {},
 		};
 		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
@@ -96,6 +98,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 		const session = {
 			turns: async () => [],
 			hitCounts: async () => new Map<string, number>(),
+			events: async () => [],
 			append: async () => {},
 		};
 		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
@@ -110,6 +113,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 		const session = {
 			turns: async () => [turn],
 			hitCounts: async () => new Map<string, number>(),
+			events: async () => [],
 			append: async (r: unknown) => {
 				appended.push(r);
 			},
@@ -146,6 +150,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 		const session = {
 			turns: async () => [heavyTurn],
 			hitCounts: async () => new Map<string, number>(),
+			events: async () => [],
 			append: async (r: unknown) => {
 				appended.push(r);
 			},

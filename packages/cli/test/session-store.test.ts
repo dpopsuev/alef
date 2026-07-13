@@ -237,7 +237,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 		expect(turns[0]!.tokenCost).toBeLessThan(50);
 	});
 
-	it("falls back to char/4 when no usage is present (ScriptedLLMOrgan / first turn)", async () => {
+	it("falls back to char/4 when no usage is present (ScriptedReasoner / first turn)", async () => {
 		const cwd = tmpCwd();
 		const store = await JsonlSessionStore.create(cwd);
 
@@ -384,5 +384,37 @@ describe("JsonlSessionStore.name() + setName()", { tags: ["unit"] }, () => {
 
 		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		expect(resumed.name()).toBe("cached name");
+	});
+
+	it("auto setName does not clobber a user name", async () => {
+		const store = await JsonlSessionStore.create(tmpCwd());
+		await store.setName("user title", { source: "user" });
+		await store.setName("auto title", { source: "auto" });
+		expect(store.name()).toBe("user title");
+		expect(store.nameSource()).toBe("user");
+	});
+});
+
+describe("JsonlSessionStore.tags() + list metadata", { tags: ["unit"] }, () => {
+	it("round-trips tags and search blob", async () => {
+		const store = await JsonlSessionStore.create(tmpCwd());
+		await store.setTags(["TUI", "bugfix", "tui"]);
+		await store.setSearchBlob("picker preview overflow");
+		expect(store.tags()).toEqual(["tui", "bugfix"]);
+		expect(store.searchBlob()).toBe("picker preview overflow");
+	});
+
+	it("list() surfaces name, tags, and searchBlob", async () => {
+		const cwd = tmpCwd();
+		const store = await JsonlSessionStore.create(cwd);
+		await store.setName("Discoverability session", { source: "auto" });
+		await store.setTags(["picker", "tags"]);
+		await store.setSearchBlob("haystack content");
+
+		const listed = await JsonlSessionStore.list(cwd);
+		const entry = listed.find((s) => s.id === store.id);
+		expect(entry?.name).toBe("Discoverability session");
+		expect(entry?.tags).toEqual(["picker", "tags"]);
+		expect(entry?.searchBlob).toBe("haystack content");
 	});
 });

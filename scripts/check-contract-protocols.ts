@@ -31,25 +31,25 @@ const validPayloads: Record<(typeof PROTOCOL_EVENT_KINDS)[number], unknown> = {
 		event: "session.created",
 		sessionId: "session-1",
 	},
-	"organ.invoke.v1": {
+	"adapter.invoke.v1": {
 		schemaVersion: "v1",
 		plane: "data",
 		lane: "motory",
-		seam: "corpus.organ",
+		seam: "corpus.adapter",
 		correlationId: "corr-1",
-		organ: "fs",
+		adapter: "fs",
 		action: "file_read",
 		args: { path: "README.md" },
 		source: "llm_tool_call",
 		gate: "requested",
 	},
-	"organ.result.v1": {
+	"adapter.result.v1": {
 		schemaVersion: "v1",
 		plane: "data",
 		lane: "sensory",
-		seam: "corpus.organ",
+		seam: "corpus.adapter",
 		correlationId: "corr-1",
-		organ: "fs",
+		adapter: "fs",
 		action: "file_read",
 		status: "ok",
 		isError: false,
@@ -60,10 +60,10 @@ const validPayloads: Record<(typeof PROTOCOL_EVENT_KINDS)[number], unknown> = {
 		schemaVersion: "v1",
 		plane: "signal",
 		lane: "signatory",
-		seam: "corpus.organ",
+		seam: "corpus.adapter",
 		signal: "result.ok",
 		correlationId: "corr-1",
-		organ: "fs",
+		adapter: "fs",
 		action: "file_read",
 	},
 };
@@ -85,13 +85,13 @@ for (const kind of PROTOCOL_EVENT_KINDS) {
 	);
 }
 
-const invalidInvokeResult = validateProtocolEvent("organ.invoke.v1", {
+const invalidInvokeResult = validateProtocolEvent("adapter.invoke.v1", {
 	schemaVersion: "v1",
 	plane: "data",
 	lane: "motory",
-	seam: "corpus.organ",
+	seam: "corpus.adapter",
 	correlationId: "",
-	organ: "fs",
+	adapter: "fs",
 	action: "file_read",
 	args: {},
 	source: "llm_tool_call",
@@ -99,30 +99,30 @@ const invalidInvokeResult = validateProtocolEvent("organ.invoke.v1", {
 });
 assert(
 	!invalidInvokeResult.accepted && invalidInvokeResult.code === "missing_correlation",
-	`Expected invalid organ.invoke.v1 payload to reject with missing_correlation, got ${invalidInvokeResult.code}.`,
+	`Expected invalid adapter.invoke.v1 payload to reject with missing_correlation, got ${invalidInvokeResult.code}.`,
 );
 
-const customOrganResult = validateProtocolEvent("organ.invoke.v1", {
+const customAdapterResult = validateProtocolEvent("adapter.invoke.v1", {
 	schemaVersion: "v1",
 	plane: "data",
 	lane: "motory",
-	seam: "corpus.organ",
+	seam: "corpus.adapter",
 	correlationId: "corr-custom",
-	organ: "monolog",
+	adapter: "monolog",
 	action: "monolog.write_note",
 	args: { body: "remember this" },
 	source: "llm_tool_call",
 	gate: "requested",
 });
-assert(customOrganResult.accepted, "Expected custom organ names to validate under organ=* contract.");
+assert(customAdapterResult.accepted, "Expected custom adapter names to validate under adapter=* contract.");
 
-const invalidLaneResult = validateProtocolEvent("organ.result.v1", {
+const invalidLaneResult = validateProtocolEvent("adapter.result.v1", {
 	schemaVersion: "v1",
 	plane: "data",
 	lane: "motory",
 	seam: "supervisor.corpus",
 	correlationId: "corr-violation",
-	organ: "fs",
+	adapter: "fs",
 	action: "file_read",
 	status: "ok",
 	isError: false,
@@ -161,14 +161,14 @@ spine.recordSessionEvent({
 });
 const protocolEvents = spine
 	.since(0)
-	.filter((event) => event.kind === "organ.invoke.v1" || event.kind === "organ.result.v1" || event.kind === "signal.events.v1");
+	.filter((event) => event.kind === "adapter.invoke.v1" || event.kind === "adapter.result.v1" || event.kind === "signal.events.v1");
 assert(protocolEvents.length >= 4, "Expected protocol fanout events for invoke/result/signals.");
 assert(
 	protocolEvents.some((event) => event.traceId === "corr-check"),
 	"Expected protocol events to preserve traceId correlation.",
 );
-const invokeEvent = protocolEvents.find((event) => event.kind === "organ.invoke.v1");
-const resultEvent = protocolEvents.find((event) => event.kind === "organ.result.v1");
+const invokeEvent = protocolEvents.find((event) => event.kind === "adapter.invoke.v1");
+const resultEvent = protocolEvents.find((event) => event.kind === "adapter.result.v1");
 const signalEvent = protocolEvents.find((event) => event.kind === "signal.events.v1");
 
 assert((invokeEvent?.data as { lane?: string } | undefined)?.lane === "motory", "Expected invoke lane to be motory.");
@@ -178,8 +178,8 @@ assert(
 	"Expected signal lane to be signatory.",
 );
 assert(
-	(signalEvent?.data as { lane?: string; seam?: string } | undefined)?.seam === "corpus.organ",
-	"Expected signal seam to be corpus.organ.",
+	(signalEvent?.data as { lane?: string; seam?: string } | undefined)?.seam === "corpus.adapter",
+	"Expected signal seam to be corpus.adapter.",
 );
 
 const replayOne = createReplaySignature();
@@ -191,14 +191,14 @@ assert(
 
 const metricsLog = new MemLog();
 metricsLog.emit({
-	kind: "organ.invoke.v1",
-	data: validPayloads["organ.invoke.v1"] as (typeof validPayloads)["organ.invoke.v1"],
+	kind: "adapter.invoke.v1",
+	data: validPayloads["adapter.invoke.v1"] as (typeof validPayloads)["adapter.invoke.v1"],
 	source: "session",
 	direction: "outbound",
 });
 metricsLog.emit({
-	kind: "organ.result.v1",
-	data: validPayloads["organ.result.v1"] as (typeof validPayloads)["organ.result.v1"],
+	kind: "adapter.result.v1",
+	data: validPayloads["adapter.result.v1"] as (typeof validPayloads)["adapter.result.v1"],
 	source: "session",
 	direction: "inbound",
 });
@@ -211,14 +211,14 @@ assert(
 
 try {
 	metricsLog.emit({
-		kind: "organ.result.v1",
+		kind: "adapter.result.v1",
 		data: {
 			schemaVersion: "v1",
 			plane: "data",
 			lane: "sensory",
-			seam: "corpus.organ",
+			seam: "corpus.adapter",
 			correlationId: "",
-			organ: "fs",
+			adapter: "fs",
 			action: "file_read",
 			status: "error",
 			isError: true,
@@ -255,7 +255,7 @@ function createReplaySignature(): Array<Record<string, string | undefined>> {
 	});
 	return replaySpine
 		.since(0)
-		.filter((event) => event.kind === "organ.invoke.v1" || event.kind === "organ.result.v1" || event.kind === "signal.events.v1")
+		.filter((event) => event.kind === "adapter.invoke.v1" || event.kind === "adapter.result.v1" || event.kind === "signal.events.v1")
 		.map((event) => {
 			const data = event.data as Record<string, unknown>;
 			return {

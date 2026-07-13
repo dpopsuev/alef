@@ -303,7 +303,11 @@ export class Editor implements Component, Focusable {
 	// Undo support
 	private undoStack = new UndoStack<EditorState>();
 
-	public onSubmit?: (text: string, attachments?: ImageAttachment[]) => void;
+	public onSubmit?: (
+		text: string,
+		attachments?: ImageAttachment[],
+		opts?: { delivery?: "steer" | "followUp" | "nextTurn" },
+	) => void;
 	public onChange?: (text: string) => void;
 	public disableSubmit: boolean = false;
 
@@ -776,6 +780,13 @@ export class Editor implements Component, Focusable {
 			return;
 		}
 
+		// Follow-up (Alt+Enter) — queue after current turn instead of steering
+		if (kb.matches(data, "tui.input.followUp")) {
+			if (this.disableSubmit) return;
+			this.submitValue({ delivery: "followUp" });
+			return;
+		}
+
 		// Arrow key navigation (with history support)
 		if (kb.matches(data, "tui.editor.cursorUp")) {
 			if (this.isEditorEmpty()) {
@@ -1190,7 +1201,7 @@ export class Editor implements Component, Focusable {
 		return this.state.cursorCol > 0 && currentLine[this.state.cursorCol - 1] === "\\";
 	}
 
-	private submitValue(): void {
+	private submitValue(opts?: { delivery?: "steer" | "followUp" | "nextTurn" }): void {
 		this.cancelAutocomplete();
 		const result = this.expandPasteMarkers(this.state.lines.join("\n")).trim();
 
@@ -1203,7 +1214,7 @@ export class Editor implements Component, Focusable {
 		this.lastAction = null;
 
 		if (this.onChange) this.onChange("");
-		if (this.onSubmit) this.onSubmit(result, this.getAttachments());
+		if (this.onSubmit) this.onSubmit(result, this.getAttachments(), opts);
 	}
 
 	private handleBackspace(): void {

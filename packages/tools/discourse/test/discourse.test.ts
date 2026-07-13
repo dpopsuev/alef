@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDiscourseAdapter } from "../src/adapter.js";
 import { DiscourseStore } from "../src/store.js";
@@ -208,36 +208,36 @@ describe("DiscourseStore", () => {
 // ---------------------------------------------------------------------------
 // Adapter — structural tests
 // ---------------------------------------------------------------------------
-describe("organ-forum structure", () => {
+describe("discourse structure", () => {
 	let sessionDir: string;
 
 	beforeEach(() => {
-		sessionDir = mkdtempSync(join(tmpdir(), "alef-forum-organ-"));
+		sessionDir = mkdtempSync(join(tmpdir(), "alef-forum-"));
 	});
 
 	afterEach(() => {
 		rmSync(sessionDir, { recursive: true, force: true });
 	});
 
-	it("creates organ with correct name and tools", () => {
-		const organ = createDiscourseAdapter({ sessionDir });
-		expect(organ.name).toBe("discourse");
-		expect(organ.tools.map((t) => t.name)).toEqual(["discourse.post", "discourse.read", "discourse.list"]);
+	it("creates adapter with correct name and tools", () => {
+		const adapter = createDiscourseAdapter({ sessionDir });
+		expect(adapter.name).toBe("discourse");
+		expect(adapter.tools.map((t) => t.name)).toEqual(["discourse.post", "discourse.read", "discourse.list"]);
 	});
 
 	it("declares file sources", () => {
-		const organ = createDiscourseAdapter({ sessionDir });
-		expect(organ.sources).toEqual([{ name: "discourse-files", kind: "file" }]);
+		const adapter = createDiscourseAdapter({ sessionDir });
+		expect(adapter.sources).toEqual([{ name: "discourse-files", kind: "file" }]);
 	});
 
 	it("has context.assemble contribution", () => {
-		const organ = createDiscourseAdapter({ sessionDir });
-		expect(organ.contributions?.["context.assemble"]).toBeDefined();
+		const adapter = createDiscourseAdapter({ sessionDir });
+		expect(adapter.contributions?.["context.assemble"]).toBeDefined();
 	});
 
 	it("has directives", () => {
-		const organ = createDiscourseAdapter({ sessionDir });
-		expect(organ.directives).toBeDefined();
-		expect(organ.directives!.length).toBeGreaterThan(0);
+		const adapter = createDiscourseAdapter({ sessionDir });
+		expect(adapter.directives).toBeDefined();
+		expect(adapter.directives!.length).toBeGreaterThan(0);
 	});
 });

@@ -24,6 +24,8 @@ export interface SubmitConfig {
 	dispatch: (event: TuiEvent) => void;
 	ctx: () => TuiHandlerContext;
 	onThinkingStop: () => void;
+	/** True while a turn is in flight — mid-turn prompts are queued, not scrollbacked yet. */
+	isTurnActive?: () => boolean;
 	forums?: { switchTo(name: string): unknown; list(): string[]; active: string };
 }
 
@@ -47,8 +49,18 @@ function attachmentsToText(attachments: ImageAttachment[]): string {
  * Returns a function that can be used as the editor's onSubmit handler.
  */
 export function createSubmitHandler(config: SubmitConfig) {
-	const { actorRoutes, session, writer, addToHistory, addHistoryEntry, clearEditor, dispatch, ctx, onThinkingStop } =
-		config;
+	const {
+		actorRoutes,
+		session,
+		writer,
+		addToHistory,
+		addHistoryEntry,
+		clearEditor,
+		dispatch,
+		ctx,
+		onThinkingStop,
+		isTurnActive,
+	} = config;
 
 	const inputPatterns = new InputPatternRegistry();
 
@@ -130,12 +142,17 @@ export function createSubmitHandler(config: SubmitConfig) {
 				clearEditor,
 				dispatch,
 				onThinkingStop,
+				isTurnActive,
 			});
 			return true;
 		},
 	});
 
-	return async (rawText: string, attachments: ImageAttachment[] = []): Promise<void> => {
+	return async (
+		rawText: string,
+		attachments: ImageAttachment[] = [],
+		opts?: { delivery?: "steer" | "followUp" | "nextTurn" },
+	): Promise<void> => {
 		const text = rawText.trim();
 		if (!text) return;
 
@@ -159,6 +176,8 @@ export function createSubmitHandler(config: SubmitConfig) {
 			clearEditor,
 			dispatch,
 			onThinkingStop,
+			isTurnActive,
+			delivery: opts?.delivery,
 		});
 	};
 }
@@ -177,16 +196,41 @@ interface ExecuteMessageConfig {
 	clearEditor: () => void;
 	dispatch: (event: TuiEvent) => void;
 	onThinkingStop: () => void;
+	isTurnActive?: () => boolean;
+	delivery?: "steer" | "followUp" | "nextTurn";
 }
 
 /** Send a message through the executor, managing turn lifecycle and abort handling. */
 async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
-	const { text, executor, session, writer, addToHistory, addHistoryEntry, clearEditor, dispatch, onThinkingStop } =
-		config;
+	const {
+		text,
+		message,
+		executor,
+		session,
+		writer,
+		addToHistory,
+		addHistoryEntry,
+		clearEditor,
+		dispatch,
+		onThinkingStop,
+		isTurnActive,
+		delivery,
+	} = config;
 
 	addToHistory(text);
 	clearEditor();
 	addHistoryEntry(text);
+
+	// Mid-turn: fire-and-forget into the reasoner queue. Scrollback waits until drain.
+	if (isTurnActive?.()) {
+		if (session.receive) {
+			session.receive(message, { delivery: delivery ?? "steer" });
+		} else if (executor) {
+			void executor();
+		}
+		return;
+	}
+
 	writer.addUserMessage(text);
 	dispatch({ type: "turn.start", timestamp: Date.now() });
 

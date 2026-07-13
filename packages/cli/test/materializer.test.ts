@@ -33,21 +33,21 @@ function makeDefinition(adapters: { name: string; actions?: string[] }[]) {
 }
 
 describe("materializeBlueprint", { tags: ["unit"] }, () => {
-	it("returns empty organ list when no organs declared", async () => {
+	it("returns empty adapter list when no adapters declared", async () => {
 		const def = compileAgentDefinition({ name: "empty" });
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(0);
 		expect(result.modelId).toBeUndefined();
 	});
 
-	it("instantiates FsOrgan for fs organ", async () => {
+	it("instantiates FsAdapter for fs adapter", async () => {
 		const def = makeDefinition([{ name: "fs" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
 		expect(result.adapters[0]!.name).toBe("fs");
 	});
 
-	it("instantiates ShellOrgan for shell organ", async () => {
+	it("instantiates ShellAdapter for shell adapter", async () => {
 		const def = makeDefinition([{ name: "shell" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
@@ -61,7 +61,7 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		expect(result.adapters.map((o) => o.name)).toEqual(["fs", "shell"]);
 	});
 
-	it("lector organ is now supported in the EDA runtime", async () => {
+	it("lector adapter is now supported in the EDA runtime", async () => {
 		const def = compileAgentDefinition({
 			name: "lector-agent",
 			adapters: [{ name: "code-intel" }],
@@ -71,7 +71,7 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		expect(result.adapters[0]!.name).toBe("code-intel");
 	});
 
-	it("skips truly unsupported organs (symbols) without throwing", async () => {
+	it("skips truly unsupported adapters (symbols) without throwing", async () => {
 		const def = compileAgentDefinition({
 			name: "advanced",
 			adapters: [{ name: "fs" }, { name: "symbols" }],
@@ -96,27 +96,27 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		expect(result.modelId).toBeUndefined();
 	});
 
-	it("respects action allowlist on fs organ", async () => {
+	it("respects action allowlist on fs adapter", async () => {
 		const def = makeDefinition([{ name: "fs", actions: ["read"] }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(1);
-		const organ = result.adapters[0]!;
-		expect(organ.tools.some((t) => t.name === "fs.read")).toBe(true);
-		expect(organ.tools.some((t) => t.name === "fs.write")).toBe(false);
+		const adapter = result.adapters[0]!;
+		expect(adapter.tools.some((t) => t.name === "fs.read")).toBe(true);
+		expect(adapter.tools.some((t) => t.name === "fs.write")).toBe(false);
 	});
 });
 
 describe("loadAdapterFromPath", { tags: ["unit"] }, () => {
-	it("loads a TypeScript organ file and calls createOrgan()", async () => {
+	it("loads a TypeScript adapter file and calls createAdapter()", async () => {
 		const dir = makeTmp();
-		const organFile = join(dir, "my-organ.ts");
+		const adapterFile = join(dir, "my-adapter.ts");
 		writeFileSync(
-			organFile,
+			adapterFile,
 			`
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 export function createAdapter(_opts: unknown): Adapter {
 	return {
-		name: "my-organ",
+		name: "my-adapter",
 		tools: [],
 		subscriptions: { command: [], event: [] },
 		mount: () => () => {},
@@ -124,16 +124,16 @@ export function createAdapter(_opts: unknown): Adapter {
 }
 `,
 		);
-		const organ = await loadAdapterFromPath(organFile, { cwd: dir });
-		expect(organ.name).toBe("my-organ");
-		expect(organ.tools).toHaveLength(0);
+		const adapter = await loadAdapterFromPath(adapterFile, { cwd: dir });
+		expect(adapter.name).toBe("my-adapter");
+		expect(adapter.tools).toHaveLength(0);
 	});
 
-	it("throws when file does not export createOrgan", async () => {
+	it("throws when file does not export createAdapter", async () => {
 		const dir = makeTmp();
-		const organFile = join(dir, "bad-organ.ts");
-		writeFileSync(organFile, "export const foo = 42;");
-		await expect(loadAdapterFromPath(organFile, { cwd: dir })).rejects.toThrow("createAdapter");
+		const adapterFile = join(dir, "bad-adapter.ts");
+		writeFileSync(adapterFile, "export const foo = 42;");
+		await expect(loadAdapterFromPath(adapterFile, { cwd: dir })).rejects.toThrow("createAdapter");
 	});
 });
 
@@ -170,8 +170,8 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 				"adapters:",
 				"  - name: fs",
 				"    actions: [read]",
-				"  - name: my-organ",
-				"    path: /organs/my-organ.ts",
+				"  - name: my-adapter",
+				"    path: /adapters/my-adapter.ts",
 			].join("\n"),
 		);
 		process.env.ALEF_PM_ROOT = dir;
@@ -179,13 +179,13 @@ describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 			const result = loadUserAdaptersConfig();
 			expect(result).toHaveLength(2);
 			expect(result?.[0]).toMatchObject({ name: "fs", actions: ["read"] });
-			expect(result?.[1]).toMatchObject({ name: "my-organ", path: "/organs/my-organ.ts" });
+			expect(result?.[1]).toMatchObject({ name: "my-adapter", path: "/adapters/my-adapter.ts" });
 		} finally {
 			delete process.env.ALEF_PM_ROOT;
 		}
 	});
 
-	it("returns null for a file with no organs key", () => {
+	it("returns null for a file with no adapters key", () => {
 		const dir = makeTmp();
 		writeFileSync(join(dir, "adapters.yaml"), "model: anthropic/claude\n");
 		process.env.ALEF_PM_ROOT = dir;

@@ -13,8 +13,8 @@ import { createWebAdapter } from "../src/adapter.js";
 
 describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, () => {
 	it("web.search tool schema includes timeRange field", () => {
-		const organ = createWebAdapter();
-		const tool = organ.tools.find((t) => t.name === "web.search");
+		const adapter = createWebAdapter();
+		const tool = adapter.tools.find((t) => t.name === "web.search");
 		expect(tool, "web.search tool must exist").toBeDefined();
 
 		const schema = tool!.inputSchema;
@@ -23,8 +23,8 @@ describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, ()
 	});
 
 	it("web.search tool schema includes topic field", () => {
-		const organ = createWebAdapter();
-		const tool = organ.tools.find((t) => t.name === "web.search");
+		const adapter = createWebAdapter();
+		const tool = adapter.tools.find((t) => t.name === "web.search");
 		const schema = tool!.inputSchema;
 
 		const parsed = schema.safeParse({ query: "test", topic: "news" });
@@ -32,17 +32,17 @@ describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, ()
 	});
 
 	it("timeRange rejects invalid values", () => {
-		const organ = createWebAdapter();
-		const tool = organ.tools.find((t) => t.name === "web.search");
+		const adapter = createWebAdapter();
+		const tool = adapter.tools.find((t) => t.name === "web.search");
 		const schema = tool!.inputSchema;
 
 		const parsed = schema.safeParse({ query: "test", timeRange: "century" });
 		expect(parsed.success, "timeRange: 'century' should be invalid").toBe(false);
 	});
 
-	it("organ directives mention timeRange for recent news", () => {
-		const organ = createWebAdapter();
-		const directivesText = organ.directives?.join("\n") ?? "";
+	it("adapter directives mention timeRange for recent news", () => {
+		const adapter = createWebAdapter();
+		const directivesText = adapter.directives?.join("\n") ?? "";
 		expect(directivesText).toMatch(/timeRange/i);
 	});
 });

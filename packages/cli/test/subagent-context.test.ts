@@ -32,10 +32,10 @@ describe("subagent context awareness", { tags: ["unit"] }, () => {
 		]);
 
 		const today = new Date().toISOString().split("T")[0];
-		const fsOrgan = createAdapter({ cwd: "/tmp" });
+		const fsAdapter = createAdapter({ cwd: "/tmp" });
 		const basePrompt = "You are a test agent.";
 		const factory = buildSubagentFactory({ model: faux.getModel()!, baseSystemPrompt: basePrompt });
-		const strategy = new InProcessStrategy([fsOrgan], factory, basePrompt);
+		const strategy = new InProcessStrategy([fsAdapter], factory, basePrompt);
 
 		await strategy.send({ text: "What year is it?" });
 
@@ -56,9 +56,9 @@ describe("subagent context awareness", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createAdapter({ cwd: "/home/test/project" });
+		const fsAdapter = createAdapter({ cwd: "/home/test/project" });
 		const factory = buildSubagentFactory({ model: faux.getModel()! });
-		const session = factory({ adapters: [fsOrgan], systemPrompt: "You are a helper." });
+		const session = factory({ adapters: [fsAdapter], systemPrompt: "You are a helper." });
 		disposes.push(() => session.dispose());
 
 		await session.send!("Hello", 10_000);

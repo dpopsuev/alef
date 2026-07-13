@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-code-intel",
   "version": "0.0.2",
-  "description": "Code Intelligence organ \u2014 unified fs + symbol intelligence with block caching",
+  "description": "Code Intelligence adapter \u2014 unified fs + symbol intelligence with block caching",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -32,7 +32,6 @@
   },
   "keywords": [
     "agent",
-    "organ",
     "code-intel",
     "lsp",
     "tree-sitter",
@@ -43,7 +42,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-code-intel"
+    "directory": "packages/tools/code-intel"
   },
   "engines": {
     "node": ">=20.0.0"

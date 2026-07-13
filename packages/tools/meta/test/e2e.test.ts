@@ -2,7 +2,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createMetaAdapter } from "../src/adapter.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("meta — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches running Alef config using alef.config.get", async () => {
 		const session = createE2eSession([createMetaAdapter({ dialogEventType: "llm.input" })]);
 		const { reply, events } = await session.send(

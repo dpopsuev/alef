@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-engine",
   "version": "0.0.2",
-  "description": "Agent runtime \u2014 organ loader, nerve, and pub-sub bus",
+  "description": "Agent runtime \u2014 adapter loader, nerve, and pub-sub bus",
   "type": "module",
   "main": "./src/agent.ts",
   "types": "./dist/agent.d.ts",

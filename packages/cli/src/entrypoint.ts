@@ -228,9 +228,7 @@ await warmAuthCache();
 
 import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
-const preview: SessionPreviewProvider | undefined =
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- duck-typed at boundary
-	"sessionPreview" in storage ? (storage as { sessionPreview(): SessionPreviewProvider }).sessionPreview() : undefined;
+const preview: SessionPreviewProvider = storage.sessionPreview();
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
 
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel/log");

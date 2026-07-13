@@ -1,9 +1,10 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 
-/** Callback that presents a list of sessions and returns the chosen ID or undefined. */
+/** Callback that presents sessions for the cwd (and optional global scope) and returns an id. */
 export type SessionPicker = (
-	sessions: Array<{ id: string; path: string; mtime: Date }>,
+	cwd: string,
+	sessions: SessionStoreFactory,
 	preview?: SessionPreviewProvider,
 ) => Promise<string | undefined>;
 
@@ -30,7 +31,8 @@ export async function loadSession(
 			console.log("No sessions for", args.cwd);
 		} else {
 			for (const session of list) {
-				console.log(`${session.id}  ${session.mtime.toISOString().replace("T", " ").slice(0, 16)}`);
+				const label = session.name ? `${session.id}  ${session.name}` : session.id;
+				console.log(`${label}  ${session.mtime.toISOString().replace("T", " ").slice(0, 16)}`);
 			}
 		}
 		process.exit(0);
@@ -49,10 +51,14 @@ export async function loadSession(
 	}
 
 	const existingSessions = willUseTui && pickSession ? await sessions.list(args.cwd) : [];
-	const pickedId =
-		existingSessions.length > 0 && pickSession ? await pickSession(existingSessions, preview) : undefined;
+	const allSessions = willUseTui && pickSession && existingSessions.length === 0 ? await sessions.listAll() : [];
+	const shouldPick = willUseTui && pickSession && (existingSessions.length > 0 || allSessions.length > 0);
+	const pickedId = shouldPick ? await pickSession(args.cwd, sessions, preview) : undefined;
 	if (pickedId) {
-		const store = await sessions.resume(args.cwd, pickedId);
+		const local = existingSessions.find((s) => s.id === pickedId);
+		const store = local
+			? await sessions.resume(args.cwd, pickedId)
+			: await resumeAcrossCwds(sessions, pickedId, args.cwd);
 		const turnCount = (await store.turns()).length;
 		console.error(`[session] Resumed ${store.id} (${turnCount} turns)`);
 		return store;
@@ -61,4 +67,20 @@ export async function loadSession(
 	const store = await sessions.create(args.cwd);
 	console.error(`[session] ${store.id}`);
 	return store;
+}
+
+/**
+ *
+ */
+async function resumeAcrossCwds(sessions: SessionStoreFactory, id: string, fallbackCwd: string): Promise<SessionStore> {
+	const all = await sessions.listAll();
+	const match = all.find((s) => s.id === id);
+	if (match?.cwd) {
+		try {
+			return await sessions.resume(match.cwd, id);
+		} catch {
+			/* fall through */
+		}
+	}
+	return sessions.resume(fallbackCwd, id);
 }

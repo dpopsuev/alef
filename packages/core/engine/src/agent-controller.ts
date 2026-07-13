@@ -51,19 +51,26 @@ export class AgentController {
 		});
 	}
 
-	receive(content: string | (TextContent | ImageContent)[], sender = "human", correlationId = randomUUID()): void {
+	receive(
+		content: string | (TextContent | ImageContent)[],
+		sender = "human",
+		correlationId = randomUUID(),
+		delivery?: "steer" | "followUp" | "nextTurn",
+	): void {
 		if (this.disposed) return;
-		// Normalize content to array for internal handling
-		const contentArray: (TextContent | ImageContent)[] = typeof content === "string" 
-			? [{ type: "text", text: content }] 
-			: content;
-		
-		// For backward compatibility, extract text from first text block
+		const contentArray: (TextContent | ImageContent)[] =
+			typeof content === "string" ? [{ type: "text", text: content }] : content;
+
 		const text = contentArray.find((c): c is TextContent => c.type === "text")?.text ?? "";
-		
+
 		this.agent.publishEvent({
 			type: this.triggerEvent,
-			payload: { text, sender, content: contentArray },
+			payload: {
+				text,
+				sender,
+				content: contentArray,
+				...(delivery ? { delivery } : {}),
+			},
 			correlationId,
 			isError: false,
 		});

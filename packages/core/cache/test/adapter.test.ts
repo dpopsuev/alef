@@ -1,5 +1,5 @@
 import { buildEventResult } from "@dpopsuev/alef-kernel/bus";
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createCacheAdapter } from "../src/adapter.js";
 

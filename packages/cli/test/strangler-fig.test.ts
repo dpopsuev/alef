@@ -247,7 +247,7 @@ describe("config.ts — schema validation", () => {
 // Blueprint → adapter composition → real tool execution
 // ---------------------------------------------------------------------------
 
-describe("blueprint composition — fs organ", () => {
+describe("blueprint composition — fs adapter", () => {
 	it("fs.read executes via blueprint, session JSONL written", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
@@ -255,7 +255,7 @@ describe("blueprint composition — fs organ", () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: test-agent", "organs:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
+			["name: test-agent", "adapters:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
 		);
 
 		const h = track(
@@ -281,7 +281,7 @@ describe("blueprint composition — fs organ", () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: grep-agent", "organs:", "  - name: fs", "    actions: [read, grep]"].join("\n"),
+			["name: grep-agent", "adapters:", "  - name: fs", "    actions: [read, grep]"].join("\n"),
 		);
 
 		const h = track(
@@ -302,7 +302,7 @@ describe("blueprint composition — fs organ", () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: readonly-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"),
+			["name: readonly-agent", "adapters:", "  - name: fs", "    actions: [read]"].join("\n"),
 		);
 
 		const h = track(
@@ -324,7 +324,7 @@ describe("blueprint composition — fs organ", () => {
 		writeFileSync(join(cwd, "b.ts"), "const b = 2;");
 
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: multi-agent", "organs:", " - name: fs"].join("\n"));
+		writeFileSync(blueprintPath, ["name: multi-agent", "adapters:", " - name: fs"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -347,11 +347,11 @@ describe("blueprint composition — fs organ", () => {
 	});
 });
 
-describe("blueprint composition — shell organ", () => {
+describe("blueprint composition — shell adapter", () => {
 	it("shell.exec executes via blueprint", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: shell-agent", "organs:", " - name: shell"].join("\n"));
+		writeFileSync(blueprintPath, ["name: shell-agent", "adapters:", " - name: shell"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -440,7 +440,7 @@ describe("CLI subprocess — deterministic", () => {
 		expect(stdout).toContain("--model");
 	});
 
-	it("--list-tools with default organs lists expected tools", async () => {
+	it("--list-tools with default adapters lists expected tools", async () => {
 		const cwd = tmpDir();
 		const { stdout, exitCode } = await run(["--list-tools", "--cwd", cwd]);
 		expect(exitCode).toBe(0);
@@ -448,18 +448,18 @@ describe("CLI subprocess — deterministic", () => {
 		expect(stdout).toContain("shell.exec");
 	});
 
-	it("--list-organs with default organs lists expected organs", async () => {
+	it("--list-adapters with default adapters lists expected adapters", async () => {
 		const cwd = tmpDir();
-		const { stdout, exitCode } = await run(["--list-organs", "--cwd", cwd]);
+		const { stdout, exitCode } = await run(["--list-adapters", "--cwd", cwd]);
 		expect(exitCode).toBe(0);
 		expect(stdout).toContain("fs");
 		expect(stdout).toContain("shell");
 	});
 
-	it("--blueprint with read-only organ ablation lists only read tools", async () => {
+	it("--blueprint with read-only adapter ablation lists only read tools", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: ro-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"));
+		writeFileSync(blueprintPath, ["name: ro-agent", "adapters:", "  - name: fs", "    actions: [read]"].join("\n"));
 
 		const { stdout, exitCode } = await run(["--list-tools", "--blueprint", blueprintPath, "--cwd", cwd]);
 		expect(exitCode).toBe(0);
@@ -483,7 +483,10 @@ describe("CLI subprocess — deterministic", () => {
 		writeFileSync(join(cwd, "hello.ts"), "export const greeting = 'hi';");
 
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: print-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"));
+		writeFileSync(
+			blueprintPath,
+			["name: print-agent", "adapters:", "  - name: fs", "    actions: [read]"].join("\n"),
+		);
 
 		const { stdout, exitCode } = await run(["--print", "read hello.ts", "--blueprint", blueprintPath, "--cwd", cwd], {
 			env: { ALEF_SCRIPTED_REPLIES: JSON.stringify(["blueprint reply ok"]) },

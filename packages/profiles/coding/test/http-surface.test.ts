@@ -29,7 +29,7 @@ import {
 	assertFileReadWorkflow,
 	assertHashesPresent,
 	assertMultiTurnHistory,
-	assertOrganSelection,
+	assertAdapterSelection,
 	assertSseFilter,
 	assertSubagentWorkflow,
 	assertToolSequence,
@@ -532,7 +532,7 @@ describe.skipIf(!HAVE_LLM)(
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!HAVE_LLM)(
-	"blueprint organ selection: LLM uses organs specified in blueprint",
+	"blueprint adapter selection: LLM uses adapters specified in blueprint",
 	{ tags: ["real-llm"] },
 	() => {
 		it("agent with fs-only blueprint reads file and makes no lector/shell calls", async () => {
@@ -542,7 +542,7 @@ describe.skipIf(!HAVE_LLM)(
 			const secret = randomUUID();
 			writeFileSync(join(cwd, "data.txt"), `value=${secret}\n`, "utf-8");
 
-			writeFileSync(join(cwd, "agent.yaml"), ["name: fs-only-agent", "organs:", " - name: fs"].join("\n"), "utf-8");
+			writeFileSync(join(cwd, "agent.yaml"), ["name: fs-only-agent", "adapters:", " - name: fs"].join("\n"), "utf-8");
 
 			const { baseUrl } = await bootRunner(cwd, ["--blueprint", join(cwd, "agent.yaml")]);
 			await new Promise((r) => setTimeout(r, 300));
@@ -575,7 +575,7 @@ describe.skipIf(!HAVE_LLM)(
 			const records = readJSONL(cwd);
 
 			assertFileReadWorkflow(records, reply!.payload.text, secret);
-			assertOrganSelection(records, ["fs.read"], ["lector.", "shell."]);
+			assertAdapterSelection(records, ["fs.read"], ["lector.", "shell."]);
 		}, 120_000);
 	},
 );
@@ -599,7 +599,7 @@ describe.skipIf(!HAVE_LLM)(
 				join(cwd, "agent.yaml"),
 				[
 					"name: filtered-agent",
-					"organs:",
+					"adapters:",
 					" - name: fs",
 					"surfaces:",
 					" - type: sse",

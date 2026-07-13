@@ -2,7 +2,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createNodeshAdapter } from "../src/adapter.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-nodesh — real LLM E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("nodesh — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM evaluates a JS expression using nodesh.eval and reports the result", async () => {
 		const session = createE2eSession([createNodeshAdapter({ cwd: process.cwd() })]);
 		const { reply, events } = await session.send(

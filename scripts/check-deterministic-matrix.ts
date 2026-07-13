@@ -55,13 +55,13 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function runRogybEvidence(): Record<RogybStage, "pass"> {
-	const invalidInvoke = validateProtocolEvent("organ.invoke.v1", {
+	const invalidInvoke = validateProtocolEvent("adapter.invoke.v1", {
 		schemaVersion: "v1",
 		plane: "data",
 		lane: "motory",
-		seam: "corpus.organ",
+		seam: "corpus.adapter",
 		correlationId: "",
-		organ: "fs",
+		adapter: "fs",
 		action: "file_read",
 		args: {},
 		source: "llm_tool_call",
@@ -73,13 +73,13 @@ function runRogybEvidence(): Record<RogybStage, "pass"> {
 		"ROGYB orange failed: diagnostics must include data.correlationId.",
 	);
 
-	const validInvoke = validateProtocolEvent("organ.invoke.v1", {
+	const validInvoke = validateProtocolEvent("adapter.invoke.v1", {
 		schemaVersion: "v1",
 		plane: "data",
 		lane: "motory",
-		seam: "corpus.organ",
+		seam: "corpus.adapter",
 		correlationId: "corr-rogyb",
-		organ: "fs",
+		adapter: "fs",
 		action: "file_read",
 		args: { path: "README.md" },
 		source: "llm_tool_call",
@@ -89,14 +89,14 @@ function runRogybEvidence(): Record<RogybStage, "pass"> {
 
 	const log = new MemLog();
 	log.emit({
-		kind: "organ.invoke.v1",
+		kind: "adapter.invoke.v1",
 		data: {
 			schemaVersion: "v1",
 			plane: "data",
 			lane: "motory",
-			seam: "corpus.organ",
+			seam: "corpus.adapter",
 			correlationId: "corr-rogyb",
-			organ: "fs",
+			adapter: "fs",
 			action: "file_read",
 			args: { path: "README.md" },
 			source: "llm_tool_call",
@@ -106,14 +106,14 @@ function runRogybEvidence(): Record<RogybStage, "pass"> {
 		direction: "outbound",
 	});
 	log.emit({
-		kind: "organ.result.v1",
+		kind: "adapter.result.v1",
 		data: {
 			schemaVersion: "v1",
 			plane: "data",
 			lane: "sensory",
-			seam: "corpus.organ",
+			seam: "corpus.adapter",
 			correlationId: "corr-rogyb",
-			organ: "fs",
+			adapter: "fs",
 			action: "file_read",
 			status: "ok",
 			isError: false,
@@ -162,7 +162,7 @@ function replaySignature(): Array<Record<string, string | undefined>> {
 	});
 	return spine
 		.since(0)
-		.filter((event) => event.kind === "organ.invoke.v1" || event.kind === "organ.result.v1" || event.kind === "signal.events.v1")
+		.filter((event) => event.kind === "adapter.invoke.v1" || event.kind === "adapter.result.v1" || event.kind === "signal.events.v1")
 		.map((event) => {
 			const data = event.data as Record<string, unknown>;
 			return {

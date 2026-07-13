@@ -1,4 +1,4 @@
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { describe, expect, it } from "vitest";
 import { createShellAdapter } from "../src/adapter.js";
 
@@ -20,18 +20,18 @@ function fixture(opts: { commandPrefix?: string } = {}) {
 	return f;
 }
 
-describe("Shellorgan", { tags: ["compliance"] }, () => {
+describe("ShellAdapter", { tags: ["compliance"] }, () => {
 	it("has name=shell and 1 tool", () => {
-		const organ = createShellAdapter({ cwd: process.cwd() });
-		expect(organ.name).toBe("shell");
-		expect(organ.tools).toHaveLength(1);
-		expect(organ.tools[0]!.name).toBe("shell.exec");
+		const adapter = createShellAdapter({ cwd: process.cwd() });
+		expect(adapter.name).toBe("shell");
+		expect(adapter.tools).toHaveLength(1);
+		expect(adapter.tools[0]!.name).toBe("shell.exec");
 	});
 
 	it("unmount unsubscribes command handler", () => {
 		const f = new BusFixture();
-		const organ = createShellAdapter({ cwd: process.cwd() });
-		const unmount = f.mount(organ);
+		const adapter = createShellAdapter({ cwd: process.cwd() });
+		const unmount = f.mount(adapter);
 		expect(f.bus.listenerCount("command", "shell.exec")).toBe(1);
 		unmount();
 		expect(f.bus.listenerCount("command", "shell.exec")).toBe(0);
@@ -70,7 +70,7 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("Shellorgan — COLUMNS injection", { tags: ["compliance"] }, () => {
+describe("ShellAdapter — COLUMNS injection", { tags: ["compliance"] }, () => {
 	it("COLUMNS is set to 220 in spawned command environment", async () => {
 		const f = fixture();
 		const result = await f.callStreaming("shell.exec", { command: "echo COLS=$COLUMNS" });

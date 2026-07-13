@@ -34,4 +34,4 @@ export type LlmEvent =
 	| { type: "chunk"; text: string }
 	| { type: "thinking"; text: string }
 	| { type: "turn-error"; message: string }
-	| { type: "message-queued"; queueLength: number };
+	| { type: "message-queued"; queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" };

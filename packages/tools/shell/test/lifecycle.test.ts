@@ -1,5 +1,5 @@
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import { BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { describe, expect, it, vi } from "vitest";
 import { createShellAdapter, PtyPool, ShellTimeoutError } from "../src/adapter.js";
 

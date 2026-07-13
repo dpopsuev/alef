@@ -1,5 +1,5 @@
 /**
- * WebOrgan tests — no real network.
+ * WebAdapter tests — no real network.
  * Validates adapter structure, tool definitions, and web-spider integration.
  *
  * The hand-rolled HTML→text pipeline has been replaced by web-spider's
@@ -7,34 +7,34 @@
  * not the exact text transformation (that's web-spider's responsibility).
  */
 
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebAdapter } from "../src/adapter.js";
 
 adapterComplianceSuite(() => createWebAdapter());
 
-describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
+describe("WebAdapter — structure", { tags: ["compliance"] }, () => {
 	it("has name 'web'", () => {
-		const organ = createWebAdapter();
-		expect(organ.name).toBe("web");
+		const adapter = createWebAdapter();
+		expect(adapter.name).toBe("web");
 	});
 
 	it("has description and labels", () => {
-		const organ = createWebAdapter();
-		expect(organ.description).toBeTruthy();
-		expect(organ.labels).toContain("web");
-		expect(organ.labels).toContain("fetch");
-		expect(organ.labels).toContain("search");
+		const adapter = createWebAdapter();
+		expect(adapter.description).toBeTruthy();
+		expect(adapter.labels).toContain("web");
+		expect(adapter.labels).toContain("fetch");
+		expect(adapter.labels).toContain("search");
 	});
 
 	it("exposes web.fetch tool", () => {
-		const organ = createWebAdapter();
-		expect(organ.tools.some((t) => t.name === "web.fetch")).toBe(true);
+		const adapter = createWebAdapter();
+		expect(adapter.tools.some((t) => t.name === "web.fetch")).toBe(true);
 	});
 
 	it("exposes web.search tool", () => {
-		const organ = createWebAdapter();
-		expect(organ.tools.some((t) => t.name === "web.search")).toBe(true);
+		const adapter = createWebAdapter();
+		expect(adapter.tools.some((t) => t.name === "web.search")).toBe(true);
 	});
 
 	it("mounts and unmounts cleanly", () => {
@@ -44,7 +44,7 @@ describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
+describe("WebAdapter — web.fetch validation", { tags: ["compliance"] }, () => {
 	let fixture: BusFixture;
 
 	beforeEach(() => {
@@ -69,7 +69,7 @@ describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("WebOrgan — web.search validation", { tags: ["compliance"] }, () => {
+describe("WebAdapter — web.search validation", { tags: ["compliance"] }, () => {
 	let fixture: BusFixture;
 
 	beforeEach(() => {
@@ -86,7 +86,7 @@ describe("WebOrgan — web.search validation", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["compliance"] }, () => {
+describe("WebAdapter — web.fetch with Readability + Turndown", { tags: ["compliance"] }, () => {
 	afterEach(() => vi.unstubAllGlobals());
 
 	it("returns content string with article body and title payload field", async () => {

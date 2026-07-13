@@ -52,7 +52,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.children).toHaveLength(0);
 	});
 
-	it("compiles fs organ — name and empty actions when none specified", () => {
+	it("compiles fs adapter — name and empty actions when none specified", () => {
 		const def = compileAgentDefinition({
 			name: "fs-agent",
 			adapters: [{ name: "fs" }],
@@ -66,7 +66,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(fs.toolNames).toEqual([]);
 	});
 
-	it("compiles fs organ with action allowlist — actions pass through verbatim", () => {
+	it("compiles fs adapter with action allowlist — actions pass through verbatim", () => {
 		const def = compileAgentDefinition({
 			name: "read-only",
 			adapters: [{ name: "fs", actions: ["read", "grep"] }],
@@ -77,7 +77,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(fs.toolNames).toEqual([]);
 	});
 
-	it("compiles shell organ — name passes through", () => {
+	it("compiles shell adapter — name passes through", () => {
 		const def = compileAgentDefinition({
 			name: "shell-agent",
 			adapters: [{ name: "shell" }],
@@ -104,7 +104,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		).toThrow(/duplicate adapter.*fs/i);
 	});
 
-	it("accepts any organ name — validation is the materializer's concern", () => {
+	it("accepts any adapter name — validation is the materializer's concern", () => {
 		// Blueprint is purely structural; it passes adapter names through verbatim.
 		const def = compileAgentDefinition({
 			name: "custom",
@@ -113,7 +113,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.adapters[0]!.name).toBe("weather");
 	});
 
-	it("rejects orchestration organ without capabilities.orchestration", () => {
+	it("rejects orchestration adapter without capabilities.orchestration", () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "bad-orch",
@@ -122,7 +122,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		).toThrow(/orchestration adapter requires capabilities\.orchestration/i);
 	});
 
-	it("rejects capabilities.orchestration without orchestration organ", () => {
+	it("rejects capabilities.orchestration without orchestration adapter", () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "bad-orch",
@@ -131,7 +131,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		).toThrow(/capabilities\.orchestration.*requires an orchestration adapter/i);
 	});
 
-	it("accepts organ with empty actions array", () => {
+	it("accepts adapter with empty actions array", () => {
 		// Blueprint no longer rejects empty action lists — structural only.
 		const def = compileAgentDefinition({
 			name: "no-actions",

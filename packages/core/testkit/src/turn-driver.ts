@@ -53,12 +53,21 @@ export class TurnDriver {
 		});
 	}
 
-	receive(text: string, sender = "human"): string {
+	receive(
+		text: string,
+		sender = "human",
+		opts?: { delivery?: "steer" | "followUp" | "nextTurn" },
+	): string {
 		const correlationId = randomUUID();
 		this.bus.asBus().event.publish({
 			type: this.triggerEvent,
 			correlationId,
-			payload: { text, sender, tools: this.tools },
+			payload: {
+				text,
+				sender,
+				tools: this.tools,
+				...(opts?.delivery ? { delivery: opts.delivery } : {}),
+			},
 			isError: false,
 		});
 		return correlationId;

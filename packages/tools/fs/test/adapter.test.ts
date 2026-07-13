@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsAdapter } from "../src/adapter.js";
 
@@ -10,7 +10,7 @@ adapterComplianceSuite(() => createFsAdapter({ cwd: "/tmp" }));
 let testDir: string;
 
 beforeEach(async () => {
-	testDir = join(tmpdir(), `alef-fs-organ-test-${Date.now()}`);
+	testDir = join(tmpdir(), `alef-fs-tool-test-${Date.now()}`);
 	await mkdir(testDir, { recursive: true });
 });
 
@@ -24,24 +24,28 @@ function fixture() {
 	return f;
 }
 
-describe("Fsorgan", { tags: ["compliance"] }, () => {
-	it("has name=fs and 6 tools", () => {
-		const organ = createFsAdapter({ cwd: testDir });
-		expect(organ.name).toBe("fs");
-		expect(organ.tools.map((t) => t.name)).toEqual([
+describe("FsAdapter", { tags: ["compliance"] }, () => {
+	it("has name=fs and expected tools", () => {
+		const adapter = createFsAdapter({ cwd: testDir });
+		expect(adapter.name).toBe("fs");
+		expect(adapter.tools.map((t) => t.name)).toEqual([
 			"fs.read",
 			"fs.grep",
 			"fs.find",
 			"fs.write",
 			"fs.edit",
 			"fs.patch",
+			"fs.undo",
+			"fs.watch",
+			"fs.unwatch",
+			"fs.timeline",
 		]);
 	});
 
 	it("unmount unsubscribes all command handlers", () => {
 		const f = new BusFixture();
-		const organ = createFsAdapter({ cwd: testDir });
-		const unmount = f.mount(organ);
+		const adapter = createFsAdapter({ cwd: testDir });
+		const unmount = f.mount(adapter);
 		expect(f.bus.listenerCount("command", "fs.read")).toBe(1);
 		unmount();
 		expect(f.bus.listenerCount("command", "fs.read")).toBe(0);

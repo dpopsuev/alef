@@ -21,7 +21,7 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("LLM API call includes tool schemas from loaded organs", async () => {
+	it("LLM API call includes tool schemas from loaded adapters", async () => {
 		const faux = registerFauxProvider();
 		disposes.push(() => faux.unregister());
 
@@ -34,9 +34,9 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createAdapter({ cwd: "/tmp" });
+		const fsAdapter = createAdapter({ cwd: "/tmp" });
 		const factory = buildSubagentFactory({ model: faux.getModel()! });
-		const session = factory({ adapters: [fsOrgan] });
+		const session = factory({ adapters: [fsAdapter] });
 		disposes.push(() => session.dispose());
 
 		await session.send!("Read the file /tmp/test.txt", 10_000);
@@ -62,9 +62,9 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createAdapter({ cwd: "/tmp" });
+		const fsAdapter = createAdapter({ cwd: "/tmp" });
 		const factory = buildSubagentFactory({ model: faux.getModel()! });
-		const strategy = new InProcessStrategy([fsOrgan], factory, "You are a test agent.");
+		const strategy = new InProcessStrategy([fsAdapter], factory, "You are a test agent.");
 
 		const reply = await strategy.send({ text: "List files" });
 

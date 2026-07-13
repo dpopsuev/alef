@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-agent",
   "version": "0.0.2",
-  "description": "Unified agent organ \u2014 in-process delegation + process-isolated child lifecycle",
+  "description": "Unified agent adapter \u2014 in-process delegation + process-isolated child lifecycle",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

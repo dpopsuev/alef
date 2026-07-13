@@ -196,7 +196,7 @@ import { payloadToText } from "../src/tool-dispatch.js";
 
 describe("payloadToText", { tags: ["unit"] }, () => {
 	it("returns errorMessage when isError is true", () => {
-		expect(payloadToText({}, true, "organ failure")).toBe("organ failure");
+		expect(payloadToText({}, true, "adapter failure")).toBe("adapter failure");
 	});
 
 	it("falls back to JSON when isError is true and no errorMessage", () => {
@@ -331,7 +331,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		expect(Array.isArray(first.payload.messages)).toBe(true);
 	});
 
-	it("phase organ receives messages and its event/context.assemble reply is awaited", async () => {
+	it("phase adapter receives messages and its event/context.assemble reply is awaited", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
 		const f = new BusFixture();
@@ -339,7 +339,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		const recorder = f.observe();
 
 		let phaseReceivedMessages: unknown[] = [];
-		const phaseOrgan = {
+		const phaseAdapter = {
 			name: "phase-spy",
 			description: "test phase interceptor",
 			labels: [] as const,
@@ -369,7 +369,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 				phaseTimeoutMs: 500,
 			}),
 		);
-		f.mount(phaseOrgan);
+		f.mount(phaseAdapter);
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -377,7 +377,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		recorder.assertCommandEmitted("llm.response");
 	});
 
-	it("proceeds with original messages when phase organ times out", async () => {
+	it("proceeds with original messages when phase adapter times out", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
 		const f = new BusFixture();
@@ -406,14 +406,14 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		for (const d of disposes.splice(0)) d();
 	});
 
-	function makePhaseOrgan(
+	function makePhaseAdapter(
 		handler: (
 			payload: { messages: unknown[]; turn: number },
 			reply: (response: Record<string, unknown>) => void,
 		) => void,
 	) {
 		return {
-			name: "phase-organ",
+			name: "phase-adapter",
 			description: "test",
 			labels: [] as const,
 			tools: [] as const,
@@ -436,7 +436,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		};
 	}
 
-	it("skip: phase organ bypasses LLM and injects its own reply", async () => {
+	it("skip: phase adapter bypasses LLM and injects its own reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new BusFixture();
@@ -449,7 +449,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			}),
 		);
 		f.mount(
-			makePhaseOrgan((_payload, reply) => {
+			makePhaseAdapter((_payload, reply) => {
 				reply({ skip: true, reply: "phase shortcut" });
 			}),
 		);
@@ -472,7 +472,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			}),
 		);
 		f.mount(
-			makePhaseOrgan((_payload, reply) => {
+			makePhaseAdapter((_payload, reply) => {
 				reply({ skip: true, reply: "ambient shortcut" });
 			}),
 		);
@@ -491,7 +491,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		expect((replies[0] as unknown as { payload: { text: string } }).payload.text).toBe("ambient shortcut");
 	}, 5_000);
 
-	it("abort: phase organ exits loop without publishing llm.response", async () => {
+	it("abort: phase adapter exits loop without publishing llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new BusFixture();
@@ -505,7 +505,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			}),
 		);
 		f.mount(
-			makePhaseOrgan((_payload, reply) => {
+			makePhaseAdapter((_payload, reply) => {
 				reply({ abort: true });
 			}),
 		);
@@ -590,7 +590,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 // trackConcurrentOps
 // ---------------------------------------------------------------------------
 
-describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
+describe("reasoner — trackConcurrentOps", { tags: ["unit"] }, () => {
 	it("declares wildcard command+event subscriptions when trackConcurrentOps=true", () => {
 		const llm = createAgentLoop({ model: makeModel(), trackConcurrentOps: true });
 		expect(llm.subscriptions.command).toContain("*");
@@ -607,7 +607,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		const concurrentOrgan: Adapter = {
+		const concurrentAdapter: Adapter = {
 			name: "concurrent-sim",
 			tools: [],
 			subscriptions: { command: [], event: [], notification: [] },
@@ -631,7 +631,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 				trackConcurrentOps: true,
 			}),
 		);
-		f.mount(concurrentOrgan);
+		f.mount(concurrentAdapter);
 
 		await driver.send("hi", "user", 5_000);
 		expect(faux.state.callCount).toBeGreaterThanOrEqual(1);
@@ -651,7 +651,7 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const f = new BusFixture();
 
-		const strictOrgan = defineAdapter(
+		const strictAdapter = defineAdapter(
 			"strict",
 			{
 				command: {
@@ -665,7 +665,7 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 					),
 				},
 			},
-			{ description: "Strict schema organ.", directives: ["Use strict.op when asked."] },
+			{ description: "Strict schema adapter.", directives: ["Use strict.op when asked."] },
 		);
 
 		f.mount(
@@ -674,9 +674,9 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 				apiKey: "faux-key",
 			}),
 		);
-		f.mount(strictOrgan);
+		f.mount(strictAdapter);
 
-		const driver = new TurnDriver(f.bus, undefined, undefined, strictOrgan.tools);
+		const driver = new TurnDriver(f.bus, undefined, undefined, strictAdapter.tools);
 
 		faux.setResponses([
 			fauxAssistantMessage([fauxToolCall("strict_op", { count: "3" })]),
@@ -744,7 +744,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 
 		// A stub adapter that subscribes to command/hung_tool but never publishes an event reply
 		const { z } = await import("zod");
-		const hungOrgan = defineAdapter(
+		const hungAdapter = defineAdapter(
 			"hung",
 			{
 				command: {
@@ -781,7 +781,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 				timeoutMs: 200, // short timeout for test speed
 			}),
 		);
-		f.mount(hungOrgan);
+		f.mount(hungAdapter);
 
 		// When: the turn runs and the tool times out
 		await driver.send("call hung_tool", "human", 2_000);
@@ -814,14 +814,14 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const { typedStreamAction } = await import("@dpopsuev/alef-kernel/adapter");
 
 		// A streaming adapter that yields three intermediate chunks then a final result
-		const streamingOrgan = defineAdapter(
+		const streamingAdapter = defineAdapter(
 			"streamer",
 			{
 				command: {
 					"streamer.run": typedStreamAction(
 						{
 							name: "streamer.run",
-							description: "Streaming test organ that yields chunks.",
+							description: "Streaming test adapter that yields chunks.",
 							inputSchema: z.object({ command: z.string() }),
 						},
 						async function* () {
@@ -833,7 +833,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 				},
 			},
 			{
-				description: "Streaming test organ for chunk relay regression.",
+				description: "Streaming test adapter for chunk relay regression.",
 				directives: ["Use streamer.run to test streaming chunk relay behaviour."],
 			},
 		);
@@ -842,7 +842,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const eventOrder: string[] = [];
 
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.bus, undefined, undefined, streamingOrgan.tools);
+		const driver = new TurnDriver(f.bus, undefined, undefined, streamingAdapter.tools);
 
 		f.bus.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			eventOrder.push("tool-chunk");
@@ -857,7 +857,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 				apiKey: "faux-key",
 			}),
 		);
-		f.mount(streamingOrgan);
+		f.mount(streamingAdapter);
 
 		await driver.send("go", "human", 5_000);
 		f.dispose();
@@ -992,15 +992,62 @@ describe("buildTools — normalization collision", { tags: ["unit"] }, () => {
 // Ambient steering — mid-turn message buffering
 // ---------------------------------------------------------------------------
 
-describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
-	it("second llm.input while turn is active does not start a concurrent turn", async () => {
+function createReleaseGate(): { wait: Promise<void>; release: () => void } {
+	let release!: () => void;
+	const wait = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	return { wait, release };
+}
+
+function lastUserText(ctx: { messages: ReadonlyArray<{ role: string; content: unknown }> }): string {
+	for (let i = ctx.messages.length - 1; i >= 0; i--) {
+		const message = ctx.messages[i];
+		if (message?.role !== "user") continue;
+		if (typeof message.content === "string") return message.content;
+		if (!Array.isArray(message.content)) return "";
+		return message.content
+			.filter((part): part is { type: "text"; text: string } => {
+				return typeof part === "object" && part !== null && (part as { type?: string }).type === "text";
+			})
+			.map((part) => part.text)
+			.join("");
+	}
+	return "";
+}
+
+async function waitUntil(predicate: () => boolean, timeoutMs: number, label: string): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!predicate() && Date.now() < deadline) {
+		await new Promise((r) => setTimeout(r, 15));
+	}
+	if (!predicate()) throw new Error(`waitUntil timed out: ${label}`);
+}
+
+function queuedNotificationTexts(notifications: ReadonlyArray<{ type: string }>): string[] {
+	return notifications.flatMap((n) => {
+		if (n.type !== "llm.message-queued") return [];
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage payload is untyped
+		const text = (n as unknown as { payload?: { text?: unknown } }).payload?.text;
+		return typeof text === "string" ? [text] : [];
+	});
+}
+
+describe("reasoner — delivery modes", { tags: ["unit"] }, () => {
+	it("mid-turn input does not start a concurrent LLM call", async () => {
+		const DELAY_MS = 80;
 		const faux = registerFauxProvider();
 		const f = new BusFixture();
 		const driver = new TurnDriver(f.bus);
 		harnesses.push({ f });
 
-		const _motorReplies: string[] = [];
-		faux.setResponses([fauxAssistantMessage("reply one"), fauxAssistantMessage("reply two")]);
+		faux.setResponses([
+			async () => {
+				await new Promise((r) => setTimeout(r, DELAY_MS));
+				return fauxAssistantMessage("reply one");
+			},
+			fauxAssistantMessage("reply two"),
+		]);
 
 		f.mount(
 			createAgentLoop({
@@ -1010,20 +1057,317 @@ describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
 		);
 		const recorder = f.observe();
 
-		// Fire first turn then immediately fire a second sense event.
-		const firstReply = driver.send("message one");
-		// Second message fires while first turn handler is scheduled but not yet complete.
+		const started = driver.send("message one");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "first turn entered LLM");
 		driver.receive("message two");
+		expect(faux.state.callCount, "queued input must not start a concurrent LLM call").toBe(1);
+		expect(recorder.notification.some((n) => n.type === "llm.message-queued")).toBe(true);
 
-		await firstReply;
-		// Wait a tick to let any concurrent second turn settle.
-		await new Promise((r) => setTimeout(r, 50));
-
-		const motorDialogEvents = recorder.command.filter((e) => e.type === "llm.response");
-		// Only one command reply must have been published — the second sense event was buffered, not run.
-		expect(
-			motorDialogEvents.length,
-			"second llm.input while turn active must not produce a second immediate reply",
-		).toBe(1);
+		const reply = await started;
+		expect(reply).toBe("reply two");
+		expect(faux.state.callCount).toBe(2);
 	}, 5_000);
+
+	it("default mid-turn delivery is steer: extends the active turn before final reply", async () => {
+		const DELAY_MS = 80;
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const driver = new TurnDriver(f.bus);
+		harnesses.push({ f });
+
+		const seenUserPrompts: string[] = [];
+		faux.setResponses([
+			async (ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				await new Promise((r) => setTimeout(r, DELAY_MS));
+				return fauxAssistantMessage("draft");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("steered");
+			},
+		]);
+
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
+
+		const replies: string[] = [];
+		f.bus.asBus().command.subscribe("llm.response", (event) => {
+			replies.push(typeof event.payload.text === "string" ? event.payload.text : "");
+		});
+
+		const started = driver.send("message one");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "first LLM round");
+		driver.receive("steer me");
+		const reply = await started;
+
+		expect(reply).toBe("steered");
+		expect(replies, "steer folds into one published reply").toEqual(["steered"]);
+		expect(seenUserPrompts).toEqual(["message one", "steer me"]);
+	}, 5_000);
+
+	it("followUp drains after the active turn as a separate reply", async () => {
+		const DELAY_MS = 80;
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const driver = new TurnDriver(f.bus);
+		harnesses.push({ f });
+
+		faux.setResponses([
+			async () => {
+				await new Promise((r) => setTimeout(r, DELAY_MS));
+				return fauxAssistantMessage("reply one");
+			},
+			fauxAssistantMessage("reply two"),
+		]);
+
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
+
+		const replies: string[] = [];
+		f.bus.asBus().command.subscribe("llm.response", (event) => {
+			replies.push(typeof event.payload.text === "string" ? event.payload.text : "");
+		});
+
+		const firstReply = driver.send("message one");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "first turn entered LLM");
+		driver.receive("message two", "human", { delivery: "followUp" });
+		await firstReply;
+
+		expect(replies[0]).toBe("reply one");
+		await waitUntil(() => replies.length >= 2, 3_000, "follow-up drained");
+		expect(replies).toEqual(["reply one", "reply two"]);
+		expect(faux.state.callCount).toBe(2);
+	}, 5_000);
+
+	it("drains several follow-ups FIFO across multiple turn waves", async () => {
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const driver = new TurnDriver(f.bus);
+		harnesses.push({ f });
+
+		const gate0 = createReleaseGate();
+		const gate1 = createReleaseGate();
+		const seenUserPrompts: string[] = [];
+
+		faux.setResponses([
+			async (ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				await gate0.wait;
+				return fauxAssistantMessage("r0");
+			},
+			async (ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				await gate1.wait;
+				return fauxAssistantMessage("r1");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("r2");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("r3");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("r4");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("r5");
+			},
+		]);
+
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
+		const recorder = f.observe();
+
+		const replies: string[] = [];
+		f.bus.asBus().command.subscribe("llm.response", (event) => {
+			replies.push(typeof event.payload.text === "string" ? event.payload.text : "");
+		});
+
+		const followUp = { delivery: "followUp" as const };
+		const started = driver.send("start");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "turn0 entered LLM");
+		driver.receive("m1", "human", followUp);
+		driver.receive("m2", "human", followUp);
+		driver.receive("m3", "human", followUp);
+		expect(faux.state.callCount, "queued inputs must not start concurrent LLM calls").toBe(1);
+		expect(replies, "no reply until active turn finishes").toEqual([]);
+
+		gate0.release();
+		await started;
+		expect(replies[0]).toBe("r0");
+
+		const queuedTexts = queuedNotificationTexts(recorder.notification);
+		expect(queuedTexts, "wave-1 queue notifications").toEqual(["m1", "m2", "m3"]);
+
+		await waitUntil(() => faux.state.callCount >= 2, 3_000, "m1 drained into turn1");
+		expect(faux.state.callCount, "one-at-a-time: only m1 starts before next enqueue wave").toBe(2);
+		driver.receive("m4", "human", followUp);
+		driver.receive("m5", "human", followUp);
+		expect(faux.state.callCount, "wave-2 enqueue must not start concurrent LLM calls").toBe(2);
+		gate1.release();
+
+		await waitUntil(() => replies.length >= 6, 5_000, "all drained replies");
+
+		expect(replies, "FIFO drain across both enqueue waves").toEqual(["r0", "r1", "r2", "r3", "r4", "r5"]);
+		expect(seenUserPrompts, "LLM must see each queued prompt in order").toEqual([
+			"start",
+			"m1",
+			"m2",
+			"m3",
+			"m4",
+			"m5",
+		]);
+		expect(faux.state.callCount).toBe(6);
+
+		expect(queuedNotificationTexts(recorder.notification), "both enqueue waves notified").toEqual([
+			"m1",
+			"m2",
+			"m3",
+			"m4",
+			"m5",
+		]);
+	}, 10_000);
+
+	it("nextTurn is not drained as follow-up and prepends on the next idle input", async () => {
+		const DELAY_MS = 50;
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const driver = new TurnDriver(f.bus);
+		harnesses.push({ f });
+
+		const seenContexts: string[] = [];
+		faux.setResponses([
+			async (ctx) => {
+				seenContexts.push(ctx.messages.map((m) => `${m.role}:${typeof m.content === "string" ? m.content : ""}`).join("|"));
+				await new Promise((r) => setTimeout(r, DELAY_MS));
+				return fauxAssistantMessage("first-reply");
+			},
+			(ctx) => {
+				seenContexts.push(ctx.messages.map((m) => `${m.role}:${typeof m.content === "string" ? m.content : ""}`).join("|"));
+				return fauxAssistantMessage("second-reply");
+			},
+		]);
+
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
+
+		const started = driver.send("first");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "first turn entered");
+		driver.receive("deferred", "human", { delivery: "nextTurn" });
+		await started;
+
+		const second = await driver.send("second");
+		expect(second).toBe("second-reply");
+		expect(seenContexts.at(-1)).toMatch(/user:deferred/);
+		expect(seenContexts.at(-1)).toMatch(/user:second/);
+		expect(seenContexts[0]).not.toContain("deferred");
+	}, 10_000);
+
+	it("steeringMode all injects every pending steer in one round", async () => {
+		const DELAY_MS = 50;
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const driver = new TurnDriver(f.bus);
+		harnesses.push({ f });
+
+		const seenUserPrompts: string[] = [];
+		faux.setResponses([
+			async (ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				await new Promise((r) => setTimeout(r, DELAY_MS));
+				return fauxAssistantMessage("draft");
+			},
+			(ctx) => {
+				seenUserPrompts.push(lastUserText(ctx));
+				return fauxAssistantMessage("done");
+			},
+		]);
+
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				steeringMode: "all",
+			}),
+		);
+
+		const started = driver.send("start");
+		await waitUntil(() => faux.state.callCount >= 1, 2_000, "first round");
+		driver.receive("a");
+		driver.receive("b");
+		const reply = await started;
+		expect(reply).toBe("done");
+		expect(seenUserPrompts[1]).toBe("b");
+		expect(faux.state.callCount).toBe(2);
+	}, 5_000);
+});
+
+// ---------------------------------------------------------------------------
+// token-usage must fire on every LLM round (including tool-calling rounds)
+// Regression: session a73af16e — 128 http rounds, only 3 mid-session usage
+// events → TUI ctx bar frozen + compaction starved of lastTotalTokens.
+// ---------------------------------------------------------------------------
+
+describe("Reasoner — llm.token-usage mid tool-loop", { tags: ["unit"] }, () => {
+	it("publishes llm.token-usage after tool-calling rounds, not only the final reply", async () => {
+		const faux = registerFauxProvider();
+		const f = new BusFixture();
+		const recorder = f.observe();
+
+		const echoAdapter = defineAdapter(
+			"echo",
+			{
+				command: {
+					"echo.ping": typedAction(
+						{
+							name: "echo.ping",
+							description: "Ping.",
+							inputSchema: z.object({ n: z.number() }),
+						},
+						async () => ({ ok: true }),
+					),
+				},
+			},
+			{ description: "Echo adapter.", directives: ["Use echo.ping."] },
+		);
+
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
+		f.mount(echoAdapter);
+
+		const driver = new TurnDriver(f.bus, undefined, undefined, echoAdapter.tools);
+		faux.setResponses([
+			fauxAssistantMessage([fauxToolCall("echo_ping", { n: 1 })]),
+			fauxAssistantMessage([fauxToolCall("echo_ping", { n: 2 })]),
+			fauxAssistantMessage("done"),
+		]);
+
+		const reply = await driver.send("ping twice", "human", 5_000);
+		expect(reply).toBe("done");
+
+		const usageEvents = recorder.notification.filter((e) => e.type === "llm.token-usage");
+		expect(usageEvents.length, "one usage event per LLM round including tool calls").toBe(3);
+
+		f.dispose();
+	}, 8_000);
 });

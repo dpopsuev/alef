@@ -54,18 +54,18 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 	for (const ev of evals) {
 		const harness = new EvalHarness();
 
-		// Representative organs for schema snapshot (cwd doesn’t affect schema shape).
-		const repOrgans = [createFsAdapter({ cwd: "/tmp" }), createShellAdapter({ cwd: "/tmp" })];
+		// Representative adapters for schema snapshot (cwd doesn’t affect schema shape).
+		const repAdapters = [createFsAdapter({ cwd: "/tmp" }), createShellAdapter({ cwd: "/tmp" })];
 		const toolShell = useToolShell
 			? createToolShellAdapter({
-					tools: repOrgans.flatMap((o) => o.tools),
-					adapterDirectives: buildAdapterDirectives(repOrgans),
+					tools: repAdapters.flatMap((o) => o.tools),
+					adapterDirectives: buildAdapterDirectives(repAdapters),
 				})
 			: undefined;
 
 		const runner = new EvaluationRunner(harness, {
-			// Domain organs (fs, shell) are loaded by the harness with the correct workspace cwd.
-			// adapterFactory adds only the LLM (and ToolShellOrgan when active).
+			// Domain adapters (fs, shell) are loaded by the harness with the correct workspace cwd.
+			// adapterFactory adds only the LLM (and ToolShellAdapter when active).
 			// phaseTimeoutMs=100 activates context.assemble for catalog lifecycle injection.
 			adapterFactory: (signal) => {
 				const model = getEvalModel();

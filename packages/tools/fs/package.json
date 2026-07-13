@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-fs",
   "version": "0.0.2",
-  "description": "Filesystem organ runtime for cache policy and query acceleration",
+  "description": "Filesystem tool runtime for cache policy and query acceleration",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -26,7 +26,6 @@
   },
   "keywords": [
     "agent",
-    "organ",
     "filesystem",
     "cache"
   ],
@@ -35,7 +34,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-fs"
+    "directory": "packages/tools/fs"
   },
   "engines": {
     "node": ">=20.0.0"

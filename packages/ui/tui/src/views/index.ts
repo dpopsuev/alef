@@ -8,7 +8,7 @@ export { INDENT, SPACING } from "./layout-constants.js";
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 export { OutputPanel } from "./output-panel.js";
 export { ReplyBlock } from "./reply-block.js";
-export { prependSessionHistory, type SessionHistoryOptions } from "./session-history.js";
+export { prependSessionHistory, appendDisplayBlocks, type SessionHistoryOptions } from "./session-history.js";
 export { accentColorize, spinnerFrame } from "./spinner.js";
 export { type TuiState, TuiStateStore } from "./state.js";
 export * from "./theme.js";

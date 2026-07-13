@@ -1,4 +1,4 @@
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { afterEach, describe, expect, it } from "vitest";
 import { createMetaAdapter } from "../src/adapter.js";
 

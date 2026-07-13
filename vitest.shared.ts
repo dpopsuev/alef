@@ -51,7 +51,7 @@ export default defineConfig({
 		conditions: ["source"],
 		// vite-tsconfig-paths applies to files within the vite project root
 		// (the package directory). For cross-package imports in transitive deps
-		// (e.g. organ-llm importing @dpopsuev/alef-llm), tsconfig paths are NOT
+		// (e.g. reasoner importing @dpopsuev/alef-ai), tsconfig paths are NOT
 		// applied, causing module duplication that breaks shared singletons.
 		// resolve.alias applies globally and fixes this.
 		alias: {

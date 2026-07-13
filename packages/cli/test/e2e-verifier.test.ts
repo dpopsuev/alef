@@ -12,10 +12,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
+	assertAdapterSelection,
 	assertFileReadWorkflow,
 	assertHashesPresent,
 	assertMultiTurnHistory,
-	assertOrganSelection,
 	assertSseFilter,
 	assertSubagentWorkflow,
 	assertToolSequence,
@@ -82,25 +82,25 @@ describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 // E2E-185: blueprint adapter selection
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {
+describe("verifier: assertAdapterSelection", { tags: ["unit"] }, () => {
 	it("accepts fs.read with no code/shell events", () => {
 		const records = [rec("fs.read"), rec("fs.read", "event"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).not.toThrow();
+		expect(() => assertAdapterSelection(records, ["fs.read"], ["code.", "shell."])).not.toThrow();
 	});
 
 	it("rejects when required type is absent", () => {
 		const records = [rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], [])).toThrow(/fs\.read/);
+		expect(() => assertAdapterSelection(records, ["fs.read"], [])).toThrow(/fs\.read/);
 	});
 
 	it("rejects when code.* appears", () => {
 		const records = [rec("fs.read"), rec("code.read"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/code/);
+		expect(() => assertAdapterSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/code/);
 	});
 
 	it("rejects when shell.* appears", () => {
 		const records = [rec("fs.read"), rec("shell.exec"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/shell/);
+		expect(() => assertAdapterSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/shell/);
 	});
 });
 

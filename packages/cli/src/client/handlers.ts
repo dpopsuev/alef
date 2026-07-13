@@ -38,6 +38,7 @@ const SLASH_TO_COLON: Record<string, string> = {
 	"/login": "login",
 	"/logout": "logout",
 	"/help": "help",
+	"/compact": "compact",
 };
 
 /** Dispatch a /slash command by mapping it to the corresponding colon command. */

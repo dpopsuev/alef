@@ -46,7 +46,7 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 				expect(definition.name).toBeTruthy();
 			});
 
-			it("materializes — all organ packages resolve", async () => {
+			it("materializes — all adapter packages resolve", async () => {
 				const definition = loadAgentDefinition(bp.path);
 				try {
 					const result = await materializeBlueprint(definition, {
@@ -62,7 +62,7 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 				}
 			});
 
-			it("no organ references deleted packages", () => {
+			it("no adapter references deleted packages", () => {
 				const definition = loadAgentDefinition(bp.path);
 				const deletedPackages = [
 					"@dpopsuev/alef-adapter-delegate",
@@ -70,9 +70,9 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 					"delegate",
 					"orchestration",
 				];
-				for (const organ of definition.adapters) {
+				for (const adapter of definition.adapters) {
 					for (const deleted of deletedPackages) {
-						expect(organ.name).not.toBe(deleted);
+						expect(adapter.name).not.toBe(deleted);
 					}
 				}
 			});

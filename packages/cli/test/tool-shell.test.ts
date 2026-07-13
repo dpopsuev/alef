@@ -1,5 +1,5 @@
 /**
- * ToolShellOrgan unit tests — no PTY, no LLM, no filesystem.
+ * ToolShellAdapter unit tests — no PTY, no LLM, no filesystem.
  *
  * Pattern: Agent + BusEventRecorder. Publish command events, assert sense results.
  * Mirrors runtime/test/walking-skeleton.test.ts.
@@ -98,7 +98,7 @@ describe("createToolShellAdapter — metaTools", { tags: ["unit"] }, () => {
 		expect(fsRead?.description).toBe(FS_READ.description);
 	});
 
-	it("organ.tools (internal) contains meta-tool handlers", () => {
+	it("adapter.tools (internal) contains meta-tool handlers", () => {
 		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const names = shell.tools.map((t) => t.name);
 		expect(names).toContain("tools.describe");
@@ -106,7 +106,7 @@ describe("createToolShellAdapter — metaTools", { tags: ["unit"] }, () => {
 		expect(names).toContain("tools.cancel");
 	});
 
-	it("organ.name is 'tools'", () => {
+	it("adapter.name is 'tools'", () => {
 		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		expect(shell.name).toBe("tools");
 	});
@@ -265,7 +265,7 @@ describe("currentMetaTools — full disclosure", { tags: ["unit"] }, () => {
 // internal search (not exposed as command handler)
 // ---------------------------------------------------------------------------
 
-describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"] }, () => {
+describe("ToolShellAdapter.search — internal keyword matching", { tags: ["unit"] }, () => {
 	it("returns tools matching a single keyword", () => {
 		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const results = shell.search("file");
@@ -357,7 +357,7 @@ describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 // Context lifecycle — catalog inject / evict
 // ---------------------------------------------------------------------------
 
-describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: ["unit"] }, () => {
+describe("ToolShellAdapter lifecycle — catalog injection and eviction", { tags: ["unit"] }, () => {
 	const MARKER = "\x00TOOL-CATALOG-v1\x00";
 
 	function msgs(n: number): Array<Record<string, unknown>> {
@@ -504,32 +504,32 @@ describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
 });
 
 describe("buildAdapterDirectives", { tags: ["unit"] }, () => {
-	it("maps each tool in an organ to that organ's directives", () => {
-		const organs = [
+	it("maps each tool in an adapter to that adapter's directives", () => {
+		const adapters = [
 			{ tools: [FS_READ, FS_GREP], directives: ["Use offset/limit for large files."] },
 			{ tools: [SHELL_EXEC], directives: ["Avoid long-running commands."] },
 		];
-		const map = buildAdapterDirectives(organs);
+		const map = buildAdapterDirectives(adapters);
 		expect(map.get("fs.read")).toEqual(["Use offset/limit for large files."]);
 		expect(map.get("fs.grep")).toEqual(["Use offset/limit for large files."]);
 		expect(map.get("shell.exec")).toEqual(["Avoid long-running commands."]);
 	});
 
-	it("skips organs with no directives", () => {
-		const organs = [
+	it("skips adapters with no directives", () => {
+		const adapters = [
 			{ tools: [FS_READ], directives: undefined },
 			{ tools: [SHELL_EXEC], directives: [] },
 		];
-		const map = buildAdapterDirectives(organs);
+		const map = buildAdapterDirectives(adapters);
 		expect(map.size).toBe(0);
 	});
 
-	it("last writer wins when multiple organs share a tool name", () => {
-		const organs = [
+	it("last writer wins when multiple adapters share a tool name", () => {
+		const adapters = [
 			{ tools: [FS_READ], directives: ["First directive."] },
 			{ tools: [FS_READ], directives: ["Second directive."] },
 		];
-		const map = buildAdapterDirectives(organs);
+		const map = buildAdapterDirectives(adapters);
 		expect(map.get("fs.read")).toEqual(["Second directive."]);
 	});
 });
@@ -541,13 +541,13 @@ describe("buildAdapterDirectives", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 // agent.tools — uniqueness invariant
 //
-// agent._tools is a plain push-append array. If two organs expose a tool with
+// agent._tools is a plain push-append array. If two adapters expose a tool with
 // the same name, both entries land in agent.tools, which is passed verbatim to
 // buildTools → LLM API. The API rejects with "Tool names must be unique."
 // ---------------------------------------------------------------------------
 
 describe("agent.tools — uniqueness invariant", { tags: ["integration"] }, () => {
-	function stubOrgan(name: string, tools: ToolDefinition[]): Adapter {
+	function stubAdapter(name: string, tools: ToolDefinition[]): Adapter {
 		return {
 			name,
 			tools,
@@ -559,14 +559,14 @@ describe("agent.tools — uniqueness invariant", { tags: ["integration"] }, () =
 		};
 	}
 
-	it("loading two organs that share a tool name must not produce duplicate agent.tools entries", () => {
-		// Both organs declare fs.read — the second load appends a duplicate to agent._tools.
-		const organA = stubOrgan("organ-a", [FS_READ]);
-		const organB = stubOrgan("organ-b", [makeTool("fs.read", "A second organ that also exposes fs.read")]);
+	it("loading two adapters that share a tool name must not produce duplicate agent.tools entries", () => {
+		// Both adapters declare fs.read — the second load appends a duplicate to agent._tools.
+		const adapterA = stubAdapter("tool-a", [FS_READ]);
+		const adapterB = stubAdapter("tool-b", [makeTool("fs.read", "A second adapter that also exposes fs.read")]);
 
 		const agent = new Agent();
-		agent.load(organA);
-		agent.load(organB);
+		agent.load(adapterA);
+		agent.load(adapterB);
 
 		const names = agent.tools.map((t) => t.name);
 		expect(new Set(names).size, `agent.tools must have no duplicate names; got: ${names.join(", ")}`).toBe(
@@ -597,7 +597,7 @@ describe("tools.describe catalog includes agent.run when included in tools list"
 		expect(names).toContain("agent.run");
 	});
 
-	it("agent.run is in agent.tools after organ load via shell.search", () => {
+	it("agent.run is in agent.tools after adapter load via shell.search", () => {
 		const tools = [...ALL_TOOLS, AGENT_RUN];
 		const shell = createToolShellAdapter({ tools });
 		const agent = new Agent();

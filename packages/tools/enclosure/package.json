@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-enclosure",
   "version": "0.0.2",
-  "description": "Enclosure organ \u2014 Linux namespace, cgroup v2, and fuse-overlayfs isolation for Alef agents",
+  "description": "Enclosure adapter \u2014 Linux namespace, cgroup v2, and fuse-overlayfs isolation for Alef agents",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -25,7 +25,6 @@
   },
   "keywords": [
     "agent",
-    "organ",
     "enclosure",
     "namespace",
     "cgroup",
@@ -36,7 +35,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-enclosure"
+    "directory": "packages/tools/enclosure"
   },
   "engines": {
     "node": ">=20.0.0"

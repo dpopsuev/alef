@@ -10,7 +10,8 @@
     ".": {
       "source": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./blueprint": "./blueprint.yaml"
   },
   "alef": {
     "blueprint": "blueprint.yaml"

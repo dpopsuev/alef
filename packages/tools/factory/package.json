@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-factory",
   "version": "0.0.2",
-  "description": "Agent factory organ \u2014 write and register agent blueprints",
+  "description": "Agent factory adapter \u2014 write and register agent blueprints",
   "type": "module",
   "exports": {
     ".": {

@@ -43,6 +43,7 @@ function makeMockUi(): TuiUi {
 			showToast: vi.fn(),
 			showBackgroundTask: vi.fn(),
 			updateBackgroundTask: vi.fn(),
+			syncPendingQueue: vi.fn(() => []),
 		},
 		tui: { requestRender: vi.fn() } as unknown as TuiUi["tui"],
 		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as TuiUi["t"],
@@ -265,6 +266,29 @@ describe("dispatchTuiEvent — token-usage", { tags: ["unit"] }, () => {
 		);
 		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("context 92% full"));
 	});
+
+	it("advances contextFillTokens on successive mid-turn usage events", () => {
+		const ui = makeMockUi();
+		let state = dispatchTuiEvent(
+			initialTuiState(),
+			{
+				type: "token-usage",
+				usage: { input: 10, output: 100, totalTokens: 20_000 },
+			} as Parameters<typeof dispatchTuiEvent>[1],
+			ui,
+		);
+		expect(state.contextFillTokens).toBe(20_000);
+
+		state = dispatchTuiEvent(
+			state,
+			{
+				type: "token-usage",
+				usage: { input: 50, output: 200, totalTokens: 180_000 },
+			} as Parameters<typeof dispatchTuiEvent>[1],
+			ui,
+		);
+		expect(state.contextFillTokens).toBe(180_000);
+	});
 });
 
 describe("dispatchTuiEvent — handleTurnError", { tags: ["unit"] }, () => {
@@ -394,5 +418,23 @@ describe("dispatchTuiEvent — pure reducer properties", { tags: ["unit"] }, () 
 			ui,
 		);
 		expect(result).toBe(initial);
+	});
+});
+
+describe("dispatchTuiEvent — message-queued", { tags: ["unit"] }, () => {
+	it("syncs pending queue panel with text and length", () => {
+		const ui = makeMockUi();
+		dispatchTuiEvent(initialTuiState(), { type: "message-queued", queueLength: 2, text: "follow up" }, ui);
+		expect(ui.promptConsole.syncPendingQueue).toHaveBeenCalledWith({
+			queueLength: 2,
+			text: "follow up",
+		});
+	});
+
+	it("syncs drain updates without chat notices", () => {
+		const ui = makeMockUi();
+		dispatchTuiEvent(initialTuiState(), { type: "message-queued", queueLength: 0 }, ui);
+		expect(ui.promptConsole.syncPendingQueue).toHaveBeenCalledWith({ queueLength: 0, text: undefined });
+		expect(ui.writer.addNotice).not.toHaveBeenCalled();
 	});
 });

@@ -8,7 +8,7 @@
 
 import http from "node:http";
 
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { describe, expect, it } from "vitest";
 import { createRouterAdapter } from "../src/http.js";
 
@@ -20,14 +20,14 @@ adapterComplianceSuite(() => createRouterAdapter({ port: 0, host: "127.0.0.1", t
 
 /** Mount a RouterAdapter on a fresh BusFixture. Returns { adapter, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
-	const organ = createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
-	organ.setReady();
+	const adapter = createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
+	adapter.setReady();
 	const fixture = new BusFixture();
-	const unmount = fixture.mount(organ);
-	await organ.ready();
-	const addr = organ.address()!;
+	const unmount = fixture.mount(adapter);
+	await adapter.ready();
+	const addr = adapter.address()!;
 	const baseUrl = `http://${addr.host}:${addr.port}`;
-	return { organ, fixture, nerve: fixture.bus, unmount, baseUrl, addr };
+	return { adapter, fixture, nerve: fixture.bus, unmount, baseUrl, addr };
 }
 
 /** GET a URL and return { status, body }. */
@@ -125,8 +125,8 @@ function collectSseEvents(url: string, count: number, timeoutMs = 3000): Promise
 
 describe("RouterAdapter — lifecycle", { tags: ["compliance"] }, () => {
 	it("address() returns null before mount", async () => {
-		const organ = createRouterAdapter({ triggerEvent: "llm.input" });
-		expect(organ.address()).toBeNull();
+		const adapter = createRouterAdapter({ triggerEvent: "llm.input" });
+		expect(adapter.address()).toBeNull();
 	});
 
 	it("address() returns host+port after mount", async () => {
@@ -137,15 +137,15 @@ describe("RouterAdapter — lifecycle", { tags: ["compliance"] }, () => {
 	});
 
 	it("address() returns null after unmount", async () => {
-		const { organ, unmount } = await setup();
+		const { adapter, unmount } = await setup();
 		unmount();
-		expect(organ.address()).toBeNull();
+		expect(adapter.address()).toBeNull();
 	});
 
 	it("subscriptions covers command/* and event/*", async () => {
-		const organ = createRouterAdapter({ triggerEvent: "llm.input" });
-		expect(organ.subscriptions.command).toContain("*");
-		expect(organ.subscriptions.event).toContain("*");
+		const adapter = createRouterAdapter({ triggerEvent: "llm.input" });
+		expect(adapter.subscriptions.command).toContain("*");
+		expect(adapter.subscriptions.event).toContain("*");
 	});
 });
 
@@ -184,14 +184,14 @@ describe("RouterAdapter — GET /events (SSE)", { tags: ["compliance"] }, () => 
 	});
 
 	it("increments client count while connected", async () => {
-		const { organ, unmount, baseUrl } = await setup();
+		const { adapter, unmount, baseUrl } = await setup();
 		try {
 			// Connect a client and leave it open long enough to check count.
 			await new Promise<void>((resolve, reject) => {
 				const req = http.get(`${baseUrl}/events`, async (res) => {
 					// Wait one tick for the 'add' to register.
 					await new Promise((r) => setTimeout(r, 20));
-					expect(organ.address()).not.toBeNull(); // still mounted
+					expect(adapter.address()).not.toBeNull(); // still mounted
 					// Health endpoint reports client count.
 					const { body } = await get(`${baseUrl}/health`);
 					const json = JSON.parse(body);
@@ -396,11 +396,11 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 	});
 
 	it("passes events matching an exact allowed type", async () => {
-		const organ = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
+		const adapter = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
-		const unmount = fixture.mount(organ);
-		await organ.ready();
-		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
@@ -413,11 +413,11 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 	});
 
 	it("drops events not in the allowedEvents list", async () => {
-		const organ = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
+		const adapter = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
-		const unmount = fixture.mount(organ);
-		await organ.ready();
-		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
 		try {
 			const collectedFrames: string[] = [];
 			const connectedPromise = new Promise<void>((resolve, reject) => {

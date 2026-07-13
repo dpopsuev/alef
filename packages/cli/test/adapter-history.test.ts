@@ -78,7 +78,7 @@ describe("JsonlSessionStore.adapterHistory(name)", { tags: ["unit"] }, () => {
 		expect(shellHistory.every((e) => e.type.startsWith("shell."))).toBe(true);
 	});
 
-	it("returns empty array for unknown organ name", async () => {
+	it("returns empty array for unknown adapter name", async () => {
 		await store.append({ bus: "command", type: "fs.read", correlationId: "c5", payload: {}, timestamp: 5 });
 		const history = await store.adapterHistory("nonexistent");
 		expect(history).toHaveLength(0);

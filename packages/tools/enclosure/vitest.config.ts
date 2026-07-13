@@ -5,7 +5,7 @@ export default mergeConfig(
 	sharedConfig,
 	defineProject({
 		test: {
-			name: "organ-enclosure",
+			name: "enclosure",
 			env: {
 				// Ryuk (testcontainers cleanup sidecar) fails in this environment.
 				// Containers are cleaned up by the test themselves via space.destroy().

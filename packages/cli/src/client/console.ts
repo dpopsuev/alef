@@ -6,6 +6,7 @@ import {
 	Editor,
 	type EditorTheme,
 	numericInterpolator,
+	PendingQueuePanel,
 	type SelectListTheme,
 	SeparatorLine,
 	SlotMachine,
@@ -100,6 +101,7 @@ export class PromptConsole {
 		string,
 		{ taskId: string; profile: string; status: string; startedAt: number }
 	>();
+	private readonly pendingQueue: PendingQueuePanel;
 	readonly widgetSlotAbove = new Container();
 	readonly widgetSlotBelow = new Container();
 	private widgetAboveText: Text | null = null;
@@ -113,6 +115,13 @@ export class PromptConsole {
 		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () => randomCodePoint(spinnerBlock));
 
 		this.statusText = new Text("", 0, 0);
+		this.pendingQueue = new PendingQueuePanel({
+			theme: {
+				item: (s) => color(s, t.mutedFg),
+				hint: (s) => color(s, t.mutedFg),
+			},
+			maxVisible: 5,
+		});
 
 		const selectListTheme: SelectListTheme = {
 			selectedPrefix: (s) => bold(s),
@@ -144,6 +153,7 @@ export class PromptConsole {
 		this.tui.addChild(this.backgroundTaskPanel);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(this.widgetSlotAbove);
+		this.tui.addChild(this.pendingQueue);
 		this.editorWrapper = new EditorWrapper(this.editor);
 		this.tui.addChild(this.editorWrapper);
 
@@ -238,10 +248,17 @@ export class PromptConsole {
 			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
 		const activeGlyph = statusGlyph("active");
 		const doneGlyph = statusGlyph("done");
+		const pendingGlyph = statusGlyph("pending");
+		const errorGlyph = statusGlyph("error");
 		const currentGlyph = glyph("state:current");
 		const colored = truncated.map((line) => {
-			if (line.includes(activeGlyph) || line.includes(currentGlyph)) return color(line, this.t.accentFg);
+			if (line.includes(activeGlyph) || line.includes(currentGlyph) || line.includes("◄")) {
+				return color(line, this.t.accentFg);
+			}
+			if (line.includes(errorGlyph)) return color(line, this.t.errFg);
 			if (line.includes(doneGlyph)) return color(line, this.t.mutedFg);
+			if (line.includes(pendingGlyph)) return color(line, this.t.secondaryFg);
+			if (line.startsWith("Plan ·")) return color(line, this.t.mutedFg);
 			return line;
 		});
 		const display = colored.join("\n");
@@ -415,6 +432,37 @@ export class PromptConsole {
 	showBackgroundTask(taskId: string, profile: string): void {
 		this.backgroundTasks.set(taskId, { taskId, profile, status: "running", startedAt: Date.now() });
 		this.refreshBackgroundTaskPanel();
+	}
+
+	/**
+	 * Sync the sticky pending-queue panel from a message-queued signal.
+	 * Enqueue notifications carry `text`; drain notifications only carry `queueLength`.
+	 * Returns texts shifted off the panel head (promote those to chat scrollback).
+	 */
+	syncPendingQueue(opts: { queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" }): string[] {
+		const promoted: string[] = [];
+		if (opts.text) {
+			const prefix =
+				opts.mode === "followUp"
+					? "Follow-up"
+					: opts.mode === "nextTurn"
+						? "Next turn"
+						: opts.mode === "steer"
+							? "Steering"
+							: "Queued";
+			this.pendingQueue.push({ text: opts.text, prefix });
+			this.pendingQueue.setLength(opts.queueLength);
+		} else {
+			const before = this.pendingQueue.getItems();
+			const keep = Math.max(0, opts.queueLength);
+			const removeCount = Math.max(0, before.length - keep);
+			for (let i = 0; i < removeCount; i++) {
+				promoted.push(before[i]!.text);
+			}
+			this.pendingQueue.setLength(keep);
+		}
+		this.tui.requestRender();
+		return promoted;
 	}
 
 	updateBackgroundTask(taskId: string, status: "completed" | "failed", _detail?: string): void {

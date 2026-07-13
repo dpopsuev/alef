@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { parse } from "yaml";
-import { compileAgentAdapterDefinitions } from "./organs.js";
+import { compileAgentAdapterDefinitions } from "./compile-adapters.js";
 import type {
 	AgentDefinitionDependenciesConfig,
 	AgentDefinitionInput,
@@ -104,7 +104,6 @@ const AgentDefinitionSchema = Type.Object({
 	model: Type.Optional(Type.Union([Type.String({ minLength: 1 }), AgentModelSchema])),
 	systemPrompt: Type.Optional(Type.String()),
 	adapters: Type.Optional(Type.Array(AgentDefinitionAdapterSchema)),
-	organs: Type.Optional(Type.Array(AgentDefinitionAdapterSchema)),
 	surfaces: Type.Optional(
 		Type.Array(
 			Type.Object({

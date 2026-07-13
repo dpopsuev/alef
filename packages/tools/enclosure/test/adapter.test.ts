@@ -1,4 +1,4 @@
-import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/adapter";
 import { describe, expect, it } from "vitest";
 import { createEnclosureAdapter } from "../src/adapter.js";
 import { StubSpace } from "../src/space.js";
@@ -13,10 +13,10 @@ function fixture() {
 
 describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 	it("has name=enclosure and 8 tools", () => {
-		const organ = createEnclosureAdapter({ backend: "stub" });
-		expect(organ.name).toBe("enclosure");
-		expect(organ.tools).toHaveLength(8);
-		expect(organ.tools.map((t) => t.name)).toEqual([
+		const adapter = createEnclosureAdapter({ backend: "stub" });
+		expect(adapter.name).toBe("enclosure");
+		expect(adapter.tools).toHaveLength(8);
+		expect(adapter.tools.map((t) => t.name)).toEqual([
 			"enclosure.create",
 			"enclosure.diff",
 			"enclosure.commit",

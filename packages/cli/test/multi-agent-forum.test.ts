@@ -69,7 +69,7 @@ describe("multi-agent plan + board coordination", () => {
 		// 4. Expand plan with 3 nodes
 		const expandResult = await call("plan.expand", {
 			nodes: [
-				{ label: "fix catch in organ-dispatch" },
+				{ label: "fix catch in tool-dispatch" },
 				{ label: "fix catch in turn-loop" },
 				{ label: "fix catch in stream-turn" },
 			],
@@ -80,7 +80,7 @@ describe("multi-agent plan + board coordination", () => {
 		// 5. Simulate 3 agents posting findings to the board
 		await call("forum.post", {
 			topic: "qa",
-			thread: "organ-dispatch",
+			thread: "tool-dispatch",
 			content: "Found untyped catch at line 128. Needs instanceof Error narrowing.",
 			author: "@jade",
 		});
@@ -100,7 +100,7 @@ describe("multi-agent plan + board coordination", () => {
 		});
 
 		// 6. Parent reads the board
-		const boardResult = await call("forum.read", { topic: "qa", thread: "organ-dispatch" });
+		const boardResult = await call("forum.read", { topic: "qa", thread: "tool-dispatch" });
 		const posts = (boardResult.payload as { posts: unknown[] }).posts;
 		expect(posts).toHaveLength(1);
 
@@ -133,7 +133,7 @@ describe("multi-agent plan + board coordination", () => {
 		expect(planFile.aar).toContain("Forum coordination worked");
 
 		// Verify board files on disk
-		const boardFile = readFileSync(join(dir, "forum", "qa", "organ-dispatch.jsonl"), "utf-8");
+		const boardFile = readFileSync(join(dir, "forum", "qa", "tool-dispatch.jsonl"), "utf-8");
 		expect(boardFile).toContain("@jade");
 		expect(boardFile).toContain("instanceof Error");
 	});

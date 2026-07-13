@@ -56,6 +56,11 @@
       "import": "./src/stream.ts",
       "default": "./src/stream.ts"
     },
+    "./overflow": {
+      "source": "./src/utils/overflow.ts",
+      "import": "./src/utils/overflow.ts",
+      "default": "./src/utils/overflow.ts"
+    },
     "./utils": {
       "source": "./src/utils/typebox-helpers.ts",
       "import": "./src/utils/typebox-helpers.ts",

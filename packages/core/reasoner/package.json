@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-reasoner",
   "version": "0.0.2",
-  "description": "LLMOrgan \u2014 LLM computation organ, tool_choice: any, routes tool calls as Motor events",
+  "description": "LLM reasoner \u2014 tool_choice: any, routes tool calls as Motor events",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -29,7 +29,6 @@
   },
   "keywords": [
     "agent",
-    "organ",
     "llm",
     "nerve",
     "eda"
@@ -39,7 +38,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-llm"
+    "directory": "packages/core/reasoner"
   },
   "engines": {
     "node": ">=20.0.0"

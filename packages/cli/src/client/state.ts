@@ -165,6 +165,8 @@ export interface TuiPromptConsole {
 	showToast(message: string, durationMs?: number): void;
 	showBackgroundTask(taskId: string, profile: string): void;
 	updateBackgroundTask(taskId: string, status: "completed" | "failed", detail?: string): void;
+	/** Returns texts drained from the panel head — caller should add them to scrollback. */
+	syncPendingQueue(opts: { queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" }): string[];
 }
 
 /** Composite of all UI components needed by the TUI event dispatcher. */

@@ -4,6 +4,8 @@ import type {
 	AuthStore,
 	DaemonEntry,
 	DaemonRegistry,
+	SessionListEntry,
+	SessionPreviewProvider,
 	SessionStoreFactory,
 	SessionSummary,
 	StorageFactory,
@@ -115,11 +117,13 @@ export class InMemoryAuthStore implements AuthStore {
  */
 export class InMemorySessionStoreFactory implements SessionStoreFactory {
 	private readonly stores = new Map<string, InMemorySessionStore>();
+	private readonly cwdById = new Map<string, string>();
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	async create(): Promise<InMemorySessionStore> {
+	async create(cwd: string): Promise<InMemorySessionStore> {
 		const store = new InMemorySessionStore();
 		this.stores.set(store.id, store);
+		this.cwdById.set(store.id, cwd);
 		return store;
 	}
 
@@ -136,9 +140,29 @@ export class InMemorySessionStoreFactory implements SessionStoreFactory {
 		return all[all.length - 1] ?? null;
 	}
 
+	private toEntry(store: InMemorySessionStore): SessionListEntry {
+		const entry: SessionListEntry = { id: store.id, path: store.path, mtime: new Date() };
+		const cwd = this.cwdById.get(store.id);
+		if (cwd) entry.cwd = cwd;
+		const name = store.name();
+		if (name) entry.name = name;
+		const tags = store.tags();
+		if (tags.length > 0) entry.tags = [...tags];
+		const searchBlob = store.searchBlob();
+		if (searchBlob) entry.searchBlob = searchBlob;
+		return entry;
+	}
+
 	// eslint-disable-next-line @typescript-eslint/require-await
-	async list(): Promise<Array<{ id: string; path: string; mtime: Date }>> {
-		return [...this.stores.values()].map((s) => ({ id: s.id, path: s.path, mtime: new Date() }));
+	async list(cwd: string): Promise<SessionListEntry[]> {
+		return [...this.stores.values()]
+			.filter((s) => this.cwdById.get(s.id) === cwd)
+			.map((s) => this.toEntry(s));
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async listAll(): Promise<SessionListEntry[]> {
+		return [...this.stores.values()].map((s) => this.toEntry(s));
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -150,16 +174,32 @@ export class InMemorySessionStoreFactory implements SessionStoreFactory {
 /**
  *
  */
+function emptyPreview(): SessionPreviewProvider {
+	return {
+		// eslint-disable-next-line @typescript-eslint/require-await
+		getSessionName: async () => undefined,
+		// eslint-disable-next-line @typescript-eslint/require-await
+		getSessionNameSource: async () => undefined,
+		// eslint-disable-next-line @typescript-eslint/require-await
+		getSessionPreview: async () => [],
+	};
+}
+
+/**
+ *
+ */
 export function createInMemoryStorage(): StorageFactory {
 	const daemon = new InMemoryDaemonRegistry();
 	const summary = new InMemorySummaryStore();
 	const auth = new InMemoryAuthStore();
 	const sessions = new InMemorySessionStoreFactory();
+	const preview = emptyPreview();
 
 	return {
 		daemonRegistry: () => daemon,
 		summaryStore: () => summary,
 		authStore: () => auth,
+		sessionPreview: () => preview,
 		sessions,
 	};
 }

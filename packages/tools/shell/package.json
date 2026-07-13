@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-shell",
   "version": "0.0.2",
-  "description": "Shell organ runtime primitives for command execution and process lifecycle",
+  "description": "Shell tool runtime primitives for command execution and process lifecycle",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -26,7 +26,6 @@
   },
   "keywords": [
     "agent",
-    "organ",
     "shell",
     "runtime"
   ],
@@ -35,7 +34,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-shell"
+    "directory": "packages/tools/shell"
   },
   "engines": {
     "node": ">=20.0.0"

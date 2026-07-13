@@ -27,7 +27,7 @@ function motorOnly(bus: InProcessBus, type: string, args: Record<string, unknown
 }
 
 describe("LoopGuard", { tags: ["unit"] }, () => {
-	it("exposes organ interface", () => {
+	it("exposes adapter interface", () => {
 		const adapter = new LoopGuard();
 		expect(adapter.name).toBe("loop-detector");
 		expect(adapter.tools).toHaveLength(0);

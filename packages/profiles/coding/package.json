@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-coding-agent",
   "version": "0.0.2",
-  "description": "The default Alef coding agent blueprint. This package IS the SBOM \u2014 dependencies are the organ manifest.",
+  "description": "The default Alef coding agent blueprint. This package IS the SBOM \u2014 dependencies are the adapter manifest.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -23,6 +23,7 @@
     "@dpopsuev/alef-tool-factory": "workspace:*",
     "@dpopsuev/alef-tool-fs": "workspace:*",
     "@dpopsuev/alef-tool-nodesh": "workspace:*",
+    "@dpopsuev/alef-tool-plan": "workspace:*",
     "@dpopsuev/alef-tool-shell": "workspace:*",
     "@dpopsuev/alef-tool-skills": "workspace:*",
     "@dpopsuev/alef-tool-web": "workspace:*",

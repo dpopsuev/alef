@@ -29,7 +29,7 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			apiKey: "test-key",
 			systemPrompt: mergedPrompt,
 		});
-		for (const organ of adapters) agent.load(organ);
+		for (const adapter of adapters) agent.load(adapter);
 		agent.load(llm);
 		if (onChunk) {
 			agent.observe({

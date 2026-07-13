@@ -1,43 +1,48 @@
-import { DEFAULT_SENSITIVE_KEYS, REDACTED, redactPayload } from "@dpopsuev/alef-session/redact";
+import { REDACTED, redactPayload, reveal, Sensitive } from "@dpopsuev/alef-session/redact";
 import { describe, expect, it } from "vitest";
 
-describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => {
-	it("redacts exact sensitive key names", () => {
-		const result = redactPayload({ password: "s3cr3t", username: "alice" });
-		expect((result as Record<string, unknown>).password).toBe(REDACTED);
-		expect((result as Record<string, unknown>).username).toBe("alice");
+describe("Sensitive — producer marker", { tags: ["unit"] }, () => {
+	it("reveal returns the wrapped value", () => {
+		expect(reveal(Sensitive("s3cr3t"))).toBe("s3cr3t");
+		expect(reveal("plain")).toBe("plain");
 	});
 
-	it("redacts case-insensitively (Password, PASSWORD)", () => {
-		const result = redactPayload({ Password: "x", PASSWORD: "y" }) as Record<string, unknown>;
-		expect(result.Password).toBe(REDACTED);
-		expect(result.PASSWORD).toBe(REDACTED);
+	it("toJSON redacts so accidental stringify cannot leak", () => {
+		expect(JSON.stringify({ apiKey: Sensitive("super-secret") })).toBe(`{"apiKey":"${REDACTED}"}`);
+	});
+});
+
+describe("redactPayload — producer-marked secrets only", { tags: ["unit"] }, () => {
+	it("redacts Sensitive values and preserves unmarked fields", () => {
+		const result = redactPayload({
+			password: Sensitive("s3cr3t"),
+			username: "alice",
+			totalTokens: 20_000,
+		}) as Record<string, unknown>;
+		expect(result.password).toBe(REDACTED);
+		expect(result.username).toBe("alice");
+		expect(result.totalTokens).toBe(20_000);
 	});
 
-	it("redacts substring matches (myApiKey, user_password)", () => {
-		const result = redactPayload({ myApiKey: "abc", user_password: "xyz" }) as Record<string, unknown>;
-		expect(result.myApiKey).toBe(REDACTED);
-		expect(result.user_password).toBe(REDACTED);
+	it("does not redact unmarked keys that look sensitive by name", () => {
+		const result = redactPayload({
+			password: "still-visible-without-marker",
+			apiKey: "also-visible",
+			token: "also-visible",
+		}) as Record<string, unknown>;
+		expect(result.password).toBe("still-visible-without-marker");
+		expect(result.apiKey).toBe("also-visible");
+		expect(result.token).toBe("also-visible");
 	});
 
-	it("does not redact non-sensitive keys", () => {
-		const result = redactPayload({ command: "echo hi", path: "/tmp/a.ts", content: "code" }) as Record<
-			string,
-			unknown
-		>;
-		expect(result.command).toBe("echo hi");
-		expect(result.path).toBe("/tmp/a.ts");
-		expect(result.content).toBe("code");
-	});
-
-	it("deep-scans nested objects", () => {
-		const result = redactPayload({ outer: { apiKey: "secret" } }) as Record<string, unknown>;
+	it("deep-scans nested Sensitive markers", () => {
+		const result = redactPayload({ outer: { apiKey: Sensitive("secret") } }) as Record<string, unknown>;
 		const outer = result.outer as Record<string, unknown>;
 		expect(outer.apiKey).toBe(REDACTED);
 	});
 
 	it("scans arrays element-by-element", () => {
-		const result = redactPayload([{ token: "abc" }, { path: "/tmp" }]) as Record<string, unknown>[];
+		const result = redactPayload([{ token: Sensitive("abc") }, { path: "/tmp" }]) as Record<string, unknown>[];
 		expect(result[0]!.token).toBe(REDACTED);
 		expect(result[1]!.path).toBe("/tmp");
 	});
@@ -49,20 +54,23 @@ describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => 
 	});
 
 	it("returns new object — original not mutated", () => {
-		const original = { password: "secret", name: "alice" };
+		const original = { password: Sensitive("secret"), name: "alice" };
 		redactPayload(original);
-		expect(original.password).toBe("secret"); // unchanged
+		expect(reveal(original.password)).toBe("secret");
 	});
 
-	it("covers all DEFAULT_SENSITIVE_KEYS", () => {
-		const payload: Record<string, string> = {};
-		for (const key of DEFAULT_SENSITIVE_KEYS) {
-			payload[key] = "value";
-		}
-		const result = redactPayload(payload) as Record<string, unknown>;
-		for (const key of DEFAULT_SENSITIVE_KEYS) {
-			expect(result[key], `key '${key}' should be redacted`).toBe(REDACTED);
-		}
+	it("preserves LLM usage metrics without markers", () => {
+		const result = redactPayload({
+			usage: {
+				input: 10,
+				output: 200,
+				totalTokens: 20_000,
+				maxTokens: 8_192,
+			},
+		}) as Record<string, unknown>;
+		const usage = result.usage as Record<string, unknown>;
+		expect(usage.totalTokens).toBe(20_000);
+		expect(usage.maxTokens).toBe(8_192);
 	});
 });
 
@@ -119,7 +127,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 });
 
 describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
-	it("appended record has hash and redacted payload", async () => {
+	it("appended record has hash and redacted Sensitive payload", async () => {
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
@@ -130,34 +138,25 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));
 		try {
 			const store = await JsonlSessionStore.create(cwd);
-			const organ = new SessionLog(store);
+			const adapter = new SessionLog(store);
 			const nerve = new InProcessBus();
-			organ.mount(nerve.asBus());
+			adapter.mount(nerve.asBus());
 
-			// Publish event with sensitive payload
 			nerve.asBus().command.publish({
 				type: "test.event",
-				payload: { command: "echo hi", apiKey: "super-secret", path: "/tmp" },
+				payload: { command: "echo hi", apiKey: Sensitive("super-secret"), path: "/tmp" },
 				correlationId: "c-1",
 			});
 
-			// Give fire-and-forget a moment to settle
 			await new Promise((r) => setTimeout(r, 50));
 
 			const events = await store.events();
 			expect(events.length).toBeGreaterThan(0);
 
-			// Command bus event has the full redacted payload; sense has the dead-letter {}.
 			const record = events.find((e) => e.type === "test.event" && e.bus === "command");
 			expect(record).toBeDefined();
-
-			// Hash is present
 			expect(record!.hash).toMatch(/^[0-9a-f]{16}$/);
-
-			// apiKey is redacted
 			expect(record!.payload.apiKey).toBe("[REDACTED]");
-
-			// Non-sensitive fields preserved
 			expect(record!.payload.command).toBe("echo hi");
 			expect(record!.payload.path).toBe("/tmp");
 		} finally {

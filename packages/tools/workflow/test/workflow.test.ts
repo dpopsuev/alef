@@ -1,4 +1,4 @@
-import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
 import { createWorkflowAdapter } from "../src/adapter.js";
 import type { WorkflowDef } from "../src/schema.js";
 

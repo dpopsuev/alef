@@ -59,6 +59,24 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 		expect(deadLetters[0]!.isError).toBe(true);
 	});
 
+	it("dead letter is a one-shot error echo — publishing again does not requeue the first command", async () => {
+		const bus = new InProcessBus();
+		const received: EventMessage[] = [];
+		bus.subscribe("event", "orphan.op", (e) => void received.push(e));
+
+		const corr = newCorrelationId();
+		bus.publish("command", { type: "orphan.op", payload: {}, correlationId: corr });
+		await Promise.resolve();
+		expect(received).toHaveLength(1);
+		expect(received[0]!.isError).toBe(true);
+
+		// A second unowned publish is a new echo, not a replay of the first.
+		bus.publish("command", { type: "orphan.op", payload: {}, correlationId: newCorrelationId() });
+		await Promise.resolve();
+		expect(received).toHaveLength(2);
+		expect(received.every((e) => e.isError)).toBe(true);
+	});
+
 	it("dead letter preserves correlationId", async () => {
 		const bus = new InProcessBus();
 		const corr = newCorrelationId();

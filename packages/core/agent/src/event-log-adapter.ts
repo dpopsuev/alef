@@ -1,17 +1,13 @@
 import { Traced } from "@dpopsuev/alef-kernel/log";
 /**
- * SessionLog — tap command and event buses, write every event to the session JSONL.
+ * SessionLog — telemetry tap on command/event/notification buses.
+ *
+ * Appends each message to the session store best-effort after publish.
+ * This is evidence/telemetry, not a write-ahead log: append success is not
+ * delivery proof, and correctness paths must not depend on append completing.
  *
  * Same wildcard pattern as EvaluatorAdapter: subscribes command/* and event/*.
- * Writes each event as a StorageRecord to the session file (fire-and-forget).
- *
- * This is the missing link between the EDA bus and the persistent event log.
- * Once wired, the TurnAssembler can read the full event history
- * and build accurate context windows without relying on AgentController.history[].
- *
- * Not a tool-bearing adapter — no tools, no subscriptions via defineAdapter.
- * Implements Adapter directly (same as EvaluatorAdapter).
- *
+ * Not a tool-bearing adapter — implements Adapter directly.
  */
 
 import { writeFile } from "node:fs/promises";
@@ -102,9 +98,9 @@ export class SessionLog implements Adapter {
 		const off1 = bus.command.subscribe("*", (event) => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- redactPayload preserves object structure
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
-			const bus: BusKind = "command";
+			const busKind: BusKind = "command";
 			const base = {
-				bus,
+				bus: busKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -115,7 +111,14 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => traceEvent("event-log:command-append-failed", { error: String(e) }));
+				.catch((e: unknown) => {
+					traceEvent("event-log:append-failed", {
+						bus: "command",
+						type: event.type,
+						error: String(e),
+						authority: "telemetry-not-wal",
+					});
+				});
 		});
 
 		const off2 = bus.event.subscribe("*", (event) => {
@@ -140,7 +143,14 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => traceEvent("event-log:sense-append-failed", { error: String(e) }));
+				.catch((e: unknown) => {
+					traceEvent("event-log:append-failed", {
+						bus: "event",
+						type: event.type,
+						error: String(e),
+						authority: "telemetry-not-wal",
+					});
+				});
 		});
 
 		const off3 = bus.notification.subscribe("*", (event) => {
@@ -159,7 +169,14 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => traceEvent("event-log:signal-append-failed", { error: String(e) }));
+				.catch((e: unknown) => {
+					traceEvent("event-log:append-failed", {
+						bus: "notification",
+						type: event.type,
+						error: String(e),
+						authority: "telemetry-not-wal",
+					});
+				});
 		});
 
 		return () => {

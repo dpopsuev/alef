@@ -94,8 +94,6 @@ export async function dispatchCommandAction(
 	options?: DispatchOptions,
 ): Promise<void> {
 	bus.pulse();
-	// Yield so waitForToolResult subscribes before the synchronous validation-error path publishes.
-	await Promise.resolve();
 	const payload = validateCommandPayload(command, schema, bus);
 	if (payload === null) return;
 

@@ -34,6 +34,14 @@ export const KEY_ARG_FIELDS = [
 
 import { z } from "zod";
 
+import {
+	deliveryFromPayload,
+	type DeliveryMode,
+	PendingMessageQueue,
+	type QueuedInput,
+	queueSnapshot,
+	totalQueueLength,
+} from "./message-queue.js";
 import { runLLMLoop } from "./turn-loop.js";
 
 
@@ -49,6 +57,10 @@ export interface LlmCallOptions {
 	maxRetryDelayMs?: number;
 	onRetry?: (attempt: number, reason: string) => void;
 	getSignal?: () => AbortSignal | undefined;
+	/** How steer queue drains at each safe point. */
+	steeringMode?: "all" | "one-at-a-time";
+	/** How follow-up queue drains when the agent would stop. */
+	followUpMode?: "all" | "one-at-a-time";
 }
 
 /** Reserved extension point for LLM observability hooks (tracing, metrics). */
@@ -87,58 +99,170 @@ const LLM_INPUT = "llm.input";
 /** Build the inner LLM adapter that handles llm.input events with the turn loop. */
 export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 	let turnActive = false;
+	const steerQueue = new PendingMessageQueue(options.steeringMode ?? "one-at-a-time");
+	const followUpQueue = new PendingMessageQueue(options.followUpMode ?? "one-at-a-time");
+	const nextTurnQueue = new PendingMessageQueue("all");
+
+	/**
+	 *
+	 */
+	function queueLength(): number {
+		return totalQueueLength(steerQueue, followUpQueue, nextTurnQueue);
+	}
+
+	/**
+	 *
+	 */
+	function publishQueued(
+		bus: EventHandlerCtx["bus"],
+		correlationId: string,
+		mode: DeliveryMode,
+		text?: string,
+		rejected?: { reason: string },
+	): void {
+		bus.notification.publish({
+			type: "llm.message-queued",
+			payload: {
+				text,
+				queueLength: queueLength(),
+				mode,
+				items: queueSnapshot(steerQueue, followUpQueue, nextTurnQueue),
+				...(rejected ? { rejected } : {}),
+			},
+			correlationId,
+		});
+	}
+
+	/** Run a single llm.input turn through runLLMLoop, publishing errors as llm.response. */
+	async function runOneTurn(ctx: EventHandlerCtx): Promise<void> {
+		let partialHistory: unknown[] | undefined;
+		const offCheckpoint = ctx.bus.command.subscribe("llm.checkpoint", (event) => {
+			const history = (event.payload as { conversationHistory?: unknown[] }).conversationHistory;
+			if (history) partialHistory = history;
+		});
+		try {
+			await runLLMLoop(ctx, {
+				...options,
+				getSteeringMessages: () => {
+					const drained = steerQueue.drain();
+					if (drained.length > 0) {
+						publishQueued(ctx.bus, drained[0]!.correlationId, "steer");
+					}
+					return drained;
+				},
+				hasSteeringMessages: () => steerQueue.hasItems(),
+			});
+		} catch (err) {
+			const text = `LLM error: ${String(err)}`;
+			ctx.bus.command.publish({
+				type: "llm.response",
+				payload: withDisplay(
+					{
+						text,
+						...(partialHistory ? { conversationHistory: partialHistory } : {}),
+					},
+					{ text: `\u26a0 ${text}`, mimeType: "text/plain" },
+				),
+				correlationId: ctx.correlationId,
+			});
+		} finally {
+			offCheckpoint();
+		}
+	}
+
+	/** Buffer a mid-turn llm.input onto the selected delivery queue. */
+	function enqueue(ctx: EventHandlerCtx, text: string, mode: DeliveryMode): void {
+		const item: QueuedInput = {
+			payload: { ...ctx.payload },
+			correlationId: ctx.correlationId,
+		};
+		const target =
+			mode === "followUp" ? followUpQueue : mode === "nextTurn" ? nextTurnQueue : steerQueue;
+		const result = target.enqueue(item);
+		if (!result.ok) {
+			publishQueued(ctx.bus, ctx.correlationId, mode, text, { reason: result.reason });
+			return;
+		}
+		publishQueued(ctx.bus, ctx.correlationId, mode, text);
+	}
+
+	/**
+	 *
+	 */
+	function withNextTurnPrefix(ctx: EventHandlerCtx): EventHandlerCtx {
+		const pending = nextTurnQueue.drain();
+		if (pending.length === 0) return ctx;
+		const currentText = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
+		const messages = [
+			...pending.map((item) => ({
+				role: "user" as const,
+				content: typeof item.payload.text === "string" ? item.payload.text : "",
+				timestamp: Date.now(),
+			})),
+			{ role: "user" as const, content: currentText, timestamp: Date.now() },
+		];
+		publishQueued(ctx.bus, ctx.correlationId, "nextTurn");
+		return {
+			bus: ctx.bus,
+			correlationId: ctx.correlationId,
+			payload: { ...ctx.payload, messages, text: currentText },
+		};
+	}
+
+	/** Process ctx then drain follow-ups until the agent would stay idle. */
+	async function pump(ctx: EventHandlerCtx): Promise<void> {
+		turnActive = true;
+		try {
+			await runOneTurn(withNextTurnPrefix(ctx));
+			for (;;) {
+				while (followUpQueue.hasItems()) {
+					const batch = followUpQueue.drain();
+					for (const next of batch) {
+						publishQueued(ctx.bus, next.correlationId, "followUp");
+						await runOneTurn(
+							withNextTurnPrefix({
+								bus: ctx.bus,
+								correlationId: next.correlationId,
+								payload: next.payload,
+							}),
+						);
+					}
+				}
+				if (options.getSignal?.()?.aborted) break;
+				// Steer that arrived after the final reply (reply microtask races
+				// ahead of this loop) would otherwise be stranded — promote.
+				if (!steerQueue.hasItems()) break;
+				for (const item of steerQueue.clear()) followUpQueue.enqueue(item, { force: true });
+			}
+		} finally {
+			if (options.getSignal?.()?.aborted) {
+				steerQueue.clear();
+				followUpQueue.clear();
+			}
+			turnActive = false;
+			publishQueued(ctx.bus, ctx.correlationId, "steer");
+		}
+	}
 
 	return defineAdapter("llm", {
 		event: {
 			[LLM_INPUT]: {
 				handle: async (ctx: EventHandlerCtx) => {
+					const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 					if (turnActive) {
-						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
-						if (text) {
-							ctx.bus.notification.publish({
-								type: "llm.message-queued",
-								payload: { text },
-								correlationId: ctx.correlationId,
-							});
-						}
+						if (text) enqueue(ctx, text, deliveryFromPayload(ctx.payload, true));
 						return;
 					}
-					turnActive = true;
-					let partialHistory: unknown[] | undefined;
-					const offCheckpoint = ctx.bus.command.subscribe("llm.checkpoint", (event) => {
-						const history = (event.payload as { conversationHistory?: unknown[] }).conversationHistory;
-						if (history) partialHistory = history;
-					});
-					try {
-						await runLLMLoop(ctx, {
-							...options,
-							onBeforeReply: () => {
-								turnActive = false;
-							},
-						});
-					} catch (err) {
-						turnActive = false;
-						const text = `LLM error: ${String(err)}`;
-						ctx.bus.command.publish({
-							type: "llm.response",
-							payload: withDisplay(
-								{
-									text,
-									...(partialHistory ? { conversationHistory: partialHistory } : {}),
-								},
-								{ text: `\u26a0 ${text}`, mimeType: "text/plain" },
-							),
-							correlationId: ctx.correlationId,
-						});
-					} finally {
-						offCheckpoint();
-						turnActive = false;
-					}
+					await pump(ctx);
 				},
 			},
 		},
 	});
 }
+
+export type { DeliveryMode, EnqueueResult, QueueMode, QueuedInput } from "./message-queue.js";
+export { PendingMessageQueue, deliveryFromPayload, queueSnapshot, totalQueueLength } from "./message-queue.js";
+
 
 /** Entry tracked while a concurrent turn's tool call is in flight. */
 interface InflightEntry {

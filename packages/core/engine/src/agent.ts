@@ -18,7 +18,8 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ZodTypeAny } from "zod";
 import { type AdapterPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
 
-const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
+// Opt out with ALEF_VALIDATE_PAYLOADS=0. Default on so publish contracts fail closed.
+const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS !== "0";
 
 /**
  * Wrap a Bus so publish calls are validated against the adapter's publishSchemas.

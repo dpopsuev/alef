@@ -96,7 +96,11 @@ function waitForValidateResult(eventChannel: Bus["event"], id: string, timeoutMs
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
 			off();
-			resolve({ approved: true, reviewer: "timeout-auto-approve" });
+			resolve({
+				approved: false,
+				reviewer: "timeout",
+				feedback: `binding stage timed out after ${timeoutMs}ms`,
+			});
 		}, timeoutMs);
 
 		const off = eventChannel.subscribe(VALIDATE_RESULT, (event: EventMessage) => {
@@ -264,7 +268,36 @@ export function withBindings(bindings: Map<string, Binding>, baseBus: Bus): Bus 
 					kind: typeof payload.kind === "string" ? payload.kind : undefined,
 					context: typeof payload.context === "string" ? payload.context : undefined,
 				};
-				void executeBindingChain(binding, input, baseBus, event.correlationId);
+				void executeBindingChain(binding, input, baseBus, event.correlationId)
+					.then((result) => {
+						if (result.approved) {
+							baseBus.command.publish(event);
+							return;
+						}
+						const toolCallId = typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
+						baseBus.event.publish({
+							type: event.type,
+							correlationId: event.correlationId,
+							isError: true,
+							errorMessage: result.feedback ?? `binding rejected by ${result.reviewer}`,
+							payload: toolCallId ? { toolCallId } : {},
+						});
+					})
+					.catch((error: unknown) => {
+						traceEvent("binding:chain:error", {
+							id: binding.id,
+							event: event.type,
+							error: error instanceof Error ? error.message : String(error),
+						});
+						const toolCallId = typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
+						baseBus.event.publish({
+							type: event.type,
+							correlationId: event.correlationId,
+							isError: true,
+							errorMessage: error instanceof Error ? error.message : String(error),
+							payload: toolCallId ? { toolCallId } : {},
+						});
+					});
 			},
 		},
 		baseBus.event,

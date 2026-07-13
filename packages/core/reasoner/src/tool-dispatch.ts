@@ -234,7 +234,6 @@ export async function dispatchTools(
 				timeoutMs,
 				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),
 			);
-			command.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const onChunk = (text: string) =>
 				signal.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
 			const onStall = (info: { elapsedMs: number; lastChunkMs: number }) =>
@@ -243,7 +242,8 @@ export async function dispatchTools(
 					payload: { callId: tc.id, name: motorType, ...info },
 					correlationId,
 				});
-			return waitForToolResult({
+			// Register the result waiter before publishing so sync handlers cannot race past the subscribe.
+			const resultPromise = waitForToolResult({
 				event,
 				toolName: motorType,
 				toolCallId: tc.id,
@@ -252,7 +252,9 @@ export async function dispatchTools(
 				signal: callController.signal,
 				onChunk,
 				onStall,
-			})
+			});
+			command.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
+			return resultPromise
 				.then((r) => {
 					const validationErr = extractValidationError(r.payload);
 					if (validationErr) {

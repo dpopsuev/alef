@@ -15,11 +15,43 @@ import { Watchdog } from "./watchdog.js";
 import { traceEvent } from "../trace.js";
 
 const FIRST_SEEN_MAX = 500;
+
+type BusHandler = (event: BusMessage) => void | Promise<void>;
+
+/** Invoke a handler; surface sync throws and async rejections instead of dropping them. */
+function invokeHandler(
+	handler: BusHandler,
+	event: BusMessage,
+	channel: ChannelName,
+	onHandlerError?: (info: { channel: ChannelName; type: string; error: unknown }) => void,
+): void {
+	const report = (error: unknown): void => {
+		traceEvent("bus:handler-error", {
+			channel,
+			type: event.type,
+			correlationId: event.correlationId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+		onHandlerError?.({ channel, type: event.type, error });
+	};
+	try {
+		const result = handler(event);
+		if (result !== undefined && typeof (result as PromiseLike<void>).then === "function") {
+			void Promise.resolve(result).catch(report);
+		}
+	} catch (error) {
+		report(error);
+	}
+}
+
 /** Low-level pub-sub channel with wildcard support, dead-letter routing, and correlation tracking. */
 class InternalBus {
-	private readonly handlers = new Map<string, Set<(event: BusMessage) => void | Promise<void>>>();
+	private readonly handlers = new Map<string, Set<BusHandler>>();
 	readonly firstSeen = new Map<string, number>();
+	/** One-shot unowned-command echo sink — not a durable redelivery queue. */
 	deadLetterSink?: (event: BusMessage) => void;
+	channel: ChannelName = "command";
+	onHandlerError?: (info: { channel: ChannelName; type: string; error: unknown }) => void;
 	evictCorrelation(correlationId: string): void {
 		this.firstSeen.delete(correlationId);
 	}
@@ -35,14 +67,16 @@ class InternalBus {
 		const startedAt = this.firstSeen.get(input.correlationId) ?? now;
 		const elapsed = now - startedAt;
 		const event: BusMessage = { ...input, timestamp: now, elapsed };
+		const onError = this.onHandlerError;
+		const channel = this.channel;
 		const specific = this.handlers.get(event.type);
 		if (specific && specific.size > 0) {
-			for (const h of specific) void h(event);
+			for (const h of specific) invokeHandler(h, event, channel, onError);
 		} else {
 			this.deadLetterSink?.(event);
 		}
 		const wildcard = this.handlers.get("*");
-		if (wildcard) for (const h of wildcard) void h(event);
+		if (wildcard) for (const h of wildcard) invokeHandler(h, event, channel, onError);
 	}
 	on(type: string, handler: (event: BusMessage) => void | Promise<void>): () => void {
 		let set = this.handlers.get(type);
@@ -68,6 +102,8 @@ export interface WatchdogOptions {
 export interface BusOptions {
 	watchdog?: WatchdogOptions;
 	trace?: boolean;
+	/** Called when a subscribed handler throws or rejects. Does not rethrow into publish. */
+	onHandlerError?: (info: { channel: ChannelName; type: string; error: unknown }) => void;
 }
 /** Single-process event bus with command/event/notification channels, dead-letter handling, and scoped views. */
 export class InProcessBus {
@@ -82,6 +118,11 @@ export class InProcessBus {
 		this._watchdog = opts.watchdog ? new Watchdog(opts.watchdog.stallMs, opts.watchdog.onStall) : null;
 		this._watchdog?.start();
 
+		for (const channel of ["command", "event", "notification"] as const) {
+			this._buses[channel].channel = channel;
+			this._buses[channel].onHandlerError = opts.onHandlerError;
+		}
+
 		if (opts.trace) {
 			const channels = ["command", "event", "notification"] as const;
 			for (const ch of channels) {
@@ -90,10 +131,16 @@ export class InProcessBus {
 				});
 			}
 		}
+		// Dead letter = one-shot error echo on the event channel. No requeue, no durable DLQ.
 		this._buses.command.deadLetterSink = (event) => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dead-letter sink is only wired to command bus
 			const payload = (event as CommandMessage).payload;
 			const toolCallId = extractToolCallId(payload);
+			traceEvent("bus:dead-letter", {
+				type: event.type,
+				correlationId: event.correlationId,
+				disposition: "error-echo",
+			});
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- emit() adds timestamp/elapsed; object satisfies the remaining fields
 			this._buses.event.emit({
 				type: event.type,
@@ -143,7 +190,9 @@ export class InProcessBus {
 		const scopedSubscribe = (bus: InternalBus) =>
 			(type: string, handler: (e: BusMessage) => void | Promise<void>) =>
 				bus.on(type, (e: BusMessage) => {
-					if (e.correlationId.startsWith(prefix)) void handler(e);
+					if (e.correlationId.startsWith(prefix)) {
+						invokeHandler(handler, e, bus.channel, bus.onHandlerError);
+					}
 				});
 
 		const scopedPublish = (bus: InternalBus) =>

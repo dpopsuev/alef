@@ -1,5 +1,3 @@
-const PREVIEW_LINE_MAX_CHARS = 70;
-
 const SKIPPED_TYPES = new Set([
 	"adapter.loaded",
 	"llm.chunk",
@@ -51,13 +49,6 @@ export interface SessionRecordProjection {
  */
 function collapseWhitespace(text: string): string {
 	return text.trim().replace(/\s+/g, " ");
-}
-
-/**
- *
- */
-function previewText(text: string): string {
-	return collapseWhitespace(text).slice(0, PREVIEW_LINE_MAX_CHARS);
 }
 
 /**
@@ -137,32 +128,6 @@ export function projectSessionRecords(
 }
 
 /**
- *
- */
-function blockToLines(block: DisplayBlock): string[] {
-	switch (block.kind) {
-		case "plan": {
-			const header = previewText(`◆ plan [${block.phase}] ${block.desired}`);
-			const lines = [`  ${header}`];
-			for (const step of block.lines) {
-				lines.push(`    ${previewText(step)}`);
-			}
-			return lines;
-		}
-		case "user":
-			return [`  ▸ ${previewText(block.text)}`];
-		case "assistant":
-			return [`  ◂ ${previewText(block.text)}`];
-		case "tool":
-			return block.summary
-				? [`  ● ${block.name} ${previewText(block.summary)}`]
-				: [`  ● ${block.name}`];
-		case "state":
-			return [`  ▨ ${block.label}: ${previewText(block.text)}`];
-	}
-}
-
-/**
  * Keep plan/state blocks plus the last `maxTurns` user turns (tools between them included).
  * Shared by session resume and picker preview so both hosts see the same slice.
  */
@@ -191,22 +156,4 @@ const MIN_EVENT_WINDOW = 40;
 /** Event-fetch window size for turn-bounded transcript projection (resume + preview). */
 export function eventWindowForTurns(turns: number): number {
 	return Math.max(Math.max(1, turns) * EVENTS_PER_TURN_ESTIMATE, MIN_EVENT_WINDOW);
-}
-
-/**
- * Plain-text host of display blocks (tests / non-TUI). Prefer ChatLog hosting for UI.
- */
-export function formatPreviewLines(blocks: readonly DisplayBlock[], maxLines: number): string[] {
-	const planBlocks = blocks.filter((block): block is Extract<DisplayBlock, { kind: "plan" }> => block.kind === "plan");
-	const otherBlocks = blocks.filter((block) => block.kind !== "plan");
-
-	const planLines = planBlocks.flatMap(blockToLines);
-	const otherLines = otherBlocks.flatMap(blockToLines);
-
-	if (planLines.length > 0) {
-		const transcriptBudget = Math.max(0, maxLines - planLines.length);
-		return [...planLines, ...otherLines.slice(-transcriptBudget)];
-	}
-
-	return otherLines.slice(-maxLines);
 }

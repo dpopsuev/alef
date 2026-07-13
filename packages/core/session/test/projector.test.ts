@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-	formatPreviewLines,
 	projectSessionRecords,
 	selectTranscriptBlocks,
 	type SessionRecordProjection,
@@ -95,61 +94,5 @@ describe("selectTranscriptBlocks", { tags: ["unit"] }, () => {
 			{ kind: "user", text: "new" },
 			{ kind: "tool", name: "fs.edit", summary: "/new" },
 		]);
-	});
-});
-
-describe("formatPreviewLines", { tags: ["unit"] }, () => {
-	it("renders block kinds with picker prefixes", () => {
-		const lines = formatPreviewLines(
-			[
-				{ kind: "user", text: "ask" },
-				{ kind: "assistant", text: "reply" },
-				{ kind: "tool", name: "fs.read", summary: "/tmp/a.ts" },
-				{ kind: "state", label: "status", text: "running" },
-			],
-			10,
-		);
-
-		expect(lines[0]).toBe("  ▸ ask");
-		expect(lines[1]).toBe("  ◂ reply");
-		expect(lines[2]).toBe("  ● fs.read /tmp/a.ts");
-		expect(lines[3]).toBe("  ▨ status: running");
-	});
-
-	it("returns the last maxLines transcript lines", () => {
-		const blocks = Array.from({ length: 8 }, (_, index) => ({
-			kind: "user" as const,
-			text: `msg ${index}`,
-		}));
-
-		const lines = formatPreviewLines(blocks, 5);
-
-		expect(lines).toHaveLength(5);
-		expect(lines[0]).toContain("msg 3");
-		expect(lines[4]).toContain("msg 7");
-	});
-
-	it("keeps the plan block at the top within maxLines", () => {
-		const blocks = projectSessionRecords(
-			Array.from({ length: 6 }, (_, index) => rec("event", "llm.input", { text: `msg ${index}` })),
-			{
-				plan: {
-					phase: "ship",
-					desired: "projector module",
-					current: "tests",
-					stepSummary: "1/2 done",
-				},
-			},
-		);
-
-		const lines = formatPreviewLines(blocks, 5);
-
-		expect(lines[0]).toContain("◆ plan [ship]");
-		expect(lines[0]).toContain("projector module");
-		expect(lines[1]).toBe("    tests");
-		expect(lines[2]).toBe("    1/2 done");
-		expect(lines).toHaveLength(5);
-		expect(lines[3]).toContain("msg 4");
-		expect(lines[4]).toContain("msg 5");
 	});
 });

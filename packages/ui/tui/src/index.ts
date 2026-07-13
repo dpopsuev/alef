@@ -53,7 +53,6 @@ export {
 } from "./components/pending-queue.js";
 // Components
 export { Pad } from "./components/pad.js";
-export { Picker, type PickerItem, type PickerOptions, type PickerTheme } from "./components/picker.js";
 export { type PickerMode, PreviewSelectList, type PreviewSelectListOptions } from "./components/preview-select-list.js";
 export { ProgressBar, type ProgressBarOptions } from "./components/progress-bar.js";
 export { ScrollView, type ScrollViewOptions } from "./components/scroll-view.js";

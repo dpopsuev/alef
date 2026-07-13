@@ -97,6 +97,18 @@ describe("parseHashlineEdits", { tags: ["unit"] }, () => {
 		const edits = parseHashlineEdits(input);
 		expect(edits).toHaveLength(3);
 	});
+
+	it("parses optional line hashes on SWAP", () => {
+		const edits = parseHashlineEdits('SWAP 2:AB12\n+  return "universe";');
+		expect(edits[0]!.startHash).toBe("AB12");
+		expect(edits[0]!.endHash).toBe("AB12");
+	});
+
+	it("parses optional line hashes on SWAP range", () => {
+		const edits = parseHashlineEdits("SWAP 2:AAAA.=3:BBBB\n+x");
+		expect(edits[0]!.startHash).toBe("AAAA");
+		expect(edits[0]!.endHash).toBe("BBBB");
+	});
 });
 
 describe("applyHashlineEdits", { tags: ["unit"] }, () => {
@@ -158,5 +170,22 @@ describe("applyHashlineEdits", { tags: ["unit"] }, () => {
 			{ kind: "swap", startLine: 4, endLine: 4, body: ["D"] },
 		]);
 		expect(result).toBe("a\nB\nc\nD");
+	});
+
+	it("rejects mismatched line hash", () => {
+		const { error, reason } = applyHashlineEdits(SAMPLE, [
+			{ kind: "swap", startLine: 2, endLine: 2, body: ["x"], startHash: "DEAD", endHash: "DEAD" },
+		]);
+		expect(reason).toBe("hash_mismatch");
+		expect(error).toContain("hash mismatch");
+	});
+
+	it("accepts matching line hash", () => {
+		const hash = lineHash('  return "world";');
+		const { error, result } = applyHashlineEdits(SAMPLE, [
+			{ kind: "swap", startLine: 2, endLine: 2, body: ['  return "ok";'], startHash: hash, endHash: hash },
+		]);
+		expect(error).toBeUndefined();
+		expect(result).toContain("ok");
 	});
 });

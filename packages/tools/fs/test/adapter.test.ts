@@ -34,6 +34,7 @@ describe("FsAdapter", { tags: ["compliance"] }, () => {
 			"fs.find",
 			"fs.write",
 			"fs.edit",
+			"fs.hashline-edit",
 			"fs.patch",
 			"fs.undo",
 			"fs.watch",
@@ -167,6 +168,74 @@ describe("FsAdapter", { tags: ["compliance"] }, () => {
 			const result = await f.call("fs.edit", { path: "dup.ts", oldText: "foo", newText: "bar" });
 			expect(result.isError).toBe(true);
 			expect(result.errorMessage).toMatch(/multiple/);
+			f.dispose();
+		});
+
+		it("emits fs.edit.failure on not_found", async () => {
+			await writeFile(join(testDir, "source.ts"), "const x = 1;");
+			const f = fixture();
+			await f.call("fs.read", { path: "source.ts" });
+			const failures: unknown[] = [];
+			const unsub = f.bus.asBus().event.subscribe("fs.edit.failure", (event) => {
+				failures.push(event.payload);
+			});
+			await f.call("fs.edit", { path: "source.ts", oldText: "not here", newText: "x" });
+			unsub();
+			expect(failures).toEqual([{ tool: "fs.edit", reason: "not_found", path: "source.ts" }]);
+			f.dispose();
+		});
+
+		it("emits fs.edit.failure on ambiguous", async () => {
+			await writeFile(join(testDir, "dup.ts"), "foo\nfoo");
+			const f = fixture();
+			await f.call("fs.read", { path: "dup.ts" });
+			const failures: unknown[] = [];
+			const unsub = f.bus.asBus().event.subscribe("fs.edit.failure", (event) => {
+				failures.push(event.payload);
+			});
+			await f.call("fs.edit", { path: "dup.ts", oldText: "foo", newText: "bar" });
+			unsub();
+			expect(failures).toEqual([{ tool: "fs.edit", reason: "ambiguous", path: "dup.ts" }]);
+			f.dispose();
+		});
+	});
+
+	describe("fs.hashline-edit", () => {
+		it("applies SWAP from hashline script", async () => {
+			await writeFile(join(testDir, "hl.ts"), 'function hello() {\n  return "world";\n}');
+			const f = fixture();
+			const read = await f.call("fs.read", { path: "hl.ts", format: "hashline" });
+			expect(read.isError).toBe(false);
+			const content = read.payload.content as string;
+			const fileHash = content.match(/^\[#([0-9A-F]{8})\]/)?.[1];
+			const line2 = content.split("\n")[2]!;
+			const lineHash = line2.match(/^\d+:([0-9A-F]{4})\|/)?.[1];
+			const result = await f.call("fs.hashline-edit", {
+				path: "hl.ts",
+				fileHash,
+				script: `SWAP 2:${lineHash}\n+  return "universe";`,
+			});
+			expect(result.isError).toBe(false);
+			expect(result.payload.applied).toBe(true);
+			expect(await readFile(join(testDir, "hl.ts"), "utf-8")).toContain("universe");
+			f.dispose();
+		});
+
+		it("emits failure on line hash mismatch", async () => {
+			await writeFile(join(testDir, "hl.ts"), "a\nb\nc");
+			const f = fixture();
+			await f.call("fs.read", { path: "hl.ts", format: "hashline" });
+			const failures: unknown[] = [];
+			const unsub = f.bus.asBus().event.subscribe("fs.edit.failure", (event) => {
+				failures.push(event.payload);
+			});
+			const result = await f.call("fs.hashline-edit", {
+				path: "hl.ts",
+				script: "SWAP 2:DEAD\n+x",
+			});
+			unsub();
+			expect(result.isError).toBe(true);
+			expect(failures).toEqual([{ tool: "fs.hashline-edit", reason: "stale", path: "hl.ts" }]);
 			f.dispose();
 		});
 	});

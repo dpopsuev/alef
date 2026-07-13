@@ -131,6 +131,7 @@ const FS_EDIT_TOOL = {
 	description:
 		"Apply exact-text replacements to a file atomically. Requires reading the file first with fs.read. " +
 		"Each oldText must be unique; overlapping edits are rejected. " +
+		"For surgical line edits after format=hashline, prefer fs.hashline-edit. " +
 		"For symbol-level replacement by function/class name, use code.edit instead.",
 	inputSchema: z.union([
 		z.object({
@@ -144,6 +145,43 @@ const FS_EDIT_TOOL = {
 		}),
 	]),
 };
+
+const FS_HASHLINE_EDIT_TOOL = {
+	name: "fs.hashline-edit",
+	description:
+		"Apply line-anchored edits from a hashline script (SWAP/DEL/INS.PRE/INS.POST). " +
+		"Read with fs.read(..., format='hashline') first. Optional line hashes (SWAP 2:AB12) reject stale lines. " +
+		"Use fs.edit when you have exact unique text instead of line numbers.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("Path to the file (relative or absolute)"),
+		script: z
+			.string()
+			.min(1)
+			.describe("Hashline edit script: SWAP/DEL/INS.PRE/INS.POST with optional :HASH anchors and +body lines"),
+		fileHash: z
+			.string()
+			.optional()
+			.describe("8-char file hash from [#XXXXXXXX] header; rejects if the file changed since read"),
+	}),
+};
+
+/** Structured reason codes for fs.edit / fs.hashline-edit failures. */
+export type EditFailReason = "not_found" | "ambiguous" | "stale" | "oob";
+
+/** Publish a structured edit-failure event for retry metrics. */
+function emitEditFailure(
+	bus: Bus | undefined,
+	correlationId: string | undefined,
+	payload: { tool: string; reason: EditFailReason; path: string },
+): void {
+	if (!bus) return;
+	bus.event.publish({
+		type: "fs.edit.failure",
+		correlationId: correlationId ?? "",
+		payload,
+		isError: false,
+	});
+}
 
 const FS_UNDO_TOOL = {
 	name: "fs.undo",
@@ -414,12 +452,17 @@ type EditPayload =
 
 /** Apply one or more exact-text replacements to a file with read-before-edit and staleness guards. */
 async function handleEdit(
-	ctx: { payload: EditPayload },
+	ctx: { payload: EditPayload; correlationId?: string },
 	opts: FsAdapterOptions,
 	tracker: FileTracker,
+	bus?: Bus,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath } = ctx.payload;
 	if (!filePath) throw new Error("fs.edit: path is required");
+	const fail = (reason: EditFailReason, message: string): never => {
+		emitEditFailure(bus, ctx.correlationId, { tool: "fs.edit", reason, path: filePath });
+		throw new Error(message);
+	};
 
 	// Normalise input: accept edits[] array OR single oldText/newText.
 	type EditEntry = { oldText: string; newText: string };
@@ -441,7 +484,7 @@ async function handleEdit(
 	} catch (err) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
 		const code = (err as NodeJS.ErrnoException).code;
-		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
+		if (code === "ENOENT") fail("not_found", `fs.edit: file not found: ${filePath}`);
 		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
 		throw err;
 	}
@@ -460,7 +503,8 @@ async function handleEdit(
 	if (mtimeMs > lastReadAt) {
 		const readStr = new Date(lastReadAt).toISOString();
 		const modStr = new Date(mtimeMs).toISOString();
-		throw new Error(
+		fail(
+			"stale",
 			`fs.edit: '${filePath}' was modified after you last read it ` +
 				`(last read: ${readStr}, file mtime: ${modStr}). ` +
 				`Re-read the file with fs.read before editing.`,
@@ -473,7 +517,7 @@ async function handleEdit(
 	} catch (err) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
 		const code = (err as NodeJS.ErrnoException).code;
-		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
+		if (code === "ENOENT") fail("not_found", `fs.edit: file not found: ${filePath}`);
 		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
 		throw err;
 	}
@@ -484,10 +528,13 @@ async function handleEdit(
 	for (const { oldText, newText } of editList) {
 		const firstIdx = original.indexOf(oldText);
 		if (firstIdx === -1)
-			throw new Error(`fs.edit: oldText not found in ${filePath}: ${JSON.stringify(oldText.slice(0, 40))}`);
+			fail(
+				"not_found",
+				`fs.edit: oldText not found in ${filePath}: ${JSON.stringify(oldText.slice(0, 40))}`,
+			);
 		const lastIdx = original.lastIndexOf(oldText);
 		if (lastIdx !== firstIdx)
-			throw new Error(`fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
+			fail("ambiguous", `fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
 		located.push({ start: firstIdx, end: firstIdx + oldText.length, newText });
 	}
 
@@ -512,6 +559,86 @@ async function handleEdit(
 	const editCount = editList.length;
 	const diff = generateEditDiff(original, updated, filePath);
 	return { path: filePath, applied: true, editCount, diff };
+}
+
+type HashlineEditPayload = { path: string; script: string; fileHash?: string };
+
+/** Apply a hashline edit script with optional file/line hash anchors. */
+async function handleHashlineEdit(
+	ctx: { payload: HashlineEditPayload; correlationId?: string },
+	opts: FsAdapterOptions,
+	tracker: FileTracker,
+	bus?: Bus,
+): Promise<Record<string, unknown>> {
+	const { path: filePath, script } = ctx.payload;
+	if (!filePath) throw new Error("fs.hashline-edit: path is required");
+	if (!script) throw new Error("fs.hashline-edit: script is required");
+	const fail = (reason: EditFailReason, message: string): never => {
+		emitEditFailure(bus, ctx.correlationId, { tool: "fs.hashline-edit", reason, path: filePath });
+		throw new Error(message);
+	};
+
+	const {
+		applyHashlineEdits,
+		parseFileHashHeader,
+		parseHashlineEdits,
+	} = await import("./hashline.js");
+
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
+
+	let fileStat: Stats;
+	try {
+		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
+	} catch (err) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") fail("not_found", `fs.hashline-edit: file not found: ${filePath}`);
+		if (code === "EACCES") throw new Error(`fs.hashline-edit: permission denied: ${filePath}`);
+		throw err;
+	}
+
+	const lastReadAt = tracker.lastReadAt(absolutePath);
+	if (lastReadAt === undefined) {
+		throw new Error(
+			`fs.hashline-edit: '${filePath}' has not been read this session. ` +
+				`Use fs.read with format='hashline' first.`,
+		);
+	}
+	if (fileStat.mtimeMs > lastReadAt) {
+		fail(
+			"stale",
+			`fs.hashline-edit: '${filePath}' was modified after you last read it. Re-read before editing.`,
+		);
+	}
+
+	let original: string;
+	try {
+		original = await fsReadFile(absolutePath, "utf-8");
+	} catch (err) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") fail("not_found", `fs.hashline-edit: file not found: ${filePath}`);
+		if (code === "EACCES") throw new Error(`fs.hashline-edit: permission denied: ${filePath}`);
+		throw err;
+	}
+
+	const expectedHash = ctx.payload.fileHash ?? parseFileHashHeader(script);
+	const edits = parseHashlineEdits(script);
+	if (edits.length === 0) throw new Error("fs.hashline-edit: no SWAP/DEL/INS commands found in script");
+
+	const applied = applyHashlineEdits(original, edits, expectedHash);
+	if (applied.error) {
+		const reason: EditFailReason =
+			applied.reason === "oob" ? "oob" : applied.reason === "stale" || applied.reason === "hash_mismatch" ? "stale" : "not_found";
+		fail(reason, `fs.hashline-edit: ${applied.error}`);
+	}
+
+	await atomicWrite(absolutePath, applied.result);
+	tracker.recordWrite(absolutePath, original);
+	await runFormatter(opts.cwd, absolutePath);
+	tracker.record(absolutePath);
+	const diff = generateEditDiff(original, applied.result, filePath);
+	return { path: filePath, applied: true, editCount: edits.length, diff };
 }
 
 /** Execute a ripgrep content search and return matches with optional caching. */
@@ -680,10 +807,25 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					FS_EDIT_TOOL,
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-						const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
+						const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker, busRef));
 						return withDisplay(
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
 							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleEdit returns known shape
+							{ text: result.diff as string, mimeType: "text/x-diff" },
+						);
+					},
+					{ invalidates: () => WRITE_INVALIDATES },
+				),
+				"fs.hashline-edit": typedAction(
+					FS_HASHLINE_EDIT_TOOL,
+					async (ctx) => {
+						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
+						const result = await withQueue(absolutePath, () =>
+							handleHashlineEdit(ctx, options, tracker, busRef),
+						);
+						return withDisplay(
+							{ path: result.path, applied: result.applied, editCount: result.editCount },
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleHashlineEdit returns known shape
 							{ text: result.diff as string, mimeType: "text/x-diff" },
 						);
 					},
@@ -794,6 +936,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 				"event.weights": {
 					"fs.write": 2.0,
 					"fs.edit": 2.0,
+					"fs.hashline-edit": 2.0,
 					"fs.read": 1.0,
 					"fs.grep": 0.6,
 					"fs.find": 0.6,
@@ -808,6 +951,12 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					}),
 					"fs.write": z.object({ path: z.string().min(1), bytes: z.number() }),
 					"fs.edit": z.object({ path: z.string().min(1), applied: z.boolean() }),
+					"fs.hashline-edit": z.object({ path: z.string().min(1), applied: z.boolean() }),
+					"fs.edit.failure": z.object({
+						tool: z.string().min(1),
+						reason: z.enum(["not_found", "ambiguous", "stale", "oob"]),
+						path: z.string().min(1),
+					}),
 				},
 			},
 		},
@@ -817,7 +966,8 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 const FS_DIRECTIVES = [
 	`**fs (filesystem) tool guidance**
 - Always read a file with fs.read before editing it. Never guess its contents.
-- Use fs.edit for targeted changes to existing files. Provide oldText that is unique within the file.
+- Prefer fs.read(..., format='hashline') then fs.hashline-edit for surgical line edits; include line hashes (SWAP 2:AB12) when available.
+- Use fs.edit for exact unique text replacements when you already have the oldText.
 - Use fs.write only when creating a new file or completely rewriting one. It overwrites without warning.
 - Use fs.grep to search file contents across the workspace before assuming something doesn't exist.
 - Use fs.find to discover file paths when you don't know the exact name.

@@ -33,7 +33,13 @@ export interface HashlineEdit {
 	startLine: number;
 	endLine: number;
 	body: string[];
+	/** Optional content hashes for start/end lines (from read output). */
+	startHash?: string;
+	endHash?: string;
 }
+
+/** Failure reason returned by applyHashlineEdits. */
+export type HashlineFailReason = "stale" | "oob" | "hash_mismatch" | "parse";
 
 /** Parse a hashline edit script (SWAP/DEL/INS.PRE/INS.POST commands) into structured edits. */
 export function parseHashlineEdits(input: string): HashlineEdit[] {
@@ -48,52 +54,58 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 			continue;
 		}
 
-		const swapMatch = line.match(/^SWAP\s+(\d+)(?:\.=(\d+))?$/);
+		const swapMatch = line.match(/^SWAP\s+(\d+)(?::([0-9A-Fa-f]{4}))?(?:\.=(\d+)(?::([0-9A-Fa-f]{4}))?)?$/);
 		if (swapMatch) {
 			const start = Number(swapMatch[1]!);
-			const end = swapMatch[2] ? Number(swapMatch[2]) : start;
+			const startHash = swapMatch[2]?.toUpperCase();
+			const end = swapMatch[3] ? Number(swapMatch[3]) : start;
+			const endHash = swapMatch[4]?.toUpperCase() ?? (swapMatch[3] ? undefined : startHash);
 			const body: string[] = [];
 			i++;
 			while (i < lines.length && lines[i]!.startsWith("+")) {
 				body.push(lines[i]!.slice(1));
 				i++;
 			}
-			edits.push({ kind: "swap", startLine: start, endLine: end, body });
+			edits.push({ kind: "swap", startLine: start, endLine: end, body, startHash, endHash });
 			continue;
 		}
 
-		const delMatch = line.match(/^DEL\s+(\d+)(?:\.=(\d+))?$/);
+		const delMatch = line.match(/^DEL\s+(\d+)(?::([0-9A-Fa-f]{4}))?(?:\.=(\d+)(?::([0-9A-Fa-f]{4}))?)?$/);
 		if (delMatch) {
 			const start = Number(delMatch[1]!);
-			const end = delMatch[2] ? Number(delMatch[2]) : start;
-			edits.push({ kind: "del", startLine: start, endLine: end, body: [] });
+			const startHash = delMatch[2]?.toUpperCase();
+			const end = delMatch[3] ? Number(delMatch[3]) : start;
+			const endHash = delMatch[4]?.toUpperCase() ?? (delMatch[3] ? undefined : startHash);
+			edits.push({ kind: "del", startLine: start, endLine: end, body: [], startHash, endHash });
 			i++;
 			continue;
 		}
 
-		const insPreMatch = line.match(/^INS\.PRE\s+(\d+)$/);
+		const insPreMatch = line.match(/^INS\.PRE\s+(\d+)(?::([0-9A-Fa-f]{4}))?$/);
 		if (insPreMatch) {
 			const anchor = Number(insPreMatch[1]!);
+			const startHash = insPreMatch[2]?.toUpperCase();
 			const body: string[] = [];
 			i++;
 			while (i < lines.length && lines[i]!.startsWith("+")) {
 				body.push(lines[i]!.slice(1));
 				i++;
 			}
-			edits.push({ kind: "ins_pre", startLine: anchor, endLine: anchor, body });
+			edits.push({ kind: "ins_pre", startLine: anchor, endLine: anchor, body, startHash, endHash: startHash });
 			continue;
 		}
 
-		const insPostMatch = line.match(/^INS\.POST\s+(\d+)$/);
+		const insPostMatch = line.match(/^INS\.POST\s+(\d+)(?::([0-9A-Fa-f]{4}))?$/);
 		if (insPostMatch) {
 			const anchor = Number(insPostMatch[1]!);
+			const startHash = insPostMatch[2]?.toUpperCase();
 			const body: string[] = [];
 			i++;
 			while (i < lines.length && lines[i]!.startsWith("+")) {
 				body.push(lines[i]!.slice(1));
 				i++;
 			}
-			edits.push({ kind: "ins_post", startLine: anchor, endLine: anchor, body });
+			edits.push({ kind: "ins_post", startLine: anchor, endLine: anchor, body, startHash, endHash: startHash });
 			continue;
 		}
 
@@ -103,17 +115,41 @@ export function parseHashlineEdits(input: string): HashlineEdit[] {
 	return edits;
 }
 
+/**
+ *
+ */
+function verifyLineHashes(lines: string[], edit: HashlineEdit): string | undefined {
+	if (edit.startHash) {
+		const line = lines[edit.startLine - 1];
+		if (line === undefined) return undefined;
+		const actual = lineHash(line);
+		if (actual !== edit.startHash) {
+			return `Line ${edit.startLine} hash mismatch (expected ${edit.startHash}, got ${actual}). Re-read the file.`;
+		}
+	}
+	if (edit.endHash && edit.endLine !== edit.startLine) {
+		const line = lines[edit.endLine - 1];
+		if (line === undefined) return undefined;
+		const actual = lineHash(line);
+		if (actual !== edit.endHash) {
+			return `Line ${edit.endLine} hash mismatch (expected ${edit.endHash}, got ${actual}). Re-read the file.`;
+		}
+	}
+	return undefined;
+}
+
 /** Apply parsed hashline edits to file content, with optional staleness check via file hash. */
 export function applyHashlineEdits(
 	content: string,
 	edits: HashlineEdit[],
 	expectedFileHash?: string,
-): { result: string; error?: string } {
+): { result: string; error?: string; reason?: HashlineFailReason } {
 	if (expectedFileHash) {
 		const actual = fileHash(content);
 		if (actual !== expectedFileHash) {
 			return {
 				result: content,
+				reason: "stale",
 				error: `File changed since last read (expected hash ${expectedFileHash}, got ${actual}). Re-read the file first.`,
 			};
 		}
@@ -129,8 +165,14 @@ export function applyHashlineEdits(
 		if (start < 0 || end > lines.length) {
 			return {
 				result: content,
+				reason: "oob",
 				error: `Line range ${edit.startLine}-${edit.endLine} out of bounds (file has ${lines.length} lines)`,
 			};
+		}
+
+		const hashError = verifyLineHashes(lines, edit);
+		if (hashError) {
+			return { result: content, reason: "hash_mismatch", error: hashError };
 		}
 
 		switch (edit.kind) {
@@ -150,4 +192,10 @@ export function applyHashlineEdits(
 	}
 
 	return { result: lines.join("\n") };
+}
+
+/** Extract [#FILEHASH] from the first line of a hashline script or read header. */
+export function parseFileHashHeader(script: string): string | undefined {
+	const match = script.trimStart().match(/^\[#([0-9A-Fa-f]{8})\]/);
+	return match?.[1]?.toUpperCase();
 }

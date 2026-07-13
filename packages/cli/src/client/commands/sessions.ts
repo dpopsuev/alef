@@ -1,15 +1,30 @@
 const SESSION_PICKER_MAX_VISIBLE = 12;
-const SESSION_PREVIEW_LINES = 12;
+const SESSION_PREVIEW_TURNS_INITIAL = 10;
+const SESSION_PREVIEW_TURNS_STEP = 8;
+const SESSION_PREVIEW_TURNS_MAX = 64;
 
 /**
  * TUI session picker — vi-modal with preview pane, cwd/all scope, content search.
  */
 
+import type { DisplayBlock } from "@dpopsuev/alef-session/context";
 import type { SessionListEntry, SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 import type { SelectItem } from "@dpopsuev/alef-tui";
+import { renderDisplayBlocksToLines } from "@dpopsuev/alef-tui/views";
+import { getTheme } from "../theme.js";
 import { runPicker } from "./picker.js";
 
 type SessionScope = "current" | "all";
+
+/**
+ *
+ */
+interface PreviewCacheEntry {
+	turns: number;
+	blocks: DisplayBlock[];
+	exhausted: boolean;
+	loading: boolean;
+}
 
 /**
  *
@@ -74,7 +89,35 @@ export async function pickSession(
 	let entries = scope === "current" ? currentEntries : (allEntries ?? []);
 	let items = toItems(entries, scope);
 
-	const previewCache = new Map<string, string[]>();
+	const previewCache = new Map<string, PreviewCacheEntry>();
+	let requestRender: (() => void) | undefined;
+
+	const loadPreview = (sessionId: string, turns: number): void => {
+		if (!preview) return;
+		const existing = previewCache.get(sessionId);
+		if (existing?.loading) return;
+		if (existing && existing.turns >= turns) return;
+
+		previewCache.set(sessionId, {
+			turns,
+			blocks: existing?.blocks ?? [],
+			exhausted: existing?.exhausted ?? false,
+			loading: true,
+		});
+
+		void preview.getSessionPreview(sessionId, turns).then((blocks) => {
+			const prev = previewCache.get(sessionId);
+			const exhausted =
+				(prev?.blocks.length ?? 0) > 0 && blocks.length <= (prev?.blocks.length ?? 0) && turns > (prev?.turns ?? 0);
+			previewCache.set(sessionId, {
+				turns,
+				blocks,
+				exhausted: exhausted || turns >= SESSION_PREVIEW_TURNS_MAX,
+				loading: false,
+			});
+			requestRender?.();
+		});
+	};
 
 	const result = await runPicker({
 		title: "Sessions",
@@ -94,17 +137,25 @@ export async function pickSession(
 			previewCache.clear();
 			return items;
 		},
-		previewFn: (item, requestRender) => {
+		onPreviewNeedMore: (item) => {
+			if (item.value === "__new__" || !preview) return;
+			const cached = previewCache.get(item.value);
+			if (!cached || cached.loading || cached.exhausted) return;
+			const nextTurns = Math.min(cached.turns + SESSION_PREVIEW_TURNS_STEP, SESSION_PREVIEW_TURNS_MAX);
+			if (nextTurns <= cached.turns) return;
+			loadPreview(item.value, nextTurns);
+		},
+		previewFn: (item, previewWidth, render) => {
+			requestRender = render;
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
 			if (!preview) return ["  (preview unavailable)"];
 
 			const cached = previewCache.get(item.value);
-			if (cached) return cached;
+			if (cached && cached.blocks.length > 0) {
+				return renderDisplayBlocksToLines(cached.blocks, previewWidth, getTheme());
+			}
 
-			void preview.getSessionPreview(item.value, SESSION_PREVIEW_LINES).then((lines) => {
-				previewCache.set(item.value, lines.length > 0 ? lines : ["  (empty session)"]);
-				requestRender?.();
-			});
+			loadPreview(item.value, SESSION_PREVIEW_TURNS_INITIAL);
 			return ["  Loading..."];
 		},
 	});

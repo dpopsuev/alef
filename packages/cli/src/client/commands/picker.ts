@@ -11,14 +11,14 @@ import {
 	Text,
 	TUI,
 } from "@dpopsuev/alef-tui";
-import { bold, color, getTheme } from "../theme.js";
+import { color, getTheme, selectListThemeFromTokens } from "../theme.js";
 
 /** Configuration for a standalone vi-modal picker with preview pane. */
 export interface PickerOptions {
 	title: string;
 	items: SelectItem[];
 	maxVisible?: number;
-	previewFn: (item: SelectItem | undefined, requestRender?: () => void) => string[];
+	previewFn: (item: SelectItem | undefined, previewWidth: number, requestRender?: () => void) => string[];
 	allowFilter?: boolean;
 	listWidthFraction?: number;
 	terminal?: Terminal;
@@ -26,6 +26,8 @@ export interface PickerOptions {
 	statusLine?: () => string;
 	/** Tab in normal mode — e.g. toggle cwd/all scope. Return new items. */
 	onToggleScope?: () => SelectItem[] | Promise<SelectItem[]>;
+	/** Preview pane hit the top while scrolling — load older history. */
+	onPreviewNeedMore?: (item: SelectItem) => void;
 }
 
 /** Route raw key input to the preview list, search input, or close action. */
@@ -72,21 +74,16 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 
 	const t = getTheme();
 
-	const listTheme = {
-		selectedPrefix: (s: string) => color(s, t.accentFg),
-		selectedText: (s: string) => bold(s),
-		description: (s: string) => color(s, t.mutedFg),
-		scrollInfo: (s: string) => color(s, t.mutedFg),
-		noMatch: (s: string) => color(s, t.mutedFg),
-	};
+	const listTheme = selectListThemeFromTokens(t, "accent-bold-text");
 
 	return new Promise<SelectItem | undefined>((resolve) => {
 		const terminal = opts.terminal ?? new ProcessTerminal();
 		const tui = new TUI(terminal);
 
 		const scopeHint = opts.onToggleScope ? "  Tab scope" : "";
-		const normalHint = `  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}${scopeHint}  Enter select  Esc cancel`;
+		const normalHint = `  NORMAL  j/k navigate  h/l preview  z read${opts.allowFilter ? "  i filter" : ""}${scopeHint}  Enter select  Esc cancel`;
 		const insertHint = "  INSERT  type to filter  Esc → normal";
+		const readingHint = "  READ-ONLY  j/k scroll  g/G top/end  z/Esc back  (Enter disabled)";
 
 		const modeLabel = new Text(color(normalHint, t.mutedFg), 0, 0);
 		const statusLabel = new Text(color(opts.statusLine?.() ?? "", t.mutedFg), 0, 0);
@@ -101,12 +98,18 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 			maxVisible: opts.maxVisible ?? PICKER_MAX_VISIBLE,
 			theme: listTheme,
 			listWidthFraction: opts.listWidthFraction,
+			pinPreviewToEnd: true,
 			onModeChange: (mode) => {
+				if (previewList.isReading) return;
 				modeLabel.setText(
 					color(mode === "insert" ? insertHint : normalHint, mode === "insert" ? t.accentFg : t.mutedFg),
 				);
 			},
-			previewFn: (item) => opts.previewFn(item, () => tui.requestRender()),
+			onReadingChange: (reading) => {
+				modeLabel.setText(color(reading ? readingHint : normalHint, reading ? t.accentFg : t.mutedFg));
+			},
+			previewFn: (item, previewWidth) => opts.previewFn(item, previewWidth, () => tui.requestRender()),
+			onPreviewNeedMore: opts.onPreviewNeedMore,
 		});
 
 		const refreshStatus = () => {
@@ -119,6 +122,7 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		};
 
 		previewList.onSelect = (item) => {
+			if (previewList.isReading) return;
 			tui.stop();
 			resolve(item);
 		};
@@ -127,6 +131,16 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
+			const kb = getKeybindings();
+			if (
+				previewList.isReading &&
+				(matchesKey(data, "escape") || kb.matches(data, "tui.select.cancel") || kb.matches(data, "app.quit"))
+			) {
+				previewList.exitReading();
+				tui.requestRender();
+				return true;
+			}
+
 			handlePickerInput(data, previewList, searchInput, close, opts.onToggleScope, () => {
 				refreshStatus();
 				tui.requestRender();

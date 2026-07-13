@@ -18,10 +18,19 @@ export interface PreviewSelectListOptions {
 	maxVisible: number;
 	theme: SelectListTheme;
 	layout?: SelectListLayoutOptions;
-	previewFn: (item: SelectItem | undefined) => string[];
+	/** Width-aware preview so ChatLog hosting can wrap like the live session. */
+	previewFn: (item: SelectItem | undefined, previewWidth: number) => string[];
 	listWidthFraction?: number;
 	borderChar?: string;
 	onModeChange?: (mode: PickerMode) => void;
+	/** Pin first paint of a selection to the bottom (most recent). Default true. */
+	pinPreviewToEnd?: boolean;
+	/** Fired when preview-focused scroll hits the top — load older history. */
+	onPreviewNeedMore?: (item: SelectItem) => void;
+	/** Fired when read-only reading mode is entered or left (z). */
+	onReadingChange?: (reading: boolean) => void;
+	/** Visible height when in read-only reading mode. Default: max(24, maxVisible * 2). */
+	readingMaxVisible?: number;
 }
 
 /**
@@ -37,36 +46,58 @@ function padLine(line: string, targetWidth: number): string {
  */
 export class PreviewSelectList implements Component {
 	readonly list: SelectList;
-	private previewFn: (item: SelectItem | undefined) => string[];
+	private previewFn: (item: SelectItem | undefined, previewWidth: number) => string[];
 	private listWidthFraction: number;
 	private borderChar: string;
 	private currentPreview: string[] = [];
 	private previewFocused = false;
-	private previewScrollOffset = 0;
+	private reading = false;
+	private _previewScrollOffset = 0;
 	private _selectedItem: SelectItem | undefined;
 	private vi: ViModal;
+	private lastPreviewWidth = 0;
+	private lastVisiblePreviewHeight = 6;
+	private pinPreviewToEnd: boolean;
+	private shouldPinToEnd = false;
+	private onPreviewNeedMore?: (item: SelectItem) => void;
+	private onReadingChange?: (reading: boolean) => void;
+	private readingMaxVisible: number;
 
 	constructor(opts: PreviewSelectListOptions) {
 		this.list = new SelectList(opts.items, opts.maxVisible, opts.theme, opts.layout);
 		this.previewFn = opts.previewFn;
 		this.listWidthFraction = opts.listWidthFraction ?? 0.4;
 		this.borderChar = opts.borderChar ?? "│";
+		this.pinPreviewToEnd = opts.pinPreviewToEnd ?? true;
+		this.onPreviewNeedMore = opts.onPreviewNeedMore;
+		this.onReadingChange = opts.onReadingChange;
+		this.readingMaxVisible = opts.readingMaxVisible ?? Math.max(24, opts.maxVisible * 2);
 		this.vi = new ViModal({ onModeChange: opts.onModeChange });
 
 		this.list.onSelectionChange = (item) => {
 			this._selectedItem = item;
-			this.currentPreview = this.previewFn(item);
-			this.previewScrollOffset = 0;
+			this.shouldPinToEnd = this.pinPreviewToEnd;
+			this._previewScrollOffset = 0;
+			if (this.reading && item.value === "__new__") this.setReading(false);
+			this.refreshPreview(this.lastPreviewWidth);
 		};
 
 		if (opts.items.length > 0) {
 			this._selectedItem = opts.items[0];
-			this.currentPreview = this.previewFn(opts.items[0]);
+			this.shouldPinToEnd = this.pinPreviewToEnd;
 		}
 	}
 
 	get mode(): PickerMode {
 		return this.vi.mode;
+	}
+
+	get isReading(): boolean {
+		return this.reading;
+	}
+
+	get previewScrollOffset(): number {
+		return this._previewScrollOffset;
 	}
 
 	set onSelect(fn: ((item: SelectItem) => void) | undefined) {
@@ -85,23 +116,45 @@ export class PreviewSelectList implements Component {
 		this.list.setItems(items);
 		if (items.length > 0) {
 			this._selectedItem = items[0];
-			this.currentPreview = this.previewFn(items[0]);
+			this.shouldPinToEnd = this.pinPreviewToEnd;
 		} else {
 			this._selectedItem = undefined;
 			this.currentPreview = [];
 		}
-		this.previewScrollOffset = 0;
+		this._previewScrollOffset = 0;
+		if (this.reading) this.setReading(false);
+		this.refreshPreview(this.lastPreviewWidth);
+	}
+
+	/** Leave read-only reading mode. Returns true if it was active. */
+	exitReading(): boolean {
+		if (!this.reading) return false;
+		this.setReading(false);
+		return true;
 	}
 
 	handleInput(data: string): boolean {
 		const viResult = this.vi.handleKey(data);
 		if (viResult === "mode-change") {
-			if (this.vi.isNormal()) this.previewFocused = false;
+			if (this.vi.isNormal()) {
+				this.previewFocused = false;
+				if (this.reading) this.setReading(false);
+			}
 			return true;
 		}
 
 		if (this.vi.isInsert()) {
 			return false;
+		}
+
+		if (data === "z") {
+			if (!this._selectedItem || this._selectedItem.value === "__new__") return true;
+			this.setReading(!this.reading);
+			return true;
+		}
+
+		if (this.reading) {
+			return this.handleReadingInput(data);
 		}
 
 		if (data === "l") {
@@ -114,26 +167,7 @@ export class PreviewSelectList implements Component {
 		}
 
 		if (this.previewFocused) {
-			if (matchesKey(data, "down") || matchesKey(data, "j")) {
-				this.previewScrollOffset = Math.min(
-					this.previewScrollOffset + 1,
-					Math.max(0, this.currentPreview.length - 1),
-				);
-				return true;
-			}
-			if (matchesKey(data, "up") || matchesKey(data, "k")) {
-				this.previewScrollOffset = Math.max(0, this.previewScrollOffset - 1);
-				return true;
-			}
-			if (matchesKey(data, "g")) {
-				this.previewScrollOffset = 0;
-				return true;
-			}
-			if (matchesKey(data, "shift+g")) {
-				this.previewScrollOffset = Math.max(0, this.currentPreview.length - 6);
-				return true;
-			}
-			return true;
+			return this.handlePreviewScroll(data);
 		}
 
 		if (matchesKey(data, "down") || matchesKey(data, "j")) {
@@ -155,27 +189,39 @@ export class PreviewSelectList implements Component {
 	invalidate(): void {
 		this.list.invalidate();
 		this.currentPreview = [];
-		this.previewScrollOffset = 0;
+		this._previewScrollOffset = 0;
 	}
 
 	render(width: number): string[] {
-		if (width < 60) {
-			return this.list.render(width);
+		if (this.reading) {
+			return this.renderReading(width);
 		}
 
-		if (this._selectedItem !== undefined) {
-			this.currentPreview = this.previewFn(this._selectedItem);
+		if (width < 60) {
+			return this.list.render(width);
 		}
 
 		const listWidth = Math.max(20, Math.floor(width * this.listWidthFraction));
 		const borderWidth = 1;
 		const previewWidth = Math.max(10, width - listWidth - borderWidth - 1);
+		this.lastPreviewWidth = previewWidth;
+
+		if (this._selectedItem !== undefined) {
+			this.refreshPreview(Math.max(1, previewWidth - 1));
+		}
 
 		const leftLines = this.list.render(listWidth);
 		const visiblePreviewHeight = Math.max(leftLines.length, 6);
+		this.lastVisiblePreviewHeight = visiblePreviewHeight;
+
+		if (this.shouldPinToEnd && this.currentPreview.length > 0) {
+			this._previewScrollOffset = Math.max(0, this.currentPreview.length - visiblePreviewHeight);
+			this.shouldPinToEnd = false;
+		}
+
 		const scrolled = this.currentPreview.slice(
-			this.previewScrollOffset,
-			this.previewScrollOffset + visiblePreviewHeight,
+			this._previewScrollOffset,
+			this._previewScrollOffset + visiblePreviewHeight,
 		);
 		const rightLines = scrolled.map((l) => truncateToWidth(` ${l}`, previewWidth, "…"));
 
@@ -190,10 +236,116 @@ export class PreviewSelectList implements Component {
 		}
 
 		if (this.currentPreview.length > visiblePreviewHeight) {
-			const indicator = `${this.previewScrollOffset + 1}-${Math.min(this.previewScrollOffset + visiblePreviewHeight, this.currentPreview.length)}/${this.currentPreview.length}`;
+			const indicator = `${this._previewScrollOffset + 1}-${Math.min(this._previewScrollOffset + visiblePreviewHeight, this.currentPreview.length)}/${this.currentPreview.length}`;
 			merged.push(`${padLine("", listWidth)}${border} ${indicator}`);
 		}
 
 		return merged;
+	}
+
+	private setReading(next: boolean): void {
+		if (this.reading === next) return;
+		this.reading = next;
+		if (next) {
+			this.previewFocused = true;
+			this.shouldPinToEnd = this.pinPreviewToEnd;
+		} else {
+			this.previewFocused = false;
+		}
+		this.onReadingChange?.(next);
+	}
+
+	private handleReadingInput(data: string): boolean {
+		// Read-only: never select / resume. Esc / z / h leave reading mode.
+		if (matchesKey(data, "escape") || data === "z" || data === "h") {
+			this.setReading(false);
+			return true;
+		}
+		if (matchesKey(data, "enter")) {
+			return true;
+		}
+		return this.handlePreviewScroll(data);
+	}
+
+	private handlePreviewScroll(data: string): boolean {
+		if (matchesKey(data, "down") || matchesKey(data, "j")) {
+			this._previewScrollOffset = Math.min(
+				this._previewScrollOffset + 1,
+				Math.max(0, this.currentPreview.length - 1),
+			);
+			return true;
+		}
+		if (matchesKey(data, "up") || matchesKey(data, "k")) {
+			if (this._previewScrollOffset <= 0) {
+				this.requestMoreHistory();
+			} else {
+				this._previewScrollOffset = Math.max(0, this._previewScrollOffset - 1);
+				if (this._previewScrollOffset <= 1) this.requestMoreHistory();
+			}
+			return true;
+		}
+		if (matchesKey(data, "g")) {
+			this._previewScrollOffset = 0;
+			this.requestMoreHistory();
+			return true;
+		}
+		if (matchesKey(data, "shift+g")) {
+			this._previewScrollOffset = Math.max(0, this.currentPreview.length - this.lastVisiblePreviewHeight);
+			return true;
+		}
+		return true;
+	}
+
+	private renderReading(width: number): string[] {
+		const previewWidth = Math.max(1, width);
+		this.lastPreviewWidth = previewWidth;
+		this.refreshPreview(previewWidth);
+
+		const visiblePreviewHeight = this.readingMaxVisible;
+		this.lastVisiblePreviewHeight = visiblePreviewHeight;
+
+		if (this.shouldPinToEnd && this.currentPreview.length > 0) {
+			this._previewScrollOffset = Math.max(0, this.currentPreview.length - visiblePreviewHeight);
+			this.shouldPinToEnd = false;
+		}
+
+		const header = truncateToWidth(
+			` READ-ONLY  ${this._selectedItem?.label ?? ""}  j/k scroll  g/G  z/Esc back`,
+			previewWidth,
+			"…",
+		);
+		const scrolled = this.currentPreview.slice(
+			this._previewScrollOffset,
+			this._previewScrollOffset + visiblePreviewHeight,
+		);
+		const body = scrolled.map((l) => truncateToWidth(l, previewWidth, "…"));
+		const lines = [header, ...body];
+
+		if (this.currentPreview.length > visiblePreviewHeight) {
+			const indicator = `${this._previewScrollOffset + 1}-${Math.min(this._previewScrollOffset + visiblePreviewHeight, this.currentPreview.length)}/${this.currentPreview.length}`;
+			lines.push(truncateToWidth(indicator, previewWidth, "…"));
+		}
+
+		return lines;
+	}
+
+	private requestMoreHistory(): void {
+		if (!this._selectedItem || !this.onPreviewNeedMore) return;
+		this.onPreviewNeedMore(this._selectedItem);
+	}
+
+	private refreshPreview(previewWidth: number): void {
+		if (previewWidth <= 0) {
+			this.currentPreview = [];
+			return;
+		}
+		const previousLength = this.currentPreview.length;
+		const previousOffset = this._previewScrollOffset;
+		this.currentPreview = this.previewFn(this._selectedItem, previewWidth);
+		const delta = this.currentPreview.length - previousLength;
+		// Expanding older history prepends lines — keep the same viewport.
+		if (!this.shouldPinToEnd && delta > 0 && previousLength > 0) {
+			this._previewScrollOffset = previousOffset + delta;
+		}
 	}
 }

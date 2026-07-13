@@ -45,6 +45,12 @@ export { Loader, type LoaderIndicatorOptions } from "./components/loader.js";
 export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./components/markdown.js";
 export { Menu, type MenuItem, type MenuOptions, type MenuTheme } from "./components/menu.js";
 export { type NotificationEntry, type NotificationOptions, NotificationQueue } from "./components/notification.js";
+export {
+	type PendingQueueEntry,
+	type PendingQueueOptions,
+	PendingQueuePanel,
+	type PendingQueueTheme,
+} from "./components/pending-queue.js";
 // Components
 export { Pad } from "./components/pad.js";
 export { Picker, type PickerItem, type PickerOptions, type PickerTheme } from "./components/picker.js";

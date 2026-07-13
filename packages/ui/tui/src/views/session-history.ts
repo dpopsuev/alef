@@ -7,15 +7,15 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import {
 	type DisplayBlock,
+	eventWindowForTurns,
 	loadPlanPreview,
 	projectSessionRecords,
+	selectTranscriptBlocks,
 	type SessionRecordProjection,
 } from "@dpopsuev/alef-session/context";
 import type { ChatLog } from "./chat-log.js";
 
 const DEFAULT_MAX_TURNS = 5;
-const EVENTS_PER_TURN_ESTIMATE = 8;
-const MIN_EVENT_WINDOW = 40;
 
 /**
  *
@@ -64,7 +64,7 @@ export async function prependSessionHistory(
 ): Promise<void> {
 	const maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;
 	const events = await store.events();
-	const windowSize = Math.max(maxTurns * EVENTS_PER_TURN_ESTIMATE, MIN_EVENT_WINDOW);
+	const windowSize = eventWindowForTurns(maxTurns);
 	const recent = events.slice(-windowSize);
 	const records: SessionRecordProjection[] = recent.map((event) => ({
 		bus: event.bus,
@@ -76,29 +76,13 @@ export async function prependSessionHistory(
 	const blocks = projectSessionRecords(records, plan ? { plan } : undefined);
 	if (blocks.length === 0) return;
 
-	const dialogBlocks = blocks.filter((block) => block.kind === "user" || block.kind === "assistant");
-	const userCount = dialogBlocks.filter((block) => block.kind === "user").length;
+	const userCount = blocks.filter((block) => block.kind === "user").length;
 	const turnCount = Math.min(maxTurns, Math.max(1, userCount));
-
-	const planBlocks = blocks.filter((block) => block.kind === "plan" || block.kind === "state");
-	const transcript = blocks.filter((block) => block.kind !== "plan" && block.kind !== "state");
-
-	// Keep last N user turns worth of transcript (tools between them included).
-	let usersSeen = 0;
-	const kept: DisplayBlock[] = [];
-	for (let i = transcript.length - 1; i >= 0; i--) {
-		const block = transcript[i]!;
-		kept.push(block);
-		if (block.kind === "user") {
-			usersSeen++;
-			if (usersSeen >= turnCount) break;
-		}
-	}
-	kept.reverse();
+	const kept = selectTranscriptBlocks(blocks, turnCount);
 
 	const totalBefore = writer.container.children.length;
 	writer.addNotice(`Resumed — ${turnCount} prior turn${turnCount === 1 ? "" : "s"} loaded`);
-	appendDisplayBlocks(writer, [...planBlocks, ...kept]);
+	appendDisplayBlocks(writer, kept);
 
 	const newChildren = writer.container.children.splice(totalBefore);
 	for (let i = newChildren.length - 1; i >= 0; i--) {

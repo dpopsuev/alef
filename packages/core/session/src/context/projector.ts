@@ -163,7 +163,38 @@ function blockToLines(block: DisplayBlock): string[] {
 }
 
 /**
- *
+ * Keep plan/state blocks plus the last `maxTurns` user turns (tools between them included).
+ * Shared by session resume and picker preview so both hosts see the same slice.
+ */
+export function selectTranscriptBlocks(blocks: readonly DisplayBlock[], maxTurns: number): DisplayBlock[] {
+	const turnCount = Math.max(1, maxTurns);
+	const planBlocks = blocks.filter((block) => block.kind === "plan" || block.kind === "state");
+	const transcript = blocks.filter((block) => block.kind !== "plan" && block.kind !== "state");
+
+	let usersSeen = 0;
+	const kept: DisplayBlock[] = [];
+	for (let i = transcript.length - 1; i >= 0; i--) {
+		const block = transcript[i]!;
+		kept.push(block);
+		if (block.kind === "user") {
+			usersSeen++;
+			if (usersSeen >= turnCount) break;
+		}
+	}
+	kept.reverse();
+	return [...planBlocks, ...kept];
+}
+
+const EVENTS_PER_TURN_ESTIMATE = 8;
+const MIN_EVENT_WINDOW = 40;
+
+/** Event-fetch window size for turn-bounded transcript projection (resume + preview). */
+export function eventWindowForTurns(turns: number): number {
+	return Math.max(Math.max(1, turns) * EVENTS_PER_TURN_ESTIMATE, MIN_EVENT_WINDOW);
+}
+
+/**
+ * Plain-text host of display blocks (tests / non-TUI). Prefer ChatLog hosting for UI.
  */
 export function formatPreviewLines(blocks: readonly DisplayBlock[], maxLines: number): string[] {
 	const planBlocks = blocks.filter((block): block is Extract<DisplayBlock, { kind: "plan" }> => block.kind === "plan");

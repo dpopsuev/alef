@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 import type { SessionNameSource } from "@dpopsuev/alef-session/storage";
-import { formatPreviewLines, loadPlanPreview, projectSessionRecords } from "@dpopsuev/alef-session/context";
+import { loadPlanPreview, projectSessionRecords, selectTranscriptBlocks, eventWindowForTurns } from "@dpopsuev/alef-session/context";
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
@@ -47,20 +47,20 @@ export class SqliteStorageFactory implements StorageFactory {
 				});
 				return parseNameSource(r.rows[0]?.name_source);
 			},
-			getSessionPreview: async (sessionId, maxLines) => {
+			getSessionPreview: async (sessionId, maxTurns) => {
 				const meta = await this.client.execute({
 					sql: "SELECT cwd FROM sessions WHERE id = ?",
 					args: [sessionId],
 				});
 				const cwd = typeof meta.rows[0]?.cwd === "string" ? meta.rows[0].cwd : undefined;
 				const plan = await loadPlanPreview(cwd);
+				const turns = Math.max(1, maxTurns);
 
 				const r = await this.client.execute({
 					sql: `SELECT bus, type, payload FROM events
 						WHERE session_id = ? AND bus IN ('event', 'command', 'notification')
 						ORDER BY rowid DESC LIMIT ?`,
-					// eslint-disable-next-line no-magic-numbers
-					args: [sessionId, Math.max(maxLines * 4, 40)],
+					args: [sessionId, eventWindowForTurns(turns)],
 				});
 				const records = [...r.rows].reverse().map((row) => {
 					const bus = typeof row.bus === "string" ? row.bus : "";
@@ -71,8 +71,7 @@ export class SqliteStorageFactory implements StorageFactory {
 					return { bus, type, payload };
 				});
 				const blocks = projectSessionRecords(records, plan ? { plan } : undefined);
-				const lines = formatPreviewLines(blocks, maxLines);
-				return lines.length > 0 ? lines : ["  (empty session)"];
+				return selectTranscriptBlocks(blocks, turns);
 			},
 		};
 	}

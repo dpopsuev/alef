@@ -162,7 +162,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		const plan = focused();
 		if (!plan || plan.phase === "closed") return {};
-		return { messages: injectContextBlock(input.messages, plan.renderSummary()) };
+		return { messages: injectContextBlock(input.messages, plan.renderSummary(), { source: "plan" }) };
 	};
 
 	 

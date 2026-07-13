@@ -109,7 +109,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		}
 
 		if (blocks.length === 0) return {};
-		return { messages: injectContextBlock(input.messages, blocks.join("\n\n")) };
+		return { messages: injectContextBlock(input.messages, blocks.join("\n\n"), { source: "discourse" }) };
 	};
 
 	/**

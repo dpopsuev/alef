@@ -19,6 +19,7 @@ const CHANNEL_REGISTRY: ReadonlyMap<string, ChannelName> = new Map<string, Chann
 	["llm.message-queued", "notification"],
 	["context.compact.request", "notification"],
 	["context.compacted", "notification"],
+	["context.injection", "notification"],
 	["context.overflow-recovery", "notification"],
 	["session.metadata.refresh", "notification"],
 	["plan.opened", "notification"],

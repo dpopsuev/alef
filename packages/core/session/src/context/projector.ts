@@ -99,6 +99,14 @@ function projectRecord(record: SessionRecordProjection): DisplayBlock | undefine
 		return text ? { kind: "assistant", text } : undefined;
 	}
 
+	if (type === "context.injection") {
+		const source = typeof payload.source === "string" && payload.source ? payload.source : "context";
+		const chars = typeof payload.chars === "number" ? payload.chars : 0;
+		const preview = typeof payload.preview === "string" ? collapseWhitespace(payload.preview) : "";
+		const text = preview ? `${source} (+${chars}) ${preview}` : `${source} (+${chars})`;
+		return { kind: "state", label: "context", text };
+	}
+
 	if (bus === "command" && !type.startsWith("llm.") && !type.startsWith("context.")) {
 		const summary = firstStringField(payload);
 		return summary ? { kind: "tool", name: type, summary } : { kind: "tool", name: type };

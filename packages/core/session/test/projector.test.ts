@@ -69,6 +69,19 @@ describe("projectSessionRecords", { tags: ["unit"] }, () => {
 
 		expect(blocks[0]).toEqual({ kind: "user", text: "hello world" });
 	});
+
+	it("projects context.injection as state/context", () => {
+		const blocks = projectSessionRecords([
+			rec("notification", "context.injection", {
+				source: "plan",
+				chars: 42,
+				preview: "Plan: ship projector",
+			}),
+		]);
+		expect(blocks).toEqual([
+			{ kind: "state", label: "context", text: "plan (+42) Plan: ship projector" },
+		]);
+	});
 });
 
 describe("selectTranscriptBlocks", { tags: ["unit"] }, () => {

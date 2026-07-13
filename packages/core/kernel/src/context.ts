@@ -2,6 +2,15 @@ import type { Adapter, ToolDefinition } from "./adapter/interface.js";
 import type { ContextAssemblyContributions, ContextAssemblyHandler } from "./adapter/contributions.js";
 import type { Bus, CommandMessage, EventMessage } from "./bus/messages.js";
 
+/** Metadata describing a context.assemble injection for telemetry and :context. */
+export interface ContextInjectionMeta {
+	source: string;
+	chars: number;
+	preview: string;
+}
+
+const PREVIEW_CHARS = 160;
+
 /** Build the context assembly adapter that pipelines ContextAssemblyHandler stages before each LLM call. */
 export function createContextAssembler(): Adapter & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
@@ -61,7 +70,8 @@ export function createContextAssembler(): Adapter & {
 					let messages: readonly unknown[] = payload.messages;
 					let tools: ToolDefinition[] = payload.tools ?? [];
 
-					for (const stage of stages.values()) {
+					for (const [stageName, stage] of stages.entries()) {
+						const before = messages;
 						const out = await stage({ messages, tools, turn: payload.turn });
 						if (out.abort) {
 							bus.event.publish({
@@ -72,7 +82,17 @@ export function createContextAssembler(): Adapter & {
 							});
 							return;
 						}
-						if (out.messages) messages = out.messages;
+						if (out.messages) {
+							messages = out.messages;
+							const injection = describeMessageDelta(before, messages, stageName);
+							if (injection.chars > 0) {
+								bus.notification.publish({
+									type: "context.injection",
+									correlationId: event.correlationId,
+									payload: { ...injection },
+								});
+							}
+						}
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- context assembly stage output tools are ToolDefinition[]
 						if (out.tools) tools = out.tools as ToolDefinition[];
 						if (out.skip) {
@@ -105,12 +125,61 @@ export function createContextAssembler(): Adapter & {
 }
 type RawMsg = { role?: string; content?: unknown };
 
+/** Serialize a message content field for injection sizing/preview. */
+function messageContentText(message: unknown): string {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- message array element shape check
+	const content = (message as RawMsg).content;
+	if (typeof content === "string") return content;
+	if (content === undefined) return "";
+	return JSON.stringify(content);
+}
+
+/** Diff before/after message lists into attributable injection metadata. */
+export function describeMessageDelta(
+	before: readonly unknown[],
+	after: readonly unknown[],
+	source: string,
+): ContextInjectionMeta {
+	const beforeRefs = new Set(before);
+	const added: string[] = [];
+	for (const message of after) {
+		if (!beforeRefs.has(message)) {
+			added.push(messageContentText(message));
+		}
+	}
+	if (added.length > 0) {
+		const text = added.join("\n");
+		return {
+			source,
+			chars: text.length,
+			preview: text.slice(0, PREVIEW_CHARS).replace(/\s+/g, " ").trim(),
+		};
+	}
+	const beforeText = before.map(messageContentText).join("\n");
+	const afterText = after.map(messageContentText).join("\n");
+	if (afterText === beforeText) {
+		return { source, chars: 0, preview: "" };
+	}
+	const chars = Math.max(0, afterText.length - beforeText.length) || afterText.length;
+	const previewStart = Math.min(beforeText.length, afterText.length);
+	return {
+		source,
+		chars,
+		preview: afterText.slice(previewStart, previewStart + PREVIEW_CHARS).replace(/\s+/g, " ").trim() ||
+			afterText.slice(0, PREVIEW_CHARS).replace(/\s+/g, " ").trim(),
+	};
+}
+
 /**
  * Inject a text block into the message array after the system message.
  * Used by adapters that contribute context via context.assemble (memory, scribe, board).
- * DRY: replaces duplicated splice logic across three adapters.
+ * Pass meta.source for caller attribution; the assembler publishes stage name on context.injection.
  */
-export function injectContextBlock(messages: readonly unknown[], block: string): unknown[] {
+export function injectContextBlock(
+	messages: readonly unknown[],
+	block: string,
+	_meta?: { source: string },
+): unknown[] {
 	const result = [...messages];
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- message array element shape check
 	const systemIdx = result.findIndex((m) => (m as RawMsg).role === "system");

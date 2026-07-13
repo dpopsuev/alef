@@ -11,11 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { createDiscourseAdapter } from "@dpopsuev/alef-tool-discourse";
-import { createPlanAdapter } from "@dpopsuev/alef-tool-plan";
+import { createPlanAdapter, PlanStore } from "@dpopsuev/alef-tool-plan";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {
 	let dir: string;
+	let plansRoot: string;
 	let bus: InProcessBus;
 	const unmounts: Array<() => void> = [];
 
@@ -38,6 +39,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	beforeEach(() => {
 		dir = mkdtempSync(join(tmpdir(), "alef-multi-agent-test-"));
+		plansRoot = join(dir, ".plans");
 		bus = new InProcessBus();
 	});
 
@@ -47,111 +49,93 @@ describe("multi-agent plan + board coordination", () => {
 	});
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
-		const planAdapter = createPlanAdapter({ cwd: dir });
+		const planAdapter = createPlanAdapter({ cwd: dir, plansRoot });
 		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
 		unmounts.push(planAdapter.mount(bus.asBus()));
 		unmounts.push(boardAdapter.mount(bus.asBus()));
 
-		// 1. Create a plan
-		const beginResult = await call("plan.begin", { intention: "fix error handling gaps" });
-		expect(beginResult.payload).toHaveProperty("id");
-
-		// 2. Set state
-		await call("plan.state", {
+		const openResult = await call("plan.open", {
 			current: "3 untyped catch blocks",
 			desired: "all catch blocks use proper narrowing",
-			delta: "fix 3 catch blocks",
+			verify: "zero untyped catch blocks remain",
 		});
+		expect(openResult.payload).toHaveProperty("id");
 
-		// 3. Fix end state
-		await call("plan.fix", { endState: "zero untyped catch blocks" });
-
-		// 4. Expand plan with 3 nodes
-		const expandResult = await call("plan.expand", {
-			nodes: [
+		const stepsResult = await call("plan.steps", {
+			steps: [
 				{ label: "fix catch in tool-dispatch" },
-				{ label: "fix catch in turn-loop" },
-				{ label: "fix catch in stream-turn" },
+				{ label: "fix catch in turn-loop path" },
+				{ label: "fix catch in stream-turn path" },
 			],
 		});
-		const nodeIds = (expandResult.payload as { ids: string[] }).ids;
-		expect(nodeIds).toHaveLength(3);
+		const stepIds = (stepsResult.payload as { ids?: string[] }).ids;
+		expect(stepIds).toHaveLength(3);
 
-		// 5. Simulate 3 agents posting findings to the board
-		await call("forum.post", {
+		await call("discourse.post", {
 			topic: "qa",
 			thread: "tool-dispatch",
 			content: "Found untyped catch at line 128. Needs instanceof Error narrowing.",
 			author: "@jade",
 		});
 
-		await call("forum.post", {
+		await call("discourse.post", {
 			topic: "qa",
 			thread: "turn-loop",
 			content: "Catch at line 115 uses String(e) — loses stack trace.",
 			author: "@coral",
 		});
 
-		await call("forum.post", {
+		await call("discourse.post", {
 			topic: "qa",
 			thread: "stream-turn",
 			content: "Catch at line 42 is empty — swallows errors silently.",
 			author: "@onyx",
 		});
 
-		// 6. Parent reads the board
-		const boardResult = await call("forum.read", { topic: "qa", thread: "tool-dispatch" });
+		const boardResult = await call("discourse.read", { topic: "qa", thread: "tool-dispatch" });
 		const posts = (boardResult.payload as { posts: unknown[] }).posts;
 		expect(posts).toHaveLength(1);
 
-		// 7. List all topics
-		const listResult = await call("forum.list", {});
+		const listResult = await call("discourse.list", {});
 		const topics = (listResult.payload as { topics: Array<{ topic: string }> }).topics;
 		expect(topics.some((t) => t.topic === "qa")).toBe(true);
 
-		// 8. Checkpoint and complete plan nodes
-		await call("plan.checkpoint", { nodeId: nodeIds[0] });
-		await call("plan.complete", { nodeId: nodeIds[0] });
-		await call("plan.checkpoint", { nodeId: nodeIds[1] });
-		await call("plan.complete", { nodeId: nodeIds[1] });
-		await call("plan.checkpoint", { nodeId: nodeIds[2] });
-		await call("plan.complete", { nodeId: nodeIds[2] });
+		for (const stepId of stepIds!) {
+			await call("plan.advance", { stepId, action: "start" });
+			await call("plan.advance", { stepId, action: "done", result: "narrowed catch" });
+		}
 
-		// 9. Show plan — all nodes should be done
 		const showResult = await call("plan.show", {});
-		const planData = showResult.payload as { nodes: Array<{ status: string }> };
-		expect(planData.nodes.every((n) => n.status === "done")).toBe(true);
+		const planData = showResult.payload as { steps: Array<{ status: string }> };
+		expect(planData.steps.every((step) => step.status === "done")).toBe(true);
 
-		// 10. Close with AAR
 		await call("plan.close", {
-			aar: "All 3 catch blocks fixed. Forum coordination worked — each agent posted independently.",
+			summary: "All 3 catch blocks fixed. Forum coordination worked — each agent posted independently.",
 		});
 
-		// Verify plan file on disk
-		const planFile = JSON.parse(readFileSync(join(dir, "plan.json"), "utf-8"));
-		expect(planFile.phase).toBe("closed");
-		expect(planFile.aar).toContain("Forum coordination worked");
+		const store = new PlanStore({ cwd: dir, plansRoot });
+		const closed = store.list({ status: "closed" });
+		expect(closed).toHaveLength(1);
+		const closedPlan = store.load(closed[0]!.id);
+		expect(closedPlan?.phase).toBe("closed");
+		expect(closedPlan?.toJSON().summary).toContain("Forum coordination worked");
 
-		// Verify board files on disk
-		const boardFile = readFileSync(join(dir, "forum", "qa", "tool-dispatch.jsonl"), "utf-8");
+		const boardFile = readFileSync(join(dir, "discourse", "qa", "tool-dispatch.jsonl"), "utf-8");
 		expect(boardFile).toContain("@jade");
 		expect(boardFile).toContain("instanceof Error");
 	});
 
 	it("board context.assemble injects new posts into LLM context", async () => {
-		// Create board adapter with a past lastReadTs so new posts are visible
 		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
 		unmounts.push(boardAdapter.mount(bus.asBus()));
 
-		// Post something — the command handler writes to disk
-		await call("forum.post", {
+		await call("discourse.post", {
 			topic: "updates",
 			thread: "status",
 			content: "refactoring complete",
 			author: "@jade",
 		});
 
-		// Verify the context.assemble contribution exists
 		const stage = boardAdapter.contributions?.["context.assemble"];
 		expect(stage).toBeDefined();
 	});

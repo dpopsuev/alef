@@ -279,7 +279,7 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 
 	it("persists to disk and loads back", () => {
 		const dir = makeTmp();
-		const path = join(dir, "plan.json");
+		const path = join(dir, "graph-persist.json");
 		const plan = new PlanGraph("p1", "a", "b", "c", path);
 		plan.addStep("create the index page");
 		plan.startStep("create-the-index-page");

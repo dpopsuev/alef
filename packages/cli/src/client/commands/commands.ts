@@ -7,7 +7,7 @@
 
 import { install, load, reload, rollback, unload, upgrade } from "./adapter-cmds.js";
 import { login, logout } from "./auth-cmds.js";
-import { clear, compact, createHelpCommand, detach, exit, session } from "./lifecycle-cmds.js";
+import { clear, compact, context, createHelpCommand, detach, exit, session } from "./lifecycle-cmds.js";
 import { directive, meta } from "./meta-cmds.js";
 import { stickies, sticky } from "./notes-cmds.js";
 import { plan } from "./plan-cmds.js";
@@ -47,6 +47,7 @@ registry
 	.register(clear, "clear")
 	.register(compact)
 	.register(session)
+	.register(context)
 	.register(rename)
 	.register(tag)
 	.register(plan)

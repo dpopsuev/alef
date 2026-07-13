@@ -15,6 +15,9 @@ export type SummarizeFn = (
 	opts?: { instructions?: string; priorSummary?: string },
 ) => Promise<string> | string;
 
+/** Auto-compaction strategy: LLM/default summary, deterministic shake, or disabled. */
+export type CompactionStrategy = "summarize" | "shake" | "off";
+
 /**
  *
  */
@@ -41,17 +44,20 @@ export interface CompactionStageOptions {
 	threshold?: number;
 	/** @deprecated Prefer keepRecentTokens. Kept as fallback turn-count cut. */
 	preserveRecentTurns?: number;
+	/** Auto-compact strategy. Default summarize. Manual :compact still forces summarize unless --strategy=shake. */
+	strategy?: CompactionStrategy;
 	summarize?: SummarizeFn;
 	onCompact?: (result: CompactionResult) => void;
 	publishSignal?: (type: string, payload: Record<string, unknown>) => void;
 	getLastTokenCount?: () => number;
 	sessionStore?: () => SessionStore | undefined;
 	/** When set, next assemble forces compaction even below threshold. Cleared after read. */
-	pullForceCompact?: () => { instructions?: string } | undefined;
+	pullForceCompact?: () => { instructions?: string; strategy?: CompactionStrategy } | undefined;
 }
 
 const CHARS_PER_TOKEN = 4;
 const SUMMARY_LINE_MAX_LENGTH = 120;
+const SHAKE_TOOL_RESULT_MAX = 400;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 const DEFAULT_RESERVE_TOKENS = 16_384;
 const DEFAULT_KEEP_RECENT_TOKENS = 20_000;
@@ -204,6 +210,68 @@ function defaultSummarize(
 	return lines.join("\n");
 }
 
+/** Truncate large tool_result / string payloads for shake compaction. */
+function elideLargePayloads(messages: readonly unknown[]): unknown[] {
+	return messages.map((msg) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
+		const m = msg as RawMessage;
+		if (typeof m.content === "string") {
+			if (m.content.length <= SHAKE_TOOL_RESULT_MAX) return msg;
+			return {
+				...m,
+				content: `${m.content.slice(0, SHAKE_TOOL_RESULT_MAX)}…[elided ${m.content.length - SHAKE_TOOL_RESULT_MAX} chars]`,
+			};
+		}
+		if (!Array.isArray(m.content)) return msg;
+		const content = m.content.map((block) => {
+			if (typeof block.text !== "string" || block.text.length <= SHAKE_TOOL_RESULT_MAX) return block;
+			const isTool =
+				block.type === "tool_result" || block.type === "tool-result" || block.type === "text";
+			if (!isTool && block.type !== undefined) return block;
+			return {
+				...block,
+				text: `${block.text.slice(0, SHAKE_TOOL_RESULT_MAX)}…[elided ${block.text.length - SHAKE_TOOL_RESULT_MAX} chars]`,
+			};
+		});
+		return { ...m, content };
+	});
+}
+
+/**
+ * Deterministic shake lead-in: no summarizer call; tool payloads already elided.
+ */
+export function shakeSummarize(
+	messages: readonly unknown[],
+	opts?: { instructions?: string; priorSummary?: string },
+): string {
+	const elided = elideLargePayloads(messages);
+	const lines: string[] = ["[Context shaken — older turns dropped; tool payloads truncated]", ""];
+	if (opts?.priorSummary) {
+		lines.push("## Prior summary", opts.priorSummary.slice(0, SUMMARY_LINE_MAX_LENGTH * 2), "");
+	}
+	if (opts?.instructions) {
+		lines.push(`## Focus: ${opts.instructions}`, "");
+	}
+	for (const msg of elided) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
+		const m = msg as RawMessage;
+		const role = m.role ?? "unknown";
+		let text = "";
+		if (typeof m.content === "string") {
+			text = m.content;
+		} else if (Array.isArray(m.content)) {
+			text = m.content
+				.filter((b): b is { text: string } => typeof b.text === "string")
+				.map((b) => b.text)
+				.join(" ");
+		}
+		if (!text) continue;
+		const firstLine = text.split("\n").find((l) => l.trim()) ?? "";
+		lines.push(`- ${role}: ${firstLine.slice(0, SUMMARY_LINE_MAX_LENGTH)}`);
+	}
+	return lines.join("\n");
+}
+
 /**
  *
  */
@@ -273,6 +341,8 @@ export async function compactMessages(
 		estimatedBefore: number;
 		/** Manual / forced compact: summarize even when history fits keepRecentTokens. */
 		force?: boolean;
+		/** summarize (default) or shake — never off here (caller skips). */
+		strategy?: Exclude<CompactionStrategy, "off">;
 	},
 ): Promise<{ messages: unknown[]; result: CompactionResult }> {
 	const messages = [...inputMessages];
@@ -280,6 +350,8 @@ export async function compactMessages(
 	const systemMsg = messages.find((m) => (m as RawMessage).role === "system");
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing
 	const nonSystem = messages.filter((m) => (m as RawMessage).role !== "system");
+	const strategy = opts.strategy ?? "summarize";
+	const summarizeFn: SummarizeFn = strategy === "shake" ? shakeSummarize : opts.summarize;
 
 	const cut = findKeepStartIndex(nonSystem, opts.keepRecentTokens);
 	const splitTurn = cut.splitTurn;
@@ -305,23 +377,26 @@ export async function compactMessages(
 	const toKeep = nonSystem.slice(keepStart);
 	const preserved = oldMessages.filter(isScratchpad);
 	let toCompact = oldMessages.filter((m) => !isScratchpad(m));
+	if (strategy === "shake") {
+		toCompact = elideLargePayloads(toCompact);
+	}
 
 	let summary: string;
 	if (splitTurn && toKeep.length > 0) {
 		const oversized = toKeep[0];
 		const turnPrefix = oversized ? [oversized] : [];
-		const historySummary = await opts.summarize(toCompact, {
+		const historySummary = await summarizeFn(toCompact, {
 			priorSummary: opts.priorSummary,
 			instructions: opts.instructions,
 		});
-		const turnSummary = await opts.summarize(turnPrefix, {
+		const turnSummary = await summarizeFn(turnPrefix, {
 			instructions: opts.instructions ?? "Summarize the start of this oversized turn; keep tool outcomes.",
 		});
 		summary = `${historySummary}\n\n## Split turn\n${turnSummary}`;
 		toCompact = [...toCompact, ...turnPrefix];
 		toKeep.shift();
 	} else {
-		summary = await opts.summarize(toCompact, {
+		summary = await summarizeFn(toCompact, {
 			priorSummary: opts.priorSummary,
 			instructions: opts.instructions,
 		});
@@ -354,7 +429,7 @@ export async function compactMessages(
 				firstKeptEventId: firstKeptEventId ?? "",
 				tokensBefore: result.estimatedBefore,
 				tokensAfter: result.estimatedAfter,
-				details: { splitTurn: Boolean(splitTurn) },
+				details: { splitTurn: Boolean(splitTurn), strategy },
 			},
 			timestamp: Date.now(),
 		});
@@ -372,6 +447,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 	const keepRecentTokens = opts.keepRecentTokens ?? DEFAULT_KEEP_RECENT_TOKENS;
 	const threshold = opts.threshold ?? DEFAULT_COMPACTION_THRESHOLD;
 	const preserveRecent = opts.preserveRecentTurns ?? DEFAULT_PRESERVE_RECENT;
+	const autoStrategy: CompactionStrategy = opts.strategy ?? "summarize";
 	const tokenLimit =
 		opts.reserveTokens !== undefined || opts.threshold === undefined
 			? Math.max(0, contextWindow - reserveTokens)
@@ -405,6 +481,13 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		const apiCount = getLastTokenCount?.() ?? 0;
 		const estimated = Math.max(apiCount, estimateTokens(input.messages));
 
+		if (!force && autoStrategy === "off") {
+			if (lastSummary) {
+				return injectPriorSummary(input.messages, lastSummary);
+			}
+			return {};
+		}
+
 		if (!force && estimated <= tokenLimit) {
 			if (lastSummary) {
 				return injectPriorSummary(input.messages, lastSummary);
@@ -426,6 +509,10 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 					estimateTokens(nonSystem.slice(-preserveRecent)) || keepRecentTokens,
 				);
 
+		// Manual force ignores auto "off" and defaults to summarize unless shake requested.
+		const runStrategy: Exclude<CompactionStrategy, "off"> =
+			force?.strategy === "shake" || (!force && autoStrategy === "shake") ? "shake" : "summarize";
+
 		const { messages: compactedMessages, result } = await compactMessages(input.messages, {
 			keepRecentTokens: effectiveKeep,
 			summarize: summarizeFn,
@@ -434,6 +521,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			sessionStore: store,
 			estimatedBefore: estimated,
 			force: Boolean(force),
+			strategy: runStrategy,
 		});
 
 		if (result.compactedTurns === 0 && !force) {
@@ -472,6 +560,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			estimatedBefore: result.estimatedBefore,
 			estimatedAfter: result.estimatedAfter,
 			splitTurn: result.splitTurn,
+			strategy: runStrategy,
 		});
 
 		return { messages: compactedMessages };

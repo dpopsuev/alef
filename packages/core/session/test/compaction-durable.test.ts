@@ -290,6 +290,60 @@ describe("durable compaction", { tags: ["unit"] }, () => {
 		expect(texts.some((t) => t.includes("Forced summary"))).toBe(true);
 		expect(texts.some((t) => t.includes("Manual compaction"))).toBe(false);
 	});
+
+	it("strategy=off skips auto compaction even over budget", async () => {
+		let calls = 0;
+		const stage = createCompactionStage({
+			contextWindow: 1_000,
+			reserveTokens: 100,
+			strategy: "off",
+			summarize: () => {
+				calls++;
+				return "should-not-run";
+			},
+			getLastTokenCount: () => 0,
+		});
+		const out = await stage({
+			messages: [
+				{ role: "user", content: "x".repeat(8_000) },
+				{ role: "assistant", content: "y".repeat(8_000) },
+			],
+			tools: [],
+			turn: 1,
+		});
+		expect(calls).toBe(0);
+		expect(out.messages).toBeUndefined();
+	});
+
+	it("strategy=shake uses deterministic lead-in without summarizer", async () => {
+		let calls = 0;
+		const stage = createCompactionStage({
+			contextWindow: 1_000,
+			reserveTokens: 100,
+			keepRecentTokens: 50,
+			strategy: "shake",
+			summarize: () => {
+				calls++;
+				return "llm-summary";
+			},
+			getLastTokenCount: () => 0,
+		});
+		const out = await stage({
+			messages: [
+				{ role: "user", content: "x".repeat(4_000) },
+				{ role: "assistant", content: "y".repeat(4_000) },
+				{ role: "user", content: "keep" },
+			],
+			tools: [],
+			turn: 1,
+		});
+		expect(calls).toBe(0);
+		const texts = (out.messages ?? []).map((m) =>
+			typeof (m as { content?: unknown }).content === "string" ? (m as { content: string }).content : "",
+		);
+		expect(texts.some((t) => t.includes("Context shaken"))).toBe(true);
+		expect(texts.some((t) => t.includes("llm-summary"))).toBe(false);
+	});
 });
 
 describe("createCompactionStage — session metadata refresh", { tags: ["unit"] }, () => {

@@ -1,4 +1,4 @@
-import { runManualCompact } from "./manual-compact.js";
+import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
 
@@ -34,9 +34,9 @@ export const clear: Command = {
 
 export const compact: Command = {
 	name: "compact",
-	description: "Compact context now [/compact instructions]",
+	description: "Compact context now [:compact [--strategy=shake|summarize] instructions]",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		const instructions = args.join(" ").trim() || undefined;
+		const { strategy, instructions } = parseCompactArgs(args);
 		attempt(ctx, async () => {
 			const store = ctx.store;
 			if (!store) {
@@ -45,12 +45,17 @@ export const compact: Command = {
 				return;
 			}
 			const summarize = ctx.session.summarizeForCompaction ?? ctx.opts?.summarize;
-			if (!summarize) {
+			if (!summarize && strategy === "summarize") {
 				ctx.writer.addNotice("(compaction unavailable — no LLM summarizer)");
 				ctx.tui.requestRender();
 				return;
 			}
-			const { notice } = await runManualCompact({ store, summarize, instructions });
+			const { notice } = await runManualCompact({
+				store,
+				summarize: summarize ?? (() => ""),
+				instructions,
+				strategy,
+			});
 			ctx.writer.addNotice(notice);
 			ctx.tui.requestRender();
 		});
@@ -74,6 +79,44 @@ export const session: Command = {
 				`To resume: alef --resume ${ctx.session.state.id}`,
 		);
 		ctx.tui.requestRender();
+	},
+};
+
+export const context: Command = {
+	name: "context",
+	description: "List last-turn context injections",
+	run(ctx: TuiHandlerContext) {
+		attempt(ctx, async () => {
+			const store = ctx.store;
+			if (!store) {
+				ctx.writer.addNotice("(no session store)");
+				ctx.tui.requestRender();
+				return;
+			}
+			const events = await store.events();
+			let lastInputIdx = -1;
+			for (let i = events.length - 1; i >= 0; i--) {
+				if (events[i]?.type === "llm.input") {
+					lastInputIdx = i;
+					break;
+				}
+			}
+			const window = lastInputIdx >= 0 ? events.slice(lastInputIdx) : events.slice(-20);
+			const injections = window.filter((event) => event.type === "context.injection");
+			if (injections.length === 0) {
+				ctx.writer.addNotice("(no context injections in last turn)");
+				ctx.tui.requestRender();
+				return;
+			}
+			const lines = injections.map((event) => {
+				const source = typeof event.payload.source === "string" ? event.payload.source : "?";
+				const chars = typeof event.payload.chars === "number" ? event.payload.chars : 0;
+				const preview = typeof event.payload.preview === "string" ? event.payload.preview : "";
+				return `  ${source} (+${chars}) ${preview}`.trimEnd();
+			});
+			ctx.writer.addNotice(`Context injections:\n${lines.join("\n")}`);
+			ctx.tui.requestRender();
+		});
 	},
 };
 

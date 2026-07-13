@@ -75,6 +75,10 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
 		summarize: createLlmSummarizer((input) => completeSimple(opts.model, input)),
+		compactionStrategy: (() => {
+			const raw = process.env.ALEF_COMPACTION_STRATEGY;
+			return raw === "shake" || raw === "off" || raw === "summarize" ? raw : "summarize";
+		})(),
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		allowedBlueprints: blueprintRegistry.list(),
 		materializeAdapters: async (names) => {

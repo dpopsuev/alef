@@ -50,6 +50,8 @@ export interface DelegationStackOptions {
 	extraAdapters?: Adapter[];
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
+	/** Auto-compaction strategy for createCompactionStage. Default summarize. */
+	compactionStrategy?: "summarize" | "shake" | "off";
 	adapters: DelegationAdapters;
 	allowedBlueprints?: readonly string[];
 	materializeAdapters: (names: string[]) => Promise<Adapter[]>;
@@ -127,11 +129,12 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
 	let lastTotalTokens = 0;
-	let pendingForceCompact: { instructions?: string } | undefined;
+	let pendingForceCompact: { instructions?: string; strategy?: "summarize" | "shake" } | undefined;
 	contextAssembly.addStage(
 		"compactor",
 		injected.createCompactionStage({
 			contextWindow,
+			strategy: opts.compactionStrategy ?? "summarize",
 			summarize: opts.summarize,
 			sessionStore: opts.sessionStore ? () => opts.sessionStore : undefined,
 			publishSignal: (type: string, payload: Record<string, unknown>) => signalPublish?.(type, payload),
@@ -153,7 +156,10 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		bus.notification.subscribe("context.compact.request", (event) => {
 			const instructions =
 				typeof event.payload.instructions === "string" ? event.payload.instructions : undefined;
-			pendingForceCompact = { instructions };
+			const strategyRaw = event.payload.strategy;
+			const strategy =
+				strategyRaw === "shake" || strategyRaw === "summarize" ? strategyRaw : undefined;
+			pendingForceCompact = { instructions, strategy };
 		});
 		if (opts.onPlanOpened) {
 			const onPlanOpened = opts.onPlanOpened;

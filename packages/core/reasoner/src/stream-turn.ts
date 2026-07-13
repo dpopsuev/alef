@@ -18,6 +18,14 @@ export interface ToolCall {
 	id: string;
 }
 
+/** Stream-time steering rule (TTSR-lite): abort + steer when accumulated text matches. */
+export interface StreamRule {
+	id: string;
+	pattern: RegExp | string;
+	on: "text" | "thinking" | "both";
+	message: string;
+}
+
 /** Options for a single streaming LLM call — auth, timeout, thinking level, and bus handles. */
 export interface StreamTurnOptions {
 	timeoutMs?: number;
@@ -32,12 +40,64 @@ export interface StreamTurnOptions {
 	command: Bus["command"];
 	notification: Bus["notification"];
 	correlationId: string;
+	streamRules?: readonly StreamRule[];
+	onStreamRuleMatch?: (rule: StreamRule) => void;
 }
 
 /** Result of a single LLM streaming call — the final assistant message and any pending tool calls. */
 export interface LLMCallResult {
 	finalMessage: AssistantMessage | undefined;
 	pendingCalls: ToolCall[];
+	/** Set when a stream rule aborted the stream so the turn loop can inject steer. */
+	abortedByStreamRule?: boolean;
+}
+
+/** Compile stream rules once per call. */
+function compileStreamRules(rules: readonly StreamRule[]): Array<StreamRule & { regex: RegExp }> {
+	return rules.map((rule) => ({
+		...rule,
+		regex: typeof rule.pattern === "string" ? new RegExp(rule.pattern) : rule.pattern,
+	}));
+}
+
+/**
+ * Accumulate stream deltas and fire the first matching rule.
+ * Exported for unit tests with faux streams.
+ */
+export class StreamRuleWatcher {
+	private textAccum = "";
+	private thinkingAccum = "";
+	private matched: (StreamRule & { regex: RegExp }) | undefined;
+	private readonly rules: Array<StreamRule & { regex: RegExp }>;
+
+	constructor(rules: readonly StreamRule[] = []) {
+		this.rules = compileStreamRules(rules);
+	}
+
+	/** Push a delta; returns the matched rule once, then stays matched. */
+	push(channel: "text" | "thinking", delta: string): StreamRule | undefined {
+		if (this.matched || this.rules.length === 0) return this.matched;
+		if (channel === "text") this.textAccum += delta;
+		else this.thinkingAccum += delta;
+		for (const rule of this.rules) {
+			if (rule.on !== "both" && rule.on !== channel) continue;
+			const target =
+				rule.on === "both"
+					? `${this.thinkingAccum}\n${this.textAccum}`
+					: channel === "text"
+						? this.textAccum
+						: this.thinkingAccum;
+			if (rule.regex.test(target)) {
+				this.matched = rule;
+				return rule;
+			}
+		}
+		return undefined;
+	}
+
+	get matchedRule(): StreamRule | undefined {
+		return this.matched;
+	}
 }
 
 /** Stream a single LLM request, emitting chunk/thinking notifications and collecting tool calls. */
@@ -89,6 +149,15 @@ export async function callLLM(
 	const timeoutMs = options.timeoutMs ?? (thinking ? thinkingTimeoutMs : defaultTimeoutMs);
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
 
+	const localAbort = new AbortController();
+	const parentSignal = options.getSignal?.();
+	if (parentSignal) {
+		if (parentSignal.aborted) localAbort.abort();
+		else parentSignal.addEventListener("abort", () => localAbort.abort(), { once: true });
+	}
+
+	const ruleWatcher = new StreamRuleWatcher(options.streamRules ?? []);
+
 	const stream = streamSimple(
 		model,
 		{ messages: apiMessages, tools, ...(systemPrompt ? { systemPrompt } : {}) },
@@ -98,31 +167,46 @@ export async function callLLM(
 			maxRetries: 2,
 			maxRetryDelayMs,
 			...(thinking ? { reasoning: thinking } : {}),
-			...(options.getSignal ? { signal: options.getSignal() } : {}),
+			signal: localAbort.signal,
 		},
 	);
 
 	let finalMessage: AssistantMessage | undefined;
 	const pendingCalls: ToolCall[] = [];
 	const httpStart = Date.now();
+	let abortedByStreamRule = false;
 
 	try {
 		for await (const event of stream) {
 			switch (event.type) {
-				case "text_delta":
+				case "text_delta": {
 					options.notification.publish({
 						type: "llm.chunk",
 						payload: { text: event.delta },
 						correlationId: options.correlationId,
 					});
+					const matched = ruleWatcher.push("text", event.delta);
+					if (matched) {
+						abortedByStreamRule = true;
+						options.onStreamRuleMatch?.(matched);
+						localAbort.abort();
+					}
 					break;
-				case "thinking_delta":
+				}
+				case "thinking_delta": {
 					options.notification.publish({
 						type: "llm.thinking",
 						payload: { text: event.delta },
 						correlationId: options.correlationId,
 					});
+					const matched = ruleWatcher.push("thinking", event.delta);
+					if (matched) {
+						abortedByStreamRule = true;
+						options.onStreamRuleMatch?.(matched);
+						localAbort.abort();
+					}
 					break;
+				}
 				case "toolcall_end":
 					pendingCalls.push({
 						name: event.toolCall.name,
@@ -137,12 +221,14 @@ export async function callLLM(
 					finalMessage = event.error;
 					break;
 			}
+			if (abortedByStreamRule) break;
 		}
 
 		traceEvent("llm:http:done", {
 			turn,
 			elapsedMs: Date.now() - httpStart,
 			stopReason: finalMessage?.stopReason ?? "none",
+			abortedByStreamRule,
 		});
 
 		if (finalMessage?.usage) {
@@ -156,11 +242,23 @@ export async function callLLM(
 			});
 		}
 		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
+		if (abortedByStreamRule) span.setAttribute("alef.stream_rule_abort", true);
 		span.setStatus({ code: SpanStatusCode.OK });
 	} catch (err) {
 		const isAbort =
 			err instanceof Error &&
 			(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
+		if (abortedByStreamRule || (isAbort && ruleWatcher.matchedRule)) {
+			abortedByStreamRule = true;
+			traceEvent("llm:http:stream-rule", {
+				turn,
+				ruleId: ruleWatcher.matchedRule?.id,
+				elapsedMs: Date.now() - httpStart,
+			});
+			span.setAttribute("alef.stream_rule_abort", true);
+			span.setStatus({ code: SpanStatusCode.OK });
+			return { finalMessage, pendingCalls, abortedByStreamRule: true };
+		}
 		if (isAbort) span.setAttribute("alef.aborted", true);
 		traceEvent("llm:http:error", {
 			turn,
@@ -175,5 +273,5 @@ export async function callLLM(
 		span.end();
 	}
 
-	return { finalMessage, pendingCalls };
+	return { finalMessage, pendingCalls, abortedByStreamRule: abortedByStreamRule || undefined };
 }

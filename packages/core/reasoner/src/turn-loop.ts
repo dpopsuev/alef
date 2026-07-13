@@ -9,7 +9,7 @@ import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
 import { publishReply, reportUsage } from "./handlers/response-handler.js";
 import { appendToolResults } from "./handlers/tool-result-handler.js";
 import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
-import { callLLM } from "./stream-turn.js";
+import { callLLM, type StreamRule } from "./stream-turn.js";
 import { dispatchTools } from "./tool-dispatch.js";
 import { createTurnSignals } from "./turn-signals.js";
 
@@ -47,6 +47,10 @@ export interface TurnLoopOptions {
 	getSteeringMessages?: () => QueuedInput[];
 	/** True when steer queue still has items (check without draining). */
 	hasSteeringMessages?: () => boolean;
+	/** Stream-time regex rules — abort + enqueue steer on match. */
+	streamRules?: readonly StreamRule[];
+	/** Called when a stream rule matches (typically enqueues steer). */
+	onStreamRuleMatch?: (rule: StreamRule) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,12 +110,25 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				traceEvent("llm:zero-tools", { turn, phaseTimeout: effectiveOptions.phaseTimeoutMs });
 			}
 
-			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
-				...effectiveOptions,
-				command: command,
-				notification: signal,
-				correlationId,
-			});
+			const { finalMessage, pendingCalls, abortedByStreamRule } = await callLLM(
+				model,
+				messages,
+				tools,
+				turn,
+				appRetryCount,
+				{
+					...effectiveOptions,
+					command: command,
+					notification: signal,
+					correlationId,
+					streamRules: effectiveOptions.streamRules,
+					onStreamRuleMatch: effectiveOptions.onStreamRuleMatch,
+				},
+			);
+			if (abortedByStreamRule) {
+				injectSteering(messages, effectiveOptions.getSteeringMessages?.() ?? []);
+				continue;
+			}
 			if (!finalMessage) break;
 
 			if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {

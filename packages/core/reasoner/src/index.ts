@@ -31,8 +31,10 @@ import {
 	totalQueueLength,
 } from "./message-queue.js";
 import { runLLMLoop } from "./turn-loop.js";
+import type { StreamRule } from "./stream-turn.js";
 
-
+export type { StreamRule } from "./stream-turn.js";
+export { StreamRuleWatcher } from "./stream-turn.js";
 
 /** Core execution options — model identity, auth, retry, timeout. */
 export interface LlmCallOptions {
@@ -70,6 +72,8 @@ export interface LlmTopologyOptions {
 	 * InProcessStrategy and eval harnesses that run without prepareStep.
 	 */
 	systemPrompt?: string;
+	/** Stream-time regex abort → steer (dormant until match; no prompt tax). */
+	streamRules?: readonly StreamRule[];
 }
 
 /** Full LLM loop configuration — union of call, observability, and topology option groups. */
@@ -138,6 +142,17 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					return drained;
 				},
 				hasSteeringMessages: () => steerQueue.hasItems(),
+				streamRules: options.streamRules,
+				onStreamRuleMatch: (rule) => {
+					steerQueue.enqueue(
+						{
+							payload: { text: rule.message },
+							correlationId: `stream-rule:${rule.id}`,
+						},
+						{ force: true },
+					);
+					publishQueued(ctx.bus, `stream-rule:${rule.id}`, "steer", rule.message);
+				},
 			});
 		} catch (err) {
 			const text = `LLM error: ${String(err)}`;

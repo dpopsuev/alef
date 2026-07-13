@@ -24,7 +24,7 @@ interface CacheEntry {
 	expiresAt: number;
 }
 
-const DEFAULT_TTL_MS = 10_000;
+const DEFAULT_TTL_MS = 1_000;
 const DEFAULT_MAX_ENTRIES = 256;
 
 /** LRU cache with TTL expiration and configurable max entries for tool results. */

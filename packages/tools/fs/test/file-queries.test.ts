@@ -51,6 +51,69 @@ describe("executeGrepQuery — abort wiring", { tags: ["unit"] }, () => {
 	});
 });
 
+describe("executeGrepQuery — cache + single-file in-process", { tags: ["unit"] }, () => {
+	it("serves second identical grep from cache", async () => {
+		const filePath = join(tmpdir(), `grep-cache-${Date.now()}.txt`);
+		writeFileSync(filePath, "alpha\nbeta\nalpha again\n");
+		const cache = new InMemoryToolResultCache({ ttlMs: 1_000 });
+		let reads = 0;
+		const ops = {
+			isDirectory: () => false,
+			readFile: () => {
+				reads++;
+				return "alpha\nbeta\nalpha again\n";
+			},
+		};
+		const opts = {
+			cwd: tmpdir(),
+			cache,
+			operations: ops,
+			resolveRgPath: async () => {
+				throw new Error("should not spawn rg for single-file grep");
+			},
+		};
+
+		const r1 = await executeGrepQuery({ pattern: "alpha", path: filePath }, opts);
+		expect(reads).toBe(1);
+		expect(r1.details?.inProcess).toBe(true);
+		expect(r1.content[0]!.text).toContain("alpha");
+
+		const r2 = await executeGrepQuery({ pattern: "alpha", path: filePath }, opts);
+		expect(reads).toBe(1);
+		expect(r2.details?.cache?.hit).toBe(true);
+		expect(r2.content[0]!.text).toEqual(r1.content[0]!.text);
+	});
+
+	it("matches a single file in-process without spawning rg", async () => {
+		const filePath = join(tmpdir(), `grep-inplace-${Date.now()}.ts`);
+		writeFileSync(filePath, 'const foo = 1;\nconst bar = 2;\n');
+		let spawned = false;
+		const result = await executeGrepQuery(
+			{ pattern: "foo", path: filePath, literal: true },
+			{
+				cwd: tmpdir(),
+				resolveRgPath: async () => {
+					spawned = true;
+					return "rg";
+				},
+			},
+		);
+		expect(spawned).toBe(false);
+		expect(result.details?.inProcess).toBe(true);
+		expect(result.content[0]!.text).toMatch(/foo/);
+	});
+});
+
+describe("FsRuntime — shared grep/find cache", { tags: ["unit"] }, () => {
+	it("shares one cache instance between grep and find scopes", async () => {
+		const { FsRuntime, DEFAULT_FS_CACHE_TTL_MS } = await import("../src/fs-runtime.js");
+		expect(DEFAULT_FS_CACHE_TTL_MS).toBe(1_000);
+		const runtime = new FsRuntime();
+		expect(runtime.getCache("grep")).toBe(runtime.getCache("find"));
+		expect(runtime.getCache("ls")).not.toBe(runtime.getCache("grep"));
+	});
+});
+
 // ---------------------------------------------------------------------------
 // Cache hit tests — cover withCacheHit<D> path that a module split must
 // preserve: a stale import of withCacheHit silently serves undefined instead

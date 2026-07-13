@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import { type BaseToolDetails, storeAndResolve, type ToolQueryResponse, withCacheHit } from "./file-query-base.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -31,6 +32,8 @@ export interface GrepToolInput {
 export interface GrepToolDetails extends BaseToolDetails {
 	matchLimitReached?: number;
 	linesTruncated?: boolean;
+	/** True when the search ran in-process against a single file (no rg spawn). */
+	inProcess?: boolean;
 }
 
 /** Response type for grep content search queries. */
@@ -127,12 +130,99 @@ function withGrepCacheHit(cacheHit: ToolResultCacheHit | undefined): GrepToolRes
 	return withCacheHit<GrepToolDetails>(cacheHit);
 }
 
+/** Compile a grep pattern for in-process matching. */
+function compilePattern(pattern: string, literal: boolean, ignoreCase: boolean): RegExp {
+	const source = literal ? pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : pattern;
+	return new RegExp(source, ignoreCase ? "i" : undefined);
+}
+
+/**
+ * Spawn-free grep when `path` points at a single file (no glob/type filters).
+ * Avoids forking rg for the common agent hot path of grepping one known file.
+ */
+export async function grepFileInProcess(
+	input: {
+		pattern: string;
+		filePath: string;
+		displayName: string;
+		ignoreCase?: boolean;
+		literal?: boolean;
+		context: number;
+		limit: number;
+		filesWithMatches?: boolean;
+		countOnly?: boolean;
+	},
+	ops: GrepOperations,
+): Promise<GrepToolResponse> {
+	const content = await ops.readFile(input.filePath);
+	const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+	const regex = compilePattern(input.pattern, input.literal ?? false, input.ignoreCase ?? false);
+	const matchLineNumbers: number[] = [];
+	for (let i = 0; i < lines.length; i++) {
+		if (regex.test(lines[i]!)) {
+			matchLineNumbers.push(i + 1);
+			if (matchLineNumbers.length >= input.limit) break;
+		}
+	}
+
+	const details: GrepToolDetails = { inProcess: true };
+	if (matchLineNumbers.length >= input.limit) {
+		details.matchLimitReached = input.limit;
+	}
+
+	if (input.filesWithMatches) {
+		const text = matchLineNumbers.length > 0 ? input.displayName : "";
+		return { content: [{ type: "text", text }], details };
+	}
+	if (input.countOnly) {
+		const text = matchLineNumbers.length > 0 ? `${input.displayName}:${matchLineNumbers.length}` : "";
+		return { content: [{ type: "text", text }], details };
+	}
+
+	const outputLines: string[] = [];
+	let linesTruncated = false;
+	for (const lineNumber of matchLineNumbers) {
+		const start = input.context > 0 ? Math.max(1, lineNumber - input.context) : lineNumber;
+		const end = input.context > 0 ? Math.min(lines.length, lineNumber + input.context) : lineNumber;
+		for (let current = start; current <= end; current++) {
+			const lineText = lines[current - 1] ?? "";
+			const { text: truncatedText, wasTruncated } = truncateLine(lineText.replace(/\r/g, ""));
+			if (wasTruncated) linesTruncated = true;
+			if (current === lineNumber) {
+				outputLines.push(`${input.displayName}:${current}: ${truncatedText}`);
+			} else {
+				outputLines.push(`${input.displayName}-${current}- ${truncatedText}`);
+			}
+		}
+	}
+	if (linesTruncated) details.linesTruncated = true;
+	const truncation = truncateHead(outputLines.join("\n"), { maxLines: Number.MAX_SAFE_INTEGER });
+	let output = truncation.content;
+	const notices: string[] = [];
+	if (details.matchLimitReached) {
+		notices.push(
+			`${input.limit} matches limit reached. Use limit=${input.limit * 2} for more, or refine pattern`,
+		);
+	}
+	if (truncation.truncated) {
+		notices.push(`${formatSize(DEFAULT_MAX_BYTES)} limit reached`);
+		details.truncation = truncation;
+	}
+	if (linesTruncated) {
+		notices.push(`Some lines truncated to ${GREP_MAX_LINE_LENGTH} chars. Use file_read to see full lines`);
+	}
+	if (notices.length > 0) {
+		output += `\n\n[${notices.join(". ")}]`;
+	}
+	return { content: [{ type: "text", text: output }], details };
+}
+
 /** Execute a ripgrep content search with caching, context lines, and truncation. */
 export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryOptions): Promise<GrepToolResponse> {
 	const customOps = options.operations;
 	const cache = options.cache;
 	const signal = options.signal;
-	const resolveRgPath = options.resolveRgPath ?? (() => "rg");
+	const resolveRgPath = options.resolveRgPath ?? (() => Promise.resolve("rg"));
 	const {
 		pattern,
 		path: searchDir,
@@ -160,12 +250,6 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 
 		void (async () => {
 			try {
-				const rgPath = await resolveRgPath();
-				if (!rgPath) {
-					settle(() => reject(new Error("ripgrep (rg) is not available and could not be downloaded")));
-					return;
-				}
-
 				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to "."
 				const searchPath = resolveToCwd(searchDir || ".", options.cwd);
 				const ops = customOps ?? defaultGrepOperations;
@@ -198,9 +282,37 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 				if (cache && cacheKey) {
 					const cachedResponse = withGrepCacheHit(cache.get(cacheKey));
 					if (cachedResponse) {
+						traceEvent("fs.grep.cache", { hit: true, searchPath });
 						settle(() => resolve(cachedResponse));
 						return;
 					}
+					traceEvent("fs.grep.cache", { hit: false, searchPath });
+				}
+
+				const canInProcess = !isDirectory && !glob && !fileType;
+				if (canInProcess) {
+					const response = await grepFileInProcess(
+						{
+							pattern,
+							filePath: searchPath,
+							displayName: path.basename(searchPath),
+							ignoreCase,
+							literal,
+							context: contextValue,
+							limit: effectiveLimit,
+							filesWithMatches,
+							countOnly,
+						},
+						ops,
+					);
+					resolveWithOptionalCache(response);
+					return;
+				}
+
+				const rgPath = await resolveRgPath();
+				if (!rgPath) {
+					settle(() => reject(new Error("ripgrep (rg) is not available and could not be downloaded")));
+					return;
 				}
 				const formatPath = (filePath: string): string => {
 					if (isDirectory) {

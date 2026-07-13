@@ -31,7 +31,7 @@ export {
 	type LsToolInput,
 	type LsToolResponse,
 } from "./file-queries.js";
-export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtime.js";
+export { type FsCacheScope, FsRuntime, type FsRuntimeOptions, DEFAULT_FS_CACHE_TTL_MS } from "./fs-runtime.js";
 
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { createFsAdapter } from "./adapter.js";

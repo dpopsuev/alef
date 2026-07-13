@@ -7,7 +7,6 @@ import {
 	type EditorTheme,
 	numericInterpolator,
 	PendingQueuePanel,
-	type SelectListTheme,
 	SeparatorLine,
 	SlotMachine,
 	Text,
@@ -56,7 +55,7 @@ const MIN_WIDGET_LINES = 3;
 import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
 import { buildPool, randomCodePoint } from "./greeter.js";
-import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
+import { type ColorToken, color, glyph, selectListThemeFromTokens, statusGlyph, type ThemeTokens } from "./theme.js";
 
 /** Manages the input-zone UI: editor, spinner, in-flight tool cards, and status widgets. */
 export class PromptConsole {
@@ -123,13 +122,7 @@ export class PromptConsole {
 			maxVisible: 5,
 		});
 
-		const selectListTheme: SelectListTheme = {
-			selectedPrefix: (s) => bold(s),
-			selectedText: (s) => bold(s),
-			description: (s) => color(s, t.mutedFg),
-			scrollInfo: (s) => color(s, t.mutedFg),
-			noMatch: (s) => color(s, t.mutedFg),
-		};
+		const selectListTheme = selectListThemeFromTokens(t, "bold");
 		const editorTheme: EditorTheme = {
 			borderColor: (s) => color(s, t.mutedFg),
 			selectList: selectListTheme,

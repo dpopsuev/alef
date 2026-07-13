@@ -21,8 +21,8 @@ export {
 	statusStyle,
 } from "@dpopsuev/alef-tui";
 
-import type { ColorToken, ThemeTokens } from "@dpopsuev/alef-tui";
-import { colorDepth, FG_RESET, fgCode, hexToRgb, nerdFontsAvailable } from "@dpopsuev/alef-tui";
+import type { ColorToken, SelectListTheme, ThemeTokens } from "@dpopsuev/alef-tui";
+import { bold, color, colorDepth, FG_RESET, fgCode, hexToRgb, nerdFontsAvailable } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 
 const ANSI_FG_START = 30;
@@ -59,6 +59,36 @@ const BOLD_OFF = "\x1b[22m";
 export function boldColor(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
 	return c ? `${BOLD_ON}${c}${text}${FG_RESET}${BOLD_OFF}` : `${BOLD_ON}${text}${BOLD_OFF}`;
+}
+
+/**
+ * SelectList theme variants used across overlay/session/history/editor pickers.
+ * - accent: accent-colored selection (settings overlays)
+ * - bold: bold selection (editor autocomplete)
+ * - accent-bold-text: accent prefix + plain bold label (session picker)
+ * - accent-bold-color: accent prefix + bold+accent label (history picker)
+ */
+export type SelectListThemeVariant = "accent" | "bold" | "accent-bold-text" | "accent-bold-color";
+
+/** Build a SelectListTheme from TUI tokens. */
+export function selectListThemeFromTokens(t: ThemeTokens, variant: SelectListThemeVariant = "accent"): SelectListTheme {
+	const muted = (s: string) => color(s, t.mutedFg);
+	const selectedPrefix = variant === "bold" ? (s: string) => bold(s) : (s: string) => color(s, t.accentFg);
+	const selectedText =
+		variant === "bold"
+			? (s: string) => bold(s)
+			: variant === "accent-bold-text"
+				? (s: string) => bold(s)
+				: variant === "accent-bold-color"
+					? (s: string) => boldColor(s, t.accentFg)
+					: (s: string) => color(s, t.accentFg);
+	return {
+		selectedPrefix,
+		selectedText,
+		description: muted,
+		scrollInfo: muted,
+		noMatch: muted,
+	};
 }
 
 const TERMINAL: ThemeTokens = {

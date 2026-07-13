@@ -16,7 +16,7 @@ import { buildLayout } from "./layout.js";
 import { ModalInputHandler } from "./modal.js";
 import { initialTuiState, type OverlayDescriptor, syncOverlays, type TuiState, type TuiUi } from "./state.js";
 import { createSubmitHandler } from "./submit.js";
-import { bold, boldColor, color, getTheme, type ThemeTokens } from "./theme.js";
+import { bold, boldColor, color, getTheme, selectListThemeFromTokens, type ThemeTokens } from "./theme.js";
 
 export {
 	makeMarkdownTheme,
@@ -335,16 +335,10 @@ export interface HistoryPickerTheme {
  */
 export function createHistoryPickerTheme(
 	t: ThemeTokens,
-	colorFn: typeof color,
-	boldColorFn: typeof boldColor,
+	_colorFn: typeof color,
+	_boldColorFn: typeof boldColor,
 ): HistoryPickerTheme {
-	return {
-		selectedPrefix: (s: string) => colorFn(s, t.accentFg),
-		selectedText: (s: string) => boldColorFn(s, t.accentFg),
-		description: (s: string) => colorFn(s, t.mutedFg),
-		scrollInfo: (s: string) => colorFn(s, t.mutedFg),
-		noMatch: (s: string) => colorFn(s, t.mutedFg),
-	};
+	return selectListThemeFromTokens(t, "accent-bold-color");
 }
 
 /**

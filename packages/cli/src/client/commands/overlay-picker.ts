@@ -4,7 +4,7 @@
 
 import { type SelectItem, SelectList, type SelectListTheme } from "@dpopsuev/alef-tui";
 import type { TuiEvent } from "../events.js";
-import { color, type ThemeTokens } from "../theme.js";
+import { selectListThemeFromTokens, type ThemeTokens } from "../theme.js";
 
 const SETTINGS_MAX_VISIBLE = 10;
 
@@ -82,13 +82,7 @@ export interface PickerOptions {
 
 /** Create a SelectListTheme from the active TUI color tokens. */
 export function buildPickerTheme(t: ThemeTokens): SelectListTheme {
-	return {
-		selectedPrefix: (s) => color(s, t.accentFg),
-		selectedText: (s) => color(s, t.accentFg),
-		description: (s) => color(s, t.mutedFg),
-		scrollInfo: (s) => color(s, t.mutedFg),
-		noMatch: (s) => color(s, t.mutedFg),
-	};
+	return selectListThemeFromTokens(t, "accent");
 }
 
 /** Open a searchable overlay picker and dispatch show/hide events on select or cancel. */

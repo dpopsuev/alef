@@ -132,6 +132,18 @@ export function cwdHash(cwd: string): string {
 /**
  *
  */
+function xdgDataHome(): string {
+	return process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+}
+
+/** Default multi-plan shelf root: $XDG_DATA_HOME/alef/plans/<cwd-hash>. */
+export function plansRootForCwd(cwd: string): string {
+	return join(xdgDataHome(), "alef", "plans", cwdHash(cwd));
+}
+
+/**
+ *
+ */
 export class TurnIndexer {
 	readonly turnMap = new Map<string, Turn>();
 	readonly hitCountsMap = new Map<string, number>();

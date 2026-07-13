@@ -10,10 +10,11 @@
       "default": "./src/index.ts"
     }
   },
-  "dependencies": {
-    "@dpopsuev/alef-kernel": "workspace:*",
-    "@dpopsuev/alef-supervisor": "workspace:*"
-  },
+	"dependencies": {
+		"@dpopsuev/alef-kernel": "workspace:*",
+		"@dpopsuev/alef-session": "workspace:*",
+		"@dpopsuev/alef-supervisor": "workspace:*"
+	},
   "devDependencies": {
     "vitest": "^4.1.6"
   }

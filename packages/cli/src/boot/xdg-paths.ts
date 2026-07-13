@@ -15,6 +15,9 @@
  *     ├── sessions/<cwd-hash>/      → Session JSONL logs
  *     │   ├── <session-id>.jsonl
  *     │   └── latest
+ *     ├── plans/<cwd-hash>/         → Workspace multi-plan shelf
+ *     │   ├── index.json
+ *     │   └── plan-<id>.json
  *     └── prototypes/               → User-written adapter prototypes
  *         └── <name>.ts
  *
@@ -78,6 +81,9 @@ export const USER_CONFIG_PATH = join(ALEF_CONFIG_DIR, "config.yaml");
 /** Session storage root ($XDG_DATA_HOME/alef/sessions) */
 export const SESSIONS_DIR = join(ALEF_DATA_DIR, "sessions");
 
+/** Workspace plan shelf root ($XDG_DATA_HOME/alef/plans) */
+export const PLANS_DIR = join(ALEF_DATA_DIR, "plans");
+
 /** Prototypes directory ($XDG_DATA_HOME/alef/prototypes) */
 export const PROTOTYPES_DIR = join(ALEF_DATA_DIR, "prototypes");
 
@@ -109,6 +115,7 @@ export function ensureDirectories(): void {
 	for (const dir of [
 		join(ALEF_CONFIG_DIR, "skills"),
 		join(ALEF_DATA_DIR, "sessions"),
+		join(ALEF_DATA_DIR, "plans"),
 		join(ALEF_DATA_DIR, "prototypes"),
 		ALEF_STATE_DIR,
 		LSP_CACHE_DIR,

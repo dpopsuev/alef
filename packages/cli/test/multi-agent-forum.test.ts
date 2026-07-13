@@ -47,7 +47,7 @@ describe("multi-agent plan + board coordination", () => {
 	});
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
-		const planAdapter = createPlanAdapter({ sessionDir: dir });
+		const planAdapter = createPlanAdapter({ cwd: dir });
 		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
 		unmounts.push(planAdapter.mount(bus.asBus()));
 		unmounts.push(boardAdapter.mount(bus.asBus()));

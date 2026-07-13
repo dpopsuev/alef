@@ -17,7 +17,7 @@ export const service: ServiceDescriptor = {
 					actorAddress = String((sessionSvc as Record<string, unknown>).agentAddress);
 			}
 		}
-		const adapter = createPlanAdapter({ sessionDir: opts.cwd, logger: opts.logger, actorAddress });
+		const adapter = createPlanAdapter({ cwd: opts.cwd, logger: opts.logger, actorAddress });
 
 		return Promise.resolve({
 			name: "plan",

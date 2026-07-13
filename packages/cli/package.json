@@ -49,6 +49,7 @@
     "@dpopsuev/alef-tool-fs": "workspace:*",
     "@dpopsuev/alef-tool-meta": "workspace:*",
     "@dpopsuev/alef-tool-nodesh": "workspace:*",
+    "@dpopsuev/alef-tool-plan": "workspace:*",
     "@dpopsuev/alef-tool-shell": "workspace:*",
     "@dpopsuev/alef-tool-web": "workspace:*",
     "@dpopsuev/alef-tool-workflow": "workspace:*",
@@ -66,7 +67,6 @@
   "devDependencies": {
     "@dpopsuev/alef-testkit": "workspace:*",
     "@dpopsuev/alef-tool-eval": "workspace:*",
-    "@dpopsuev/alef-tool-plan": "workspace:*",
     "@libsql/client": "^0.17.4",
     "@napi-rs/canvas": "^1.0.0",
     "@types/node": "^24.3.0",

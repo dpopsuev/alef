@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createPlanAdapter } from "../src/adapter.js";
 import { PlanGraph } from "../src/graph.js";
 
-adapterComplianceSuite(() => createPlanAdapter({ sessionDir: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
+adapterComplianceSuite(() => createPlanAdapter({ cwd: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
 
 describe("PlanGraph", { tags: ["unit"] }, () => {
 	const tmps: string[] = [];

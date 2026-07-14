@@ -157,7 +157,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		const { topic } = ctx.payload;
 		if (topic) {
 			const threadNames = await store.listThreads(topic);
-			const infos = await Promise.all(threadNames.map((name) => Promise.resolve(store.threadInfo(topic, name))));
+			const infos = await Promise.all(threadNames.map(async (name) => store.threadInfo(topic, name)));
 			return withDisplay(
 				{ topic, threads: infos },
 				{

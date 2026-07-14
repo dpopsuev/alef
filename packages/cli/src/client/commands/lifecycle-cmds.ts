@@ -1,6 +1,100 @@
+import { execSync, spawn } from "node:child_process";
+import { BUILD_INFO } from "../../boot/build-info.js";
+import { checkLatestRelease } from "../../update/release-checker.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
+
+/**
+ * Restart command: rebuild and restart Alef while preserving session.
+ */
+export const restart: Command = {
+	name: "restart",
+	description: "Rebuild and restart Alef, resuming current session",
+	run(ctx: LifecycleCmdCtx) {
+		attempt(ctx, async () => {
+			const sessionId = ctx.session.state.id;
+			ctx.writer.addNotice("Rebuilding and restarting...");
+			ctx.tui.requestRender(true);
+
+			// Spawn new process with same session
+			spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
+				detached: true,
+				stdio: "inherit",
+			});
+
+			// Give the new process time to start, then exit
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			await ctx.session.dispose();
+			ctx.tui.stop();
+			process.exit(0);
+		});
+	},
+};
+
+export const update: Command = {
+	name: "update",
+	description: "Update Alef to latest version and restart",
+	run(ctx: LifecycleCmdCtx) {
+		attempt(ctx, async () => {
+			const sessionId = ctx.session.state.id;
+
+			if (BUILD_INFO.channel === "dev") {
+				// Dev channel: auto-update from git (no prompt)
+				ctx.writer.addNotice("Updating from git...");
+				ctx.tui.requestRender(true);
+
+				try {
+					execSync("git pull", { stdio: "inherit" });
+
+					ctx.writer.addNotice("Installing dependencies...");
+					ctx.tui.requestRender(true);
+					execSync("npm install", { stdio: "inherit" });
+
+					ctx.writer.addNotice("Building...");
+					ctx.tui.requestRender(true);
+					execSync("npm run build", { stdio: "inherit" });
+
+					ctx.writer.addNotice("Restarting...");
+					ctx.tui.requestRender(true);
+
+					spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
+						detached: true,
+						stdio: "inherit",
+					});
+
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					await ctx.session.dispose();
+					ctx.tui.stop();
+					process.exit(0);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "unknown error";
+					ctx.writer.addNotice(`Update failed: ${message}`);
+					ctx.tui.requestRender();
+				}
+			} else {
+				// Stable channel: check GitHub, show changelog, require approval
+				ctx.writer.addNotice("Checking for updates...");
+				ctx.tui.requestRender(true);
+
+				const release = await checkLatestRelease("dpopsuev", "alef", BUILD_INFO.version);
+
+				if (!release) {
+					ctx.writer.addNotice("Already on latest version.");
+					ctx.tui.requestRender();
+					return;
+				}
+
+				// Show changelog
+				ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${release.version}`);
+				ctx.writer.addNotice(`\nChangelog:\n${release.changelog}`);
+				ctx.writer.addNotice(`\nTo update: npm update -g @dpopsuev/alef`);
+				ctx.writer.addNotice(`Or install: npm install -g @dpopsuev/alef@${release.version}`);
+				ctx.tui.requestRender();
+			}
+		});
+	},
+};
 
 export const exit: Command = {
 	name: "q",

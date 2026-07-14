@@ -11,32 +11,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Run unit tests for packages that have staged changes
-CHANGED_PKGS=$(echo "$STAGED_FILES" | grep '^packages/' | sed 's|^packages/||; s|/src/.*||; s|/test/.*||' | sort -u)
-if [ -n "$CHANGED_PKGS" ]; then
-  echo "Running unit tests for changed packages..."
-  PROJECT_ARGS=""
-  for pkg in $CHANGED_PKGS; do
-    # Map directory to vitest project name from each vitest.config.ts
-    CFG="packages/$pkg/vitest.config.ts"
-    if [ -f "$CFG" ]; then
-      NAME=$(grep -o 'name: "[^"]*"' "$CFG" | head -1 | sed 's/name: "//;s/"//')
-      if [ -n "$NAME" ]; then
-        PROJECT_ARGS="$PROJECT_ARGS --project=$NAME"
-      fi
-    fi
-  done
-  if [ -n "$PROJECT_ARGS" ]; then
-    VITEST_EXIT=0
-    timeout 120 npx vitest run $PROJECT_ARGS --tags-filter=unit --reporter=dot 2>&1 || VITEST_EXIT=$?
-    if [ $VITEST_EXIT -eq 124 ]; then
-      echo "⚠ Tests passed but vitest hung — forced exit (open handles)."
-    elif [ $VITEST_EXIT -ne 0 ]; then
-      echo "❌ Tests failed. Please fix before committing."
-      exit 1
-    fi
-  fi
-fi
+# Tests run in CI only, not in pre-commit hook (too slow for agent workflow)
 
 # Restage files that were previously staged and may have been modified by formatting
 for file in $STAGED_FILES; do

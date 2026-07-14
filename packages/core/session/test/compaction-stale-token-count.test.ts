@@ -33,4 +33,46 @@ describe("createCompactionStage — stale getLastTokenCount", { tags: ["unit"] }
 			expect.objectContaining({ compactedTurns: expect.any(Number) }),
 		);
 	});
+
+	it("does not recompact when message estimate is under limit even if getLastTokenCount stays pre-compact high", async () => {
+		const publishSignal = vi.fn();
+		const stage = createCompactionStage({
+			contextWindow: 10_000,
+			reserveTokens: 2_000,
+			keepRecentTokens: 500,
+			getLastTokenCount: () => 50_000,
+			summarize: () => "SUM: goals and paths",
+			publishSignal,
+		});
+
+		const bulk = "x".repeat(20_000);
+		const first = await stage({
+			messages: [
+				{ role: "system", content: "You are Alef" },
+				{ role: "user", content: bulk },
+				{ role: "assistant", content: bulk },
+				{ role: "user", content: "continue" },
+			],
+			tools: [],
+			turn: 1,
+		});
+		expect(first.messages).toBeDefined();
+		expect(publishSignal).toHaveBeenCalledWith(
+			"context.compacted",
+			expect.objectContaining({ estimatedAfter: expect.any(Number) }),
+		);
+		publishSignal.mockClear();
+
+		const second = await stage({
+			messages: first.messages!,
+			tools: [],
+			turn: 2,
+		});
+
+		expect(publishSignal, "stale high API totalTokens must not force a second compact").not.toHaveBeenCalledWith(
+			"context.compacted",
+			expect.anything(),
+		);
+		expect(second.messages ?? first.messages).toEqual(first.messages);
+	});
 });

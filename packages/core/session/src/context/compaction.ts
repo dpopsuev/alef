@@ -68,6 +68,26 @@ const COMPACTION_TYPE = "context.compaction";
 const SEARCH_RECENT_MESSAGE_COUNT = 6;
 const SEARCH_RECENT_CHARS = 200;
 
+let compactingDepth = 0;
+
+/** True while createCompactionStage is awaiting summarize / compactMessages. */
+export function isCompacting(): boolean {
+	return compactingDepth > 0;
+}
+
+/** Nesting-safe enter; publishes context.compacting active=true on first depth. */
+function beginCompacting(publishSignal?: CompactionStageOptions["publishSignal"]): void {
+	compactingDepth++;
+	if (compactingDepth === 1) publishSignal?.("context.compacting", { active: true });
+}
+
+/** Nesting-safe leave; publishes context.compacting active=false when depth hits zero. */
+function endCompacting(publishSignal?: CompactionStageOptions["publishSignal"]): void {
+	if (compactingDepth <= 0) return;
+	compactingDepth--;
+	if (compactingDepth === 0) publishSignal?.("context.compacting", { active: false });
+}
+
 type RawMessage = {
 	role?: string;
 	content?: string | Array<{ type?: string; text?: string; id?: string; tool_use_id?: string; name?: string }>;
@@ -303,6 +323,13 @@ export function eventsAfterCompaction(
  *
  */
 function injectPriorSummary(messages: readonly unknown[], summary: string): ContextAssemblyOutput {
+	const alreadyPresent = messages.some((m) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
+		const msg = m as RawMessage;
+		return msg.role === "user" && msg.content === summary;
+	});
+	if (alreadyPresent) return {};
+
 	const result = [...messages];
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
 	const systemIdx = result.findIndex((m) => (m as RawMessage).role === "system");
@@ -406,18 +433,6 @@ export async function compactMessages(
 	if (systemMsg) compactedMessages.push(systemMsg);
 	compactedMessages.push(...preserved);
 	compactedMessages.push({ role: "user", content: summary });
-	
-	// Post-compaction tool format reinforcement
-	const toolFormatReminder = `When making function calls using tools that accept array or object parameters ensure those are structured using JSON. For example:
-<function_calls>
-<invoke name="example_complex_tool">
-<parameter name="parameter">[{"color": "orange", "options": {"option_key_1": true, "option_key_2": "value"}}, {"color": "purple", "options": {"option_key_1": true, "option_key_2": "value"}}]</parameter>
-</invoke>
-</function_calls>
-
-Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters.`;
-	compactedMessages.push({ role: "assistant", content: toolFormatReminder });
-	
 	compactedMessages.push(...toKeep);
 
 	const firstKeptEventId = await resolveFirstKeptEventId(opts.sessionStore, toKeep);
@@ -490,8 +505,12 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		}
 
 		const force = pullForceCompact?.();
+		const messageEstimate = estimateTokens(input.messages);
 		const apiCount = getLastTokenCount?.() ?? 0;
-		const estimated = Math.max(apiCount, estimateTokens(input.messages));
+		// After compact, llm.token-usage can still report the pre-compact API total.
+		// Do not let that stale high water mark force recompact when messages fit.
+		const estimated =
+			!force && messageEstimate <= tokenLimit ? messageEstimate : Math.max(apiCount, messageEstimate);
 
 		if (!force && autoStrategy === "off") {
 			if (lastSummary) {
@@ -525,16 +544,23 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		const runStrategy: Exclude<CompactionStrategy, "off"> =
 			force?.strategy === "shake" || (!force && autoStrategy === "shake") ? "shake" : "summarize";
 
-		const { messages: compactedMessages, result } = await compactMessages(input.messages, {
-			keepRecentTokens: effectiveKeep,
-			summarize: summarizeFn,
-			priorSummary: lastSummary || undefined,
-			instructions: force?.instructions,
-			sessionStore: store,
-			estimatedBefore: estimated,
-			force: Boolean(force),
-			strategy: runStrategy,
-		});
+		beginCompacting(publishSignal);
+		let compactedMessages: unknown[];
+		let result: CompactionResult;
+		try {
+			({ messages: compactedMessages, result } = await compactMessages(input.messages, {
+				keepRecentTokens: effectiveKeep,
+				summarize: summarizeFn,
+				priorSummary: lastSummary || undefined,
+				instructions: force?.instructions,
+				sessionStore: store,
+				estimatedBefore: estimated,
+				force: Boolean(force),
+				strategy: runStrategy,
+			}));
+		} finally {
+			endCompacting(publishSignal);
+		}
 
 		if (result.compactedTurns === 0 && !force) {
 			if (lastSummary) return injectPriorSummary(input.messages, lastSummary);

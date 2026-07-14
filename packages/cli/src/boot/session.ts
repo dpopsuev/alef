@@ -101,6 +101,10 @@ function registerContributions(
 			2,
 		);
 	});
+	uiSignalHandlerKeys.add("context.compacting");
+	uiSignalHandlers.set("context.compacting", (payload, ui) => {
+		if (payload.active) ui.setStatus("Compacting context...");
+	});
 	uiSignalHandlerKeys.add("context.overflow-recovery");
 	uiSignalHandlers.set("context.overflow-recovery", (payload, ui) => {
 		if (payload.willRetry) {

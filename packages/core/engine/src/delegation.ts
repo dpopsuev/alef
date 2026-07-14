@@ -153,6 +153,10 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
 			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
 		});
+		bus.notification.subscribe("context.compacted", (event) => {
+			const after = (event as { payload?: { estimatedAfter?: number } }).payload?.estimatedAfter;
+			if (typeof after === "number" && after >= 0) lastTotalTokens = after;
+		});
 		bus.notification.subscribe("context.compact.request", (event) => {
 			const instructions =
 				typeof event.payload.instructions === "string" ? event.payload.instructions : undefined;

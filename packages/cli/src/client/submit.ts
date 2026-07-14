@@ -1,5 +1,6 @@
 import { parseAtAddress } from "@dpopsuev/alef-agent/identity/routes";
 import { InputPatternRegistry } from "@dpopsuev/alef-agent/input-patterns";
+import { isCompacting } from "@dpopsuev/alef-session/compaction";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { ImageAttachment } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "../boot/interactive.js";
@@ -221,8 +222,8 @@ async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
 	clearEditor();
 	addHistoryEntry(text);
 
-	// Mid-turn: fire-and-forget into the reasoner queue. Scrollback waits until drain.
-	if (isTurnActive?.()) {
+	// Mid-turn or mid-compact: fire-and-forget into the reasoner queue. Scrollback waits until drain.
+	if (isTurnActive?.() || isCompacting()) {
 		if (session.receive) {
 			session.receive(message, { delivery: delivery ?? "steer" });
 		} else if (executor) {

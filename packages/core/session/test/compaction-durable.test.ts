@@ -500,7 +500,7 @@ auto-tag
 		expect(meta.tags).toEqual(["auto-tag"]);
 	});
 
-	it("injects tool format reminder after compaction summary", async () => {
+	it("preserves system message and does not inject XML tool-format reminder after compaction", async () => {
 		const stage = createCompactionStage({
 			contextWindow: 10_000,
 			reserveTokens: 2_000,
@@ -512,7 +512,7 @@ auto-tag
 		const bulk = "x".repeat(20_000);
 		const result = await stage({
 			messages: [
-				{ role: "system", content: "You are an assistant" },
+				{ role: "system", content: "You are an assistant. Use tools from the request schema." },
 				{ role: "user", content: bulk },
 				{ role: "assistant", content: bulk },
 				{ role: "user", content: "recent message" },
@@ -525,18 +525,15 @@ auto-tag
 		const messages = result.messages as Array<{ role: string; content: string }>;
 		expect(messages).toBeDefined();
 
-		// Find the assistant message with tool format reminder
-		const reminderMessage = messages.find(
-			(m) => m.role === "assistant" && m.content?.includes("function_calls"),
-		);
-		expect(reminderMessage).toBeDefined();
-		expect(reminderMessage?.content).toContain("When making function calls");
-		expect(reminderMessage?.content).toContain("<invoke");
-		expect(reminderMessage?.content).toContain("<parameter");
+		expect(messages[0]?.role).toBe("system");
+		expect(messages[0]?.content).toContain("Use tools from the request schema");
 
-		// Verify it comes after the summary and before kept messages
+		const joined = messages.map((m) => m.content).join("\n");
+		expect(joined, "must not teach Anthropic XML tool protocol after compact").not.toContain("<function_calls>");
+		expect(joined).not.toContain("<invoke");
+		expect(joined).not.toMatch(/<\/?parameter/);
+
 		const summaryIndex = messages.findIndex((m) => m.role === "user" && m.content === "[Context compacted]");
-		const reminderIndex = messages.findIndex((m) => m === reminderMessage);
-		expect(reminderIndex).toBeGreaterThan(summaryIndex);
+		expect(summaryIndex).toBeGreaterThan(0);
 	});
 });

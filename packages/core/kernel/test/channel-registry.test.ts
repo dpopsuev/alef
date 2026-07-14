@@ -30,7 +30,7 @@ describe("bus channel registry", { tags: ["unit"] }, () => {
 		const notificationEvents = [
 			"llm.chunk", "llm.thinking", "llm.tool-start", "llm.tool-end",
 			"llm.tool-chunk", "llm.tool-stall", "llm.token-usage", "llm.result",
-			"context.compact.request", "context.compacted", "context.injection", "context.overflow-recovery",
+			"context.compact.request", "context.compacting", "context.compacted", "context.injection", "context.overflow-recovery",
 			"session.metadata.refresh", "plan.opened",
 		];
 		for (const type of notificationEvents) {

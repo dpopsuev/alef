@@ -60,6 +60,9 @@ export default defineConfig({
 	},
 	test: {
 		include: DEFAULT_INCLUDE,
+		// Concise output for CI and agent workflows
+		reporters: process.env.CI ? ["dot"] : ["default"],
+		hideSkippedTests: true,
 		// Tag definitions — options here apply to every test carrying that tag.
 		// strictTags: true would reject undefined tags; left off until all files are migrated.
 		tags: [

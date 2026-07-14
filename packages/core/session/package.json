@@ -54,6 +54,14 @@
       "types": "./dist/tracing/replayer.d.ts",
       "default": "./src/tracing/replayer.ts"
     },
+    "./token-telemetry": {
+      "types": "./dist/token-telemetry.d.ts",
+      "default": "./src/token-telemetry.ts"
+    },
+    "./token-query": {
+      "types": "./dist/token-query.d.ts",
+      "default": "./src/token-query.ts"
+    },
     "./redact": {
       "types": "./dist/redact.d.ts",
       "default": "./src/redact.ts"

@@ -204,7 +204,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				correlationId,
 			});
 
-			const usage = reportUsage(finalMessage);
+			const usage = reportUsage(finalMessage, model.id);
 			signal.publish({ type: "llm.token-usage", payload: { usage }, correlationId });
 
 			if (agentIsReplying) {

@@ -6,6 +6,7 @@ import { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 import { buildAgent } from "@dpopsuev/alef-agent/kernel";
 import { buildModel } from "@dpopsuev/alef-agent/model";
 import { createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
+import { createResourceMeter } from "@dpopsuev/alef-agent/resource-meter";
 import { buildSubagentFactory } from "@dpopsuev/alef-agent/subagent-factory";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
@@ -16,6 +17,7 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import { createTokenTelemetry } from "@dpopsuev/alef-session/token-telemetry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
@@ -265,6 +267,8 @@ export async function createLocalSession(
 	});
 
 	for (const adapter of stack.adapters) agent.load(adapter);
+	agent.load(createTokenTelemetry(store.id));
+	agent.load(createResourceMeter());
 
 	const sessionAdapter: Session = {
 		state: sessionState,

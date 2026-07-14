@@ -16,12 +16,15 @@ function extractText(message: AssistantMessage): string {
 }
 
 /** Extract token-usage metrics from a completed assistant message. */
-export function reportUsage(finalMessage: AssistantMessage): TokenUsage {
+export function reportUsage(finalMessage: AssistantMessage, modelId?: string): TokenUsage {
 	return {
 		input: finalMessage.usage.input,
 		output: finalMessage.usage.output,
 		totalTokens: finalMessage.usage.totalTokens,
 		costUsd: finalMessage.usage.cost.total,
+		cacheRead: finalMessage.usage.cacheRead,
+		cacheWrite: finalMessage.usage.cacheWrite,
+		modelId,
 	};
 }
 

@@ -26,6 +26,7 @@
     "@dpopsuev/alef-tool-plan": "workspace:*",
     "@dpopsuev/alef-tool-shell": "workspace:*",
     "@dpopsuev/alef-tool-skills": "workspace:*",
+    "@dpopsuev/alef-tool-token-insights": "workspace:*",
     "@dpopsuev/alef-tool-web": "workspace:*",
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",

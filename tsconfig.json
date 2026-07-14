@@ -340,6 +340,7 @@
 			],
 			"@dpopsuev/alef-tool-discourse": ["./packages/tools/discourse/src/index.ts"],
 			"@dpopsuev/alef-tool-plan": ["./packages/tools/plan/src/index.ts"],
+			"@dpopsuev/alef-tool-token-insights": ["./packages/tools/token-insights/src/index.ts"],
 			"@dpopsuev/alef-tool-mcp-registry": ["./packages/tools/mcp-registry/src/index.ts"],
 			"@dpopsuev/alef-tool-locus": ["./packages/tools/locus/src/index.ts"],
 			"@dpopsuev/alef-tool-scribe": ["./packages/tools/scribe/src/index.ts"],

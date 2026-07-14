@@ -21,6 +21,9 @@ export interface TokenUsage {
 	output: number;
 	totalTokens: number;
 	costUsd?: number;
+	cacheRead?: number;
+	cacheWrite?: number;
+	modelId?: string;
 }
 
 /** Discriminated union of all notification-bus events emitted by the LLM reasoning loop. */

@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { DiscourseBackend } from "./scribe-backend.js";
 import type { Post, ThreadInfo, TopicSummary } from "./types.js";
 
 interface StoredPost {
@@ -9,9 +10,9 @@ interface StoredPost {
 }
 
 /**
- *
+ * Local JSONL discourse store (offline / single-session default).
  */
-export class DiscourseStore {
+export class DiscourseStore implements DiscourseBackend {
 	private readonly root: string;
 
 	constructor(sessionDir: string) {
@@ -35,7 +36,7 @@ export class DiscourseStore {
 		for (const line of lines) {
 			try {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL line parsed from append-only store with known schema
-			const stored = JSON.parse(line) as StoredPost;
+				const stored = JSON.parse(line) as StoredPost;
 				if (since !== undefined && stored.timestamp <= since) continue;
 				posts.push({ topic, thread, author: stored.author, content: stored.content, timestamp: stored.timestamp });
 			} catch {

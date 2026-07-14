@@ -4,6 +4,9 @@ import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { z } from "zod";
+import { scribeCallFromEnv } from "./http-scribe-call.js";
+import type { DiscourseBackend, ScribeArtifactCall } from "./scribe-backend.js";
+import { ScribeDiscourseBackend } from "./scribe-backend.js";
 import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
 
@@ -13,6 +16,10 @@ import type { Post } from "./types.js";
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
 	actorAddress?: string;
+	/** When set, posts go to Scribe via message_add (JSONL is not SoR). */
+	scribeCall?: ScribeArtifactCall;
+	/** Scope stamp for Scribe-backed containers (default: default). */
+	scope?: string;
 }
 
 const FORUM_POST = {
@@ -60,12 +67,9 @@ function formatContextPost(p: Post): string {
 	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
 }
 
-/**
- *
- */
 /** Find questions without matching answers, optionally filtered by target @address. */
-function findUnansweredQuestions(store: DiscourseStore, actorAddress?: string): Post[] {
-	const allPosts = store.readNewPosts(0);
+async function findUnansweredQuestions(store: DiscourseBackend, actorAddress?: string): Promise<Post[]> {
+	const allPosts = await store.readNewPosts(0);
 	const questions = new Map<string, Post>();
 	const answered = new Set<string>();
 
@@ -88,14 +92,24 @@ function findUnansweredQuestions(store: DiscourseStore, actorAddress?: string): 
 		.map(([, post]) => post);
 }
 
+/**
+ * Resolve backend storage implementation.
+ */
+function resolveBackend(opts: DiscourseAdapterOptions): DiscourseBackend {
+	const call = opts.scribeCall ?? scribeCallFromEnv();
+	if (call) {
+		return new ScribeDiscourseBackend(call, opts.scope ?? "default");
+	}
+	return new DiscourseStore(opts.sessionDir);
+}
+
 /** Create the discourse adapter with forum tools and question-aware context injection. */
 export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
-	const store = new DiscourseStore(opts.sessionDir);
+	const store = resolveBackend(opts);
 	let lastReadTs = Date.now();
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	const contextStage: ContextAssemblyHandler = async (input) => {
-		const newPosts = store.readNewPosts(lastReadTs);
+		const newPosts = await store.readNewPosts(lastReadTs);
 		const blocks: string[] = [];
 
 		if (newPosts.length > 0) {
@@ -103,7 +117,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 			blocks.push(`[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`);
 		}
 
-		const unanswered = findUnansweredQuestions(store, opts.actorAddress);
+		const unanswered = await findUnansweredQuestions(store, opts.actorAddress);
 		if (unanswered.length > 0) {
 			blocks.push(`[QUESTIONS — ${unanswered.length} unanswered]\n${unanswered.map((q) => `[${q.topic}/${q.thread}] @${q.author}: ${typeof q.content === "object" && q.content !== null && "text" in q.content ? String((q.content as Record<string, unknown>).text) : String(q.content)}`).join("\n")}`);
 		}
@@ -112,67 +126,60 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		return { messages: injectContextBlock(input.messages, blocks.join("\n\n"), { source: "discourse" }) };
 	};
 
-	/**
-	 *
-	 */
-	// eslint-disable-next-line @typescript-eslint/require-await
+	/** Handle discourse.post. */
 	async function handlePost(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, content, author } = ctx.payload;
-		const post = store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content);
+		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content);
 		return withDisplay(
 			{ posted: true, topic, thread, timestamp: post.timestamp },
 			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
 		);
 	}
 
-	/**
-	 *
-	 */
-	// eslint-disable-next-line @typescript-eslint/require-await
+	/** Handle discourse.read. */
 	async function handleRead(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_READ.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, since } = ctx.payload;
-		const posts = store.readThread(topic, thread, since);
+		const posts = await store.readThread(topic, thread, since);
 		return withDisplay(
 			{ posts, count: posts.length },
 			{ text: posts.length > 0 ? posts.map(formatPost).join("\n") : "(no posts)", mimeType: "text/plain" },
 		);
 	}
 
-	/**
-	 *
-	 */
-	// eslint-disable-next-line @typescript-eslint/require-await
+	/** Handle discourse.list. */
 	async function handleList(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_LIST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic } = ctx.payload;
 		if (topic) {
-			const infos = store.listThreads(topic).map((t) => store.threadInfo(topic, t));
+			const threadNames = await store.listThreads(topic);
+			const infos = await Promise.all(threadNames.map((name) => Promise.resolve(store.threadInfo(topic, name))));
 			return withDisplay(
 				{ topic, threads: infos },
 				{
 					text:
 						infos.length > 0
 							? infos
-									.map((t) => `  ${topic}/${t.name} (${t.posts} posts, ${t.participants.join(", ")})`)
+									.map((info) => `  ${topic}/${info.name} (${info.posts} posts, ${info.participants.join(", ")})`)
 									.join("\n")
 							: `(no threads in ${topic})`,
 					mimeType: "text/plain",
 				},
 			);
 		}
-		const summaries = store.topicSummaries();
-		const lines = summaries.flatMap((s) => [`${s.topic}/`, ...s.threads.map((t) => `  ${t}`)]);
+		const summaries = await store.topicSummaries();
+		const lines = summaries.flatMap((s) => [`${s.topic}/`, ...s.threads.map((name) => `  ${name}`)]);
 		return withDisplay(
 			{ topics: summaries },
 			{ text: lines.length > 0 ? lines.join("\n") : "(empty forum)", mimeType: "text/plain" },
 		);
 	}
 
+	const usingScribe = Boolean(opts.scribeCall ?? process.env.SCRIBE_URL?.trim());
 	return defineAdapter(
 		"discourse",
 		{
@@ -190,8 +197,11 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 				"Prefer discourse.post over creating files when findings are for other agents. Files are for deliverables; discourse is for collaboration.",
 				"Post with discourse.post({topic, thread, content}). Read others' posts with discourse.read({topic, thread}). List topics with discourse.list().",
 				"Forum posts auto-inject into context each turn - no polling needed.",
+				...(usingScribe
+					? ["Persistence is Scribe (message_add under knowledge.context). [[wikilinks]] in posts auto-link in the vault."]
+					: []),
 			],
-			sources: [{ name: "discourse-files", kind: "file" }],
+			sources: [{ name: usingScribe ? "scribe" : "discourse-files", kind: usingScribe ? "process" : "file" }],
 			contributions: {
 				"context.assemble": contextStage,
 			},

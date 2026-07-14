@@ -122,14 +122,14 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 describe("appendCompletedToolBlock", { tags: ["unit"] }, () => {
 	it("adds a status line to the container", () => {
 		const chat = makeChat();
-		appendCompletedToolBlock(chat, "fs.read", "README.md", 42, true, null, getTheme());
+		appendCompletedToolBlock(chat, "fs.read", "README.md", { path: "README.md" }, 42, true, null, getTheme());
 		expect(chat.children.length).toBe(1);
 	});
 
 	it("adds status line + output when display provided", () => {
 		const output = new Text("file contents", 2, 0);
 		const chat = makeChat();
-		appendCompletedToolBlock(chat, "fs.read", "README.md", 42, true, output, getTheme());
+		appendCompletedToolBlock(chat, "fs.read", "README.md", { path: "README.md" }, 42, true, output, getTheme());
 		expect(chat.children.length).toBe(2);
 	});
 });

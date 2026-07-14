@@ -87,7 +87,10 @@ export class PromptConsole {
 			identity: { color: string; address: string; token: ColorToken; modelId?: string } | null;
 			inputSlot: SlotMachine<number>;
 			outputSlot: SlotMachine<number>;
-			children: Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>;
+			children: Map<
+				string,
+				{ name: string; keyArg: string; args: Record<string, unknown>; startedAt: number; depth: number }
+			>;
 		}
 	>();
 	private cardTheme: AgentCardTheme | undefined;
@@ -298,11 +301,12 @@ export class PromptConsole {
 		return this.cardTheme;
 	}
 
-	showInFlightCall(callId: string, name: string, keyArg: string): void {
+	showInFlightCall(callId: string, name: string, keyArg: string, args: Record<string, unknown>): void {
 		const startedAt = Date.now();
 		const card = new AgentCard(this.getCardTheme(), {
 			name,
 			keyArg,
+			args,
 			elapsedMs: 0,
 			inputTokens: 0,
 			outputTokens: 0,
@@ -328,7 +332,10 @@ export class PromptConsole {
 			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
 			inputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↑" }),
 			outputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↓" }),
-			children: new Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>(),
+			children: new Map<
+				string,
+				{ name: string; keyArg: string; args: Record<string, unknown>; startedAt: number; depth: number }
+			>(),
 		};
 		this.inFlightCalls.set(callId, entry);
 		this.inFlightQueue.addChild(card);
@@ -408,10 +415,17 @@ export class PromptConsole {
 		entry.outputSlot.set(output);
 	}
 
-	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void {
+	addChildCall(
+		parentCallId: string,
+		callId: string,
+		name: string,
+		keyArg: string,
+		args: Record<string, unknown>,
+		depth: number,
+	): void {
 		const entry = this.inFlightCalls.get(parentCallId);
 		if (!entry) return;
-		entry.children.set(callId, { name, keyArg, startedAt: Date.now(), depth });
+		entry.children.set(callId, { name, keyArg, args, startedAt: Date.now(), depth });
 		this.tui.requestRender();
 	}
 
@@ -528,6 +542,7 @@ export class PromptConsole {
 					id,
 					name: c.name,
 					keyArg: c.keyArg,
+					args: c.args,
 					elapsedMs: Date.now() - c.startedAt,
 					depth: c.depth,
 					spinner: spinnerFrame(id, Date.now() - c.startedAt),

@@ -45,7 +45,7 @@ export function appendDisplayBlocks(writer: ChatLog, blocks: readonly DisplayBlo
 				writer.addAgentReply(block.text);
 				break;
 			case "tool":
-				writer.addCompletedToolBlock(block.name, block.summary ?? "", 0, true, null, null);
+				writer.addCompletedToolBlock(block.name, block.summary ?? "", {}, 0, true, null, null);
 				break;
 			case "state":
 				writer.addNotice(`▨ ${block.label}: ${block.text}`);

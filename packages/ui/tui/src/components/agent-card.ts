@@ -1,5 +1,6 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
+import { formatToolArgs } from "../views/tool-view.js";
 
 /**
  *
@@ -18,6 +19,7 @@ export interface AgentCardTheme {
 export interface AgentCardState {
 	name: string;
 	keyArg: string;
+	args: Record<string, unknown>;
 	address?: string;
 	modelId?: string;
 	elapsedMs: number;
@@ -30,6 +32,7 @@ export interface AgentCardState {
 		id: string;
 		name: string;
 		keyArg: string;
+		args: Record<string, unknown>;
 		elapsedMs: number;
 		depth: number;
 		spinner: string;
@@ -90,7 +93,8 @@ export class AgentCard implements Component {
 
 		for (const child of s.children) {
 			const indent = "  ".repeat(child.depth + 1);
-			lines.push(truncateToWidth(wrap(`${indent}${child.spinner} ${t.secondary(child.name)}  ${t.muted(child.keyArg)}`), width, "…"));
+			const childCommand = child.name + formatToolArgs(child.args);
+			lines.push(truncateToWidth(wrap(`${indent}${child.spinner} ${t.secondary(childCommand)}`), width, "…"));
 		}
 
 		return lines;
@@ -98,7 +102,8 @@ export class AgentCard implements Component {
 
 	private renderIdentityRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {
 		const marker = this._focused ? t.accent(">") : " ";
-		const parts = [marker, s.spinner, this._focused ? t.primary(s.name) : t.identity(s.name)];
+		const commandStr = s.name + formatToolArgs(s.args);
+		const parts = [marker, s.spinner, this._focused ? t.primary(commandStr) : t.identity(commandStr)];
 		if (s.address) parts.push(t.identity(s.address));
 		const modelShort = s.modelId?.split("/").pop()?.split(" ")[0];
 		if (modelShort) parts.push(this._focused ? t.secondary(modelShort) : t.muted(modelShort));

@@ -6,6 +6,7 @@ import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
 	formatTokenUsage,
+	formatToolArgs,
 	keyArgFromPayload,
 	renderDiffDisplay,
 	renderToolLine,
@@ -91,6 +92,22 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 	it("removed lines are red", () => {
 		const out = renderDiffDisplay("edit x\n-1 old line", getTheme());
 		expect(out).toMatch(/\x1b\[31m/);
+	});
+});
+
+describe("formatToolArgs", { tags: ["unit"] }, () => {
+	it("returns empty string for no args", () => {
+		expect(formatToolArgs({})).toBe("");
+	});
+
+	it("formats scalars in command-style syntax", () => {
+		expect(formatToolArgs({ path: "README.md", limit: 10, force: true })).toBe(
+			"(path: 'README.md', limit: 10, force: true)",
+		);
+	});
+
+	it("summarizes arrays and objects", () => {
+		expect(formatToolArgs({ files: ["a", "b"], meta: { a: 1 } })).toBe("(files: [2 items], meta: {…})");
 	});
 });
 

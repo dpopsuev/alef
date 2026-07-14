@@ -50,9 +50,8 @@ export class OutputPanel {
 		);
 	}
 
-	loadHistory(store: SessionStore, tui: TUI, cwd?: string): void {
-		prependSessionHistory(store, this.writer, { maxTurns: 5, cwd })
-			.then(() => tui.requestRender())
-			.catch(() => {});
+	async loadHistory(store: SessionStore, tui: TUI, cwd?: string): Promise<void> {
+		await prependSessionHistory(store, this.writer, { maxTurns: 5, cwd });
+		tui.requestRender();
 	}
 }

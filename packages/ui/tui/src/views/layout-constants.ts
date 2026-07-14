@@ -9,9 +9,9 @@ export const INDENT = {
 	/** Left padding inside pill boxes (user/agent blocks). */
 	BLOCK: 2,
 	/** Indent for tool call lines (✓ fs.read package.json 9ms). */
-	TOOL_LINE: 2,
+	TOOL_LINE: 1,
 	/** Indent for tool output snippets (beneath tool call lines). */
-	TOOL_OUTPUT: 3,
+	TOOL_OUTPUT: 2,
 	/** Section headers (thinking, tools) - flush left within block. */
 	SECTION: 0,
 } as const;

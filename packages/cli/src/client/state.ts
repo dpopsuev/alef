@@ -6,6 +6,7 @@ import type { ColorToken, ThemeTokens } from "./theme.js";
 export interface ActiveCall {
 	name: string;
 	keyArg: string;
+	args: Record<string, unknown>;
 	parentCallId?: string;
 	children: Map<string, ActiveCall>;
 	depth: number;
@@ -113,6 +114,7 @@ export interface TuiWriter {
 	addCompletedToolBlock(
 		name: string,
 		keyArg: string,
+		args: Record<string, unknown>,
 		elapsedMs: number,
 		ok: boolean,
 		display: string | null,
@@ -145,7 +147,7 @@ export interface TuiPromptConsole {
 	pulse(): void;
 	showPendingFooter(fg: ColorToken): void;
 	hidePendingFooter(): void;
-	showInFlightCall(callId: string, name: string, keyArg: string): void;
+	showInFlightCall(callId: string, name: string, keyArg: string, args: Record<string, unknown>): void;
 	removeInFlightCall(callId: string): void;
 	updateInFlightCallChunk(callId: string, text: string): void;
 	startThinking(): void;
@@ -161,7 +163,14 @@ export interface TuiPromptConsole {
 	setChunkText(text: string): void;
 	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void;
 	updateCallTokens(callId: string, input: number, output: number): void;
-	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
+	addChildCall(
+		parentCallId: string,
+		callId: string,
+		name: string,
+		keyArg: string,
+		args: Record<string, unknown>,
+		depth: number,
+	): void;
 	removeChildCall(parentCallId: string, callId: string): void;
 	showToast(message: string, durationMs?: number): void;
 	showBackgroundTask(taskId: string, profile: string): void;

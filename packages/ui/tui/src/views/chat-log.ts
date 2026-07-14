@@ -68,6 +68,7 @@ export class ChatLog {
 	addCompletedToolBlock(
 		name: string,
 		keyArg: string,
+		args: Record<string, unknown>,
 		elapsedMs: number,
 		ok: boolean,
 		display: string | null,
@@ -76,7 +77,7 @@ export class ChatLog {
 		const output: Component | null = display
 			? makeToolOutputComponent(display, displayKind ?? undefined, this.t)
 			: null;
-		appendCompletedToolBlock(this.chat, name, keyArg, elapsedMs, ok, output, this.t);
+		appendCompletedToolBlock(this.chat, name, keyArg, args, elapsedMs, ok, output, this.t);
 	}
 
 	addSubagentReply(name: string, reply: string): void {

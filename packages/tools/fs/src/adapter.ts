@@ -10,8 +10,9 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, AdapterLogger, PortDefinition, ContextAssemblyHandler, ContextAssemblyInput } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { injectContextBlock } from "@dpopsuev/alef-kernel/context";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { diffLines } from "diff";
@@ -30,7 +31,7 @@ import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
-import { InMemoryEventStore } from "./event-store.js";
+import { InMemoryEventStore, type TimelineEvent } from "./event-store.js";
 import { WatchManager } from "./watch-manager.js";
 
 // ---------------------------------------------------------------------------
@@ -244,6 +245,8 @@ const FS_TIMELINE_TOOL = {
 /** Configuration for the filesystem adapter including cwd, runtime, and security boundaries. */
 export interface FsAdapterOptions {
 	cwd: string;
+	/** Optional session ID for watch/timeline isolation. If provided, watches and events are scoped to this session. */
+	sessionId?: string;
 	runtime?: FsRuntime;
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
@@ -748,6 +751,38 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const watchManager = new WatchManager();
 	const eventStore = new InMemoryEventStore();
 	let busRef: Bus | undefined;
+	// Track pending file events for context injection
+	const pendingEvents: TimelineEvent[] = [];
+
+	// Context assembly handler to inject file events into LLM context
+	const contextStage: ContextAssemblyHandler | undefined = options.sessionId
+		? (input: ContextAssemblyInput) => {
+				if (pendingEvents.length === 0) return Promise.resolve({});
+
+				// Deduplicate by path - keep most recent event per file
+				const byPath = new Map<string, TimelineEvent>();
+				for (const event of pendingEvents) {
+					const existing = byPath.get(event.path);
+					if (!existing || event.timestamp > existing.timestamp) {
+						byPath.set(event.path, event);
+					}
+				}
+
+				// Format summary
+				const events = Array.from(byPath.values());
+				const summary = [
+					`[File System — ${events.length} file(s) changed]`,
+					...events.map((e) => `  ${e.type.padEnd(8)} ${e.path}${e.trigger ? ` (${e.trigger})` : ""}`),
+				].join("\n");
+
+				// Clear pending events after injection
+				pendingEvents.length = 0;
+
+				return Promise.resolve({
+					messages: injectContextBlock(input.messages, summary, { source: "file-events" }),
+				});
+		  }
+		: undefined;
 
 	return defineAdapter(
 		"fs",
@@ -858,8 +893,10 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 						debounceMs,
 						duration,
 					}, (event) => {
+						// Add sessionId to event
+						const eventWithSession = { ...event, sessionId: options.sessionId };
 						// Record in timeline
-						eventStore.record(event);
+						eventStore.record(eventWithSession);
 						// Emit to event bus
 						if (busRef) {
 							busRef.event.publish({
@@ -867,6 +904,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 								correlationId: ctx.correlationId,
 								payload: {
 									watchId: handle.watchId,
+									sessionId: options.sessionId,
 									path: event.path,
 									timestamp: event.timestamp,
 									trigger: event.trigger,
@@ -874,7 +912,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 								isError: false,
 							});
 						}
-					});
+					}, options.sessionId);
 					
 					return withDisplay(
 						{ watchId: handle.watchId, active: true, path: filePath },
@@ -897,6 +935,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					
 					const response = eventStore.query({
 						path: absolutePath,
+						sessionId: options.sessionId,
 						since,
 						until,
 						events,
@@ -922,9 +961,50 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 			labels: ["filesystem", "read", "write", "search"],
 			onMount: (bus) => {
 				busRef = bus;
+				// Subscribe to file.* events to accumulate for context injection
+				if (options.sessionId) {
+					bus.event.subscribe("file.modified", (event) => {
+						if (event.payload.sessionId === options.sessionId) {
+							pendingEvents.push({
+								timestamp: Number(event.payload.timestamp),
+								type: "modified",
+								path: String(event.payload.path),
+								sessionId: options.sessionId,
+								trigger: String(event.payload.trigger),
+							});
+						}
+					});
+					bus.event.subscribe("file.created", (event) => {
+						if (event.payload.sessionId === options.sessionId) {
+							pendingEvents.push({
+								timestamp: Number(event.payload.timestamp),
+								type: "created",
+								path: String(event.payload.path),
+								sessionId: options.sessionId,
+								trigger: String(event.payload.trigger),
+							});
+						}
+					});
+					bus.event.subscribe("file.deleted", (event) => {
+						if (event.payload.sessionId === options.sessionId) {
+							pendingEvents.push({
+								timestamp: Number(event.payload.timestamp),
+								type: "deleted",
+								path: String(event.payload.path),
+								sessionId: options.sessionId,
+								trigger: String(event.payload.trigger),
+							});
+						}
+					});
+				}
 			},
 			onUnmount: () => {
-				watchManager.stopAll();
+				// Clean up watches for this session, or all if no sessionId
+				if (options.sessionId) {
+					watchManager.stopSession(options.sessionId);
+				} else {
+					watchManager.stopAll();
+				}
 				busRef = undefined;
 			},
 			contributions: {
@@ -941,6 +1021,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					"fs.grep": 0.6,
 					"fs.find": 0.6,
 				},
+				...(contextStage ? { "context.assemble": contextStage } : {}),
 			},
 			publishSchemas: {
 				event: {

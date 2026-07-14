@@ -28,6 +28,7 @@ type ChangeCallback = (event: TimelineEvent) => void;
 
 interface ActiveWatch {
 	watchId: string;
+	sessionId?: string;
 	path: string;
 	options: WatchOptions;
 	watcher: FSWatcher;
@@ -47,7 +48,7 @@ export class WatchManager {
 	 * Start watching a path.
 	 * Returns watchId for tracking and cleanup.
 	 */
-	start(absolutePath: string, options: WatchOptions, callback: ChangeCallback): WatchHandle {
+	start(absolutePath: string, options: WatchOptions, callback: ChangeCallback, sessionId?: string): WatchHandle {
 		const watchId = randomUUID();
 		const debounceMs = options.debounceMs ?? 100;
 
@@ -94,6 +95,7 @@ export class WatchManager {
 
 		const activeWatch: ActiveWatch = {
 			watchId,
+			sessionId,
 			path: absolutePath,
 			options,
 			watcher,
@@ -153,10 +155,24 @@ export class WatchManager {
 	}
 
 	/**
+	 * Stop all watches for a specific session.
+	 */
+	stopSession(sessionId: string): void {
+		const toStop = Array.from(this.watches.values())
+			.filter((w) => w.sessionId === sessionId)
+			.map((w) => w.watchId);
+		for (const watchId of toStop) {
+			this.stop(watchId);
+		}
+	}
+
+	/**
 	 * Get info about active watches.
 	 */
-	getActive(): ReadonlyArray<{ watchId: string; path: string; glob: string }> {
-		return Array.from(this.watches.values()).map((w) => ({
+	getActive(sessionId?: string): ReadonlyArray<{ watchId: string; path: string; glob: string }> {
+		const watches = Array.from(this.watches.values());
+		const filtered = sessionId ? watches.filter((w) => w.sessionId === sessionId) : watches;
+		return filtered.map((w) => ({
 			watchId: w.watchId,
 			path: w.path,
 			glob: w.options.glob,

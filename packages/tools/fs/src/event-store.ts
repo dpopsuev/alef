@@ -11,6 +11,7 @@ export interface TimelineEvent {
 	readonly timestamp: number;
 	readonly type: FileEventType;
 	readonly path: string;
+	readonly sessionId?: string; // Session that triggered/owns this event
 	readonly oldPath?: string; // For rename events
 	readonly size?: number; // File size after change
 	readonly diff?: string; // Unified diff for modifications
@@ -20,6 +21,7 @@ export interface TimelineEvent {
 /** Query parameters for filtering timeline events. */
 export interface TimelineQuery {
 	path?: string;
+	sessionId?: string;
 	since?: number;
 	until?: number;
 	events?: readonly FileEventType[];
@@ -73,6 +75,11 @@ export class InMemoryEventStore implements EventStore {
 
 	query(filters: TimelineQuery): TimelineResponse {
 		let results = this.events;
+
+		// Filter by sessionId
+		if (filters.sessionId) {
+			results = results.filter((e) => e.sessionId === filters.sessionId);
+		}
 
 		// Filter by path (exact match or prefix for directories)
 		if (filters.path) {

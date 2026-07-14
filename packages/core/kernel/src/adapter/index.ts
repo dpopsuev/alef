@@ -37,6 +37,9 @@ export { gimpedAdapter, isGimped, passthroughSchema, toolInputToJsonSchema } fro
 export type {
 	AdapterContributions,
 	AgentRunContext,
+	ContextAssemblyHandler,
+	ContextAssemblyInput,
+	ContextAssemblyOutput,
 	PlanUpdateEvent,
 	PortCardinality,
 	PortDefinition,

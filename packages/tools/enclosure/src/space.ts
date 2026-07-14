@@ -310,6 +310,9 @@ export class StubSpace implements Space {
 	}
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async exec(command: string[], _options?: ExecOptions): Promise<ExecResult> {
+		if (command[0] === "false") {
+			return { exitCode: 1, output: "stub failure diagnostic" };
+		}
 		return { exitCode: 0, output: `stub: ${command.join(" ")}` };
 	}
 	// eslint-disable-next-line @typescript-eslint/require-await

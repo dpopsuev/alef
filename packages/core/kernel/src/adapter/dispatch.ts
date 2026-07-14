@@ -7,7 +7,7 @@ import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, Even
 import type { Bus, CommandMessage, EventMessage } from "../bus/messages.js";
 import { traceEvent } from "../trace.js";
 import { buildErrorResult, buildEventResult, extractToolCallId } from "../bus/event-builders.js";
-import { getErrorMessage } from "../errors.js";
+import { formatCommandFailure } from "../errors.js";
 
 /**
  * Escalation callback for access policy decisions.
@@ -192,7 +192,8 @@ export async function dispatchCommandAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			bus.event.publish(buildErrorResult(command, getErrorMessage(e)));
+			const failure = formatCommandFailure(e);
+			bus.event.publish(buildErrorResult(command, failure.message, failure.payload));
 		} finally {
 			span.end();
 		}

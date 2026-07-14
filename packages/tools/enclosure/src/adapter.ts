@@ -366,7 +366,12 @@ async function handleExec(
 	if (!command.length) throw new Error("enclosure.exec: command is required");
 	const opts: ExecOptions = { confine: confine ?? false, timeoutMs, memoryMaxBytes, cpuQuotaUs };
 	const result = await space.exec(command, opts);
-	if (result.exitCode !== 0) throw new Error(`exit code ${result.exitCode}`);
+	if (result.exitCode !== 0) {
+		throw Object.assign(new Error(`exit code ${result.exitCode}`), {
+			exitCode: result.exitCode,
+			output: result.output,
+		});
+	}
 	return { exitCode: result.exitCode, output: result.output };
 }
 

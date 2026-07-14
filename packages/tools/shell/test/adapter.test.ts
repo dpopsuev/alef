@@ -61,6 +61,21 @@ describe("ShellAdapter", { tags: ["compliance"] }, () => {
 		f.dispose();
 	});
 
+	it("preserves diagnostic stdout/stderr on non-zero exit in the final error event", async () => {
+		const f = fixture();
+		const diagnostic = "error TS2339: Property input does not exist on type CommandHandlerCtx";
+		const final = await f.callStreaming(
+			"shell.exec",
+			{ command: `printf '%s\\n' ${JSON.stringify(diagnostic)} >&2; exit 1` },
+			{ timeoutMs: 10_000 },
+		);
+		expect(final.isError).toBe(true);
+		expect(final.errorMessage).toContain(diagnostic);
+		expect(String(final.payload.output ?? "")).toContain(diagnostic);
+		expect(final.payload.exitCode).toBe(1);
+		f.dispose();
+	});
+
 	it("applies commandPrefix", async () => {
 		const f = fixture({ commandPrefix: "export MYVAR=prefixed" });
 		const final = await f.callStreaming("shell.exec", { command: "echo $MYVAR" });

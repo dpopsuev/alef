@@ -173,6 +173,35 @@ export function getErrorMessage(err: unknown): string {
 	return String(err);
 }
 
+/** Captured stdout/stderr attached by adapters (e.g. shell.exec) when throwing. */
+export function getErrorOutput(err: unknown): string | undefined {
+	if (!err || typeof err !== "object" || !("output" in err)) return undefined;
+	const output = err.output;
+	return typeof output === "string" && output.length > 0 ? output : undefined;
+}
+
+/**
+ * Message + payload for a failed command action.
+ * Appends adapter-captured output so tool-end / payloadToText keep diagnostics.
+ */
+export function formatCommandFailure(err: unknown): {
+	message: string;
+	payload: Record<string, unknown>;
+} {
+	const message = getErrorMessage(err);
+	const output = getErrorOutput(err);
+	const payload: Record<string, unknown> = {};
+	if (output !== undefined) payload.output = output;
+	if (err && typeof err === "object" && "exitCode" in err) {
+		const exitCode = err.exitCode;
+		if (typeof exitCode === "number") payload.exitCode = exitCode;
+	}
+	return {
+		message: output !== undefined ? `${message}\n${output}` : message,
+		payload,
+	};
+}
+
 /**
  * Format error for structured logging.
  * Returns an object suitable for log.error({ err: formatErrorForLog(e) }, "message")

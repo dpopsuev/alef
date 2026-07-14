@@ -91,6 +91,17 @@ describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 			f.dispose();
 		});
 
+		it("preserves diagnostic output on non-zero exec", async () => {
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
+			const spaceId = created.payload.spaceId as string;
+			const result = await f.call("enclosure.exec", { spaceId, command: ["false"] });
+			expect(result.isError).toBe(true);
+			expect(result.errorMessage).toContain("stub failure diagnostic");
+			expect(result.payload.exitCode).toBe(1);
+			f.dispose();
+		});
+
 		it("destroy removes the space from registry", async () => {
 			const f = fixture();
 			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });

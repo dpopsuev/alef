@@ -23,12 +23,16 @@ export function buildEventResult(
 }
 
 /** Construct an error event from a command with the given error message. */
-export function buildErrorResult(command: CommandMessage, message: string): EventInput {
+export function buildErrorResult(
+	command: CommandMessage,
+	message: string,
+	extraPayload: Record<string, unknown> = {},
+): EventInput {
 	const toolCallId = extractToolCallId(command.payload);
 	return {
 		type: command.type,
 		correlationId: command.correlationId,
-		payload: toolCallId ? { toolCallId } : {},
+		payload: toolCallId ? { ...extraPayload, toolCallId } : { ...extraPayload },
 		isError: true,
 		errorMessage: message,
 	};

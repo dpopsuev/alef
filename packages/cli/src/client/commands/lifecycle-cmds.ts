@@ -6,24 +6,22 @@ import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
 
 /**
- * Restart command: rebuild and restart Alef while preserving session.
+ * Restart command: respawn Alef and resume the current session.
  */
 export const restart: Command = {
 	name: "restart",
-	description: "Rebuild and restart Alef, resuming current session",
+	description: "Restart Alef, resuming current session",
 	run(ctx: LifecycleCmdCtx) {
 		attempt(ctx, async () => {
 			const sessionId = ctx.session.state.id;
-			ctx.writer.addNotice("Rebuilding and restarting...");
+			ctx.writer.addNotice("Restarting...");
 			ctx.tui.requestRender(true);
 
-			// Spawn new process with same session
 			spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
 				detached: true,
 				stdio: "inherit",
 			});
 
-			// Give the new process time to start, then exit
 			await new Promise((resolve) => setTimeout(resolve, 500));
 			await ctx.session.dispose();
 			ctx.tui.stop();
@@ -40,11 +38,17 @@ export const update: Command = {
 			const sessionId = ctx.session.state.id;
 
 			if (BUILD_INFO.channel === "dev") {
-				// Dev channel: auto-update from git (no prompt)
 				ctx.writer.addNotice("Updating from git...");
 				ctx.tui.requestRender(true);
 
 				try {
+					const dirty = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
+					if (dirty) {
+						ctx.writer.addNotice("Update aborted: working tree is dirty. Commit or stash first.");
+						ctx.tui.requestRender();
+						return;
+					}
+
 					execSync("git pull", { stdio: "inherit" });
 
 					ctx.writer.addNotice("Installing dependencies...");
@@ -73,7 +77,6 @@ export const update: Command = {
 					ctx.tui.requestRender();
 				}
 			} else {
-				// Stable channel: check GitHub, show changelog, require approval
 				ctx.writer.addNotice("Checking for updates...");
 				ctx.tui.requestRender(true);
 
@@ -85,7 +88,6 @@ export const update: Command = {
 					return;
 				}
 
-				// Show changelog
 				ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${release.version}`);
 				ctx.writer.addNotice(`\nChangelog:\n${release.changelog}`);
 				ctx.writer.addNotice(`\nTo update: npm update -g @dpopsuev/alef`);
@@ -211,6 +213,51 @@ export const context: Command = {
 			ctx.writer.addNotice(`Context injections:\n${lines.join("\n")}`);
 			ctx.tui.requestRender();
 		});
+	},
+};
+
+export const tokens: Command = {
+	name: "tokens",
+	description: "Show session token usage statistics",
+	run(ctx: TuiHandlerContext) {
+		const stats = ctx.sessionTokens;
+		if (!stats) {
+			ctx.writer.addNotice("(token stats unavailable)");
+			ctx.tui.requestRender();
+			return;
+		}
+
+		const { input, output, total, costUsd: cost, contextFill: context, contextWindow } = stats;
+
+		const lines = [
+			"Session token usage:",
+			`  Input tokens:   ${input.toLocaleString()}`,
+			`  Output tokens:  ${output.toLocaleString()}`,
+			`  Total tokens:   ${total.toLocaleString()}`,
+		];
+
+		if (cost > 0) {
+			lines.push(`  Cost (USD):     $${cost.toFixed(4)}`);
+		}
+
+		if (contextWindow > 0) {
+			const fillPct = ((context / contextWindow) * 100).toFixed(1);
+			lines.push("");
+			lines.push("Context window:");
+			lines.push(`  Used:           ${context.toLocaleString()} / ${contextWindow.toLocaleString()} (${fillPct}%)`);
+		}
+
+		if (total > 0) {
+			const inputPct = ((input / total) * 100).toFixed(1);
+			const outputPct = ((output / total) * 100).toFixed(1);
+			lines.push("");
+			lines.push("Composition:");
+			lines.push(`  Input:          ${inputPct}%`);
+			lines.push(`  Output:         ${outputPct}%`);
+		}
+
+		ctx.writer.addNotice(lines.join("\n"));
+		ctx.tui.requestRender();
 	},
 };
 

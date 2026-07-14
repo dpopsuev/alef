@@ -62,7 +62,7 @@ export async function buildLayout(
 	const humanLabel = opts.humanAddress ?? "@you";
 	const agentLabel = opts.agentAddress ?? "@alef";
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
-	if (store) output.loadHistory(store, tui, opts.cwd);
+	if (store) await output.loadHistory(store, tui, opts.cwd);
 
 	const input = new InputPanel({
 		tui,

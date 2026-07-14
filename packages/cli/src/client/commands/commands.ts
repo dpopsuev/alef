@@ -7,7 +7,18 @@
 
 import { install, load, reload, rollback, unload, upgrade } from "./adapter-cmds.js";
 import { login, logout } from "./auth-cmds.js";
-import { clear, compact, context, createHelpCommand, detach, exit, session } from "./lifecycle-cmds.js";
+import {
+	clear,
+	compact,
+	context,
+	createHelpCommand,
+	detach,
+	exit,
+	restart,
+	session,
+	tokens,
+	update,
+} from "./lifecycle-cmds.js";
 import { directive, meta } from "./meta-cmds.js";
 import { stickies, sticky } from "./notes-cmds.js";
 import { plan } from "./plan-cmds.js";
@@ -43,6 +54,9 @@ const help = createHelpCommand(() => registry.list());
 
 registry
 	.register(exit, "quit", "exit")
+	.register(restart)
+	.register(update)
+	.register(tokens)
 	.register(detach)
 	.register(clear, "clear")
 	.register(compact)

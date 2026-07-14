@@ -19,6 +19,7 @@ export interface DashboardFooterOptions {
 	warnStyle: (text: string) => string;
 	errorStyle: (text: string) => string;
 	buildInfo?: { version: string; gitHash: string; gitCommitTimestamp?: string };
+	updateAvailable?: { version: string };
 }
 
 /**
@@ -181,6 +182,10 @@ export class DashboardFooter implements Component {
 			segments.push(dimStyle(`[${this.opts.blueprintName}]`));
 		}
 
+		if (this.opts.updateAvailable) {
+			segments.push(warnStyle(`↑ update ${this.opts.updateAvailable.version}`));
+		}
+
 		if (this.opts.buildInfo) {
 			const { version, gitHash, gitCommitTimestamp } = this.opts.buildInfo;
 			// For dev builds, include commit timestamp in format: v{version}@{hash} ({timestamp})
@@ -200,5 +205,10 @@ export class DashboardFooter implements Component {
 		}
 
 		return [pathLine, statsLine];
+	}
+
+	setUpdateAvailable(version: string): void {
+		this.opts.updateAvailable = { version };
+		this.opts.requestRender();
 	}
 }

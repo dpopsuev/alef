@@ -33,6 +33,15 @@ function readCommitTimestamp(): string {
 	return match?.[1] ?? "unknown";
 }
 
+/** Detect if this CLI install is a git checkout (dev) vs published package (stable). */
+function detectChannel(): "dev" | "stable" {
+	const override = process.env.ALEF_CHANNEL;
+	if (override === "dev" || override === "stable") return override;
+	const cliRoot = resolve(import.meta.dirname, "../..");
+	const gitHash = exec(`git -C ${JSON.stringify(cliRoot)} rev-parse --short HEAD`);
+	return gitHash !== "unknown" ? "dev" : "stable";
+}
+
 /** Compile-time metadata: semver, git hash, branch, commit timestamp, and build timestamp. */
 export const BUILD_INFO = {
 	version: readVersion(),
@@ -40,4 +49,5 @@ export const BUILD_INFO = {
 	gitBranch: exec("git rev-parse --abbrev-ref HEAD"),
 	gitCommitTimestamp: readCommitTimestamp(),
 	buildTimestamp: new Date().toISOString(),
+	channel: detectChannel(),
 } as const;

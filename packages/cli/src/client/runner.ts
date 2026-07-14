@@ -62,7 +62,7 @@ export async function runTuiMode(
 		compacted: false,
 		costUsd: 0,
 	});
-	const { output, input } = await buildLayout(tui, t, opts, tuiStore, store);
+	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore, store);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
 
@@ -158,6 +158,8 @@ export async function runTuiMode(
 		.then((n) => {
 			if (n) {
 				writer.addNotice(n);
+				const match = n.match(/New version (\S+)/);
+				if (match?.[1]) footer.setUpdateAvailable(match[1]);
 				tui.requestRender();
 			}
 		})
@@ -186,18 +188,29 @@ export function createContextFactory(
 	dispatch: (event: TuiEvent) => void,
 	store?: SessionStore,
 ): () => TuiHandlerContext {
-	return () => ({
-		t,
-		writer,
-		tui,
-		opts,
-		session,
-		store,
-		dispatch,
-		abortCurrentTurn: getState().abortCurrentTurn,
-		setAbortCurrentTurn: (fn: (() => void) | undefined) =>
-			fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" }),
-	});
+	return () => {
+		const state = getState();
+		return {
+			t,
+			writer,
+			tui,
+			opts,
+			session,
+			store,
+			dispatch,
+			abortCurrentTurn: state.abortCurrentTurn,
+			setAbortCurrentTurn: (fn: (() => void) | undefined) =>
+				fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" }),
+			sessionTokens: {
+				input: state.sessionInputTokens,
+				output: state.sessionOutputTokens,
+				total: state.sessionTokensTotal,
+				costUsd: state.sessionCostUsd,
+				contextFill: state.contextFillTokens,
+				contextWindow: session.state.contextWindow || 0,
+			},
+		};
+	};
 }
 
 const KEY = {

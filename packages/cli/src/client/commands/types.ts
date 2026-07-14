@@ -23,6 +23,15 @@ export interface TuiHandlerContext {
 	dispatch: (event: TuiEvent) => void;
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
+	/** Live session token counters from TUI state (snapshot per command). */
+	sessionTokens?: {
+		input: number;
+		output: number;
+		total: number;
+		costUsd: number;
+		contextFill: number;
+		contextWindow: number;
+	};
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */

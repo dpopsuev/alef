@@ -21,9 +21,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve as pathResolve } from "node:path";
 import { afterEach, describe, expect, it, onTestFailed } from "vitest";
+import { sessionsDir } from "@dpopsuev/alef-kernel/xdg";
 import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import {
 	assertFileReadWorkflow,
@@ -276,18 +277,18 @@ async function waitFor(
 
 /** Read latest JSONL session records from cwd. */
 /**
- * Sessions are stored in ~/.alef/sessions/<cwdHash>/ not in the cwd.
+ * Sessions are stored in $XDG_DATA_HOME/alef/sessions/<cwdHash>/ not in the cwd.
  * The hash matches what SessionStore uses (sha1 of cwd, first 12 hex chars).
  */
 function readJSONL(cwd: string): StorageRecord[] {
 	const cwdHash = createHash("sha1").update(cwd).digest("hex").slice(0, 12);
-	const sessionsDir = join(homedir(), ".alef", "sessions", cwdHash);
+	const sessionsDirPath = join(sessionsDir(), cwdHash);
 	let latest = "";
 	let latestMtime = 0;
 	try {
-		for (const file of readdirSync(sessionsDir)) {
+		for (const file of readdirSync(sessionsDirPath)) {
 			if (!file.endsWith(".jsonl")) continue;
-			const fp = join(sessionsDir, file);
+			const fp = join(sessionsDirPath, file);
 			const { mtimeMs } = statSync(fp);
 			if (mtimeMs > latestMtime) {
 				latestMtime = mtimeMs;

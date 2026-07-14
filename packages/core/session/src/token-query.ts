@@ -3,10 +3,8 @@
  */
 
 import { readFile, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
-
-const TELEMETRY_ROOT = join(homedir(), ".alef", "telemetry");
+import { telemetryDir } from "@dpopsuev/alef-kernel/xdg";
 
 /** One JSONL row of persisted LLM token usage. */
 export interface TokenRecord {
@@ -54,7 +52,7 @@ export interface QueryOptions {
 	adapter?: string;
 	tool?: string;
 	model?: string;
-	/** Override telemetry root (tests). Default: ~/.alef/telemetry */
+	/** Override telemetry root (tests). Default: $XDG_DATA_HOME/alef/telemetry */
 	telemetryRoot?: string;
 }
 
@@ -79,7 +77,7 @@ async function readSessionTokens(sessionId: string, root: string): Promise<Token
  * Read all token records matching query filters.
  */
 export async function queryTokens(options: QueryOptions = {}): Promise<TokenRecord[]> {
-	const root = options.telemetryRoot ?? TELEMETRY_ROOT;
+	const root = options.telemetryRoot ?? telemetryDir();
 	let records: TokenRecord[] = [];
 
 	if (options.sessionId) {

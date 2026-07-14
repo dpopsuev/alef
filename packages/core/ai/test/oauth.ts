@@ -17,22 +17,19 @@ function expandTildePath(dir: string): string {
 	return dir;
 }
 
-/** Mirrors runner `authFilePath()` resolution for tests. */
+/** Mirrors `@dpopsuev/alef-kernel/xdg` resolveAgentDir for tests. */
 function resolveAlefAgentDir(): string {
 	const envDir = process.env.ALEF_CODING_AGENT_DIR?.trim();
 	if (envDir) {
 		return expandTildePath(envDir);
 	}
-	if (process.platform === "linux") {
-		const legacy = join(homedir(), ".alef", "agent");
-		if (existsSync(legacy)) {
-			return legacy;
-		}
-		const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
-		const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
-		return join(xdgBase, "alef", "agent");
-	}
-	return join(homedir(), ".alef", "agent");
+	const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
+	const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
+	const xdgAgentDir = join(xdgBase, "alef", "agent");
+	const legacy = join(homedir(), ".alef", "agent");
+	if (existsSync(xdgAgentDir)) return xdgAgentDir;
+	if (existsSync(legacy)) return legacy;
+	return xdgAgentDir;
 }
 
 const AUTH_PATH = join(resolveAlefAgentDir(), "auth.json");

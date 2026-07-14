@@ -65,6 +65,11 @@
       "source": "./src/content.ts",
       "import": "./src/content.ts",
       "default": "./src/content.ts"
+    },
+    "./xdg": {
+      "source": "./src/xdg.ts",
+      "import": "./src/xdg.ts",
+      "default": "./src/xdg.ts"
     }
   },
   "files": [

@@ -1,126 +1,77 @@
 /**
- * XDG Base Directory Specification paths for Alef.
+ * XDG paths for the CLI — re-exports the canonical kernel module.
  *
  * Spec: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
  *
  * Directory structure:
  *   $XDG_CONFIG_HOME/alef/          → User-specific configuration
- *     ├── theme.yaml                → Custom TUI theme
- *     ├── config.yaml               → User preferences
- *     └── skills/                   → User skill library
- *         ├── debug-alef/SKILL.md   → Debug diagnostics skill
- *         └── custom-skill/SKILL.md → User-defined skills
- *
- *   $XDG_DATA_HOME/alef/            → User-specific data
- *     ├── sessions/<cwd-hash>/      → Session JSONL logs
- *     │   ├── <session-id>.jsonl
- *     │   └── latest
- *     ├── plans/<cwd-hash>/         → Workspace multi-plan shelf
- *     │   ├── index.json
- *     │   └── plan-<id>.json
- *     └── prototypes/               → User-written adapter prototypes
- *         └── <name>.ts
- *
- *   $XDG_STATE_HOME/alef/           → Runtime state
- *     ├── daemon.json               → Daemon registry (port, pid, session)
- *     └── last-session.json         → Most recent session metadata
- *
- *   $XDG_CACHE_HOME/alef/           → Non-essential cache data
- *     ├── lsp/                      → TypeScript LSP cache
- *     └── embeddings/               → Vector embedding cache
- *
+ *   $XDG_DATA_HOME/alef/            → User-specific data (sessions, db, prototypes)
+ *   $XDG_STATE_HOME/alef/           → Runtime state (daemon, last-session, debug.log)
+ *   $XDG_CACHE_HOME/alef/           → Non-essential cache
  *   <cwd>/.alef/                    → Project-local configuration
- *     ├── directives/               → Project-specific system prompts
- *     └── skills/                   → Project-specific skills
+ *
+ * Historical ALL_CAPS exports are zero-arg functions (call `SESSIONS_DIR()`).
  */
 
-import { mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+export {
+	AGENT_DIR,
+	ALEF_CACHE_DIR,
+	ALEF_CONFIG_DIR,
+	ALEF_DATA_DIR,
+	ALEF_STATE_DIR,
+	agentDir,
+	alefCacheDir,
+	alefConfigDir,
+	alefDataDir,
+	alefStateDir,
+	DAEMON_PATH,
+	DATABASE_PATH,
+	DEBUG_LOG_PATH,
+	DEBUG_SKILL_PATH,
+	daemonPath,
+	databasePath,
+	debugLogPath,
+	debugSkillPath,
+	EMBEDDINGS_CACHE_DIR,
+	embeddingsCacheDir,
+	ensureAlefDirectories,
+	ensureAlefHome,
+	getProjectAlefDir,
+	LAST_SESSION_PATH,
+	LSP_CACHE_DIR,
+	lastSessionPath,
+	legacyAlefHome,
+	lspCacheDir,
+	migrateLegacyAlefHome,
+	PLANS_DIR,
+	PROTOTYPES_DIR,
+	plansDir,
+	prototypesDir,
+	resolveAgentDir,
+	SESSIONS_DIR,
+	sessionScanRoots,
+	sessionsDir,
+	TELEMETRY_DIR,
+	telemetryDir,
+	USER_CONFIG_PATH,
+	USER_SKILLS_DIR,
+	USER_THEME_PATH,
+	userConfigPath,
+	userSkillsDir,
+	userThemePath,
+	XDG_CACHE_HOME,
+	XDG_CONFIG_HOME,
+	XDG_DATA_HOME,
+	XDG_STATE_HOME,
+	xdgCacheHome,
+	xdgConfigHome,
+	xdgDataHome,
+	xdgStateHome,
+} from "@dpopsuev/alef-kernel/xdg";
 
-/** XDG_CONFIG_HOME — user-specific configuration files (default: ~/.config) */
-export const XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
+import { ensureAlefHome } from "@dpopsuev/alef-kernel/xdg";
 
-/** XDG_DATA_HOME — user-specific data files (default: ~/.local/share) */
-export const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
-
-/** XDG_STATE_HOME — user-specific state data (logs, history) (default: ~/.local/state) */
-export const XDG_STATE_HOME = process.env.XDG_STATE_HOME ?? join(homedir(), ".local/state");
-
-/** XDG_CACHE_HOME — user-specific non-essential cache (default: ~/.cache) */
-export const XDG_CACHE_HOME = process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache");
-
-/** Alef configuration directory ($XDG_CONFIG_HOME/alef) */
-export const ALEF_CONFIG_DIR = join(XDG_CONFIG_HOME, "alef");
-
-/** Alef data directory ($XDG_DATA_HOME/alef) */
-export const ALEF_DATA_DIR = join(XDG_DATA_HOME, "alef");
-
-/** Alef state directory ($XDG_STATE_HOME/alef) */
-export const ALEF_STATE_DIR = join(XDG_STATE_HOME, "alef");
-
-/** Alef cache directory ($XDG_CACHE_HOME/alef) */
-export const ALEF_CACHE_DIR = join(XDG_CACHE_HOME, "alef");
-
-// ---------------------------------------------------------------------------
-// Specific paths
-// ---------------------------------------------------------------------------
-
-/** User skills directory ($XDG_CONFIG_HOME/alef/skills) */
-export const USER_SKILLS_DIR = join(ALEF_CONFIG_DIR, "skills");
-
-/** Debug skill path ($XDG_CONFIG_HOME/alef/skills/debug-alef/SKILL.md) */
-export const DEBUG_SKILL_PATH = join(USER_SKILLS_DIR, "debug-alef", "SKILL.md");
-
-/** User theme file ($XDG_CONFIG_HOME/alef/theme.yaml) */
-export const USER_THEME_PATH = join(ALEF_CONFIG_DIR, "theme.yaml");
-
-/** User config file ($XDG_CONFIG_HOME/alef/config.yaml) */
-export const USER_CONFIG_PATH = join(ALEF_CONFIG_DIR, "config.yaml");
-
-/** Session storage root ($XDG_DATA_HOME/alef/sessions) */
-export const SESSIONS_DIR = join(ALEF_DATA_DIR, "sessions");
-
-/** Workspace plan shelf root ($XDG_DATA_HOME/alef/plans) */
-export const PLANS_DIR = join(ALEF_DATA_DIR, "plans");
-
-/** Prototypes directory ($XDG_DATA_HOME/alef/prototypes) */
-export const PROTOTYPES_DIR = join(ALEF_DATA_DIR, "prototypes");
-
-/** Daemon registry ($XDG_STATE_HOME/alef/daemon.json) */
-export const DAEMON_PATH = join(ALEF_STATE_DIR, "daemon.json");
-
-/** Last session metadata ($XDG_STATE_HOME/alef/last-session.json) */
-export const LAST_SESSION_PATH = join(ALEF_STATE_DIR, "last-session.json");
-
-/** LSP cache directory ($XDG_CACHE_HOME/alef/lsp) */
-export const LSP_CACHE_DIR = join(ALEF_CACHE_DIR, "lsp");
-
-/** Embeddings cache directory ($XDG_CACHE_HOME/alef/embeddings) */
-export const EMBEDDINGS_CACHE_DIR = join(ALEF_CACHE_DIR, "embeddings");
-
-/**
- * Get project-local .alef directory (relative to cwd).
- * Used for project-specific directives and skills.
- */
-export function getProjectAlefDir(cwd: string): string {
-	return join(cwd, ".alef");
-}
-
-/**
- * Ensure all XDG directories exist. Called once at process startup.
- * Idempotent — mkdir -p is a no-op for existing directories.
- */
+/** Ensure XDG dirs exist and migrate legacy ~/.alef when destinations are empty. */
 export function ensureDirectories(): void {
-	for (const dir of [
-		join(ALEF_CONFIG_DIR, "skills"),
-		join(ALEF_DATA_DIR, "sessions"),
-		join(ALEF_DATA_DIR, "plans"),
-		join(ALEF_DATA_DIR, "prototypes"),
-		ALEF_STATE_DIR,
-		LSP_CACHE_DIR,
-		EMBEDDINGS_CACHE_DIR,
-	]) {
-		mkdirSync(dir, { recursive: true });
-	}
+	ensureAlefHome();
 }

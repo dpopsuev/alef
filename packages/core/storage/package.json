@@ -31,6 +31,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "@opentelemetry/core": "^2.0.0",

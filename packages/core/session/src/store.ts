@@ -12,6 +12,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { sessionsDir, sessionScanRoots } from "@dpopsuev/alef-kernel/xdg";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { SessionNameSource, SessionStore, SessionTagsSource, SetNameOptions, SetTagsOptions, StorageRecord, Turn } from "./contracts/storage.js";
@@ -78,7 +79,7 @@ async function readSessionListMeta(path: string): Promise<SessionListMeta> {
 // Session-scan helpers (previously session-scan.ts)
 // ---------------------------------------------------------------------------
 
-export const SESSION_ROOT = join(homedir(), ".alef", "sessions");
+export const SESSION_ROOT = sessionsDir; // call SESSION_ROOT()
 
 /**
  *
@@ -86,28 +87,30 @@ export const SESSION_ROOT = join(homedir(), ".alef", "sessions");
 export async function scanSessionFiles(
 	visitor: (id: string, path: string, cwdHash: string) => Promise<void>,
 ): Promise<void> {
-	try {
-		const cwdHashes = await readdir(SESSION_ROOT);
-		for (const cwdHash of cwdHashes) {
-			const dir = join(SESSION_ROOT, cwdHash);
-			try {
-				const entries = await readdir(dir);
-				for (const entry of entries) {
-					if (!entry.endsWith(".jsonl")) continue;
-					const id = entry.replace(".jsonl", "");
-					const path = join(dir, entry);
-					try {
-						await visitor(id, path, cwdHash);
-					} catch {
-						/* skip unreadable entries */
+	for (const root of sessionScanRoots()) {
+		try {
+			const cwdHashes = await readdir(root);
+			for (const cwdHash of cwdHashes) {
+				const dir = join(root, cwdHash);
+				try {
+					const entries = await readdir(dir);
+					for (const entry of entries) {
+						if (!entry.endsWith(".jsonl")) continue;
+						const id = entry.replace(".jsonl", "");
+						const path = join(dir, entry);
+						try {
+							await visitor(id, path, cwdHash);
+						} catch {
+							/* skip unreadable entries */
+						}
 					}
+				} catch {
+					/* skip inaccessible directories */
 				}
-			} catch {
-				/* skip inaccessible directories */
 			}
+		} catch {
+			/* no sessions directory */
 		}
-	} catch {
-		/* no sessions directory */
 	}
 }
 
@@ -115,7 +118,7 @@ export async function scanSessionFiles(
  *
  */
 export function sessionPath(id: string, cwdHash: string): string {
-	return join(SESSION_ROOT, cwdHash, `${id}.jsonl`);
+	return join(sessionsDir(), cwdHash, `${id}.jsonl`);
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +190,7 @@ export class TurnIndexer {
  *
  */
 function sessionDir(cwd: string): string {
-	return join(homedir(), ".alef", "sessions", cwdHash(cwd));
+	return join(sessionsDir(), cwdHash(cwd));
 }
 
 /**

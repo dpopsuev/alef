@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { userThemePath } from "@dpopsuev/alef-kernel/xdg";
 import { parse as parseYaml } from "yaml";
 
 export type { ColorDepth, ColorToken, ThemeTokens } from "@dpopsuev/alef-tui";
@@ -319,11 +319,10 @@ export function loadTheme(
 	/** Terminal palette from OSC 4 queries — used to enrich the terminal theme with real colors. */
 	terminalPalette: Record<number, string> = {},
 ): void {
-	// Priority: blueprint agent.yaml > ~/.config/alef/theme.yaml > config.yaml theme section
-	const candidates = [
-		blueprintDir ? join(blueprintDir, "agent.yaml") : null,
-		join(homedir(), ".config", "alef", "theme.yaml"),
-	].filter((p): p is string => p !== null);
+	// Priority: blueprint agent.yaml > $XDG_CONFIG_HOME/alef/theme.yaml > config.yaml theme section
+	const candidates = [blueprintDir ? join(blueprintDir, "agent.yaml") : null, userThemePath()].filter(
+		(p): p is string => p !== null,
+	);
 
 	let manifest: ThemeManifest | null = null;
 	for (const path of candidates) {

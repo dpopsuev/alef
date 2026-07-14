@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
+import { alefConfigDir, prototypesDir } from "@dpopsuev/alef-kernel/xdg";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 
@@ -79,7 +79,7 @@ type FieldType = (typeof FIELD_TYPES)[number];
 const ADAPTER_TOOL = {
 	name: "factory.adapter",
 	description:
-		"Write a valid TypeScript adapter scaffold to ~/.alef/prototypes/<name>.ts. " +
+		"Write a valid TypeScript adapter scaffold to $XDG_DATA_HOME/alef/prototypes/<name>.ts. " +
 		"Returns the absolute path — pass it directly to prototype.plug({ path }) to load it.",
 	inputSchema: z.object({
 		name: z
@@ -151,8 +151,6 @@ function buildAdapterScaffold(
 	].join("\n");
 }
 
-const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
-
 /**
  *
  */
@@ -176,8 +174,8 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from tool schema
 					const fields: Record<string, FieldType> = inputFields as Record<string, FieldType>;
 
-					mkdirSync(PROTOTYPES_DIR, { recursive: true });
-					const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);
+					mkdirSync(prototypesDir(), { recursive: true });
+					const targetPath = join(prototypesDir(), `${name}.ts`);
 					const scaffold = buildAdapterScaffold(name, toolName, description, fields);
 					writeFileSync(targetPath, scaffold, "utf-8");
 
@@ -195,7 +193,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 				"factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
 					const { name, description, adapters, model, outputPath } = ctx.payload;
 
-					const defaultDir = join(homedir(), ".config", "alef", "agents");
+					const defaultDir = join(alefConfigDir(), "agents");
 					const targetPath = outputPath ? resolve(cwd, outputPath) : join(defaultDir, `${name}.yaml`);
 
 					mkdirSync(dirname(targetPath), { recursive: true });
@@ -221,7 +219,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 			directives: [
 				`**factory.adapter — scaffold a new adapter**
 
-Write a valid TypeScript adapter to ~/.alef/prototypes/<name>.ts, then load it:
+Write a valid TypeScript adapter to $XDG_DATA_HOME/alef/prototypes/<name>.ts, then load it:
 
   factory.adapter({ name, toolName, description, inputFields? })
   → { path, next: "prototype.plug({ path })" }
@@ -248,7 +246,7 @@ Built-in adapters you can include:
 Custom adapters:
   Pass an absolute path or a cwd-relative .ts path, e.g. "./adapters/reviewer.ts"
 
-Blueprints are saved to ~/.config/alef/agents/<name>.yaml by default.
+Blueprints are saved to $XDG_CONFIG_HOME/alef/agents/<name>.yaml by default.
 Pass outputPath to write elsewhere.
 
 Example — create a focused code reviewer:
@@ -258,7 +256,7 @@ Example — create a focused code reviewer:
     adapters: ["fs", "code-intel"],
     model: "claude-haiku-4-5"
   })
-  → orchestration.spawn({ blueprintPath: "~/.config/alef/agents/reviewer.yaml" })`,
+  → orchestration.spawn({ blueprintPath: "$XDG_CONFIG_HOME/alef/agents/reviewer.yaml" })`,
 			],
 		},
 	);

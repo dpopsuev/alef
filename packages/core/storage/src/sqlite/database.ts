@@ -1,11 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { databasePath, ensureAlefHome } from "@dpopsuev/alef-kernel/xdg";
 import { type Client, createClient } from "@libsql/client";
 import { applySchema } from "./schema.js";
 
-const ALEF_DIR = ".alef";
-const DB_FILENAME = "alef.db";
 const DEFAULT_SYNC_INTERVAL_S = 60;
 const SQLITE_BUSY_TIMEOUT_MS = 5000;
 
@@ -36,7 +35,8 @@ export function configureStorage(config: StorageConfig): void {
  */
 export async function getDatabase(path?: string): Promise<Client> {
 	if (_client) return _client;
-	const dbPath = path ?? join(homedir(), ALEF_DIR, DB_FILENAME);
+	if (!path) ensureAlefHome();
+	const dbPath = path ?? databasePath();
 	mkdirSync(dirname(dbPath), { recursive: true });
 
 	if (_config.backend === "turso" && _config.tursoUrl) {

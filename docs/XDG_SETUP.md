@@ -40,13 +40,15 @@ Default: `~/.local/share/alef`
 
 ```
 ~/.local/share/alef/
+├── alef.db                 # Primary SQLite store (sessions index, events, auth, …)
 ├── sessions/               # Session JSONL logs
 │   ├── <cwd-hash>/        # Per-directory sessions
 │   │   ├── <session-id>.jsonl
 │   │   └── latest         # Symlink to most recent
 │   └── ...
-└── prototypes/            # User-written organ prototypes
-    └── custom-organ.ts
+├── plans/<cwd-hash>/       # Workspace multi-plan shelf
+├── prototypes/            # User-written adapter prototypes
+└── telemetry/             # Token usage JSONL
 ```
 
 **Purpose:** User-specific data files that should persist across updates.
@@ -106,12 +108,18 @@ Add to `~/.bashrc` or `~/.zshrc` to persist across sessions.
 If you have an existing `~/.alef` directory, `make xdg-setup` will automatically migrate:
 
 ```
+~/.alef/alef.db           → $XDG_DATA_HOME/alef/alef.db
 ~/.alef/debug.log         → $XDG_STATE_HOME/alef/debug.log
 ~/.alef/daemon.json       → $XDG_STATE_HOME/alef/daemon.json
 ~/.alef/last-session.json → $XDG_STATE_HOME/alef/last-session.json
 ~/.alef/sessions/         → $XDG_DATA_HOME/alef/sessions/
 ~/.alef/prototypes/       → $XDG_DATA_HOME/alef/prototypes/
+~/.alef/plans/            → $XDG_DATA_HOME/alef/plans/
+~/.alef/telemetry/        → $XDG_DATA_HOME/alef/telemetry/
+~/.alef/agent/            → $XDG_CONFIG_HOME/alef/agent/
 ```
+
+Migration also runs automatically on Alef startup via `ensureAlefHome()` (moves only when the destination is absent).
 
 After migration, review and manually delete `~/.alef`:
 ```bash
@@ -185,17 +193,17 @@ TypeScript code can import XDG paths:
 
 ```typescript
 import {
-  ALEF_CONFIG_DIR,
-  ALEF_DATA_DIR,
-  ALEF_STATE_DIR,
-  ALEF_CACHE_DIR,
-  DEBUG_LOG_PATH,
-  USER_SKILLS_DIR,
-  SESSIONS_DIR,
-} from './xdg-paths';
+  alefConfigDir,
+  alefDataDir,
+  alefStateDir,
+  databasePath,
+  ensureAlefHome,
+  sessionsDir,
+  userSkillsDir,
+} from "@dpopsuev/alef-kernel/xdg";
 ```
 
-See `packages/runner/src/xdg-paths.ts` for all available paths.
+See `packages/core/kernel/src/xdg.ts` for all available paths.
 
 ## Debugging XDG Setup
 

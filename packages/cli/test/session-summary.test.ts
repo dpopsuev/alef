@@ -5,12 +5,11 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { SessionLog } from "@dpopsuev/alef-agent/event-log";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
+import { lastSessionPath } from "@dpopsuev/alef-kernel/xdg";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { makeTestDatabase } from "@dpopsuev/alef-storage/sqlite/database";
 import { SqliteSessionStore } from "@dpopsuev/alef-storage/sqlite/session";
@@ -53,7 +52,7 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 			expect(summary.duration_ms).toBeGreaterThan(0);
 		}
 
-		const last = join(homedir(), ".alef", "last-session.json");
+		const last = lastSessionPath();
 		const lastExists = await readFile(last, "utf-8")
 			.then(() => true)
 			.catch(() => false);

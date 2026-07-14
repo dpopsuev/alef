@@ -8,7 +8,6 @@
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
@@ -23,6 +22,7 @@ import {
 	typedAction,
 } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
+import { prototypesDir } from "@dpopsuev/alef-kernel/xdg";
 import { z } from "zod";
 import {
 	getConfig,
@@ -66,7 +66,6 @@ export interface MetaAdapterOptions {
 	dialogEventType: string;
 }
 
-const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 const WORKER_BOOTSTRAP = fileURLToPath(new URL("./prototype-worker.ts", import.meta.url));
 
 /**
@@ -273,7 +272,7 @@ const PROTOTYPE_PLUG = {
 	name: "prototype.plug",
 	description:
 		"Load a TypeScript adapter into the running agent. " +
-		"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
+		"Pass path to an existing .ts file, or code to write one to $XDG_DATA_HOME/alef/prototypes/ first. " +
 		"The adapter's tools become available immediately.",
 	inputSchema: z
 		.object({
@@ -284,7 +283,7 @@ const PROTOTYPE_PLUG = {
 			code: z
 				.string()
 				.optional()
-				.describe("TypeScript adapter source. Written to ~/.alef/prototypes/<name>.ts."),
+				.describe("TypeScript adapter source. Written to $XDG_DATA_HOME/alef/prototypes/<name>.ts."),
 			name: z
 				.string()
 				.optional()
@@ -342,9 +341,9 @@ function buildPrototypeTools(
 					{ text: `Rejected: ${rejection}`, mimeType: "text/plain" },
 				);
 			}
-			await mkdir(PROTOTYPES_DIR, { recursive: true });
+			await mkdir(prototypesDir(), { recursive: true });
 			const filename = `${ctx.payload.name ?? "prototype"}.ts`;
-			adapterPath = join(PROTOTYPES_DIR, filename);
+			adapterPath = join(prototypesDir(), filename);
 			await writeFile(adapterPath, code, "utf-8");
 		} else {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod refine guarantees path is set in this branch

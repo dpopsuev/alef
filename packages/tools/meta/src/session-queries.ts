@@ -1,8 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { alefConfigDir, alefDataDir } from "@dpopsuev/alef-kernel/xdg";
 import { scanSessionFiles } from "@dpopsuev/alef-session/store";
 
-const CONFIG_ROOT = join(process.env.HOME ?? "", ".alef");
+const generationsDir = () => join(alefDataDir(), "generations");
 
 /**
  *
@@ -145,7 +146,7 @@ export async function searchSessions(
  */
 export async function getConfig(): Promise<Record<string, unknown>> {
 	try {
-		const path = join(CONFIG_ROOT, "config.yaml");
+		const path = join(alefConfigDir(), "config.yaml");
 		const raw = await readFile(path, "utf-8");
 		return { raw };
 	} catch {
@@ -158,7 +159,7 @@ export async function getConfig(): Promise<Record<string, unknown>> {
  */
 export async function listAdapters(): Promise<string[]> {
 	try {
-		const path = join(CONFIG_ROOT, "adapters.yaml");
+		const path = join(alefConfigDir(), "adapters.yaml");
 		const raw = await readFile(path, "utf-8");
 		return [raw];
 	} catch {
@@ -171,7 +172,7 @@ export async function listAdapters(): Promise<string[]> {
  */
 export async function pmHistory(): Promise<Array<{ id: number; ts: string; adapters: Record<string, string> }>> {
 	try {
-		const genDir = join(CONFIG_ROOT, "generations");
+		const genDir = generationsDir();
 		const files = await readdir(genDir);
 		const entries = await Promise.all(
 			files

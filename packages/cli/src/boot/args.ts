@@ -82,7 +82,7 @@ export interface Args {
 	/** Host/interface for the HTTP router. Default: 127.0.0.1. */
 	host: string | undefined;
 	/**
-	 * Daemon mode: start headlessly on a random port, write ~/.alef/daemon.json,
+	 * Daemon mode: start headlessly on a random port, write $XDG_STATE_HOME/alef/daemon.json,
 	 * and keep running until killed. Implies --serve 0 --no-tui.
 	 */
 	daemon: boolean;

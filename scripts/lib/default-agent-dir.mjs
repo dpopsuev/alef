@@ -16,19 +16,15 @@ export function expandTildePath(path) {
 	return path;
 }
 
-/** Mirrors packages/coding-agent/src/config.ts getAgentDir(). */
+/** Mirrors @dpopsuev/alef-kernel/xdg resolveAgentDir(). */
 export function getDefaultAgentDir() {
 	const envDir = process.env.ALEF_CODING_AGENT_DIR;
 	if (envDir) {
 		return expandTildePath(envDir.trim());
 	}
-	if (process.platform === "linux") {
-		const xdgAgentDir = join(resolveXdgConfigHome(), "alef", "agent");
-		const legacyAgentDir = join(homedir(), ".alef", "agent");
-		if (existsSync(legacyAgentDir)) {
-			return legacyAgentDir;
-		}
-		return xdgAgentDir;
-	}
-	return join(homedir(), ".alef", "agent");
+	const xdgAgentDir = join(resolveXdgConfigHome(), "alef", "agent");
+	const legacyAgentDir = join(homedir(), ".alef", "agent");
+	if (existsSync(xdgAgentDir)) return xdgAgentDir;
+	if (existsSync(legacyAgentDir)) return legacyAgentDir;
+	return xdgAgentDir;
 }

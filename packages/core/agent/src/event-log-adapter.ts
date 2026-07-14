@@ -11,11 +11,10 @@ import { Traced } from "@dpopsuev/alef-kernel/log";
  */
 
 import { writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+import { lastSessionPath } from "@dpopsuev/alef-kernel/xdg";
 import { redactPayload } from "@dpopsuev/alef-session/redact";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { type BusKind, hashRecord, type StorageActor } from "@dpopsuev/alef-session/storage";
@@ -209,7 +208,7 @@ export class SessionLog implements Adapter {
 			}
 		}
 		const json = `${JSON.stringify(summary, null, 2)}\n`;
-		const last = join(homedir(), ".alef", "last-session.json");
+		const last = lastSessionPath();
 		await writeFile(last, json, "utf-8").catch((e: unknown) =>
 			traceEvent("session-summary:write-failed", { path: last, error: String(e) }),
 		);

@@ -5,17 +5,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 describe("createTokenTelemetry", { tags: ["unit"] }, () => {
+	const previousDataHome = process.env.XDG_DATA_HOME;
+
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.resetModules();
+		if (previousDataHome === undefined) delete process.env.XDG_DATA_HOME;
+		else process.env.XDG_DATA_HOME = previousDataHome;
 	});
 
 	it("appends llm.token-usage records with model attribution", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "alef-telemetry-"));
-		vi.doMock("node:os", async () => {
-			const actual = await vi.importActual<typeof import("node:os")>("node:os");
-			return { ...actual, homedir: () => dir };
-		});
+		process.env.XDG_DATA_HOME = dir;
+		vi.resetModules();
 
 		const { createTokenTelemetry } = await import("../src/token-telemetry.js");
 		const bus = new InProcessBus();
@@ -40,7 +42,7 @@ describe("createTokenTelemetry", { tags: ["unit"] }, () => {
 		// allow async subscriber to flush
 		await new Promise((r) => setTimeout(r, 50));
 
-		const raw = await readFile(join(dir, ".alef", "telemetry", "sess-1-tokens.jsonl"), "utf-8");
+		const raw = await readFile(join(dir, "alef", "telemetry", "sess-1-tokens.jsonl"), "utf-8");
 		const row = JSON.parse(raw.trim()) as {
 			sid: string;
 			model?: string;
@@ -49,7 +51,10 @@ describe("createTokenTelemetry", { tags: ["unit"] }, () => {
 		};
 		expect(row.sid).toBe("sess-1");
 		expect(row.model).toBe("test-model");
-		expect(row.tokens).toMatchObject({ in: 10, out: 5, cr: 3, total: 15 });
+		expect(row.tokens.in).toBe(10);
+		expect(row.tokens.out).toBe(5);
+		expect(row.tokens.cr).toBe(3);
+		expect(row.tokens.total).toBe(15);
 		expect(row.cost.total).toBe(0.01);
 	});
 });

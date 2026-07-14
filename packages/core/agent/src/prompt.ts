@@ -53,7 +53,7 @@ export function buildEnvironmentBlock(cwd: string): string {
 		`Directory: ${cwd}`,
 		`PID: ${pid}`,
 		`User: ${user}@${host}`,
-		`Session store: ~/.alef/sessions/`,
+		`Session store: $XDG_DATA_HOME/alef/sessions/`,
 	].join("\n");
 }
 

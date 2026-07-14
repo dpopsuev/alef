@@ -101,7 +101,7 @@ alef debug session            # analyze latest session for unpaired tool calls
 If `alef log` doesn't expose the data you need, raw sqlite3 is the escape hatch:
 
 ```bash
-sqlite3 ~/.alef/alef.db "YOUR QUERY"
+sqlite3 "${XDG_DATA_HOME:-$HOME/.local/share}/alef/alef.db" "YOUR QUERY"
 ```
 
 **If you reach for sqlite3, it means the CLI is missing an API.** File a need in Scribe to extend `alef log` with the query you needed. The goal is zero raw SQL in debugging workflows.

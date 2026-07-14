@@ -6,13 +6,11 @@
  */
 
 import { appendFile, mkdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, NotificationMessage } from "@dpopsuev/alef-kernel/bus";
-
-const TELEMETRY_ROOT = join(homedir(), ".alef", "telemetry");
+import { telemetryDir } from "@dpopsuev/alef-kernel/xdg";
 
 /** Compact token usage record for JSONL storage. */
 interface TokenTelemetryRecord {
@@ -51,11 +49,11 @@ class TokenTelemetryStore {
 
 	constructor(sessionId: string) {
 		this.sessionId = sessionId;
-		this.path = join(TELEMETRY_ROOT, `${sessionId}-tokens.jsonl`);
+		this.path = join(telemetryDir(), `${sessionId}-tokens.jsonl`);
 	}
 
 	async ensureDir(): Promise<void> {
-		await mkdir(TELEMETRY_ROOT, { recursive: true });
+		await mkdir(telemetryDir(), { recursive: true });
 	}
 
 	async append(record: TokenTelemetryRecord): Promise<void> {

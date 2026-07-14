@@ -499,4 +499,44 @@ auto-tag
 		expect(meta.nameSource).toBe("user");
 		expect(meta.tags).toEqual(["auto-tag"]);
 	});
+
+	it("injects tool format reminder after compaction summary", async () => {
+		const stage = createCompactionStage({
+			contextWindow: 10_000,
+			reserveTokens: 2_000,
+			keepRecentTokens: 200,
+			getLastTokenCount: () => 0,
+			summarize: () => "[Context compacted]",
+		});
+
+		const bulk = "x".repeat(20_000);
+		const result = await stage({
+			messages: [
+				{ role: "system", content: "You are an assistant" },
+				{ role: "user", content: bulk },
+				{ role: "assistant", content: bulk },
+				{ role: "user", content: "recent message" },
+			],
+			tools: [],
+			turn: 1,
+		});
+
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+		const messages = result.messages as Array<{ role: string; content: string }>;
+		expect(messages).toBeDefined();
+
+		// Find the assistant message with tool format reminder
+		const reminderMessage = messages.find(
+			(m) => m.role === "assistant" && m.content?.includes("function_calls"),
+		);
+		expect(reminderMessage).toBeDefined();
+		expect(reminderMessage?.content).toContain("When making function calls");
+		expect(reminderMessage?.content).toContain("<invoke");
+		expect(reminderMessage?.content).toContain("<parameter");
+
+		// Verify it comes after the summary and before kept messages
+		const summaryIndex = messages.findIndex((m) => m.role === "user" && m.content === "[Context compacted]");
+		const reminderIndex = messages.findIndex((m) => m === reminderMessage);
+		expect(reminderIndex).toBeGreaterThan(summaryIndex);
+	});
 });

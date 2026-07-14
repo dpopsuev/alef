@@ -19,6 +19,8 @@ const SEED_FILE = `export function greet(name: string): string {
 }
 `;
 
+const COMPACTION_TRIGGER_CHARS = 150_000;
+
 const SECRET = "XYZZY_42_PLUGH";
 
 export const singleToolCall: Evaluation = {
@@ -120,4 +122,21 @@ export const complexMultiTool: Evaluation = {
 		{ tool: ["fs.read", "code.read"] },
 	],
 	checker: toolCallsAreReal(),
+};
+
+export const postCompactionToolUse: Evaluation = {
+	id: "ToolUse_PostCompaction",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [
+		{ path: "data/config.json", content: '{"apiKey": "sk-test-12345", "timeout": 30000}' },
+	],
+	prompt:
+		// Fill context with large padding to trigger compaction
+		"Context padding: " +
+		"x".repeat(COMPACTION_TRIGGER_CHARS) +
+		"\n\nNow read the file data/config.json and tell me the apiKey value.",
+	expects: [{ tool: ["fs.read", "code.read"], target: { path: "data/config.json" } }],
+	checker: all(replyContains("sk-test-12345"), toolCallsAreReal()),
 };

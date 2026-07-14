@@ -58,7 +58,7 @@ export interface CompactionStageOptions {
 const CHARS_PER_TOKEN = 4;
 const SUMMARY_LINE_MAX_LENGTH = 120;
 const SHAKE_TOOL_RESULT_MAX = 400;
-const DEFAULT_CONTEXT_WINDOW = 200_000;
+const DEFAULT_CONTEXT_WINDOW = 1_000_000;
 const DEFAULT_RESERVE_TOKENS = 16_384;
 const DEFAULT_KEEP_RECENT_TOKENS = 20_000;
 const DEFAULT_COMPACTION_THRESHOLD = 0.9;
@@ -443,6 +443,12 @@ export async function compactMessages(
  */
 export function createCompactionStage(opts: CompactionStageOptions = {}): ContextAssemblyHandler {
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+	if (opts.contextWindow === undefined) {
+		console.warn(
+			`[compaction] contextWindow not provided, using default ${DEFAULT_CONTEXT_WINDOW.toLocaleString()} tokens. ` +
+				"This may cause premature compaction. Ensure model.contextWindow flows through blueprint → delegation → compaction.",
+		);
+	}
 	const reserveTokens = opts.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
 	const keepRecentTokens = opts.keepRecentTokens ?? DEFAULT_KEEP_RECENT_TOKENS;
 	const threshold = opts.threshold ?? DEFAULT_COMPACTION_THRESHOLD;

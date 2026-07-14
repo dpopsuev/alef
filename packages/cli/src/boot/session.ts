@@ -96,6 +96,7 @@ function registerContributions(
 		const saved = before - after;
 		ui.setStatus(
 			`compacted ${Number(payload.compactedTurns ?? 0)} turns, recovered ~${Math.round(saved / 1000)}k tokens`,
+			2,
 		);
 	});
 	uiSignalHandlerKeys.add("context.overflow-recovery");

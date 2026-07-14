@@ -187,7 +187,7 @@ export function dispatchTuiEvent(
 		if (handler) {
 			handler(event.payload, {
 				setIntent: (text) => promptConsole.setIntent(text),
-				setStatus: (text) => promptConsole.setStatus(text),
+				setStatus: (text, clearAfterTurns) => promptConsole.setStatus(text, clearAfterTurns),
 				setWidgetAbove: (text) => promptConsole.setWidgetAbove(text),
 			});
 		}
@@ -218,6 +218,7 @@ export function dispatchTuiEvent(
 		resetUIComponents(ui);
 		promptConsole.stopThinking();
 		promptConsole.hidePendingFooter();
+		promptConsole.onTurnComplete();
 		return { ...state, pendingFooterShown: false, pendingTokenFooter: e.tokenFooter };
 	}
 
@@ -226,6 +227,7 @@ export function dispatchTuiEvent(
 		resetUIComponents(ui);
 		promptConsole.stopThinking();
 		promptConsole.hidePendingFooter();
+		promptConsole.onTurnComplete();
 		return { ...state, pendingFooterShown: false };
 	}
 

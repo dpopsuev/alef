@@ -140,6 +140,7 @@ describe("queued message display exclusivity", { tags: ["unit"] }, () => {
 				stopThinking: vi.fn(),
 				setIntent: vi.fn(),
 				setStatus: vi.fn(),
+				onTurnComplete: vi.fn(),
 				setWidgetAbove: vi.fn(),
 				isThinking: true,
 				widgetSlotAbove: { addChild: vi.fn(), removeChild: vi.fn() },

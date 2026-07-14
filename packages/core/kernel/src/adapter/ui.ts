@@ -8,7 +8,7 @@ export interface AdapterTheme {
 /** Mutable TUI surface slots that signal handlers can write into. */
 export interface UiSignalSurface {
 	setIntent(text: string): void;
-	setStatus(text: string): void;
+	setStatus(text: string, clearAfterTurns?: number): void;
 	setWidgetAbove(text: string): void;
 }
 

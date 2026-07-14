@@ -58,7 +58,7 @@ export interface CompactionStageOptions {
 const CHARS_PER_TOKEN = 4;
 const SUMMARY_LINE_MAX_LENGTH = 120;
 const SHAKE_TOOL_RESULT_MAX = 400;
-const DEFAULT_CONTEXT_WINDOW = 1_000_000;
+const DEFAULT_CONTEXT_WINDOW = 200_000;
 const DEFAULT_RESERVE_TOKENS = 16_384;
 const DEFAULT_KEEP_RECENT_TOKENS = 20_000;
 const DEFAULT_COMPACTION_THRESHOLD = 0.9;
@@ -406,6 +406,18 @@ export async function compactMessages(
 	if (systemMsg) compactedMessages.push(systemMsg);
 	compactedMessages.push(...preserved);
 	compactedMessages.push({ role: "user", content: summary });
+	
+	// Post-compaction tool format reinforcement
+	const toolFormatReminder = `When making function calls using tools that accept array or object parameters ensure those are structured using JSON. For example:
+<function_calls>
+<invoke name="example_complex_tool">
+<parameter name="parameter">[{"color": "orange", "options": {"option_key_1": true, "option_key_2": "value"}}, {"color": "purple", "options": {"option_key_1": true, "option_key_2": "value"}}]</parameter>
+</invoke>
+</function_calls>
+
+Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters.`;
+	compactedMessages.push({ role: "assistant", content: toolFormatReminder });
+	
 	compactedMessages.push(...toKeep);
 
 	const firstKeptEventId = await resolveFirstKeptEventId(opts.sessionStore, toKeep);
@@ -443,12 +455,6 @@ export async function compactMessages(
  */
 export function createCompactionStage(opts: CompactionStageOptions = {}): ContextAssemblyHandler {
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
-	if (opts.contextWindow === undefined) {
-		console.warn(
-			`[compaction] contextWindow not provided, using default ${DEFAULT_CONTEXT_WINDOW.toLocaleString()} tokens. ` +
-				"This may cause premature compaction. Ensure model.contextWindow flows through blueprint → delegation → compaction.",
-		);
-	}
 	const reserveTokens = opts.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
 	const keepRecentTokens = opts.keepRecentTokens ?? DEFAULT_KEEP_RECENT_TOKENS;
 	const threshold = opts.threshold ?? DEFAULT_COMPACTION_THRESHOLD;

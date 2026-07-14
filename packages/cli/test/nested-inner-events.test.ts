@@ -33,6 +33,7 @@ function noopUi() {
 			stopThinking: () => {},
 			setIntent: () => {},
 			setStatus: () => {},
+			onTurnComplete: () => {},
 			isThinking: false,
 			setWidgetAbove: () => {},
 			widgetSlotAbove: { addChild: () => {}, removeChild: () => {} },

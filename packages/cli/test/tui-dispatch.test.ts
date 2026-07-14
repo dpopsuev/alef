@@ -30,6 +30,7 @@ function makeMockUi(): TuiUi {
 			stopThinking: vi.fn(),
 			setIntent: vi.fn(),
 			setStatus: vi.fn(),
+			onTurnComplete: vi.fn(),
 			isThinking: false,
 			setWidgetAbove: vi.fn(),
 			widgetSlotAbove: { addChild: vi.fn(), removeChild: vi.fn() },

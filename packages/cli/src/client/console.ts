@@ -21,7 +21,7 @@ import { CommandHintGrid } from "./hints.js";
 /** Wraps the Editor component with top and bottom separator borders. */
 class EditorWrapper implements Component {
 	private readonly topBorder = new SeparatorLine();
-	private readonly bottomBorder = new SeparatorLine();
+	private readonly bottomBorder = new SeparatorLine({ labelAlign: "right" });
 
 	constructor(private readonly inner: Editor) {}
 
@@ -74,6 +74,8 @@ export class PromptConsole {
 	private readonly pendingFooter: DynamicText;
 	private pendingFooterStyle: (s: string) => string = (s) => s;
 	private pendingFooterActive = false;
+
+	private statusClearAfterTurns: number | null = null;
 
 	private readonly inFlightQueue = new Container();
 	private readonly inFlightCalls = new Map<
@@ -215,8 +217,23 @@ export class PromptConsole {
 		}
 	}
 
-	setStatus(text: string): void {
+	setStatus(text: string, clearAfterTurns?: number): void {
 		this.editorWrapper.setModeLabel(text);
+		if (clearAfterTurns !== undefined && clearAfterTurns > 0) {
+			this.statusClearAfterTurns = clearAfterTurns;
+		} else {
+			this.statusClearAfterTurns = null;
+		}
+	}
+
+	onTurnComplete(): void {
+		if (this.statusClearAfterTurns !== null) {
+			this.statusClearAfterTurns -= 1;
+			if (this.statusClearAfterTurns <= 0) {
+				this.editorWrapper.setModeLabel("");
+				this.statusClearAfterTurns = null;
+			}
+		}
 	}
 
 	setHint(text: string): void {

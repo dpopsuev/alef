@@ -102,7 +102,15 @@ describe("dispatchTuiEvent — tool-start / tool-end", { tags: ["unit"] }, () =>
 
 		expect(state.activeCalls.size).toBe(0);
 		expect(state.batchStartedAt).toBeNull();
-		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("fs.read", expect.anything(), 100, true, null, null);
+		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith(
+			"fs.read",
+			expect.anything(),
+			{},
+			100,
+			true,
+			null,
+			null,
+		);
 		expect(ui.writer.addBatchTiming).toHaveBeenCalled();
 	});
 
@@ -183,7 +191,7 @@ describe("dispatchTuiEvent — tool-start / tool-end", { tags: ["unit"] }, () =>
 			} as Parameters<typeof dispatchTuiEvent>[1],
 			ui,
 		);
-		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("agent.run", "", 50, true, null, null);
+		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("agent.run", "", {}, 50, true, null, null);
 	});
 
 	it("shows display output for last tool in batch", () => {
@@ -223,6 +231,7 @@ describe("dispatchTuiEvent — tool-start / tool-end", { tags: ["unit"] }, () =>
 		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith(
 			"agent.run",
 			"",
+			{},
 			80,
 			true,
 			"Last tool output should show",

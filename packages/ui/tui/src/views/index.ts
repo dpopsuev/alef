@@ -14,7 +14,7 @@ export { accentColorize, spinnerFrame } from "./spinner.js";
 export { type TuiState, TuiStateStore } from "./state.js";
 export * from "./theme.js";
 export {
-	formatCompact,
+	formatToolArgs,
 	formatTokenUsage,
 	keyArgFromPayload,
 	makeToolOutputComponent,

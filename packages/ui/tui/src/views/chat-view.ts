@@ -7,6 +7,7 @@ import type { Container } from "../tui.js";
 import { fmtMs } from "./ansi-utils.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { bold, color, glyph } from "./theme.js";
+import { formatToolArgs } from "./tool-view.js";
 
 /**
  *
@@ -55,6 +56,7 @@ export function appendCompletedToolBlock(
 	parent: { addChild(c: Component): void } | { addContent(c: Component): void },
 	name: string,
 	keyArg: string,
+	args: Record<string, unknown>,
 	elapsedMs: number,
 	ok: boolean,
 	outputComponent: Component | null,
@@ -67,7 +69,12 @@ export function appendCompletedToolBlock(
 		if ("addChild" in parent) parent.addChild(c);
 		else parent.addContent(c);
 	};
-	const label = `  ${color(g, gFg)} ${color(name, t.primaryFg)}${keyArg ? `  ${color(keyArg, t.secondaryFg)}` : ""}  ${color(elapsed, t.mutedFg)}`;
+	// Format as: namespace.command(param: value, ...)
+	// Fall back to keyArg when args is empty (e.g., session history replay)
+	const argsStr = Object.keys(args).length > 0 ? formatToolArgs(args) : (keyArg ? ` ${keyArg}` : "");
+	const indent = " ".repeat(INDENT.TOOL_LINE);
+	const commandStr = ok ? name + argsStr : bold(name + argsStr);  // Bold command on error
+	const label = `${indent}${color(g, gFg)} ${color(commandStr, ok ? t.primaryFg : t.errFg)}  ${color(elapsed, t.mutedFg)}`;
 	add(new Text(label, 0, 0));
 	if (outputComponent) {
 		const pad = new Pad(INDENT.BLOCK, 0);

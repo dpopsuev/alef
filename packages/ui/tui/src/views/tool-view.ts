@@ -78,6 +78,35 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 }
 
 /**
+ * Format tool arguments in command-style syntax for namespace.command(param: value) display.
+ * Example: (path: 'file.ts', limit: 10)
+ */
+export function formatToolArgs(args: Record<string, unknown>): string {
+	const entries = Object.entries(args);
+	if (entries.length === 0) return "";
+	
+	const formatted = entries
+		.map(([key, value]) => {
+			let valueStr: string;
+			if (typeof value === "string") {
+				valueStr = `'${value}'`;
+			} else if (typeof value === "number" || typeof value === "boolean") {
+				valueStr = String(value);
+			} else if (value === null || value === undefined) {
+				valueStr = String(value);
+			} else if (Array.isArray(value)) {
+				valueStr = `[${value.length} items]`;
+			} else {
+				valueStr = "{…}";
+			}
+			return `${key}: ${valueStr}`;
+		})
+		.join(", ");
+	
+	return `(${formatted})`;
+}
+
+/**
  *
  */
 export function truncateToolOutput(text: string): string {

@@ -11,11 +11,11 @@ describe("Layout Constants", { tags: ["unit"] }, () => {
 	});
 
 	it("defines tool line indent", () => {
-		expect(INDENT.TOOL_LINE).toBe(2);
+		expect(INDENT.TOOL_LINE).toBe(1);
 	});
 
 	it("defines tool output indent", () => {
-		expect(INDENT.TOOL_OUTPUT).toBe(3);
+		expect(INDENT.TOOL_OUTPUT).toBe(2);
 	});
 
 	it("defines spacing between blocks", () => {

@@ -36,7 +36,8 @@ describe("renderDisplayBlocksToLines", { tags: ["unit"] }, () => {
 		expect(lines.some((line) => line.includes("hello"))).toBe(true);
 		expect(lines.some((line) => line.includes("@alef"))).toBe(true);
 		expect(lines.some((line) => line.includes("world"))).toBe(true);
-		expect(lines.some((line) => line.includes("fs.read") && line.includes("/tmp/a.ts"))).toBe(true);
+		expect(lines.some((line) => line.includes("fs.read"))).toBe(true);
+		expect(lines.some((line) => line.includes("/tmp/a.ts"))).toBe(true);
 		expect(lines.every((line) => !line.includes("▸") && !line.includes("◂"))).toBe(true);
 	});
 

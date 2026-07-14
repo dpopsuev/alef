@@ -2,7 +2,7 @@ import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
-import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
+import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
 import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 
 /** TUI input events — dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
@@ -74,6 +74,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	writer.addCompletedToolBlock(
 		entry.name,
 		entry.keyArg,
+		entry.args,
 		elapsedMs,
 		ok,
 		enhancedDisplay,
@@ -152,7 +153,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 
 	for (const [callId, entry] of state.activeCalls) {
 		promptConsole.removeInFlightCall(callId);
-		writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null, null);
+		writer.addCompletedToolBlock(entry.name, entry.keyArg, entry.args, 0, false, null, null);
 	}
 
 	if (!event.aborted) {
@@ -284,7 +285,7 @@ export function dispatchTuiEvent(
 	/** Handle tool execution start. */
 	function onToolStart(e: Extract<TuiEvent, { type: "tool-start" }>): TuiState {
 		const { callId, name, args } = e;
-		const keyArg = keyArgFromPayload(args);
+		const keyArg = formatToolArgs(args);
 		traceEvent("tool:start", {
 			callId: callId.slice(0, 8),
 			name,
@@ -293,10 +294,10 @@ export function dispatchTuiEvent(
 		});
 		promptConsole.pulse();
 		resetUIComponents(ui);
-		promptConsole.showInFlightCall(callId, name, keyArg);
+		promptConsole.showInFlightCall(callId, name, keyArg, args);
 		if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
 		const activeCalls = new Map(state.activeCalls);
-		activeCalls.set(callId, { name, keyArg, children: new Map(), depth: 0 });
+		activeCalls.set(callId, { name, keyArg, args, children: new Map(), depth: 0 });
 		return {
 			...state,
 			activeCalls,
@@ -314,15 +315,16 @@ export function dispatchTuiEvent(
 	function onInnerToolStart(e: Extract<TuiEvent, { type: "inner-tool-start" }>): TuiState {
 		const parent = state.activeCalls.get(e.parentCallId);
 		if (!parent) return state;
-		const childKeyArg = keyArgFromPayload(e.args);
+		const childKeyArg = formatToolArgs(e.args);
 		parent.children.set(e.callId, {
 			name: e.name,
 			keyArg: childKeyArg,
+			args: e.args,
 			parentCallId: e.parentCallId,
 			children: new Map(),
 			depth: parent.depth + 1,
 		});
-		promptConsole.addChildCall(e.parentCallId, e.callId, e.name, childKeyArg, parent.depth + 1);
+		promptConsole.addChildCall(e.parentCallId, e.callId, e.name, childKeyArg, e.args, parent.depth + 1);
 		return state;
 	}
 

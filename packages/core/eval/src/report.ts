@@ -11,7 +11,7 @@ export function formatReport(metrics: RunMetrics): string {
 	const status = metrics.passed ? "PASS" : "FAIL";
 	const nTurns = metrics.turns.length;
 	const nToolcalls = metrics.turns.reduce((a, t) => a + t.toolCalls, 0);
-	const nTotalTokens = metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0);
+	const nTotalTokens = metrics.tokensIn + metrics.tokensOut;
 	const toolPath = metrics.turns.flatMap((t) => t.toolNames).join(" → ") || "(none)";
 
 	const sendStr = metrics.sendTimingsMs
@@ -26,11 +26,18 @@ export function formatReport(metrics: RunMetrics): string {
 	const totalRetries = metrics.turns.reduce((a, t) => a + t.retries, 0);
 	const retryReasons = [...new Set(metrics.turns.flatMap((t) => t.retryReasons))].join(", ");
 	const abortedTurns = metrics.turns.filter((t) => t.aborted).length;
+	// eslint-disable-next-line no-magic-numbers
+	const costStr = `$${metrics.costUsd.toFixed(4)}`;
+	const tokP =
+		metrics.tokPerProgress === null || Number.isNaN(metrics.tokPerProgress)
+			? "n/a"
+			: metrics.tokPerProgress.toFixed(2);
 
 	const lines = [
 		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)${metrics.timedOut ? " TIMEOUT" : ""}`,
 		// eslint-disable-next-line no-magic-numbers
-		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%  schema_frac: ${Number.isNaN(metrics.avgSchemaFraction) ? "n/a" : `${(metrics.avgSchemaFraction * 100).toFixed(1)}%`}`,
+		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens} (${metrics.tokensIn} in / ${metrics.tokensOut} out)  cost: ${costStr}  OAE: ${(metrics.oae * 100).toFixed(1)}%  schema_frac: ${Number.isNaN(metrics.avgSchemaFraction) ? "n/a" : `${(metrics.avgSchemaFraction * 100).toFixed(1)}%`}`,
+		`  model: ${metrics.model || "(unknown)"}  progress_steps: ${metrics.progressSteps}  tok/P: ${tokP}`,
 		`  path: ${toolPath}`,
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];

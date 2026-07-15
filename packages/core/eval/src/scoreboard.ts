@@ -15,6 +15,7 @@ import { execSync } from "node:child_process";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { PLANT_METRIC_KEYS } from "./consumer/plant-metrics.js";
 import type { ConsumerEvalResult, ConsumerKind } from "./consumer/types.js";
+import { CODING_USAGE_METRIC_KEYS } from "./metrics.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -287,6 +288,7 @@ export function generateScoreboard(history: RunRecord[]): string {
 	}
 
 	appendPlantMetricsSection(lines, latest);
+	appendUsageMetricsSection(lines, latest);
 	appendCostLatencySection(lines, history);
 
 	// Aggregate stats
@@ -315,9 +317,7 @@ export function generateScoreboard(history: RunRecord[]): string {
 
 /** Append a plant-metrics table for the latest run when plant rows exist. */
 function appendPlantMetricsSection(lines: string[], latest: RunRecord): void {
-	const plantRows = Object.entries(latest.evals).filter(
-		([, e]) => e.kind === "plant" || e.metrics !== undefined,
-	);
+	const plantRows = Object.entries(latest.evals).filter(([, e]) => e.kind === "plant");
 	if (plantRows.length === 0) return;
 
 	lines.push("", "## Plant Metrics (latest run)", "");
@@ -327,6 +327,24 @@ function appendPlantMetricsSection(lines: string[], latest: RunRecord): void {
 
 	for (const [id, e] of plantRows) {
 		const cells = PLANT_METRIC_KEYS.map((key) => formatMetricCell(e.metrics?.[key]));
+		lines.push(`| ${id} | ${cells.join(" | ")} |`);
+	}
+}
+
+/** Append coding usage / intensity metrics (tokens, cost, tok/P). */
+function appendUsageMetricsSection(lines: string[], latest: RunRecord): void {
+	const usageRows = Object.entries(latest.evals).filter(
+		([, e]) => e.kind === "coding" || (e.metrics !== undefined && e.kind !== "plant"),
+	);
+	if (usageRows.length === 0) return;
+
+	lines.push("", "## Usage / Intensity (latest run)", "");
+	const header = ["Evaluation", ...CODING_USAGE_METRIC_KEYS];
+	lines.push(`| ${header.join(" | ")} |`);
+	lines.push(`|${header.map(() => "---").join("|")}|`);
+
+	for (const [id, e] of usageRows) {
+		const cells = CODING_USAGE_METRIC_KEYS.map((key) => formatMetricCell(e.metrics?.[key]));
 		lines.push(`| ${id} | ${cells.join(" | ")} |`);
 	}
 }

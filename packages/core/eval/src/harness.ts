@@ -26,7 +26,7 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalAdapters } from "./default-adapters.js";
 import { EvaluatorAdapter } from "./evaluator-adapter.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
-import { deriveturns } from "./metrics.js";
+import { aggregateRunUsage, deriveturns } from "./metrics.js";
 import { globalSpanExporter } from "./otel-setup.js";
 import { TraceRecorder } from "./trace-recorder.js";
 
@@ -282,6 +282,7 @@ export class AgentHandle {
 		const schemaFractions = turns.filter((t) => t.tokensIn > 0).map((t) => t.schemaTokensEstimate / t.tokensIn);
 		const avgSchemaFraction =
 			schemaFractions.length > 0 ? schemaFractions.reduce((a, b) => a + b, 0) / schemaFractions.length : Number.NaN;
+		const usage = aggregateRunUsage(turns, this._busEvents);
 
 		return {
 			scenario: this._rootSpan.spanContext().traceId, // overwritten by callers
@@ -305,6 +306,7 @@ export class AgentHandle {
 			spans,
 			durationMs: 0, // set by callers with real timing
 			avgSchemaFraction,
+			...usage,
 		};
 	}
 

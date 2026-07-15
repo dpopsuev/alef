@@ -9,7 +9,15 @@ import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { EvaluatorAdapter } from "../src/evaluator-adapter.js";
 import type { SpanRecord } from "../src/metrics.js";
-import { deriveturns, READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/metrics.js";
+import {
+	aggregateRunUsage,
+	codingUsageMetrics,
+	deriveturns,
+	READ_ONLY_RULES,
+	scoreSpans,
+	WRITE_RULES,
+} from "../src/metrics.js";
+import { buildRunRecord, generateScoreboard } from "../src/scoreboard.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -240,5 +248,130 @@ describe("scoreSpans — attribute filter", { tags: ["unit"] }, () => {
 			span("alef.command/fs.read", { "alef.cache.hit": false }), // no match → 0
 		];
 		expect(scoreSpans(spans, rules)).toBe(5);
+	});
+});
+
+describe("aggregateRunUsage", { tags: ["unit"] }, () => {
+	it("sums tokens and cost from turns and averages tok/P from bus events", () => {
+		const turns = deriveturns([
+			span("chat m", {
+				"gen_ai.request.model": "claude-haiku",
+				"gen_ai.usage.input_tokens": 100,
+				"gen_ai.usage.output_tokens": 20,
+				"alef.estimated_cost_usd": 0.01,
+			}),
+			span("chat m", {
+				"gen_ai.request.model": "claude-haiku",
+				"gen_ai.usage.input_tokens": 50,
+				"gen_ai.usage.output_tokens": 10,
+				"alef.estimated_cost_usd": 0.005,
+			}),
+		]);
+		const usage = aggregateRunUsage(turns, [
+			{
+				bus: "notification",
+				event: "telemetry.progress.step",
+				correlationId: "a",
+				payload: { tokens: 10, progress: 2, tok_per_progress: 5 },
+			},
+			{
+				bus: "notification",
+				event: "telemetry.progress.step",
+				correlationId: "b",
+				payload: { tokens: 20, progress: 2, tok_per_progress: 10 },
+			},
+		]);
+		expect(usage.tokensIn).toBe(150);
+		expect(usage.tokensOut).toBe(30);
+		expect(usage.costUsd).toBeCloseTo(0.015);
+		expect(usage.model).toBe("claude-haiku");
+		expect(usage.progressSteps).toBe(2);
+		expect(usage.tokPerProgress).toBe(7.5);
+	});
+
+	it("codingUsageMetrics exposes scoreboard keys", () => {
+		const turns = deriveturns([
+			span("chat m", {
+				"gen_ai.request.model": "m",
+				"gen_ai.usage.input_tokens": 40,
+				"gen_ai.usage.output_tokens": 10,
+				"alef.estimated_cost_usd": 0.002,
+			}),
+		]);
+		const usage = aggregateRunUsage(turns, []);
+		const metrics = codingUsageMetrics({
+			scenario: "x",
+			turns,
+			transcript: [],
+			passed: true,
+			totalEvents: 0,
+			totalSpans: 0,
+			cacheHits: 0,
+			cacheMisses: 0,
+			oae: 0,
+			loopDetected: false,
+			spans: [],
+			durationMs: 1,
+			avgSchemaFraction: 0,
+			sendTimingsMs: [],
+			timedOut: false,
+			busEvents: [],
+			...usage,
+		});
+		expect(metrics.tokens_total).toBe(50);
+		expect(metrics.cost_usd).toBeCloseTo(0.002);
+		expect(metrics.tok_per_progress).toBeNull();
+		expect(metrics.progress_steps).toBe(0);
+	});
+});
+
+describe("generateScoreboard — usage section", { tags: ["unit"] }, () => {
+	it("renders usage/intensity for coding rows and plant table for plant rows", () => {
+		const coding = buildRunRecord("claude-haiku", "test", [
+			{
+				id: "ToolUse_read",
+				pass: true,
+				score: 1,
+				durationMs: 1200,
+				costUsd: 0.01,
+				kind: "coding",
+				metrics: {
+					tokens_in: 100,
+					tokens_out: 20,
+					tokens_total: 120,
+					cost_usd: 0.01,
+					turns: 2,
+					progress_steps: 1,
+					tok_per_progress: 4.5,
+				},
+			},
+		]);
+		const plant = buildRunRecord("scripted", "harness", [
+			{
+				id: "dot-circle",
+				pass: true,
+				score: 1,
+				durationMs: 500,
+				kind: "plant",
+				metrics: {
+					in_circle_ratio: 1,
+					terminal_inside: 1,
+					progress_steps: 2,
+					tok_per_progress: 3,
+					tool_errors: 0,
+					survival_ticks: 5,
+				},
+			},
+		]);
+		const codingMd = generateScoreboard([coding]);
+		expect(codingMd).toContain("Usage / Intensity");
+		expect(codingMd).toContain("ToolUse_read");
+		expect(codingMd).toContain("tok_per_progress");
+		expect(codingMd).not.toContain("Plant Metrics");
+
+		const plantMd = generateScoreboard([plant]);
+		expect(plantMd).toContain("Plant Metrics");
+		expect(plantMd).toContain("dot-circle");
+		expect(plantMd).not.toContain("Usage / Intensity");
 	});
 });

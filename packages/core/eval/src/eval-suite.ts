@@ -4,6 +4,7 @@ import type { Evaluation } from "./evaluation.js";
 import type { EvaluationResult } from "./evaluation-runner.js";
 import { EvaluationRunner } from "./evaluation-runner.js";
 import { EvalHarness } from "./harness.js";
+import { codingUsageMetrics } from "./metrics.js";
 import { getEvalModel, SKIP_REAL_LLM } from "./model.js";
 import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "./scoreboard.js";
 
@@ -34,19 +35,20 @@ export function stubSessionFactory(modelId: string, contextWindow: number) {
 	});
 }
 
-/** Print a formatted results table to stdout. */
+/** Print a formatted results table to stdout (tokens, cost, tok/P included). */
 function formatResultTable(results: EvaluationResult[]): void {
 	const disclosure = process.env.ALEF_TOOL_DISCLOSURE ?? "full";
 	const passed = results.filter((r) => r.pass).length;
 	const total = results.length;
 	const meanScore = results.reduce((a, r) => a + r.score, 0) / total;
+	const model = results.find((r) => r.metrics.model)?.metrics.model ?? getEvalModel().id;
 
 	// eslint-disable-next-line no-magic-numbers
 	const nameWidth = Math.max(...results.map((r) => r.metrics.scenario.length), 8);
-	const header = `${"Eval".padEnd(nameWidth)}  Score  Time     Turns  Tools  Tokens`;
+	const header = `${"Eval".padEnd(nameWidth)}  Score  Time     Turns  Tools  Tokens    Cost      tok/P`;
 	const divider = "─".repeat(header.length);
 
-	console.log(`\n╔═══ EVAL REPORT (disclosure=${disclosure}) ═══╗`);
+	console.log(`\n╔═══ EVAL REPORT (model=${model} disclosure=${disclosure}) ═══╗`);
 	console.log(header);
 	console.log(divider);
 	for (const r of results) {
@@ -61,15 +63,25 @@ function formatResultTable(results: EvaluationResult[]): void {
 		// eslint-disable-next-line no-magic-numbers
 		const tools = String(r.metrics.turns.reduce((a, t) => a + t.toolCalls, 0)).padStart(5);
 		// eslint-disable-next-line no-magic-numbers
-		const tokens = String(r.metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0)).padStart(6);
+		const tokens = String(r.metrics.tokensIn + r.metrics.tokensOut).padStart(6);
+		// eslint-disable-next-line no-magic-numbers
+		const cost = `$${r.metrics.costUsd.toFixed(4)}`.padStart(9);
+		const tokP =
+			r.metrics.tokPerProgress === null
+				? // eslint-disable-next-line no-magic-numbers
+					"n/a".padStart(6)
+				: // eslint-disable-next-line no-magic-numbers
+					r.metrics.tokPerProgress.toFixed(1).padStart(6);
 		// eslint-disable-next-line no-magic-numbers
 		const err = r.pass ? "" : `  ${r.errors[0]?.slice(0, 60) ?? ""}`;
-		console.log(`${icon} ${name}  ${score}  ${time}  ${turns}  ${tools}  ${tokens}${err}`);
+		console.log(`${icon} ${name}  ${score}  ${time}  ${turns}  ${tools}  ${tokens}  ${cost}  ${tokP}${err}`);
 	}
 	console.log(divider);
+	const totalCost = results.reduce((a, r) => a + r.metrics.costUsd, 0);
+	const totalTokens = results.reduce((a, r) => a + r.metrics.tokensIn + r.metrics.tokensOut, 0);
 	console.log(
 		// eslint-disable-next-line no-magic-numbers
-		`  ${passed}/${total} passed  mean=${(meanScore * 100).toFixed(1)}%  total=${(results.reduce((a, r) => a + r.metrics.durationMs, 0) / 1000).toFixed(1)}s`,
+		`  ${passed}/${total} passed  mean=${(meanScore * 100).toFixed(1)}%  total=${(results.reduce((a, r) => a + r.metrics.durationMs, 0) / 1000).toFixed(1)}s  tokens=${totalTokens}  cost=$${totalCost.toFixed(4)}`,
 	);
 }
 
@@ -118,7 +130,10 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 						score: r.score,
 						error: r.errors[0],
 						durationMs: r.metrics.durationMs,
+						costUsd: r.metrics.costUsd,
 						oae: r.metrics.oae,
+						kind: "coding" as const,
+						metrics: codingUsageMetrics(r.metrics),
 					})),
 				);
 				await appendRunRecord(opts.benchmarkPath, record);

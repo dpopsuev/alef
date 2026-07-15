@@ -62,9 +62,12 @@ export type { JudgePanelResult, JudgeResult, JudgeSpec } from "./judge-panel-run
 export { formatJudgePanelReport, JudgePanelRunner } from "./judge-panel-runner.js";
 export type { JudgeFinding, JudgeReport, JudgeVerdict } from "./judging-adapter.js";
 export { createJudgingAdapter } from "./judging-adapter.js";
-export type { RunMetrics, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";
+export type { RunMetrics, RunUsageSummary, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";
 export {
+	aggregateRunUsage,
 	batchCorrelation,
+	CODING_USAGE_METRIC_KEYS,
+	codingUsageMetrics,
 	deriveturns,
 	pearsonCorrelation,
 	READ_ONLY_RULES,

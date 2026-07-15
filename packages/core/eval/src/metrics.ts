@@ -5,6 +5,11 @@
  * + direct Bus event capture via agent.observe().
  */
 
+import {
+	averageTokPerProgress,
+	extractProgressSteps,
+} from "./consumer/progress.js";
+
 /**
  * One Command or Event message captured in real-time from the bus.
  * Complements OTel spans: spans only cover completed calls; BusEvents include
@@ -200,6 +205,72 @@ export interface RunMetrics {
 	 * event response — exactly what's needed to diagnose timeout scenarios.
 	 */
 	busEvents: BusEvent[];
+	/** Sum of turn tokensIn (from OTel chat spans). */
+	tokensIn: number;
+	/** Sum of turn tokensOut (from OTel chat spans). */
+	tokensOut: number;
+	/** Sum of turn estimatedCostUsd. */
+	costUsd: number;
+	/** Dominant model id across turns (first non-empty). */
+	model: string;
+	/** Count of telemetry.progress.step notifications. */
+	progressSteps: number;
+	/** Mean tok/P from ProgressTelemetry steps; null when none. */
+	tokPerProgress: number | null;
+}
+
+/** Aggregated usage + intensity fields derived from turns and bus events. */
+export interface RunUsageSummary {
+	tokensIn: number;
+	tokensOut: number;
+	costUsd: number;
+	model: string;
+	progressSteps: number;
+	tokPerProgress: number | null;
+}
+
+/** Canonical scoreboard keys for coding ToolUse_* usage / intensity rows. */
+export const CODING_USAGE_METRIC_KEYS = [
+	"tokens_in",
+	"tokens_out",
+	"tokens_total",
+	"cost_usd",
+	"turns",
+	"progress_steps",
+	"tok_per_progress",
+] as const;
+
+/** Build usage/intensity aggregates from LLM turns + ProgressTelemetry bus events. */
+export function aggregateRunUsage(
+	turns: readonly TurnRecord[],
+	busEvents: readonly BusEvent[],
+): RunUsageSummary {
+	const tokensIn = turns.reduce((a, t) => a + t.tokensIn, 0);
+	const tokensOut = turns.reduce((a, t) => a + t.tokensOut, 0);
+	const costUsd = turns.reduce((a, t) => a + t.estimatedCostUsd, 0);
+	const model = turns.find((t) => t.model.length > 0)?.model ?? "";
+	const steps = extractProgressSteps(busEvents.map((e) => ({ event: e.event, payload: e.payload })));
+	return {
+		tokensIn,
+		tokensOut,
+		costUsd,
+		model,
+		progressSteps: steps.length,
+		tokPerProgress: averageTokPerProgress(steps),
+	};
+}
+
+/** Scoreboard metric vector for a coding eval row. */
+export function codingUsageMetrics(metrics: RunMetrics): Record<string, number | null> {
+	return {
+		tokens_in: metrics.tokensIn,
+		tokens_out: metrics.tokensOut,
+		tokens_total: metrics.tokensIn + metrics.tokensOut,
+		cost_usd: metrics.costUsd,
+		turns: metrics.turns.length,
+		progress_steps: metrics.progressSteps,
+		tok_per_progress: metrics.tokPerProgress,
+	};
 }
 
 /**

@@ -8,7 +8,7 @@ import { createHeadlessSession, haveHeadlessLlm } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDotAdapter } from "../src/adapter.js";
 import { spawnDotGameProcess, type SpawnedDotGame } from "../src/client.js";
-import { DOT_DESIRED_STATE, DOT_GOAL, DOT_SYSTEM_PROMPT, runEpisode } from "./episode.js";
+import { DOT_DESIRED_STATE, DOT_GOAL, DOT_SYSTEM_PROMPT, runEpisode } from "../src/episode.js";
 
 describe.skipIf(!haveHeadlessLlm())("dot-circle — real LLM episode", { tags: ["real-llm"] }, () => {
 	let game: SpawnedDotGame | undefined;

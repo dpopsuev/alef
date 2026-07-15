@@ -1,5 +1,5 @@
 /**
- * Scoreboard — automatic benchmark tracking for the real-LLM eval suite.
+ * Scoreboard — automatic benchmark tracking for coding ∪ plant ∪ cost/latency.
  *
  * Industry pattern (EleutherAI lm-eval-harness, W&B):
  *   - Append-only JSONL log: one line per run, committed as source of truth
@@ -13,6 +13,8 @@
 
 import { execSync } from "node:child_process";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { PLANT_METRIC_KEYS } from "./consumer/plant-metrics.js";
+import type { ConsumerEvalResult, ConsumerKind } from "./consumer/types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +30,12 @@ export interface EvalScore {
 	error?: string;
 	/** Wall-clock duration in ms. */
 	durationMs?: number;
+	/** Estimated USD cost for this evaluation (when known). */
+	costUsd?: number;
+	/** Consumer/plant kind when not a classic coding ToolUse_* row. */
+	kind?: ConsumerKind;
+	/** Formal plant / intensity metric vector (subset may be present). */
+	metrics?: Record<string, number | null>;
 }
 
 /**
@@ -50,8 +58,14 @@ export interface RunRecord {
 	passRate: number;
 	/** Mean score across all evaluations (0–1). */
 	meanScore: number;
-	/** Mean OAE across all evaluations (0–1). */
+	/** Mean OAE across all evaluations (0–1). Coding-only; 0 when absent. */
 	meanOae: number;
+	/** Mean wall-clock duration across evaluations with durationMs. */
+	meanDurationMs?: number;
+	/** Mean USD cost across evaluations with costUsd. */
+	meanCostUsd?: number;
+	/** Dominant kind for this run (coding | plant | mixed). */
+	kind?: ConsumerKind | "mixed";
 	/** Per-evaluation results keyed by evaluation ID. */
 	evals: Record<string, EvalScore>;
 }
@@ -66,13 +80,34 @@ export interface RunRecord {
 export function buildRunRecord(
 	model: string,
 	provider: string,
-	results: Array<{ id: string; pass: boolean; score: number; error?: string; durationMs?: number; oae: number }>,
+	results: Array<{
+		id: string;
+		pass: boolean;
+		score: number;
+		error?: string;
+		durationMs?: number;
+		costUsd?: number;
+		oae?: number;
+		kind?: ConsumerKind;
+		metrics?: Record<string, number | null>;
+	}>,
 ): RunRecord {
 	const commit = gitCommitSha();
 	const nPass = results.filter((r) => r.pass).length;
 	const nTotal = results.length;
 	const meanScore = nTotal > 0 ? results.reduce((a, r) => a + r.score, 0) / nTotal : 0;
-	const meanOae = nTotal > 0 ? results.reduce((a, r) => a + r.oae, 0) / nTotal : 0;
+	const oaeValues = results.map((r) => r.oae).filter((v): v is number => typeof v === "number");
+	const meanOae = oaeValues.length > 0 ? oaeValues.reduce((a, b) => a + b, 0) / oaeValues.length : 0;
+
+	const durations = results
+		.map((r) => r.durationMs)
+		.filter((v): v is number => typeof v === "number");
+	const costs = results.map((r) => r.costUsd).filter((v): v is number => typeof v === "number");
+
+	const kinds = new Set(results.map((r) => r.kind).filter((k): k is ConsumerKind => k !== undefined));
+	let kind: RunRecord["kind"];
+	if (kinds.size === 1) kind = [...kinds][0];
+	else if (kinds.size > 1) kind = "mixed";
 
 	const evals: Record<string, EvalScore> = {};
 	for (const r of results) {
@@ -82,6 +117,9 @@ export function buildRunRecord(
 			// eslint-disable-next-line no-magic-numbers
 			...(r.error && { error: r.error.slice(0, 120) }),
 			...(r.durationMs !== undefined && { durationMs: r.durationMs }),
+			...(r.costUsd !== undefined && { costUsd: r.costUsd }),
+			...(r.kind && { kind: r.kind }),
+			...(r.metrics && { metrics: r.metrics }),
 		};
 	}
 
@@ -95,8 +133,37 @@ export function buildRunRecord(
 		passRate: nTotal > 0 ? nPass / nTotal : 0,
 		meanScore,
 		meanOae,
+		...(durations.length > 0 && {
+			meanDurationMs: durations.reduce((a, b) => a + b, 0) / durations.length,
+		}),
+		...(costs.length > 0 && {
+			meanCostUsd: costs.reduce((a, b) => a + b, 0) / costs.length,
+		}),
+		...(kind && { kind }),
 		evals,
 	};
+}
+
+/** Build a RunRecord from consumer/plant eval results (scripted or live). */
+export function buildConsumerRunRecord(
+	model: string,
+	provider: string,
+	results: readonly ConsumerEvalResult[],
+): RunRecord {
+	return buildRunRecord(
+		model,
+		provider,
+		results.map((r) => ({
+			id: r.id,
+			pass: r.pass,
+			score: r.score,
+			error: r.error,
+			durationMs: r.durationMs,
+			costUsd: r.costUsd,
+			kind: r.kind,
+			metrics: { ...r.metrics },
+		})),
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +214,8 @@ export function generateScoreboard(history: RunRecord[]): string {
 		"",
 		"Auto-generated from `benchmark.jsonl`. Do not edit manually — re-runs update this file.",
 		"",
+		"Covers coding ToolUse_* rows and plant/consumer metrics (Dot first) plus cost/latency.",
+		"",
 	];
 
 	if (history.length === 0) {
@@ -156,8 +225,8 @@ export function generateScoreboard(history: RunRecord[]): string {
 
 	// Run history table — most recent first
 	lines.push("## Run History", "");
-	lines.push("| Date | Commit | Model | Pass | Score | OAE |");
-	lines.push("|---|---|---|---|---|---|");
+	lines.push("| Date | Commit | Model | Kind | Pass | Score | OAE | Latency | Cost |");
+	lines.push("|---|---|---|---|---|---|---|---|---|");
 
 	for (const r of [...history].reverse()) {
 		// eslint-disable-next-line no-magic-numbers
@@ -168,8 +237,14 @@ export function generateScoreboard(history: RunRecord[]): string {
 		const score = (r.meanScore * 100).toFixed(0);
 		// eslint-disable-next-line no-magic-numbers
 		const oae = (r.meanOae * 100).toFixed(1);
+		const kind = r.kind ?? "coding";
+		const latency =
+			r.meanDurationMs !== undefined ? `${Math.round(r.meanDurationMs)}ms` : "—";
+		const cost =
+			// eslint-disable-next-line no-magic-numbers
+			r.meanCostUsd !== undefined ? `$${r.meanCostUsd.toFixed(4)}` : "—";
 		lines.push(
-			`| ${date} | \`${r.commit}\` | ${r.model} | **${r.nPass}/${r.nTotal}** (${pct}%) | ${score}% | ${oae}% |`,
+			`| ${date} | \`${r.commit}\` | ${r.model} | ${kind} | **${r.nPass}/${r.nTotal}** (${pct}%) | ${score}% | ${oae}% | ${latency} | ${cost} |`,
 		);
 	}
 
@@ -180,16 +255,20 @@ export function generateScoreboard(history: RunRecord[]): string {
 	const evalIds = Object.keys(latest.evals);
 
 	lines.push("", "## Per-Evaluation (latest run)", "");
-	lines.push("| Evaluation | Status | Score | Trend | Notes |");
-	lines.push("|---|---|---|---|---|");
+	lines.push("| Evaluation | Kind | Status | Score | Duration | Cost | Trend | Notes |");
+	lines.push("|---|---|---|---|---|---|---|---|");
 
 	for (const id of evalIds) {
 		const e = latest.evals[id]!;
 		const icon = e.pass ? "✓" : "✗";
 		// eslint-disable-next-line no-magic-numbers
 		const score = `${(e.score * 100).toFixed(0)}%`;
+		const kind = e.kind ?? "coding";
+		const duration = e.durationMs !== undefined ? `${Math.round(e.durationMs)}ms` : "—";
+		const cost =
+			// eslint-disable-next-line no-magic-numbers
+			e.costUsd !== undefined ? `$${e.costUsd.toFixed(4)}` : "—";
 
-		// Trend vs previous run
 		let trend = "—";
 		const prevE = prev?.evals[id];
 		if (prevE) {
@@ -204,8 +283,11 @@ export function generateScoreboard(history: RunRecord[]): string {
 
 		// eslint-disable-next-line no-magic-numbers
 		const note = e.error ? e.error.slice(0, 80) : "";
-		lines.push(`| ${id} | ${icon} | ${score} | ${trend} | ${note} |`);
+		lines.push(`| ${id} | ${kind} | ${icon} | ${score} | ${duration} | ${cost} | ${trend} | ${note} |`);
 	}
+
+	appendPlantMetricsSection(lines, latest);
+	appendCostLatencySection(lines, history);
 
 	// Aggregate stats
 	lines.push("", "## Aggregate Stats (all runs)", "");
@@ -229,6 +311,57 @@ export function generateScoreboard(history: RunRecord[]): string {
 	const updatedAt = `${latest.ts.slice(0, 10)} ${latest.ts.slice(11, 19)} UTC`;
 	lines.push("", `_Last updated: ${updatedAt}_`);
 	return `${lines.join("\n")}\n`;
+}
+
+/** Append a plant-metrics table for the latest run when plant rows exist. */
+function appendPlantMetricsSection(lines: string[], latest: RunRecord): void {
+	const plantRows = Object.entries(latest.evals).filter(
+		([, e]) => e.kind === "plant" || e.metrics !== undefined,
+	);
+	if (plantRows.length === 0) return;
+
+	lines.push("", "## Plant Metrics (latest run)", "");
+	const header = ["Evaluation", ...PLANT_METRIC_KEYS];
+	lines.push(`| ${header.join(" | ")} |`);
+	lines.push(`|${header.map(() => "---").join("|")}|`);
+
+	for (const [id, e] of plantRows) {
+		const cells = PLANT_METRIC_KEYS.map((key) => formatMetricCell(e.metrics?.[key]));
+		lines.push(`| ${id} | ${cells.join(" | ")} |`);
+	}
+}
+
+/** Append cost/latency history when any run recorded duration or USD cost. */
+function appendCostLatencySection(lines: string[], history: RunRecord[]): void {
+	const withCostOrLatency = history.filter(
+		(r) => r.meanDurationMs !== undefined || r.meanCostUsd !== undefined,
+	);
+	if (withCostOrLatency.length === 0) return;
+
+	lines.push("", "## Cost / Latency (run history)", "");
+	lines.push("| Date | Model | Mean Latency | Mean Cost | Pass Rate |");
+	lines.push("|---|---|---|---|---|");
+
+	for (const r of [...withCostOrLatency].reverse()) {
+		// eslint-disable-next-line no-magic-numbers
+		const date = r.ts.slice(0, 10);
+		const latency =
+			r.meanDurationMs !== undefined ? `${Math.round(r.meanDurationMs)}ms` : "—";
+		const cost =
+			// eslint-disable-next-line no-magic-numbers
+			r.meanCostUsd !== undefined ? `$${r.meanCostUsd.toFixed(4)}` : "—";
+		// eslint-disable-next-line no-magic-numbers
+		const pct = `${(r.passRate * 100).toFixed(0)}%`;
+		lines.push(`| ${date} | ${r.model} | ${latency} | ${cost} | ${pct} |`);
+	}
+}
+
+/** Format a metric cell for markdown tables. */
+function formatMetricCell(value: number | null | undefined): string {
+	if (value === null || value === undefined || Number.isNaN(value)) return "—";
+	if (Number.isInteger(value)) return String(value);
+	// eslint-disable-next-line no-magic-numbers
+	return value.toFixed(3);
 }
 
 // ---------------------------------------------------------------------------

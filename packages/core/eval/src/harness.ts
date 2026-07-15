@@ -9,7 +9,7 @@
  * Design decisions:
  *   - Workspace: plain mkdtemp + cleanup. No EnclosureAdapter needed —
  *     eval workspaces are throwaway, not production codebases.
- *   - OTel: InMemorySpanExporter collects all alef.spine spans.
+ *   - OTel: InMemorySpanExporter collects all alef.adapter / alef.eval spans.
  *     No SDK required in the caller — harness sets it up.
  *   - Model: configured via options or ALEF_EVAL_MODEL env var.
  *   - Skip: if no API key detected, scenario is skipped (not failed).

@@ -91,7 +91,7 @@
     "agent",
     "nerve",
     "eda",
-    "event-spine",
+    "event-bus",
     "contracts"
   ],
   "author": "Mario Zechner",

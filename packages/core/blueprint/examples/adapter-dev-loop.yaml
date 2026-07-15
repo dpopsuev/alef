@@ -18,7 +18,7 @@ systemPrompt: |
 
   The adapter development loop:
     1. Use nodesh.eval to write the new adapter as a TypeScript file in the workspace.
-       Export a createAdapter() function. The adapter must use defineAdapter() from @dpopsuev/alef-spine.
+       Export a createAdapter() function. The adapter must use defineAdapter() from @dpopsuev/alef-kernel.
     2. Use supervisor.spawn({ adapters: ["./path/to/adapter.ts"] }) to start a child Alef
        with the new adapter loaded. It returns { name, endpoint }.
     3. Use eval.run({ endpoint, prompts: [...], validators: [...] }) to send test prompts

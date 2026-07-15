@@ -3,7 +3,7 @@
  *
  * Verifies that:
  *   1. The harness registers a NodeTracerProvider that captures spans.
- *   2. alef.spine framework emits spans on Command events.
+ *   2. alef.adapter framework emits spans on Command events.
  *   3. Span attributes (alef.event.type, alef.cache.hit) are present.
  *
  * Uses a QuiescentLLMAdapter (no real API) so this runs in CI.

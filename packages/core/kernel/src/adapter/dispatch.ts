@@ -35,7 +35,7 @@ export interface DispatchOptions {
 	onEscalate?: EscalationHandler;
 }
 
-const tracer = trace.getTracer("alef.spine", "0.0.1");
+const tracer = trace.getTracer("alef.adapter", "0.0.1");
 
 /** Validate a command's payload against its Zod schema, publishing an error event on failure. */
 function validateCommandPayload(

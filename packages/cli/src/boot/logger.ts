@@ -1,4 +1,4 @@
-import { initSpineLogger } from "@dpopsuev/alef-kernel/log";
+import { initTraceLogger } from "@dpopsuev/alef-kernel/log";
 import type { Logger } from "pino";
 import pino from "pino";
 
@@ -15,7 +15,7 @@ function resolveLevel(debug: boolean): string {
 export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger {
 	const level = willUseTui && !debug ? "silent" : resolveLevel(debug);
 	const logger = createLogger(level);
-	initSpineLogger(logger.child({ component: "spine" }));
+	initTraceLogger(logger.child({ component: "kernel" }));
 	return logger;
 }
 

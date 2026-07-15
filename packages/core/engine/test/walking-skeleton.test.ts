@@ -1,5 +1,5 @@
 /**
- * Walking Skeleton — end-to-end proof of the Spine event architecture.
+ * Walking Skeleton — end-to-end proof of the bus / event architecture.
  *
  * Real adapters: TextMessageAdapter (adapter).
  * Mock adapters: MockReasoner (LlmAdapter, canned reply).

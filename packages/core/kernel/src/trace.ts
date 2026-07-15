@@ -66,7 +66,7 @@ function flushPending(): void {
 }
 
 /** Register a pino logger to receive all traceEvent calls. Called once at runner startup. */
-export function initSpineLogger(logger: MinimalLogger): void {
+export function initTraceLogger(logger: MinimalLogger): void {
 	sharedLogger = logger;
 	flushPending();
 }

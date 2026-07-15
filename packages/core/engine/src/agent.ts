@@ -232,7 +232,7 @@ export class Agent {
 	}
 
 	/**
-	 * Inject a event event directly into the agent's spine.
+	 * Inject an event directly onto the agent bus.
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
 	 * without going through AgentController.send().
 	 */

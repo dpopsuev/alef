@@ -1,3 +1,3 @@
 # @dpopsuev/alef-nerve
 
-Canonical event contracts and EDA spine primitives for Alef.
+Canonical event contracts and EDA bus primitives for Alef.

@@ -125,17 +125,17 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// turn 2 → reply with the inner result as context
 		outerFaux.setResponses([
 			fauxAssistantMessage([fauxToolCall("agent_run", { text: "list the packages", profile: "explore" })]),
-			fauxAssistantMessage("The packages are: spine, corpus, runner."),
+			fauxAssistantMessage("The packages are: kernel, corpus, runner."),
 		]);
 
 		// Inner LLM: responds with the package list
-		innerFaux.setResponses([fauxAssistantMessage("spine, corpus, runner")]);
+		innerFaux.setResponses([fauxAssistantMessage("kernel, corpus, runner")]);
 
 		// When
 		const reply = await driver.send("explore the packages", "human", 10_000);
 
 		// Then: outer LLM received the inner reply as a tool result and used it
-		expect(reply).toBe("The packages are: spine, corpus, runner.");
+		expect(reply).toBe("The packages are: kernel, corpus, runner.");
 
 		// Tool lifecycle events fired in order
 		expect(capturedEvents).toContain("tool-start");
@@ -217,7 +217,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 							inputSchema: z.object({ path: z.string().min(1) }),
 						},
 						async function* () {
-							yield { text: "found: packages/spine" };
+							yield { text: "found: packages/kernel" };
 							yield { text: "found: packages/runner", result: "scan complete" };
 						},
 					),
@@ -251,7 +251,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Outer: turn 1 calls agent.run; turn 2 uses the result.
 		outerFaux.setResponses([
 			fauxAssistantMessage([fauxToolCall("agent_run", { text: "scan packages", profile: "explore" })]),
-			fauxAssistantMessage("Found: packages/spine and packages/runner."),
+			fauxAssistantMessage("Found: packages/kernel and packages/runner."),
 		]);
 
 		// Inner: turn 1 calls reader.scan; turn 2 replies using its output.

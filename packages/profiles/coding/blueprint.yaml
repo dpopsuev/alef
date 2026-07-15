@@ -27,8 +27,6 @@ adapters:
     package: "@dpopsuev/alef-tool-factory"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
-  - name: token-insights
-    package: "@dpopsuev/alef-tool-token-insights"
 
 capabilities:
   orchestration: true

@@ -2,6 +2,10 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Directives } from "@dpopsuev/alef-agent/directives";
 
+/** Keep workspace rules in the system prompt without eating the cold-start budget. */
+const AGENTS_MD_MAX_CHARS = 4_000;
+const WORKSPACE_DIRECTIVE_MAX_CHARS = 2_000;
+
 /** Load AGENTS.md and .alef/directives/*.md from the workspace into the directive set. */
 export async function loadWorkspace(directives: Directives, cwd: string): Promise<void> {
 	for (const name of ["AGENTS.md", "agents.md"]) {
@@ -14,6 +18,7 @@ export async function loadWorkspace(directives: Directives, cwd: string): Promis
 					content,
 					enabled: true,
 					tags: ["workspace", "agents-md"],
+					maxChars: AGENTS_MD_MAX_CHARS,
 				});
 				break;
 			}
@@ -39,6 +44,7 @@ export async function loadWorkspace(directives: Directives, cwd: string): Promis
 					content,
 					enabled: true,
 					tags: ["workspace"],
+					maxChars: WORKSPACE_DIRECTIVE_MAX_CHARS,
 				});
 			}
 		} catch {

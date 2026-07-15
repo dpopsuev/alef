@@ -149,7 +149,9 @@ export function createAgentAdapter(
 		inheritDirectives: z
 			.boolean()
 			.default(true)
-			.describe("Forward parent directives to subagent. Default: true. Set false for lightweight exploration."),
+			.describe(
+				"Forward parent directives to subagent. Ignored for profile=explore (always false). Prefer omit/false for cheap reads.",
+			),
 		adapters: z.array(z.string().min(1)).optional().describe("Override adapter set."),
 		isolate: z.boolean().optional().describe("true = spawn a process-isolated child for this task (ephemeral)."),
 		stallMs: z
@@ -417,7 +419,9 @@ export function createAgentAdapter(
 					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod inheritDirectives schema
 					const explicitInherit = payload.inheritDirectives as boolean | undefined;
-					const inheritDirectives = explicitInherit ?? profile !== "explore";
+					// Explore never inherits parent directives (avoids recursive parallel-run fan-out).
+					const inheritDirectives =
+						profile === "explore" ? false : (explicitInherit ?? true);
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod adapters schema
 					const adapterNames = Array.isArray(payload.adapters) ? (payload.adapters as string[]) : undefined;
 
@@ -578,41 +582,11 @@ export function createAgentAdapter(
 				"Unified agent delegation and child lifecycle: run, spawn, ask, race, converse, kill, list, status, promote.",
 			labels: ["delegation", "orchestration", "subagent", "lifecycle"],
 			directives: [
-				`**agent adapter — delegation and child process management**
-
-agent.run({ text, profile?, model? }) — fast in-process delegation (default).
-  explore: read-only (files, grep, web). Safe to parallelize.
-  general: full tools. Use when the task needs writes.
-  model: override the LLM model for this subagent (e.g. 'claude-haiku-4-5' for cheap tasks).
-  <child-name>: route to a spawned child process.
-  isolate: true — ephemeral process isolation (spawn + ask + kill in one call).
-
-agent.models({ provider? }) — list available LLM models for subagent selection.
-agent.tasks({ taskId? }) — query status of async tasks.
-
-Non-blocking delegation:
-  agent.run({ text, async: true }) — fire-and-forget. Returns a taskId immediately.
-  The subagent runs in the background. Use agent.tasks to check status and retrieve results.
-  Signals emitted: task.progress (chunks), task.completed (reply), task.failed (error).
-
-agent.spawn/ask/kill — persistent child process lifecycle.
-  spawn({ blueprintPath: 'coding' | 'research' | 'factory' | path }) starts a child Alef process.
-  Built-in blueprints: coding (default), research, factory.
-  ask sends a prompt and waits for reply.
-  kill stops it.
-
-agent.race — parallel asks to multiple children.
-
-agent.converse — multi-turn conversation with a child. Send a sequence of prompts; each is sent after the child replies to the previous one. Use for iterative refinement where a single ask is not enough.
-
-When to use what:
-- Exploring code, reading files: agent.run (explore)
-- Making edits, running commands: agent.run (general)
-- Process isolation for a single task: agent.run({ isolate: true })
-- Long-running background agent: agent.spawn + repeated agent.ask
-- Concurrent delegation: agent.race
-
-When asked to explore or research the codebase, use parallel agent.run calls.`,
+				`agent.run({ text, profile? }) — in-process delegation.
+  explore: read-only (fs/web). Never set inheritDirectives.
+  general: full tools for writes.
+  async:true — background; poll with agent.tasks.
+Prefer direct fs/grep for small reads. Spawn/ask/kill for persistent children.`,
 			],
 		},
 	) as Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void };

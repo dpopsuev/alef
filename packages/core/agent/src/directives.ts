@@ -226,10 +226,19 @@ export class Directives {
 	}
 
 	resolve(): ReadonlyArray<ResolvedDirective> {
-		return this.list({ enabled: true }).map((b) => ({
-			...b,
-			content: typeof b.content === "function" ? b.content() : b.content,
-		}));
+		return this.list({ enabled: true }).map((b) => {
+			const raw = typeof b.content === "function" ? b.content() : b.content;
+			const content =
+				b.maxChars !== undefined && raw.length > b.maxChars
+					? `${raw.slice(0, b.maxChars)}\n…[truncated ${raw.length - b.maxChars} chars]`
+					: raw;
+			return { ...b, content };
+		});
+	}
+
+	/** Per-block char costs after resolve + maxChars (for cold-start telemetry). */
+	blockSizes(): ReadonlyArray<{ id: string; chars: number }> {
+		return this.resolve().map((b) => ({ id: b.id, chars: b.content.length }));
 	}
 
 	build(budgetChars?: number): string {

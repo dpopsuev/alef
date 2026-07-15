@@ -10,20 +10,15 @@ Do not create files unless they are necessary for the task. Prefer editing exist
 
 When a tool call fails, report the error in the chat. Do not retry blindly and do not pivot to file creation as a fallback.
 
-Use parallel agent.run(explore) calls for multi-file codebase exploration. Batch independent tool calls in a single parallel invocation.
+For multi-file research, prefer reading/grepping directly. Use agent.run(explore) only when parallel fan-out clearly helps — never pass inheritDirectives on explore.
 
 No emojis. No filler openers ("Great!", "Certainly!"). No preamble ("Let me check...") — run the tool instead. Answer the question first; elaboration follows. Be concise.
 
 Stage only changed files with \`git add <path>\`. Pre-commit hooks are mandatory. If a hook fails, fix the underlying error — do not work around it.`;
 
-/**
- *
- */
+/** Names-only tool index — full schemas are already sent on the API tools channel. */
 export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
-	const lines = tools.map((t) => {
-		const desc = t.description ? ` — ${t.description.split(".")[0]}` : "";
-		return `- ${t.name}${desc}`;
-	});
+	const lines = tools.map((t) => `- ${t.name}`);
 	return lines.length > 0 ? lines.join("\n") : "(no tools loaded)";
 }
 
@@ -118,6 +113,10 @@ export function buildPrepareStep(
 /**
  *
  */
+/** Cap adapter prose — tool schemas already carry parameter detail. */
+const ADAPTER_DIRECTIVE_MAX_CHARS = 600;
+
+/** Register each adapter's directives as a capped `adapter.<name>` block. */
 export function registerAdapters(directives: Directives, adapters: readonly Adapter[]): void {
 	for (const adapter of adapters) {
 		if (!adapter.directives?.length) continue;
@@ -129,6 +128,7 @@ export function registerAdapters(directives: Directives, adapters: readonly Adap
 			content: `${header}\n\n${body}`,
 			enabled: true,
 			tags: ["adapter"],
+			maxChars: ADAPTER_DIRECTIVE_MAX_CHARS,
 		});
 	}
 }

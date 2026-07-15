@@ -217,46 +217,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 			description: "Agent factory: scaffold new adapters and write agent blueprints.",
 			labels: ["factory", "scaffold", "experimental"],
 			directives: [
-				`**factory.adapter — scaffold a new adapter**
-
-Write a valid TypeScript adapter to $XDG_DATA_HOME/alef/prototypes/<name>.ts, then load it:
-
-  factory.adapter({ name, toolName, description, inputFields? })
-  → { path, next: "prototype.plug({ path })" }
-
-inputFields is a map of field name to type: { "city": "string", "units": "string" }.
-Defaults to { input: "string" } if omitted. Edit the file after loading to add logic.
-
-**factory.blueprint — create a new agent**
-
-Write a blueprint YAML and get back a path. Then spawn it:
-
-  factory.blueprint({ name, description, adapters[], model? })
-  → { path, next: "orchestration.spawn({ blueprintPath: ... })" }
-
-Built-in adapters you can include:
-  fs       — file system (read, write, edit, find, grep, patch)
-  shell    — run commands (tests, git, build)
-  web      — fetch URLs and search the web
-  nodesh   — evaluate JavaScript expressions
-  lector   — structural code intelligence (symbols, callers, edit by symbol)
-  todos    — task list management
-  skills   — load skills from the filesystem
-
-Custom adapters:
-  Pass an absolute path or a cwd-relative .ts path, e.g. "./adapters/reviewer.ts"
-
-Blueprints are saved to $XDG_CONFIG_HOME/alef/agents/<name>.yaml by default.
-Pass outputPath to write elsewhere.
-
-Example — create a focused code reviewer:
-  factory.blueprint({
-    name: "reviewer",
-    description: "Reviews code for style and correctness",
-    adapters: ["fs", "code-intel"],
-    model: "claude-haiku-4-5"
-  })
-  → orchestration.spawn({ blueprintPath: "$XDG_CONFIG_HOME/alef/agents/reviewer.yaml" })`,
+				"factory.adapter scaffolds a tool under $XDG_DATA_HOME/alef/prototypes then prototype.plug. factory.blueprint writes YAML then spawn. Prefer fs/shell/web/code-intel in adapter lists.",
 			],
 		},
 	);

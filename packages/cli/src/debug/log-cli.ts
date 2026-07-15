@@ -350,7 +350,7 @@ async function traceCorrelation(db: Client, args: string[]): Promise<void> {
 	}
 }
 
-/** Print token usage, turn count, and tool call stats for a session. */
+/** Print token usage, turn count, cold-start context split, and tool call stats. */
 async function showSummary(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0] ?? "latest";
 
@@ -369,27 +369,103 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 		args: [`${resolvedId}%`],
 	});
 
-	if (summary.rows.length === 0) {
-		console.log(`No summary for session ${resolvedId}. (Session may not have completed.)`);
+	console.log(`Session:  ${resolvedId}`);
+	if (summary.rows.length > 0) {
+		const s = summary.rows[0]!;
+		console.log(`Model:    ${String(s.model)}`);
+		console.log(`Started:  ${String(s.started_at)}`);
+		console.log(`Duration: ${Number(s.duration_ms ?? 0) / 1000}s`);
+		console.log(`Turns:    ${String(s.turns)}`);
+		console.log(`Tokens:   ${String(s.input_tokens)} in / ${String(s.output_tokens)} out`);
+		console.log(`Errors:   ${String(s.errors)}`);
+		if (s.tools) {
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse from DB field
+				const tools = JSON.parse(String(s.tools)) as Array<{ name: string; calls: number }>;
+				if (tools.length > 0) {
+					console.log("Tools:");
+					for (const t of tools) console.log(`  ${t.name}: ${t.calls} calls`);
+				}
+			} catch {
+				// skip
+			}
+		}
+	} else {
+		console.log("(No session_summaries row yet — showing cold-start from events.)");
+	}
+
+	await printColdStartBreakdown(db, resolvedId);
+}
+
+/** Print system-prompt vs tool-schema cold-start split from debug events. */
+async function printColdStartBreakdown(db: Client, sessionId: string): Promise<void> {
+	const like = `${sessionId}%`;
+	const directives = await db.execute({
+		sql: `SELECT payload FROM events
+			WHERE session_id LIKE ? AND type = 'directives:built'
+			ORDER BY timestamp ASC LIMIT 1`,
+		args: [like],
+	});
+	const httpStart = await db.execute({
+		sql: `SELECT payload FROM events
+			WHERE session_id LIKE ? AND type = 'llm:http:start'
+			ORDER BY timestamp ASC LIMIT 1`,
+		args: [like],
+	});
+	const usage = await db.execute({
+		sql: `SELECT payload FROM events
+			WHERE session_id LIKE ? AND type = 'llm.token-usage'
+			ORDER BY timestamp ASC LIMIT 1`,
+		args: [like],
+	});
+
+	if (directives.rows.length === 0 && httpStart.rows.length === 0 && usage.rows.length === 0) {
 		return;
 	}
 
-	const s = summary.rows[0]!;
-	console.log(`Session:  ${String(s.session_id)}`);
-	console.log(`Model:    ${String(s.model)}`);
-	console.log(`Started:  ${String(s.started_at)}`);
-	console.log(`Duration: ${Number(s.duration_ms ?? 0) / 1000}s`);
-	console.log(`Turns:    ${String(s.turns)}`);
-	console.log(`Tokens:   ${String(s.input_tokens)} in / ${String(s.output_tokens)} out`);
-	console.log(`Errors:   ${String(s.errors)}`);
-	if (s.tools) {
+	console.log("\nCold-start context:");
+	if (directives.rows.length > 0) {
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse from DB field
-			const tools = JSON.parse(String(s.tools)) as Array<{ name: string; calls: number }>;
-			if (tools.length > 0) {
-				console.log("Tools:");
-				for (const t of tools) console.log(`  ${t.name}: ${t.calls} calls`);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON payload from events table
+			const payload = JSON.parse(String(directives.rows[0]!.payload)) as {
+				chars?: number;
+				estTokens?: number;
+				blocks?: number;
+				blockSizes?: Array<{ id: string; chars: number }>;
+			};
+			const chars = payload.chars ?? 0;
+			const est = payload.estTokens ?? Math.round(chars / 4);
+			console.log(`  System directives: ${chars} chars (~${est} tok), ${payload.blocks ?? "?"} blocks`);
+			const sizes = [...(payload.blockSizes ?? [])].sort((a, b) => b.chars - a.chars).slice(0, 8);
+			for (const block of sizes) {
+				console.log(`    ${block.id}: ${block.chars}`);
 			}
+		} catch {
+			// skip
+		}
+	}
+	if (httpStart.rows.length > 0) {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON payload from events table
+			const payload = JSON.parse(String(httpStart.rows[0]!.payload)) as {
+				tools?: number;
+				schemaEst?: number;
+			};
+			console.log(`  Tool schemas:      ${payload.tools ?? "?"} tools, schemaEst ~${payload.schemaEst ?? "?"} tok`);
+		} catch {
+			// skip
+		}
+	}
+	if (usage.rows.length > 0) {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON payload from events table
+			const payload = JSON.parse(String(usage.rows[0]!.payload)) as {
+				usage?: { totalTokens?: number; cacheWrite?: number; input?: number; output?: number };
+			};
+			const u = payload.usage ?? {};
+			console.log(
+				`  First LLM call:    totalTokens=${u.totalTokens ?? "?"} cacheWrite=${u.cacheWrite ?? "?"} (in=${u.input ?? "?"} out=${u.output ?? "?"})`,
+			);
 		} catch {
 			// skip
 		}

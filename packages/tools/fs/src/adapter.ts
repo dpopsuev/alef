@@ -1045,15 +1045,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 }
 
 const FS_DIRECTIVES = [
-	`**fs (filesystem) tool guidance**
-- Always read a file with fs.read before editing it. Never guess its contents.
-- Prefer fs.read(..., format='hashline') then fs.hashline-edit for surgical line edits; include line hashes (SWAP 2:AB12) when available.
-- Use fs.edit for exact unique text replacements when you already have the oldText.
-- Use fs.write only when creating a new file or completely rewriting one. It overwrites without warning.
-- Use fs.grep to search file contents across the workspace before assuming something doesn't exist.
-- Use fs.find to discover file paths when you don't know the exact name.
-- Use fs.patch when a refactor touches multiple files — one call, all-or-nothing validation before any file is written.
-- All paths must be within the allowed roots configured by the security profile. Paths outside are rejected.`,
+	`Read with fs.read before editing. Prefer hashline-edit for surgical edits; fs.edit for unique replacements; fs.write only for new/full rewrites. Use fs.grep/fs.find to search. Paths must stay inside writable roots.`,
 ];
 /** Create a per-path write serialization queue that chains concurrent writes on the same file. */
 export function makeWriteQueue() {

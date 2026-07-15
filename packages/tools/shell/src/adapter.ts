@@ -519,10 +519,5 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 }
 
 const SHELL_DIRECTIVES = [
-	`**shell.exec tool guidance**
-- Use shell.exec for: running tests, compilation, git operations, package installs, and inspecting process output.
-- Do NOT use shell.exec to read files — use fs.read instead. Do NOT use it to search file contents — use fs.grep.
-- Default timeout is 120 seconds. Supply a longer timeout for slow operations (e.g. npm install).
-- Commands run with the working directory set to the project root. Use relative paths.
-- Avoid destructive commands (rm -rf, git reset --hard) unless the user explicitly requests them.`,
+	`Use shell.exec for tests, builds, git, installs — not for reading/searching files (use fs.*). Prefer relative paths. Avoid destructive commands unless requested.`,
 ];

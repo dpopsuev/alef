@@ -219,7 +219,19 @@ describe("Markdown component", { tags: ["unit"] }, () => {
 
 			const lines = markdown.render(24).map((line) => stripAnsi(line).trimEnd());
 
-			assert.deepStrictEqual(lines, ["- ```ts", "    alpha beta gamma", "  delta epsilon zeta", "  ```"]);
+			assert.deepStrictEqual(lines, ["- ┌ ts", "    alpha beta gamma", "  delta epsilon zeta", "  └"]);
+		});
+
+		it("should never paint markdown fence backticks for fenced code", () => {
+			const markdown = new Markdown("```yaml\nname: debug\n```\n", 0, 0, defaultMarkdownTheme);
+			const plain = markdown
+				.render(80)
+				.join("\n")
+				.replace(/\x1b\[[0-9;]*m/g, "");
+			assert.ok(plain.includes("name: debug"), "Should show code body");
+			assert.ok(plain.includes("┌ yaml"), "Should show lang chrome");
+			assert.ok(plain.includes("└"), "Should show closing chrome");
+			assert.ok(!plain.includes("```"), `Must not leak fence markers: ${JSON.stringify(plain)}`);
 		});
 	});
 
@@ -688,16 +700,16 @@ again, hello world`,
 			const lines = markdown.render(80);
 			const plainLines = lines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trimEnd());
 
-			const closingBackticksIndex = plainLines.indexOf("```");
-			assert.ok(closingBackticksIndex !== -1, "Should have closing backticks");
+			const closingBorderIndex = plainLines.indexOf("└");
+			assert.ok(closingBorderIndex !== -1, "Should have closing code border");
 
-			const afterBackticks = plainLines.slice(closingBackticksIndex + 1);
-			const emptyLineCount = afterBackticks.findIndex((line) => line !== "");
+			const afterBorder = plainLines.slice(closingBorderIndex + 1);
+			const emptyLineCount = afterBorder.findIndex((line) => line !== "");
 
 			assert.strictEqual(
 				emptyLineCount,
 				1,
-				`Expected 1 empty line after code block, but found ${emptyLineCount}. Lines after backticks: ${JSON.stringify(afterBackticks.slice(0, 5))}`,
+				`Expected 1 empty line after code block, but found ${emptyLineCount}. Lines after border: ${JSON.stringify(afterBorder.slice(0, 5))}`,
 			);
 		});
 
@@ -716,7 +728,7 @@ code block
 
 more text`,
 			];
-			const expectedLines = ["hello this is text", "", "```", "  code block", "```", "", "more text"];
+			const expectedLines = ["hello this is text", "", "┌", "  code block", "└", "", "more text"];
 
 			for (const text of cases) {
 				const markdown = new Markdown(text, 0, 0, defaultMarkdownTheme);
@@ -1050,6 +1062,27 @@ bar`,
 	});
 
 	describe("Heading with inline code", () => {
+		it("should not show raw # markers for h3 headings", () => {
+			const markdown = new Markdown("### Overview\n\nBody text.", 0, 0, defaultMarkdownTheme);
+			const plain = markdown
+				.render(80)
+				.join("\n")
+				.replace(/\x1b\[[0-9;]*m/g, "");
+			assert.ok(plain.includes("Overview"), "Should show heading text");
+			assert.ok(!plain.includes("###"), `Must not leak hash markers: ${JSON.stringify(plain)}`);
+			assert.ok(!/^#+\s/m.test(plain), `Must not show ATX hashes: ${JSON.stringify(plain)}`);
+		});
+
+		it("should omit empty headings (e.g. trailing ###)", () => {
+			const markdown = new Markdown("Done.\n\n###\n", 0, 0, defaultMarkdownTheme);
+			const plain = markdown
+				.render(80)
+				.join("\n")
+				.replace(/\x1b\[[0-9;]*m/g, "");
+			assert.ok(plain.includes("Done."), "Should keep prior text");
+			assert.ok(!plain.includes("###"), `Empty heading must not render hashes: ${JSON.stringify(plain)}`);
+		});
+
 		it("should preserve heading styling after inline code", () => {
 			const markdown = new Markdown("### Why `sourceInfo` should not be optional", 0, 0, defaultMarkdownTheme);
 

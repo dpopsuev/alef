@@ -306,16 +306,17 @@ export class Markdown implements Component {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "heading"
 			const heading = token as Tokens.Heading;
 			const headingLevel = heading.depth;
-			const headingPrefix = `${"#".repeat(headingLevel)} `;
 
 			// Build a heading-specific style context so inline tokens (codespan, bold, etc.)
 			// restore heading styling after their own ANSI resets instead of falling back to
-			// the default text style.
+			// the default text style. Never emit raw `#` markers — terminal styling is the cue.
 			let headingStyleFn: (text: string) => string;
 			if (headingLevel === 1) {
 				headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(this.theme.underline(text)));
-			} else {
+			} else if (headingLevel === 2) {
 				headingStyleFn = (text: string) => this.theme.heading(this.theme.bold(text));
+			} else {
+				headingStyleFn = (text: string) => this.theme.heading(text);
 			}
 
 			const headingStyleContext: InlineStyleContext = {
@@ -323,9 +324,10 @@ export class Markdown implements Component {
 				stylePrefix: this.getStylePrefix(headingStyleFn),
 			};
 
-			const headingText = this.renderInlineTokens(heading.tokens, headingStyleContext);
-			const styledHeading = headingLevel >= 3 ? headingStyleFn(headingPrefix) + headingText : headingText;
-			lines.push(styledHeading);
+			const headingText = this.renderInlineTokens(heading.tokens, headingStyleContext).trim();
+			if (headingText.length === 0) return;
+
+			lines.push(headingText);
 			if (nextTokenType && nextTokenType !== "space") {
 				lines.push(""); // Add spacing after headings (unless space token follows)
 			}
@@ -350,7 +352,9 @@ export class Markdown implements Component {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "code"
 			const codeToken = token as Tokens.Code;
 			const indent = this.theme.codeBlockIndent ?? "  ";
-			lines.push(this.theme.codeBlockBorder(`\`\`\`${codeToken.lang ?? ""}`));
+			// Terminal chrome — never paint markdown fence markers (```).
+			const openLabel = codeToken.lang?.trim() ? `┌ ${codeToken.lang.trim()}` : "┌";
+			lines.push(this.theme.codeBlockBorder(openLabel));
 			if (this.theme.highlightCode) {
 				const highlightedLines = this.theme.highlightCode(codeToken.text, codeToken.lang);
 				for (const hlLine of highlightedLines) {
@@ -363,7 +367,7 @@ export class Markdown implements Component {
 					lines.push(`${indent}${this.theme.codeBlock(codeLine)}`);
 				}
 			}
-			lines.push(this.theme.codeBlockBorder("```"));
+			lines.push(this.theme.codeBlockBorder("└"));
 			if (nextTokenType && nextTokenType !== "space") {
 				lines.push(""); // Add spacing after code blocks (unless space token follows)
 			}

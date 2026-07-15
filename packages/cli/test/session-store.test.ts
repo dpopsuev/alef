@@ -194,6 +194,28 @@ describe("JsonlSessionStore.list", { tags: ["unit"] }, () => {
 	});
 });
 
+describe("JsonlSessionStore empty discard", { tags: ["unit"] }, () => {
+	it("destroy removes empty session from list", async () => {
+		const cwd = tmpCwd();
+		const store = await JsonlSessionStore.create(cwd);
+		expect(await store.isEmpty()).toBe(true);
+		await store.destroy();
+		expect(await JsonlSessionStore.list(cwd)).toHaveLength(0);
+	});
+
+	it("prune removes empty sessions but keeps those with llm.input", async () => {
+		const cwd = tmpCwd();
+		const empty = await JsonlSessionStore.create(cwd);
+		const used = await JsonlSessionStore.create(cwd);
+		await used.append(senseRecord("llm.input", "c-1", { text: "hello", sender: "human" }));
+		const removed = await JsonlSessionStore.prune(cwd);
+		expect(removed).toBeGreaterThanOrEqual(1);
+		const ids = (await JsonlSessionStore.list(cwd)).map((s) => s.id);
+		expect(ids).not.toContain(empty.id);
+		expect(ids).toContain(used.id);
+	});
+});
+
 describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"] }, () => {
 	it("uses _display.text length for cost when available (clean content estimate)", async () => {
 		const cwd = tmpCwd();

@@ -138,6 +138,10 @@ describe("durable compaction", { tags: ["unit"] }, () => {
 				return undefined;
 			},
 			async setSearchBlob() {},
+			async isEmpty() {
+				return false;
+			},
+			async destroy() {},
 		};
 
 		const stage = createCompactionStage({
@@ -393,6 +397,17 @@ describe("createCompactionStage — session metadata refresh", { tags: ["unit"] 
 			searchBlob: () => searchBlob,
 			async setSearchBlob(blob) {
 				searchBlob = blob;
+			},
+			async isEmpty() {
+				return !name && !records.some((r) => r.type === "llm.input");
+			},
+			async destroy() {
+				records.length = 0;
+				name = undefined;
+				nameSource = undefined;
+				tags = [];
+				tagsSource = undefined;
+				searchBlob = undefined;
 			},
 		};
 		return {

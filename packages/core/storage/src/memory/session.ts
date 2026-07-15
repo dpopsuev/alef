@@ -140,4 +140,22 @@ export class InMemorySessionStore implements SessionStore {
 		const prefix = `${adapterName}.`;
 		return this._records.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix));
 	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async isEmpty(): Promise<boolean> {
+		if (this._name) return false;
+		return !this._records.some((r) => r.type === "llm.input");
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async destroy(): Promise<void> {
+		this._records.length = 0;
+		this._indexer.turnMap.clear();
+		this._indexer.hitCountsMap.clear();
+		this._name = undefined;
+		this._nameSource = undefined;
+		this._tags = [];
+		this._tagsSource = undefined;
+		this._searchBlob = undefined;
+	}
 }

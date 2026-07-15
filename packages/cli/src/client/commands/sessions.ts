@@ -155,6 +155,7 @@ export async function pickSession(
 		},
 	});
 
-	if (!result || result.value === "__new__") return undefined;
+	if (!result) process.exit(0);
+	if (result.value === "__new__") return undefined;
 	return result.value;
 }

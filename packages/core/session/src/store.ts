@@ -75,6 +75,32 @@ async function readSessionListMeta(path: string): Promise<SessionListMeta> {
 	}
 }
 
+/** True when the JSONL file has no display name and no llm.input events. */
+async function jsonlFileIsEmpty(path: string): Promise<boolean> {
+	try {
+		const raw = await readFile(path, "utf-8");
+		if (!raw.trim()) return true;
+		let hasName = false;
+		for (const line of raw.split("\n")) {
+			if (!line) continue;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL line to StorageRecord
+			const record = JSON.parse(line) as StorageRecord;
+			if (record.type === "llm.input") return false;
+			if (
+				record.bus === BUS_INTERNAL &&
+				record.type === EVENT_SESSION_NAME &&
+				typeof record.payload.name === "string" &&
+				record.payload.name.length > 0
+			) {
+				hasName = true;
+			}
+		}
+		return !hasName;
+	} catch {
+		return true;
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Session-scan helpers (previously session-scan.ts)
 // ---------------------------------------------------------------------------
@@ -225,10 +251,12 @@ export class JsonlSessionStore {
 	readonly id: string;
 	readonly path: string;
 
+	private readonly _cwd: string;
 	private readonly _cache: StorageRecord[] = [];
 	private readonly _indexer = new TurnIndexer();
 
 	private constructor(cwd: string, id: string) {
+		this._cwd = cwd;
 		this.id = id;
 		this.path = storeSessionPath(cwd, id);
 	}
@@ -402,17 +430,49 @@ export class JsonlSessionStore {
 		const sessions = await JsonlSessionStore.list(cwd);
 		const cutoff = Date.now() - maxAgeDays * MS_PER_DAY;
 		let removed = 0;
-		for (let i = maxCount; i < sessions.length; i++) {
-			if (sessions[i]!.mtime.getTime() < cutoff) {
+		for (const session of sessions) {
+			if (await jsonlFileIsEmpty(session.path)) {
 				try {
-					await unlink(sessions[i]!.path);
-					const summaryPath = sessions[i]!.path.replace(".jsonl", ".summary.json");
+					await unlink(session.path);
+					await unlink(session.path.replace(".jsonl", ".summary.json")).catch(() => {});
+					removed++;
+				} catch {
+					/* skip */
+				}
+			}
+		}
+		const remaining = await JsonlSessionStore.list(cwd);
+		for (let i = maxCount; i < remaining.length; i++) {
+			if (remaining[i]!.mtime.getTime() < cutoff) {
+				try {
+					await unlink(remaining[i]!.path);
+					const summaryPath = remaining[i]!.path.replace(".jsonl", ".summary.json");
 					await unlink(summaryPath).catch(() => {});
 					removed++;
 				} catch {}
 			}
 		}
 		return removed;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async isEmpty(): Promise<boolean> {
+		if (this.name()) return false;
+		return !this._cache.some((r) => r.type === "llm.input");
+	}
+
+	async destroy(): Promise<void> {
+		this._cache.length = 0;
+		this._indexer.turnMap.clear();
+		this._indexer.hitCountsMap.clear();
+		await unlink(this.path).catch(() => {});
+		await unlink(this.path.replace(".jsonl", ".summary.json")).catch(() => {});
+		try {
+			const latest = (await readFile(latestPath(this._cwd), "utf-8")).trim();
+			if (latest === this.id) await unlink(latestPath(this._cwd)).catch(() => {});
+		} catch {
+			/* no latest pointer */
+		}
 	}
 
 	static async list(

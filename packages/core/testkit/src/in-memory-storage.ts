@@ -156,18 +156,26 @@ export class InMemorySessionStoreFactory implements SessionStoreFactory {
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async list(cwd: string): Promise<SessionListEntry[]> {
 		return [...this.stores.values()]
-			.filter((s) => this.cwdById.get(s.id) === cwd)
+			.filter((s) => !s.destroyed && this.cwdById.get(s.id) === cwd)
 			.map((s) => this.toEntry(s));
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async listAll(): Promise<SessionListEntry[]> {
-		return [...this.stores.values()].map((s) => this.toEntry(s));
+		return [...this.stores.values()].filter((s) => !s.destroyed).map((s) => this.toEntry(s));
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	async prune(): Promise<number> {
-		return 0;
+		let removed = 0;
+		for (const [id, store] of this.stores) {
+			if (store.destroyed || (await store.isEmpty())) {
+				await store.destroy();
+				this.stores.delete(id);
+				this.cwdById.delete(id);
+				removed++;
+			}
+		}
+		return removed;
 	}
 }
 

@@ -118,4 +118,11 @@ export interface SessionStore {
 	/** Concatenated text used for picker/content search. */
 	searchBlob(): string | undefined;
 	setSearchBlob(blob: string): Promise<void>;
+	/**
+	 * True when the session has no display name and no `llm.input` events.
+	 * Boot/telemetry noise alone does not count as content.
+	 */
+	isEmpty(): Promise<boolean>;
+	/** Delete this session from durable storage. Idempotent. */
+	destroy(): Promise<void>;
 }

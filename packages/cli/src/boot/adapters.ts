@@ -120,17 +120,16 @@ export async function loadAdapters(
 		const discovered = discoverBlueprints();
 		if (discovered.length > 1) {
 			const chosen = await pickBlueprint(discovered);
-			if (chosen) {
-				blueprintName = chosen.name;
-				const { existsSync } = await import("node:fs");
-				if (existsSync(chosen.path)) {
-					blueprintPath = chosen.path;
-					explicitYamlFile = true;
-				} else {
-					registrySelected = true;
-					blueprintPath = resolveRegistryBlueprintYaml(chosen.name);
-					log.info({ blueprint: chosen.name, path: blueprintPath }, "blueprint:selected");
-				}
+			if (!chosen) process.exit(0);
+			blueprintName = chosen.name;
+			const { existsSync } = await import("node:fs");
+			if (existsSync(chosen.path)) {
+				blueprintPath = chosen.path;
+				explicitYamlFile = true;
+			} else {
+				registrySelected = true;
+				blueprintPath = resolveRegistryBlueprintYaml(chosen.name);
+				log.info({ blueprint: chosen.name, path: blueprintPath }, "blueprint:selected");
 			}
 		}
 	}

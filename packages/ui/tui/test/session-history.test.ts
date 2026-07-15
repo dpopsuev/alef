@@ -58,6 +58,10 @@ function storeWith(events: StorageRecord[]): SessionStore {
 		async setTags() {},
 		searchBlob: () => undefined,
 		async setSearchBlob() {},
+		async isEmpty() {
+			return !events.some((e) => e.type === "llm.input");
+		},
+		async destroy() {},
 	};
 }
 

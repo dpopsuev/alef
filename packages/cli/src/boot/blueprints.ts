@@ -87,6 +87,6 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 		},
 	});
 
-	if (!result) return choices[0];
+	if (!result) return undefined;
 	return choices.find((c) => c.path === result.value);
 }

@@ -37,6 +37,7 @@ export class InMemorySessionStore implements SessionStore {
 
 	private readonly _cache: StorageRecord[] = [];
 	private readonly _indexer = new TurnIndexer();
+	private _destroyed = false;
 
 	// eslint-disable-next-line no-magic-numbers
 	constructor(id = randomUUID().replace(/-/g, "").slice(0, 8)) {
@@ -114,5 +115,28 @@ export class InMemorySessionStore implements SessionStore {
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async setSearchBlob(blob: string): Promise<void> {
 		this._searchBlob = blob;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async isEmpty(): Promise<boolean> {
+		if (this._name) return false;
+		return !this._cache.some((r) => r.type === "llm.input");
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async destroy(): Promise<void> {
+		this._destroyed = true;
+		this._cache.length = 0;
+		this._indexer.turnMap.clear();
+		this._indexer.hitCountsMap.clear();
+		this._name = undefined;
+		this._nameSource = undefined;
+		this._tags = [];
+		this._tagsSource = undefined;
+		this._searchBlob = undefined;
+	}
+
+	get destroyed(): boolean {
+		return this._destroyed;
 	}
 }

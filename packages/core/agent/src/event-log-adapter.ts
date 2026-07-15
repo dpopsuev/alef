@@ -184,7 +184,7 @@ export class SessionLog implements Adapter {
 			off1();
 			off2();
 			off3();
-			void this._writeSummary({
+			void this._finalize({
 				id: this.store.id,
 				model: this.model,
 				started_at: new Date(startedAt).toISOString(),
@@ -197,6 +197,18 @@ export class SessionLog implements Adapter {
 				errors,
 			});
 		};
+	}
+
+	private async _finalize(summary: SessionSummary): Promise<void> {
+		try {
+			if (await this.store.isEmpty()) {
+				await this.store.destroy();
+				return;
+			}
+		} catch (e: unknown) {
+			traceEvent("session-empty-check-failed", { error: String(e) });
+		}
+		await this._writeSummary(summary);
 	}
 
 	private async _writeSummary(summary: SessionSummary): Promise<void> {

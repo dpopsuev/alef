@@ -238,6 +238,15 @@ describe("session lifecycle — loadSession edge paths", { tags: ["unit"] }, () 
 		const factory = jsonlFactory();
 		const a = await factory.create(cwd);
 		const b = await factory.create(cwd);
+		for (const store of [a, b]) {
+			await store.append({
+				bus: "event",
+				type: "llm.input",
+				correlationId: `c-${store.id}`,
+				payload: { text: "hi", sender: "human" },
+				timestamp: Date.now(),
+			});
+		}
 		const exit = mockExit();
 		const lines: string[] = [];
 		vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {

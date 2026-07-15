@@ -233,6 +233,13 @@ describe("SqliteSessionStore.prune", { tags: ["unit"] }, () => {
 		const past = Date.now() - 100_000;
 		for (let i = 0; i < 5; i++) {
 			const s = await SqliteSessionStore.create(client, "/tmp/cwd");
+			await s.append({
+				bus: "event",
+				type: "llm.input",
+				correlationId: `c-${i}`,
+				payload: { text: "hi", sender: "human" },
+				timestamp: Date.now(),
+			});
 			await client.execute({
 				sql: "UPDATE sessions SET updated_at = ? WHERE id = ?",
 				args: [past - i * 1000, s.id],
@@ -241,6 +248,54 @@ describe("SqliteSessionStore.prune", { tags: ["unit"] }, () => {
 		const removed = await SqliteSessionStore.prune(client, "/tmp/cwd", 0, 2);
 		expect(removed).toBe(3);
 		expect(await SqliteSessionStore.list(client, "/tmp/cwd")).toHaveLength(2);
+		client.close();
+	});
+
+	it("removes sessions with no llm.input and no name", async () => {
+		const client = await makeClient();
+		const empty = await SqliteSessionStore.create(client, "/tmp/cwd");
+		const named = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await named.setName("keep me");
+		const used = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await used.append({
+			bus: "event",
+			type: "llm.input",
+			correlationId: "c-1",
+			payload: { text: "hello", sender: "human" },
+			timestamp: Date.now(),
+		});
+
+		const removed = await SqliteSessionStore.prune(client, "/tmp/cwd");
+		expect(removed).toBeGreaterThanOrEqual(1);
+		const ids = (await SqliteSessionStore.list(client, "/tmp/cwd")).map((s) => s.id);
+		expect(ids).not.toContain(empty.id);
+		expect(ids).toContain(named.id);
+		expect(ids).toContain(used.id);
+		client.close();
+	});
+});
+
+describe("SqliteSessionStore.isEmpty + destroy", { tags: ["unit"] }, () => {
+	it("treats fresh sessions as empty and destroy removes the row", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		expect(await store.isEmpty()).toBe(true);
+		await store.destroy();
+		expect(await SqliteSessionStore.list(client, "/tmp/cwd")).toHaveLength(0);
+		client.close();
+	});
+
+	it("is not empty after llm.input", async () => {
+		const client = await makeClient();
+		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
+		await store.append({
+			bus: "event",
+			type: "llm.input",
+			correlationId: "c-1",
+			payload: { text: "hi", sender: "human" },
+			timestamp: Date.now(),
+		});
+		expect(await store.isEmpty()).toBe(false);
 		client.close();
 	});
 });

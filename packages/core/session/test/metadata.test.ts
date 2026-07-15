@@ -67,6 +67,10 @@ function memoryStore(): SessionStore & {
 		async setSearchBlob(blob: string) {
 			store._searchBlob = blob;
 		},
+		async isEmpty() {
+			return !store._name && true;
+		},
+		async destroy() {},
 	};
 	return store;
 }

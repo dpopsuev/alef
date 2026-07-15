@@ -2,6 +2,7 @@
  * SessionSummary — written at agent exit.
  *
  * Verifies that summaries are written to SQLite and last-session.json.
+ * Empty sessions (no user input) are destroyed instead of summarized.
  */
 
 import { readFile } from "node:fs/promises";
@@ -57,5 +58,22 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 			.then(() => true)
 			.catch(() => false);
 		expect(lastExists).toBe(true);
+	});
+
+	it("destroys empty sessions on dispose instead of writing a summary", async () => {
+		const { client, cleanup } = await makeTestDatabase();
+		cleanups.push(cleanup);
+
+		const store = await SqliteSessionStore.create(client, "/tmp/test-cwd");
+		const sessionId = store.id;
+		const summaries = new SqliteSummaryStore(client);
+		const agent = new Agent();
+		agent.load(new SessionLog(store, "test-model", undefined, (s) => summaries.write(s)));
+		agent.dispose();
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		expect(await summaries.get(sessionId)).toBeUndefined();
+		expect(await SqliteSessionStore.list(client, "/tmp/test-cwd")).toHaveLength(0);
 	});
 });

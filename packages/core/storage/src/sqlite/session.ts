@@ -212,6 +212,27 @@ export class SqliteSessionStore implements SessionStore {
 
 	static async prune(client: Client, cwd: string, maxAgeDays = DEFAULT_PRUNE_MAX_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
 		const hash = cwdHash(cwd);
+		const emptyIds = await client.execute({
+			sql: `SELECT id FROM sessions WHERE cwd_hash = ?
+				AND (name IS NULL OR name = '')
+				AND id NOT IN (SELECT DISTINCT session_id FROM events WHERE type = 'llm.input')`,
+			args: [hash],
+		});
+		const empty = emptyIds.rows.map((r) => (typeof r.id === "string" ? r.id : "")).filter(Boolean);
+		let removed = 0;
+		if (empty.length > 0) {
+			const placeholders = empty.map(() => "?").join(",");
+			await client.batch(
+				[
+					{ sql: `DELETE FROM events WHERE session_id IN (${placeholders})`, args: empty },
+					{ sql: `DELETE FROM session_summaries WHERE session_id IN (${placeholders})`, args: empty },
+					{ sql: `DELETE FROM sessions WHERE id IN (${placeholders})`, args: empty },
+				],
+				"write",
+			);
+			removed += empty.length;
+		}
+
 		// eslint-disable-next-line no-magic-numbers
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
 		const staleIds = await client.execute({
@@ -220,9 +241,10 @@ export class SqliteSessionStore implements SessionStore {
 			)`,
 			args: [hash, cutoff, hash, maxCount],
 		});
-		if (staleIds.rows.length === 0) return 0;
+		if (staleIds.rows.length === 0) return removed;
 
-		const ids = staleIds.rows.map((r) => typeof r.id === "string" ? r.id : "");
+		const ids = staleIds.rows.map((r) => (typeof r.id === "string" ? r.id : "")).filter(Boolean);
+		if (ids.length === 0) return removed;
 		const placeholders = ids.map(() => "?").join(",");
 		await client.batch(
 			[
@@ -232,7 +254,36 @@ export class SqliteSessionStore implements SessionStore {
 			],
 			"write",
 		);
-		return ids.length;
+		return removed + ids.length;
+	}
+
+	async isEmpty(): Promise<boolean> {
+		const named = await this._client.execute({
+			sql: "SELECT name FROM sessions WHERE id = ?",
+			args: [this.id],
+		});
+		const name = named.rows[0]?.name;
+		if (typeof name === "string" && name.length > 0) return false;
+
+		const input = await this._client.execute({
+			sql: "SELECT 1 AS ok FROM events WHERE session_id = ? AND type = 'llm.input' LIMIT 1",
+			args: [this.id],
+		});
+		return input.rows.length === 0;
+	}
+
+	async destroy(): Promise<void> {
+		this._cache.length = 0;
+		this._indexer.turnMap.clear();
+		this._indexer.hitCountsMap.clear();
+		await this._client.batch(
+			[
+				{ sql: "DELETE FROM events WHERE session_id = ?", args: [this.id] },
+				{ sql: "DELETE FROM session_summaries WHERE session_id = ?", args: [this.id] },
+				{ sql: "DELETE FROM sessions WHERE id = ?", args: [this.id] },
+			],
+			"write",
+		);
 	}
 
 	async append(record: StorageRecord): Promise<void> {

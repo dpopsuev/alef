@@ -1,13 +1,6 @@
 #!/bin/bash
-# Launch Alef under the blue-green supervisor for development.
-#
-# On rebuild request (alef.rebuild tool or globalThis.alefRequestRebuild()):
-#   1. Runs ALEF_SUPERVISOR_BUILD_COMMAND (npm run check by default)
-#   2. Spawns a new green with the same session ID for continuity
-#   3. Waits for the new green to be healthy ("router listening on")
-#   4. Sends handoff_prepare to the old green, waits up to 5s for ack
-#   5. Kills old green — new green is now active
-#   Rolls back to old green if new green crashes before ready.
+# Launch Alef from a git checkout (dev). In-process hot-reload is enabled
+# automatically when NODE_ENV/development + a build script are present.
 #
 # Usage:
 #   ./alef-dev.sh [alef args...]
@@ -19,7 +12,6 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ALEF_SUPERVISOR_GREEN_SCRIPT="${SCRIPT_DIR}/packages/agent/src/cli/main.ts" \
-ALEF_SUPERVISOR_BUILD_COMMAND="npm --prefix ${SCRIPT_DIR} run check" \
-ALEF_SUPERVISOR_TSX_BIN="${SCRIPT_DIR}/node_modules/.bin/tsx" \
-exec npx --prefix "${SCRIPT_DIR}" tsx "${SCRIPT_DIR}/packages/agent/src/supervisor.ts" "$@"
+exec npx --prefix "${SCRIPT_DIR}" tsx \
+  --tsconfig "${SCRIPT_DIR}/tsconfig.json" \
+  "${SCRIPT_DIR}/packages/cli/src/entrypoint.ts" "$@"

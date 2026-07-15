@@ -1,0 +1,143 @@
+import { execSync, spawn } from "node:child_process";
+import { getRebuildPort } from "../../boot/rebuild-port.js";
+import type { Release } from "../../update/release-checker.js";
+import { checkLatestRelease } from "../../update/release-checker.js";
+
+/** Injectable shell side-effects for :update. */
+export interface UpdateShell {
+	gitStatusPorcelain(): string;
+	gitPull(): void;
+	gitCheckStatus(): string;
+	npmInstall(): void;
+	npmInstallGlobal(spec: string): void;
+	build(): void;
+	checkRelease(currentVersion: string): Promise<Release | null>;
+}
+
+/** Discriminated result of runUpdate for UI adapters. */
+export type UpdateResult =
+	| { kind: "aborted-dirty" }
+	| { kind: "check"; detail: string }
+	| { kind: "reloaded" }
+	| { kind: "respawn" }
+	| { kind: "up-to-date" }
+	| { kind: "available"; release: Release }
+	| { kind: "failed"; message: string };
+
+/** Inputs for pure update orchestration. */
+export interface RunUpdateInput {
+	channel: "dev" | "stable";
+	force: boolean;
+	checkOnly: boolean;
+	version: string;
+	shell: UpdateShell;
+	rebuild?: () => Promise<void>;
+	respawn: () => Promise<void>;
+}
+
+/** Parse :update flags. */
+export function parseUpdateArgs(args: readonly string[]): { force: boolean; checkOnly: boolean } {
+	return {
+		force: args.includes("--force"),
+		checkOnly: args.includes("--check"),
+	};
+}
+
+/** Pure update orchestration — inject shell/rebuild/respawn for tests. */
+export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
+	const { channel, force, checkOnly, version, shell, rebuild, respawn } = input;
+
+	try {
+		if (channel === "dev") {
+			const dirty = shell.gitStatusPorcelain().trim();
+			if (dirty && !force) return { kind: "aborted-dirty" };
+
+			if (checkOnly) {
+				return { kind: "check", detail: shell.gitCheckStatus().trim() || "git check complete" };
+			}
+
+			shell.gitPull();
+			shell.npmInstall();
+			shell.build();
+
+			if (rebuild) {
+				await rebuild();
+				return { kind: "reloaded" };
+			}
+			await respawn();
+			return { kind: "respawn" };
+		}
+
+		const release = await shell.checkRelease(version);
+		if (!release) return { kind: "up-to-date" };
+
+		if (checkOnly) return { kind: "available", release };
+
+		shell.npmInstallGlobal(`@dpopsuev/alef@${release.version}`);
+		await respawn();
+		return { kind: "respawn" };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "unknown error";
+		return { kind: "failed", message };
+	}
+}
+
+/** Outcome of :restart. */
+export type RestartResult = { kind: "reloaded" } | { kind: "respawn" };
+
+/** Prefer rebuild port; otherwise respawn. */
+export async function runRestart(input: {
+	rebuild?: () => Promise<void>;
+	respawn: () => Promise<void>;
+}): Promise<RestartResult> {
+	if (input.rebuild) {
+		await input.rebuild();
+		return { kind: "reloaded" };
+	}
+	await input.respawn();
+	return { kind: "respawn" };
+}
+
+/** Default shell backed by execSync / GitHub releases. */
+export function createDefaultUpdateShell(): UpdateShell {
+	return {
+		gitStatusPorcelain: () => execSync("git status --porcelain", { encoding: "utf-8" }),
+		gitPull: () => {
+			execSync("git pull", { stdio: "inherit" });
+		},
+		gitCheckStatus: () => {
+			try {
+				return execSync("git fetch --dry-run 2>&1 || git status -sb", { encoding: "utf-8" });
+			} catch (error) {
+				return error instanceof Error ? error.message : String(error);
+			}
+		},
+		npmInstall: () => {
+			execSync("npm install", { stdio: "inherit" });
+		},
+		npmInstallGlobal: (spec) => {
+			const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
+			execSync(`${npmCmd} install -g ${spec}`, { stdio: "inherit" });
+		},
+		build: () => {
+			execSync("npm run build", { stdio: "inherit" });
+		},
+		checkRelease: (current) => checkLatestRelease("dpopsuev", "alef", current),
+	};
+}
+
+/** Resolve rebuild callback from RebuildPort when present. */
+export function resolveRebuild(): (() => Promise<void>) | undefined {
+	const port = getRebuildPort();
+	if (!port) return undefined;
+	return () => port.requestRebuild();
+}
+
+/** Spawn a new Alef process with --resume and exit this one. */
+export async function defaultRespawn(sessionId: string): Promise<void> {
+	spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
+		detached: true,
+		stdio: "inherit",
+	});
+	await new Promise((resolve) => setTimeout(resolve, 500));
+}

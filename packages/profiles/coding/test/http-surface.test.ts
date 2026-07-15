@@ -100,7 +100,7 @@ const E2E_MODEL = process.env.ALEF_EVAL_MODEL ?? process.env.ALEF_MODEL;
 
 const ROOT = pathResolve(__dirname, "../../..");
 const TSX = pathResolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = pathResolve(__dirname, "../../runner/src/main.ts");
+const RUNNER_MAIN = pathResolve(__dirname, "../../../cli/src/entrypoint.ts");
 const TSCONFIG = pathResolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------

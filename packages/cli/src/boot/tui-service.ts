@@ -2,7 +2,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
-import { selectViewMode } from "./views.js";
+import { ServeViewMode, selectViewMode } from "./views.js";
 
 /** Managed service wrapping the TUI view mode with a completion promise. */
 export interface TuiService extends ManagedService {
@@ -45,7 +45,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 
 			const viewer = selectViewMode(opts.args, interactiveOpts, opts.store);
 			let running = false;
-			let doneResolve: () => void;
+			let doneResolve: () => void = () => {};
 			const done = new Promise<void>((resolve) => {
 				doneResolve = resolve;
 			});
@@ -66,6 +66,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				},
 				stop() {
 					running = false;
+					if (viewer instanceof ServeViewMode) viewer.stop();
 					doneResolve();
 					return Promise.resolve();
 				},

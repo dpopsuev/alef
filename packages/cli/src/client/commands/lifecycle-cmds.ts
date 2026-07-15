@@ -1,99 +1,117 @@
-import { execSync, spawn } from "node:child_process";
 import { BUILD_INFO } from "../../boot/build-info.js";
-import { checkLatestRelease } from "../../update/release-checker.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
+import {
+	createDefaultUpdateShell,
+	defaultRespawn,
+	parseUpdateArgs,
+	resolveRebuild,
+	runRestart,
+	runUpdate,
+} from "./update-service.js";
+
+export { parseUpdateArgs } from "./update-service.js";
+
+/** Spawn a resumed process then dispose the current session UI. */
+async function respawnAndExit(ctx: LifecycleCmdCtx): Promise<void> {
+	await defaultRespawn(ctx.session.state.id);
+	await ctx.session.dispose();
+	ctx.tui.stop();
+	process.exit(0);
+}
 
 /**
- * Restart command: respawn Alef and resume the current session.
+ * Restart command: hot-reload in place when available, else respawn + resume.
  */
 export const restart: Command = {
 	name: "restart",
-	description: "Restart Alef, resuming current session",
+	description: "Restart Alef (in-place hot-reload when available)",
 	run(ctx: LifecycleCmdCtx) {
 		attempt(ctx, async () => {
-			const sessionId = ctx.session.state.id;
-			ctx.writer.addNotice("Restarting...");
-			ctx.tui.requestRender(true);
-
-			spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
-				detached: true,
-				stdio: "inherit",
+			const rebuild = resolveRebuild();
+			if (rebuild) {
+				ctx.writer.addNotice("Hot-reloading session...");
+				ctx.tui.requestRender(true);
+			} else {
+				ctx.writer.addNotice("Restarting...");
+				ctx.tui.requestRender(true);
+			}
+			const result = await runRestart({
+				rebuild,
+				respawn: async () => {
+					await respawnAndExit(ctx);
+				},
 			});
-
-			await new Promise((resolve) => setTimeout(resolve, 500));
-			await ctx.session.dispose();
-			ctx.tui.stop();
-			process.exit(0);
+			if (result.kind === "reloaded") {
+				ctx.writer.addNotice("Reload complete — session swapped in place.");
+				ctx.tui.requestRender();
+			}
 		});
 	},
 };
 
 export const update: Command = {
 	name: "update",
-	description: "Update Alef to latest version and restart",
-	run(ctx: LifecycleCmdCtx) {
+	description: "Update Alef [:update [--force] [--check]]",
+	run(ctx: LifecycleCmdCtx, args: string[]) {
 		attempt(ctx, async () => {
-			const sessionId = ctx.session.state.id;
+			const { force, checkOnly } = parseUpdateArgs(args);
+			const shell = createDefaultUpdateShell();
 
 			if (BUILD_INFO.channel === "dev") {
-				ctx.writer.addNotice("Updating from git...");
-				ctx.tui.requestRender(true);
-
-				try {
-					const dirty = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
-					if (dirty) {
-						ctx.writer.addNotice("Update aborted: working tree is dirty. Commit or stash first.");
-						ctx.tui.requestRender();
-						return;
-					}
-
-					execSync("git pull", { stdio: "inherit" });
-
-					ctx.writer.addNotice("Installing dependencies...");
-					ctx.tui.requestRender(true);
-					execSync("npm install", { stdio: "inherit" });
-
-					ctx.writer.addNotice("Building...");
-					ctx.tui.requestRender(true);
-					execSync("npm run build", { stdio: "inherit" });
-
-					ctx.writer.addNotice("Restarting...");
-					ctx.tui.requestRender(true);
-
-					spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
-						detached: true,
-						stdio: "inherit",
-					});
-
-					await new Promise((resolve) => setTimeout(resolve, 500));
-					await ctx.session.dispose();
-					ctx.tui.stop();
-					process.exit(0);
-				} catch (error) {
-					const message = error instanceof Error ? error.message : "unknown error";
-					ctx.writer.addNotice(`Update failed: ${message}`);
-					ctx.tui.requestRender();
-				}
+				ctx.writer.addNotice(checkOnly ? "Checking git remote..." : "Updating from git...");
 			} else {
 				ctx.writer.addNotice("Checking for updates...");
-				ctx.tui.requestRender(true);
-
-				const release = await checkLatestRelease("dpopsuev", "alef", BUILD_INFO.version);
-
-				if (!release) {
-					ctx.writer.addNotice("Already on latest version.");
-					ctx.tui.requestRender();
-					return;
-				}
-
-				ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${release.version}`);
-				ctx.writer.addNotice(`\nChangelog:\n${release.changelog}`);
-				ctx.writer.addNotice(`\nTo update: npm update -g @dpopsuev/alef`);
-				ctx.writer.addNotice(`Or install: npm install -g @dpopsuev/alef@${release.version}`);
-				ctx.tui.requestRender();
 			}
+			ctx.tui.requestRender(true);
+
+			if (force && BUILD_INFO.channel === "dev") {
+				const dirty = shell.gitStatusPorcelain().trim();
+				if (dirty) {
+					ctx.writer.addNotice("Warning: dirty tree — proceeding with --force");
+					ctx.tui.requestRender(true);
+				}
+			}
+
+			const result = await runUpdate({
+				channel: BUILD_INFO.channel,
+				force,
+				checkOnly,
+				version: BUILD_INFO.version,
+				shell,
+				rebuild: resolveRebuild(),
+				respawn: async () => {
+					await respawnAndExit(ctx);
+				},
+			});
+
+			switch (result.kind) {
+				case "aborted-dirty":
+					ctx.writer.addNotice("Update aborted: working tree is dirty. Commit/stash, or :update --force");
+					break;
+				case "check":
+					ctx.writer.addNotice(result.detail);
+					break;
+				case "up-to-date":
+					ctx.writer.addNotice("Already on latest version.");
+					break;
+				case "available":
+					ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${result.release.version}`);
+					ctx.writer.addNotice(`Changelog:\n${result.release.changelog}`);
+					ctx.writer.addNotice(`\nTo apply: :update`);
+					break;
+				case "reloaded":
+					ctx.writer.addNotice("Reload complete — session swapped in place.");
+					break;
+				case "respawn":
+					// process already exiting
+					break;
+				case "failed":
+					ctx.writer.addNotice(`Update failed: ${result.message}`);
+					break;
+			}
+			ctx.tui.requestRender();
 		});
 	},
 };

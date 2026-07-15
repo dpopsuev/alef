@@ -26,7 +26,7 @@ function findAlef(): { bin: string; args: string[] } {
 	// The smoke test proves the entry point, arg parsing, and HTTP surface.
 	const root = pathResolve(__dirname, "../../..");
 	const tsx = pathResolve(root, "node_modules/tsx/dist/cli.mjs");
-	const main = pathResolve(__dirname, "../src/main.ts");
+	const main = pathResolve(__dirname, "../src/entrypoint.ts");
 	const tsconfig = pathResolve(root, "tsconfig.json");
 	process.env.TSX_TSCONFIG_PATH = tsconfig;
 	return { bin: process.execPath, args: [tsx, main] };
@@ -224,6 +224,19 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 
 		const health = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
 		expect(health.ok).toBe(true);
+	}, 30_000);
+
+	it("headless --serve stays alive — health still ok after delay", async () => {
+		const cwd = makeTmp();
+		const { baseUrl } = await bootAlef(cwd, ["still here"]);
+
+		const first = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+		expect(first.ok).toBe(true);
+
+		await new Promise((r) => setTimeout(r, 800));
+
+		const second = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+		expect(second.ok).toBe(true);
 	}, 30_000);
 
 	it("POST /message → scripted reply appears on SSE", async () => {

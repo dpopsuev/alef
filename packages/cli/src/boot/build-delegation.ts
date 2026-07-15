@@ -79,7 +79,7 @@ async function createRouter(
 	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
 	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
 
-	if (args.daemon) {
+	if (shouldMirrorSessionToRouter(args)) {
 		session.subscribe((event: AgentEvent) => {
 			router.notifyAgent(event);
 			history.push(event);
@@ -88,6 +88,11 @@ async function createRouter(
 	}
 
 	return { port: addr.port, router };
+}
+
+/** Mirror session AgentEvents onto the HTTP/SSE router for --serve or --daemon. */
+export function shouldMirrorSessionToRouter(args: Pick<Args, "daemon" | "serve">): boolean {
+	return args.daemon || args.serve !== undefined;
 }
 
 /** Create and start the HTTP/SSE router surface if --serve or --daemon is active. */

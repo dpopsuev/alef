@@ -36,8 +36,8 @@ import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = resolve(ROOT, "packages/runner/src/main.ts");
-const SUPERVISOR = resolve(ROOT, "packages/runner/src/supervisor.ts");
+const RUNNER_MAIN = resolve(ROOT, "packages/cli/src/entrypoint.ts");
+const SUPERVISOR = resolve(ROOT, "packages/cli/src/supervisor.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------

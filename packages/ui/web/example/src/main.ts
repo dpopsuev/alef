@@ -4,7 +4,7 @@
  * Wires @dpopsuev/alef-web-ui components against a running Alef runner instance.
  *
  * To use:
- *   1. Start the runner: cd packages/runner && tsx src/main.ts --serve 0 --no-tui
+ *   1. Start the runner: npx tsx packages/cli/src/entrypoint.ts --serve 0 --no-tui
  *   2. Open this page in a browser (npm run dev in this directory)
  *   3. The chat panel connects to the runner at the URL shown in the header
  *

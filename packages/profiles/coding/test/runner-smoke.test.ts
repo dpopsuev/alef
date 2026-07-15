@@ -35,7 +35,7 @@ const HAS_KEY = hasCredentials();
 
 const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = resolve(__dirname, "../../runner/src/main.ts");
+const RUNNER_MAIN = resolve(__dirname, "../../../cli/src/entrypoint.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------

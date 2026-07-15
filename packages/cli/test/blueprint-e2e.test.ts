@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
-const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
+const MAIN = fileURLToPath(new URL("../src/entrypoint.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 

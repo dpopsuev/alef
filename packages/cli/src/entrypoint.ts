@@ -32,6 +32,7 @@ import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
 import { loadSession } from "./boot/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "./boot/session-service.js";
+import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
 import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { pickSession } from "./client/commands/sessions.js";
@@ -45,6 +46,7 @@ import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
 // ---------------------------------------------------------------------------
 
 process.title = "alef";
+setupSupervisorIpc();
 updateNotifier({ pkg: { name: "@dpopsuev/alef", version: BUILD_INFO.version } }).notify();
 ensureDirectories();
 
@@ -260,14 +262,18 @@ const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 
-// Enable hot-reload in development
-if (env.canHotReload) {
+// In-process hot-reload for local checkouts. Skip when an external process
+// supervisor owns alefRequestRebuild via ALEF_SUPERVISOR=1 IPC.
+if (env.canHotReload && process.env.ALEF_SUPERVISOR !== "1") {
+	const { setRebuildPort } = await import("./boot/rebuild-port.js");
 	supervisor.register(
 		createHotReloadDescriptor({
 			buildCommand: env.buildCommand!,
 			swap: supervisor.swap.bind(supervisor),
 			sessionServiceName: "session",
 			cwd: args.cwd,
+			onReady: (handle) => setRebuildPort(handle),
+			onStopped: () => setRebuildPort(undefined),
 		}),
 	);
 }
@@ -347,12 +353,17 @@ process.on("SIGINT", () => {
 	gracefulShutdown("SIGINT").catch(() => process.exit(1));
 });
 
-// Wait for TUI viewer to finish (user exits, or daemon blocks forever).
+const { awaitProcessLifetime } = await import("./boot/process-lifetime.js");
 const tuiRaw = supervisor.get("tui");
-if (tuiRaw && "done" in tuiRaw) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'done' in check above
-	await (tuiRaw as unknown as { done: Promise<void> }).done;
-}
+await awaitProcessLifetime({
+	daemon: args.daemon,
+	serve: args.serve !== undefined && !args.print,
+	done:
+		tuiRaw && "done" in tuiRaw
+			? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'done' in check
+				(tuiRaw as unknown as { done: Promise<void> }).done
+			: undefined,
+});
 
 await supervisor.stopAll();
 process.exit(0);

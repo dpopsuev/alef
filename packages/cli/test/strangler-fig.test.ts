@@ -9,7 +9,7 @@
  * config.ts — new fields (thinking, llm.*)
  * materializer — blueprint YAML → adapter instances
  * BlueprintHarness — blueprint + real adapter execution + session JSONL
- * subprocess — spawn main.ts, verify CLI output
+ * subprocess — spawn entrypoint.ts, verify CLI output
  *
  * No real LLM. No API key. Deterministic.
  *
@@ -30,7 +30,7 @@ import { BlueprintHarness } from "../../core/testkit/src/blueprint-harness.js";
 import { step } from "../../core/testkit/src/script.js";
 import { getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/boot/auth.js";
 
-const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
+const MAIN = fileURLToPath(new URL("../src/entrypoint.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 

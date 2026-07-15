@@ -5,15 +5,20 @@ import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 
 const execAsync = promisify(exec);
 
-type AlefGlobal = typeof globalThis & {
-	alefRequestRebuild?: () => Promise<void>;
-};
+/** Callback handle exposed when the hot-reload service starts. */
+export interface HotReloadRebuildHandle {
+	/** Build then swap the session service in-process. */
+	requestRebuild(): Promise<void>;
+}
 
 interface HotReloadOpts {
 	buildCommand: string;
 	swap: (serviceName: string, opts: { cwd: string; logger?: AdapterLogger }) => Promise<void>;
 	sessionServiceName: string;
 	cwd: string;
+	/** Called when the rebuild handle is ready (and again cleared via onStopped). */
+	onReady?: (handle: HotReloadRebuildHandle) => void;
+	onStopped?: () => void;
 }
 
 /**
@@ -29,42 +34,41 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 		async create({ logger }: ServiceCreateOpts) {
 			let active = false;
 			let rebuildInFlight: Promise<void> | undefined;
-			const globalRef = globalThis as AlefGlobal;
 
-			globalRef.alefRequestRebuild = async () => {
-				if (rebuildInFlight) {
-					return rebuildInFlight;
-				}
+			const handle: HotReloadRebuildHandle = {
+				requestRebuild: async () => {
+					if (rebuildInFlight) return rebuildInFlight;
 
-				rebuildInFlight = (async () => {
-					logger?.info({}, "Hot reload: build starting");
+					rebuildInFlight = (async () => {
+						logger?.info({}, "Hot reload: build starting");
 
-					try {
-						const { stderr } = await execAsync(opts.buildCommand, {
-							cwd: opts.cwd,
-						});
+						try {
+							const { stderr } = await execAsync(opts.buildCommand, {
+								cwd: opts.cwd,
+							});
 
-						if (stderr) {
-							logger?.warn({ stderr }, "Build warnings");
+							if (stderr) {
+								logger?.warn({ stderr }, "Build warnings");
+							}
+
+							logger?.info({}, "Hot reload: build passed, swapping session");
+
+							await opts.swap(opts.sessionServiceName, {
+								cwd: opts.cwd,
+								logger,
+							});
+
+							logger?.info({}, "Hot reload: complete");
+						} catch (err) {
+							logger?.error({ err }, "Hot reload failed");
+							throw err;
+						} finally {
+							rebuildInFlight = undefined;
 						}
+					})();
 
-						logger?.info({}, "Hot reload: build passed, swapping session");
-
-						await opts.swap(opts.sessionServiceName, {
-							cwd: opts.cwd,
-							logger,
-						});
-
-						logger?.info({}, "Hot reload: complete");
-					} catch (err) {
-						logger?.error({ err }, "Hot reload failed");
-						throw err;
-					} finally {
-						rebuildInFlight = undefined;
-					}
-				})();
-
-				return rebuildInFlight;
+					return rebuildInFlight;
+				},
 			};
 
 			return {
@@ -76,12 +80,13 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 				// eslint-disable-next-line @typescript-eslint/require-await -- ManagedLifecycle.start returns Promise
 				async start() {
 					active = true;
+					opts.onReady?.(handle);
 					logger?.info({}, "Hot reload service ready");
 				},
 
 				// eslint-disable-next-line @typescript-eslint/require-await -- ManagedLifecycle.stop returns Promise
 				async stop() {
-					delete globalRef.alefRequestRebuild;
+					opts.onStopped?.();
 					active = false;
 				},
 

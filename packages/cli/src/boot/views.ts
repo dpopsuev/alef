@@ -12,6 +12,7 @@
  *   HeadlessViewMode  — in-process, records events, exposes typed assertions
  *   TuiViewMode       — ANSI terminal, keyboard-driven
  *   PrintViewMode     — single prompt → stdout reply → exit
+ *   ServeViewMode     — HTTP/SSE only; parks until stop (never disposes session)
  *   JsonViewMode      — JSONL event stream on stdout
  */
 
@@ -136,6 +137,30 @@ export class PrintViewMode implements ViewMode {
 }
 
 // ---------------------------------------------------------------------------
+// ServeViewMode — HTTP/SSE only; never disposes the session
+// ---------------------------------------------------------------------------
+
+/**
+ * Parks until stop() — used for --serve / --daemon headless mode.
+ * Must not call session.dispose(); the supervisor owns session lifetime.
+ */
+export class ServeViewMode implements ViewMode {
+	private _resolve: (() => void) | null = null;
+
+	run(_session: Session): Promise<void> {
+		return new Promise<void>((resolve) => {
+			this._resolve = resolve;
+		});
+	}
+
+	/** Unblock run(); does not dispose the session. */
+	stop(): void {
+		this._resolve?.();
+		this._resolve = null;
+	}
+}
+
+// ---------------------------------------------------------------------------
 // JsonViewMode — wraps runInteractive in json/headless mode
 // ---------------------------------------------------------------------------
 
@@ -153,9 +178,19 @@ export class JsonViewMode implements ViewMode {
 // Factory
 // ---------------------------------------------------------------------------
 
+/** True when CLI should run HTTP-only without a stdin-driven viewer. */
+export function isHeadlessServe(
+	args: Pick<Args, "serve" | "print" | "noTui">,
+	stdinIsTty = process.stdin.isTTY,
+): boolean {
+	return args.serve !== undefined && !args.print && (args.noTui || !stdinIsTty);
+}
+
 /** Choose the appropriate view mode based on CLI flags and TTY state. */
 export function selectViewMode(args: Args, interactiveOpts: InteractiveOptions, store?: SessionStore): ViewMode {
 	if (args.print) return new PrintViewMode(args.prompt);
+
+	if (isHeadlessServe(args)) return new ServeViewMode();
 
 	const useTui = !args.json && !args.noTui && process.stdin.isTTY;
 	if (useTui) return new TuiViewMode(interactiveOpts, store);

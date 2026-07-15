@@ -1,17 +1,12 @@
 /**
- * Lifecycle supervisor integration tests — RED.
+ * Lifecycle supervisor integration tests.
  *
- * These tests verify the runner's ability to operate under the supervisor:
+ * Green coverage (packages/cli/src/entrypoint.ts):
+ * 1. Boot without a real LLM via ALEF_SCRIPTED_REPLIES
+ * 2. Handle IPC handoff_prepare → handoff_ack when ALEF_SUPERVISOR=1
  *
- * 1. Boot without a real LLM via ALEF_SCRIPTED_REPLIES env var
- * 2. Handle IPC handoff_prepare from the supervisor
- * 3. SSE stream survives a supervisor blue-green cycle
- * 4. Session handoff: new runner green resumes previous session
- *
- * Currently failing (red) because:
- * - Runner has no ALEF_SCRIPTED_REPLIES support (exits with "no model" error)
- * - Runner has no process.on("message") IPC handler for supervisor messages
- *
+ * Process blue-green supervisor describes are skipped — that binary was
+ * removed; rolling updates use in-process Supervisor.swap + hot-reload.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -27,10 +22,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
-// Supervisor binary removed with coding-agent. Tests below that use SUPERVISOR
-// are skipped until an adapter-native supervisor is implemented.
+const RUNNER_MAIN = resolve(__dirname, "../src/entrypoint.ts");
+// Process-level supervisor binary was deleted (in-process Supervisor + hot-reload).
+// Remaining describe.skip blocks document the retired blue-green IPC contract.
 const SUPERVISOR = resolve(__dirname, "../src/supervisor.ts");
+const HAS_PROCESS_SUPERVISOR = false;
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------
@@ -392,7 +388,7 @@ describe("Runner — IPC supervisor handoff", { tags: ["integration"] }, () => {
 // binary with the runner.
 // ---------------------------------------------------------------------------
 
-describe("Supervisor — TypeScript green script", { tags: ["integration"] }, () => {
+describe.skipIf(!HAS_PROCESS_SUPERVISOR)("Supervisor — TypeScript green script", { tags: ["integration"] }, () => {
 	it("spawns a .ts GREEN_SCRIPT directly via tsx without a wrapper", async () => {
 		// Verifies the spawnGreen() tsx-detection fix: when GREEN_SCRIPT ends in .ts,
 		// the supervisor prepends the tsx binary so TypeScript source runs directly.
@@ -403,7 +399,7 @@ describe("Supervisor — TypeScript green script", { tags: ["integration"] }, ()
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
 				...process.env,
-				// Point GREEN_SCRIPT at the real runner main.ts — no .mjs wrapper needed.
+				// Point GREEN_SCRIPT at the real runner entrypoint — no .mjs wrapper needed.
 				ALEF_SUPERVISOR_GREEN_SCRIPT: RUNNER_MAIN,
 				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
 				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
@@ -427,7 +423,7 @@ describe("Supervisor — TypeScript green script", { tags: ["integration"] }, ()
 	}, 45_000);
 });
 
-describe("Supervisor — runner as green", { tags: ["integration"] }, () => {
+describe.skipIf(!HAS_PROCESS_SUPERVISOR)("Supervisor — runner as green", { tags: ["integration"] }, () => {
 	it("supervisor spawns runner green, runner serves HTTP, eval gate promotes", async () => {
 		const cwd = makeTmp();
 		const handoffPath = join(cwd, "handoff.json");
@@ -733,7 +729,7 @@ ${extra}
 	);
 }
 
-describe("Supervisor — unhappy paths", { tags: ["integration"] }, () => {
+describe.skipIf(!HAS_PROCESS_SUPERVISOR)("Supervisor — unhappy paths", { tags: ["integration"] }, () => {
 	// build command fails — old green must stay live, no promotion.
 	it("build failure: old green keeps serving, Promoted staging slot absent", async () => {
 		const cwd = makeTmp();

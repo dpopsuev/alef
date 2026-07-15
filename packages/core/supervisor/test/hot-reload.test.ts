@@ -1,53 +1,64 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createHotReloadDescriptor } from "../src/hot-reload.js";
-
-type AlefGlobal = typeof globalThis & {
-	alefRequestRebuild?: () => Promise<void>;
-};
-
-function alefGlobal(): AlefGlobal {
-	return globalThis as AlefGlobal;
-}
-
-afterEach(async () => {
-	delete alefGlobal().alefRequestRebuild;
-});
+import { createHotReloadDescriptor, type HotReloadRebuildHandle } from "../src/hot-reload.js";
 
 describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
-	it("clears alefRequestRebuild and reports unhealthy after stop", async () => {
+	let handle: HotReloadRebuildHandle | undefined;
+
+	afterEach(async () => {
+		handle = undefined;
+	});
+
+	it("invokes onReady/onStopped and reports health", async () => {
+		const onReady = vi.fn((h: HotReloadRebuildHandle) => {
+			handle = h;
+		});
+		const onStopped = vi.fn(() => {
+			handle = undefined;
+		});
 		const descriptor = createHotReloadDescriptor({
 			buildCommand: "true",
 			swap: vi.fn(),
 			sessionServiceName: "session",
 			cwd: process.cwd(),
+			onReady,
+			onStopped,
 		});
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 
-		expect(typeof alefGlobal().alefRequestRebuild).toBe("function");
+		expect(onReady).toHaveBeenCalledOnce();
+		expect(handle?.requestRebuild).toBeTypeOf("function");
 		expect(await service.health()).toBe(true);
 
 		await service.stop();
 
-		expect(alefGlobal().alefRequestRebuild).toBeUndefined();
+		expect(onStopped).toHaveBeenCalledOnce();
+		expect(handle).toBeUndefined();
 		expect(await service.health()).toBe(false);
 	});
 
-	it("clears alefRequestRebuild after a failed build when stop runs", async () => {
+	it("keeps handle after a failed build until stop", async () => {
+		const onReady = vi.fn((h: HotReloadRebuildHandle) => {
+			handle = h;
+		});
 		const descriptor = createHotReloadDescriptor({
 			buildCommand: "false",
 			swap: vi.fn(),
 			sessionServiceName: "session",
 			cwd: process.cwd(),
+			onReady,
+			onStopped: () => {
+				handle = undefined;
+			},
 		});
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 
-		await expect(alefGlobal().alefRequestRebuild?.()).rejects.toThrow();
-		expect(typeof alefGlobal().alefRequestRebuild).toBe("function");
+		await expect(handle?.requestRebuild()).rejects.toThrow();
+		expect(handle?.requestRebuild).toBeTypeOf("function");
 
 		await service.stop();
-		expect(alefGlobal().alefRequestRebuild).toBeUndefined();
+		expect(handle).toBeUndefined();
 		expect(await service.health()).toBe(false);
 	});
 
@@ -66,15 +77,17 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 			},
 			sessionServiceName: "session",
 			cwd: process.cwd(),
+			onReady: (h) => {
+				handle = h;
+			},
 		});
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 
-		const rebuild = alefGlobal().alefRequestRebuild;
-		expect(rebuild).toBeTypeOf("function");
+		expect(handle?.requestRebuild).toBeTypeOf("function");
 
-		const first = rebuild!();
-		const second = rebuild!();
+		const first = handle!.requestRebuild();
+		const second = handle!.requestRebuild();
 
 		resolveBuild?.();
 		await Promise.all([first, second]);

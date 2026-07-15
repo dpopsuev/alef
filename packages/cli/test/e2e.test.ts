@@ -1,5 +1,5 @@
 /**
- * E2E tests for main.ts — spawn the runner as a subprocess, check output.
+ * E2E tests for entrypoint.ts — spawn the runner as a subprocess, check output.
  *
  * Deterministic only. Real-LLM CLI mode tests live in alef-coding-agent/test/cli-modes.test.ts.
  */
@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
+const MAIN = fileURLToPath(new URL("../src/entrypoint.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 

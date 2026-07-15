@@ -21,7 +21,7 @@ try {
 
 const ROOT = pathResolve(__dirname, "../../..");
 const TSX = pathResolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = pathResolve(__dirname, "../src/main.ts");
+const RUNNER_MAIN = pathResolve(__dirname, "../src/entrypoint.ts");
 const TSCONFIG = pathResolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------

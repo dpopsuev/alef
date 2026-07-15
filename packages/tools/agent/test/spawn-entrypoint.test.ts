@@ -1,8 +1,8 @@
 /**
  * agent.spawn entrypoint resolution test.
  *
- * Catches: RUNNER_MAIN pointing to a deleted file (cli/main.ts was
- * deleted when entrypoint.ts replaced it). Every agent.spawn fails
+ * Catches: RUNNER_MAIN pointing to a deleted file (must stay on
+ * packages/cli/src/entrypoint.ts). Every agent.spawn fails
  * silently because the child process binary doesn't exist.
  *
  * This is a static check — no process spawning, just verifying the
@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("agent.spawn entrypoint", { tags: ["unit"] }, () => {
-	it.fails("RUNNER_MAIN points to an existing file", async () => {
+	it("RUNNER_MAIN points to an existing file", async () => {
 		// Import the module to get the resolved path
 		// RUNNER_MAIN is a module-level const, not exported.
 		// We replicate the resolution logic here.

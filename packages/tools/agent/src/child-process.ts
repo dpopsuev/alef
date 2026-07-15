@@ -19,7 +19,7 @@ export interface ChildEntry {
 	tmpDir?: string;
 }
 
-const RUNNER_MAIN = new URL("../../../agent/src/entrypoint.ts", import.meta.url).pathname;
+const RUNNER_MAIN = new URL("../../../cli/src/entrypoint.ts", import.meta.url).pathname;
 
 /**
  *

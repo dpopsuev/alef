@@ -292,6 +292,22 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 		expect(toolNames, "agent.run must be in the tool catalog — agent tool must be mounted").toContain("agent.run");
 	}, 30_000);
 
+	it("GET /metrics exposes progress series (daemon scrape contract)", async () => {
+		const cwd = makeTmp();
+		const { baseUrl } = await bootAlef(cwd, ["metrics-ok"]);
+
+		const replyPromise = collectReply(baseUrl, "metrics-ok");
+		await new Promise((r) => setTimeout(r, 100));
+		await postJson(`${baseUrl}/message`, { text: "ping" });
+		await replyPromise;
+
+		const body = (await getJson(`${baseUrl}/metrics`)) as string;
+		expect(typeof body).toBe("string");
+		expect(body).toContain("# TYPE alef_tok_per_progress");
+		expect(body).toContain("# TYPE alef_progress_tokens_total");
+		expect(body).toContain("# TYPE alef_turns_total");
+	}, 30_000);
+
 	it("--print mode exits cleanly with scripted reply on stdout", async () => {
 		const cwd = makeTmp();
 		await new Promise<void>((resolve, reject) => {

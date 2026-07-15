@@ -5,6 +5,9 @@
  *   ALEF_OTEL=1 — enable setup from createAgent / headless (CLI always enables)
  *   OTEL_EXPORTER_OTLP_ENDPOINT — when set, also export traces via OTLP/HTTP
  *   TRACEPARENT / TRACESTATE — W3C Trace Context inherited from parent process
+ *
+ * The global TracerProvider can only be registered once per process. Upgrades
+ * therefore append SpanProcessors to a mutable fan-out instead of re-registering.
  */
 
 import {
@@ -18,15 +21,55 @@ import {
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { registerInstrumentations } from "@opentelemetry/instrumentation";
-import { InMemorySpanExporter, SimpleSpanProcessor, type SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import {
+	InMemorySpanExporter,
+	SimpleSpanProcessor,
+	type ReadableSpan,
+	type SpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
 const COST_FRACTION_DIGITS = 4;
 
+/** Fan-out processor so SQLite/OTLP can be added after the global provider is registered. */
+class MutableSpanProcessor implements SpanProcessor {
+	readonly processors: SpanProcessor[] = [];
+	private upgraded = false;
+
+	onStart(span: Parameters<SpanProcessor["onStart"]>[0], parentContext: Context): void {
+		for (const processor of this.processors) {
+			processor.onStart(span, parentContext);
+		}
+	}
+
+	onEnd(span: ReadableSpan): void {
+		for (const processor of this.processors) {
+			processor.onEnd(span);
+		}
+	}
+
+	async shutdown(): Promise<void> {
+		await Promise.all(this.processors.map((processor) => processor.shutdown()));
+	}
+
+	async forceFlush(): Promise<void> {
+		await Promise.all(this.processors.map((processor) => processor.forceFlush()));
+	}
+
+	/** Append processors once (SQLite + OTLP upgrade). */
+	appendOnce(extra: SpanProcessor[]): void {
+		if (this.upgraded) return;
+		this.upgraded = true;
+		this.processors.push(...extra);
+	}
+}
+
 let memoryExporter: InMemorySpanExporter | undefined;
 let provider: NodeTracerProvider | undefined;
+let fanOut: MutableSpanProcessor | undefined;
 let sessionSpan: Span | undefined;
 let propagatorReady = false;
+let instrumentationsRegistered = false;
 
 /** Install W3C Trace Context as the global text-map propagator (once). */
 function ensureW3cPropagator(): void {
@@ -53,20 +96,17 @@ function extractInheritedContext(): Context {
 	return propagation.extract(ROOT_CONTEXT, carrier);
 }
 
-/** Build in-memory + optional SQLite + optional OTLP processors. */
-async function buildProcessors(includeSqlite: boolean): Promise<SpanProcessor[]> {
-	memoryExporter ??= new InMemorySpanExporter();
-	const processors: SpanProcessor[] = [new SimpleSpanProcessor(memoryExporter)];
+/** Build SQLite + OTLP processors (not memory — memory stays on the fan-out root). */
+async function buildUpgradeProcessors(): Promise<SpanProcessor[]> {
+	const processors: SpanProcessor[] = [];
 
-	if (includeSqlite) {
-		try {
-			const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
-			const { SqliteSpanExporter } = await import("@dpopsuev/alef-storage/sqlite/span-exporter");
-			const db = await getDatabase();
-			processors.push(new SimpleSpanProcessor(new SqliteSpanExporter(db)));
-		} catch {
-			// Database not available
-		}
+	try {
+		const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
+		const { SqliteSpanExporter } = await import("@dpopsuev/alef-storage/sqlite/span-exporter");
+		const db = await getDatabase();
+		processors.push(new SimpleSpanProcessor(new SqliteSpanExporter(db)));
+	} catch {
+		// Database not available
 	}
 
 	const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
@@ -89,20 +129,25 @@ export function setupOTel(): void {
 	if (provider) return;
 	ensureW3cPropagator();
 	memoryExporter = new InMemorySpanExporter();
+	fanOut = new MutableSpanProcessor();
+	fanOut.processors.push(new SimpleSpanProcessor(memoryExporter));
 	provider = new NodeTracerProvider({
-		spanProcessors: [new SimpleSpanProcessor(memoryExporter)],
+		spanProcessors: [fanOut],
 	});
 	provider.register();
 
-	registerInstrumentations({
-		instrumentations: [
-			getNodeAutoInstrumentations({
-				"@opentelemetry/instrumentation-http": { enabled: true },
-				"@opentelemetry/instrumentation-dns": { enabled: false },
-				"@opentelemetry/instrumentation-fs": { enabled: false },
-			}),
-		],
-	});
+	if (!instrumentationsRegistered) {
+		instrumentationsRegistered = true;
+		registerInstrumentations({
+			instrumentations: [
+				getNodeAutoInstrumentations({
+					"@opentelemetry/instrumentation-http": { enabled: true },
+					"@opentelemetry/instrumentation-dns": { enabled: false },
+					"@opentelemetry/instrumentation-fs": { enabled: false },
+				}),
+			],
+		});
+	}
 
 	activateInheritedTraceContext();
 }
@@ -134,7 +179,6 @@ export function activateInheritedTraceContext(): Context {
 
 /** Best-effort process-wide ALS enter (Node context manager). */
 function enterContext(ctx: Context): void {
-	// ContextAPI hides enterWith; Node's AsyncLocalStorage manager exposes it.
 	const api = context as unknown;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- OTel ContextAPI has no public enterWith
 	const manager = (api as { _getContextManager?: () => { enterWith?: (c: Context) => void } })._getContextManager?.();
@@ -168,18 +212,11 @@ export function shouldEnableOTelForAgent(): boolean {
 	return process.env.ALEF_OTEL === "1" || Boolean(process.env.TRACEPARENT?.trim());
 }
 
-/** Rebuild processors with SQLite (+ OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set). */
+/** Append SQLite (+ OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set) without re-registering. */
 export async function upgradeToSqliteExporter(): Promise<void> {
-	if (!provider) return;
-	const processors = await buildProcessors(true);
-	await provider.shutdown();
-	provider = new NodeTracerProvider({ spanProcessors: processors });
-	provider.register();
-	if (sessionSpan && !sessionSpan.isRecording()) {
-		activateInheritedTraceContext();
-	} else if (sessionSpan) {
-		enterContext(trace.setSpan(extractInheritedContext(), sessionSpan));
-	}
+	if (!fanOut) return;
+	const extra = await buildUpgradeProcessors();
+	fanOut.appendOnce(extra);
 }
 
 /** Flush pending spans and print a token-usage summary to stderr. */
@@ -191,6 +228,7 @@ export async function shutdownOTel(): Promise<void> {
 
 	await provider.shutdown();
 	provider = undefined;
+	fanOut = undefined;
 
 	const spans = memoryExporter?.getFinishedSpans() ?? [];
 	memoryExporter = undefined;
@@ -217,4 +255,38 @@ export async function shutdownOTel(): Promise<void> {
 			`${inputTokens.toLocaleString()} in · ${outputTokens.toLocaleString()} out · ` +
 			`$${totalCostUsd.toFixed(COST_FRACTION_DIGITS)}\n`,
 	);
+}
+
+/** Test helper: end session span, flush, return finished spans (does not teardown). */
+export async function snapshotSpansForTests(): Promise<
+	ReadonlyArray<{ name: string; parentSpanId?: string; attributes: Record<string, unknown> }>
+> {
+	sessionSpan?.end();
+	sessionSpan = undefined;
+	if (provider) await provider.forceFlush();
+	const spans = memoryExporter?.getFinishedSpans() ?? [];
+	return spans.map((s) => ({
+		name: s.name,
+		parentSpanId: s.parentSpanContext?.spanId,
+		attributes: { ...s.attributes },
+	}));
+}
+
+/** Test helper: fully tear down OTel so the next setupOTel() is fresh. */
+export async function resetOTelForTests(): Promise<void> {
+	if (provider) {
+		sessionSpan?.end();
+		sessionSpan = undefined;
+		await provider.shutdown().catch(() => undefined);
+	}
+	provider = undefined;
+	fanOut = undefined;
+	memoryExporter = undefined;
+	sessionSpan = undefined;
+	// Allow a subsequent provider.register() — global TracerProvider is sticky otherwise
+	trace.disable();
+	delete process.env.TRACEPARENT;
+	delete process.env.TRACESTATE;
+	delete process.env.ALEF_PARENT_SESSION_ID;
+	delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 }

@@ -4,9 +4,11 @@
 export {
 	activateInheritedTraceContext,
 	injectTraceContextIntoEnv,
+	resetOTelForTests,
 	runWithInheritedTrace,
 	setupOTel,
 	shouldEnableOTelForAgent,
 	shutdownOTel,
+	snapshotSpansForTests,
 	upgradeToSqliteExporter,
 } from "@dpopsuev/alef-agent/otel-setup";

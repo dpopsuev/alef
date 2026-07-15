@@ -34,6 +34,21 @@ const DDL_STATEMENTS = [
 		started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL,
 		input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, tools TEXT NOT NULL,
 		errors INTEGER NOT NULL, embedding F32_BLOB(${EMBEDDING_DIMENSION}))`,
+	`CREATE TABLE IF NOT EXISTS spans (
+		span_id TEXT PRIMARY KEY,
+		trace_id TEXT NOT NULL,
+		parent_span_id TEXT,
+		name TEXT NOT NULL,
+		kind INTEGER,
+		start_time INTEGER NOT NULL,
+		end_time INTEGER NOT NULL,
+		status INTEGER,
+		attributes TEXT,
+		events TEXT,
+		session_id TEXT)`,
+	`CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_spans_parent ON spans(parent_span_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_spans_session ON spans(session_id)`,
 ];
 
 const MIGRATIONS: Record<number, string[]> = {

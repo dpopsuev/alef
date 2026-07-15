@@ -7,11 +7,7 @@ export const SPAWN_TOOL = {
 		blueprintPath: z
 			.string()
 			.optional()
-			.describe(
-				"Blueprint name or path. Built-in profiles: 'coding' (default — fs, shell, web, agent, skills), " +
-					"'research' (same + fleet services), 'factory' (orchestration). " +
-					"Or pass a path to a custom agent.yaml.",
-			),
+			.describe("Blueprint name/path: coding, research, factory, or custom agent.yaml."),
 		adapters: z
 			.preprocess(
 				(v) => {
@@ -36,7 +32,7 @@ export const SPAWN_TOOL = {
 			.int()
 			.min(0)
 			.optional()
-			.describe("Max nesting depth for this child's own subagents. Default: parent depth - 1."),
+			.describe("Max nesting depth for this child's subagents."),
 	}),
 	longRunning: true as const,
 };
@@ -74,20 +70,15 @@ export const RACE_TOOL = {
 
 export const CONVERSE_TOOL = {
 	name: "agent.converse",
-	description:
-		"Multi-turn conversation with a running child. Send prompts, receive replies, and decide whether to follow up or accept. " +
-		"Returns the full conversation transcript. Use this when a single ask is insufficient and you need to iterate.",
+	description: "Multi-turn conversation with a child. Returns the full transcript.",
 	inputSchema: z.object({
 		name: z.string().min(1).describe("Child name from agent.spawn"),
 		prompts: z
 			.array(z.string().min(1))
 			.min(1)
-			.describe(
-				"Ordered list of prompts. The first is sent immediately. " +
-					"Subsequent prompts are sent only after the child replies to the previous one.",
-			),
+			.describe("Ordered prompts; each sent after the prior reply."),
 		stallMs: z.number().optional().describe("Inactivity threshold per turn (default: 60_000)."),
-		maxMs: z.number().optional().describe("Hard wall-clock limit for entire conversation (default: 600_000)."),
+		maxMs: z.number().optional().describe("Hard wall-clock limit (default: 600_000)."),
 	}),
 	longRunning: true as const,
 };

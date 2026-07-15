@@ -33,6 +33,8 @@ export interface BlueprintStackOptions {
 	 * Undefined = unrestricted. Propagated to orchestration adapter for child processes.
 	 */
 	writableRoots?: readonly string[];
+	/** ToolShell disclosure override from config (full | progressive). */
+	toolDisclosure?: "full" | "progressive";
 }
 
 /**

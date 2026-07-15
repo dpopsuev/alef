@@ -227,15 +227,19 @@ export async function createLocalSession(
 		domainAdapters: adapters,
 		subagentFactory,
 		writableRoots: loaded.writableRoots,
+		toolDisclosure: cfg.tool_disclosure,
 	});
 	const { contextAssembly } = stack;
 
 	const systemPrompt = directives.build(directivesBudgetChars);
+	const blockSizes = directives.blockSizes();
 	const enabledBlocks = directives.list({ enabled: true });
 	traceEvent("directives:built", {
 		ids: enabledBlocks.map((b) => b.id),
 		blocks: enabledBlocks.length,
 		chars: systemPrompt.length,
+		estTokens: Math.round(systemPrompt.length / 4),
+		blockSizes,
 		tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
 	});
 
@@ -317,7 +321,8 @@ export async function createLocalSession(
 			if (typeof g.alefRequestRebuild === "function") (g.alefRequestRebuild as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
 		},
 	});
-	agent.load(alefAdapter);
+	// Meta tools stay on the bus for :meta / prototype paths — hide from LLM tool schemas.
+	agent.load({ ...alefAdapter, tools: [] });
 
 	connectObservers(agent, observers, adapterSignalMaps, uiSignalHandlerKeys);
 

@@ -10,61 +10,61 @@ import { PlanStore } from "./store.js";
 
 const PLAN_OPEN = {
 	name: "plan.open",
-	description: "Open a plan: define current state, desired state, and verification criteria. Previous focused plan is backlogged.",
+	description: "Open a plan (current → desired → verify). Previous focused plan is backlogged.",
 	inputSchema: z.object({
-		current: z.string().min(1).describe("Where we are now — observable facts"),
-		desired: z.string().min(1).describe("Where we want to be — measurable end state"),
-		verify: z.string().min(1).describe("How we know we are done — acceptance criteria"),
+		current: z.string().min(1).describe("Current state"),
+		desired: z.string().min(1).describe("Desired state"),
+		verify: z.string().min(1).describe("Acceptance criteria"),
 	}),
 };
 
 const gateSchema = z.object({
 	type: z.enum(["file-exists", "command", "contains", "test"]),
-	target: z.string().min(1).describe("File path, shell command, or test pattern"),
-	expect: z.string().optional().describe("Expected content for 'contains' or 'command' gates"),
+	target: z.string().min(1).describe("File path, command, or pattern"),
+	expect: z.string().optional().describe("Expected content for contains/command"),
 });
 
 const inspectorSchema = z.object({
-	type: z.string().min(1).describe("Inspector type (e.g. functional, structural, security)"),
-	prompt: z.string().min(1).describe("What the inspector should evaluate for this step"),
+	type: z.string().min(1).describe("Inspector type"),
+	prompt: z.string().min(1).describe("What to evaluate"),
 });
 
 const PLAN_STEPS = {
 	name: "plan.steps",
-	description: "Add steps to the plan. Each step is a desired state guarded by optional assertion gates and an inspector.",
+	description: "Add steps (desired state + optional gates/inspector).",
 	inputSchema: z.object({
 		steps: z.array(z.object({
 			label: z.string().min(10).max(80).describe("Step desired state: 3-12 words"),
-			dependsOn: z.array(z.string()).optional().describe("Step IDs this step depends on. Omit for root steps."),
-			gates: z.array(gateSchema).optional().describe("Deterministic assertions that must pass on completion"),
-			inspector: inspectorSchema.optional().describe("LLM inspector assigned at planning time"),
+			dependsOn: z.array(z.string()).optional().describe("Step IDs this depends on"),
+			gates: z.array(gateSchema).optional().describe("Assertions that must pass on completion"),
+			inspector: inspectorSchema.optional().describe("LLM inspector for this step"),
 		})).min(1),
 	}),
 };
 
 const PLAN_ADVANCE = {
 	name: "plan.advance",
-	description: "Advance a step: start, complete (runs gates), fail, or drop. Returns the next ready step.",
+	description: "Advance a step: start, done, fail, or drop.",
 	inputSchema: z.object({
-		stepId: z.string().min(1).describe("Step ID (slugified label)"),
+		stepId: z.string().min(1).describe("Step ID"),
 		action: z.enum(["start", "done", "fail", "drop"]),
-		result: z.string().optional().describe("Outcome description (required for done/fail)"),
+		result: z.string().optional().describe("Outcome (required for done/fail)"),
 	}),
 };
 
 const PLAN_AMEND = {
 	name: "plan.amend",
-	description: "Update the plan's state definition mid-flight.",
+	description: "Update plan current/desired/verify mid-flight.",
 	inputSchema: z.object({
 		current: z.string().optional().describe("Updated current state"),
 		desired: z.string().optional().describe("Updated desired state"),
-		verify: z.string().optional().describe("Updated verification criteria"),
+		verify: z.string().optional().describe("Updated verification"),
 	}),
 };
 
 const PLAN_SHOW = {
 	name: "plan.show",
-	description: "Show focused plan state, step tree, progress, and next ready step.",
+	description: "Show focused plan state and next ready step.",
 	inputSchema: z.object({}),
 };
 
@@ -72,7 +72,7 @@ const PLAN_LIST = {
 	name: "plan.list",
 	description: "List workspace plans (active, backlog, closed).",
 	inputSchema: z.object({
-		status: z.enum(["active", "backlog", "closed"]).optional().describe("Optional status filter"),
+		status: z.enum(["active", "backlog", "closed"]).optional().describe("Status filter"),
 	}),
 };
 
@@ -94,7 +94,7 @@ const PLAN_BACKLOG = {
 
 const PLAN_CLOSE = {
 	name: "plan.close",
-	description: "Close the focused plan with a summary of what was accomplished.",
+	description: "Close the focused plan with a summary.",
 	inputSchema: z.object({
 		summary: z.string().min(1).describe("What was accomplished"),
 	}),
@@ -405,13 +405,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			description: "Plan — workspace multi-plan shelf: focus one, backlog others, verify each step.",
 			labels: ["plan", "reasoning"],
 			directives: [
-				"When the user request needs 3+ distinct steps, spans multiple files/systems, or is ambiguous — call plan.open before other tools. Skip the plan for single-shot lookups or one-line edits.",
-				"plan.open creates a new focused plan and backlogs the previous one. Use plan.list / plan.focus to switch; plan.backlog to clear focus.",
-				"plan.open: state current (facts), desired (measurable end), verify (how we know done).",
-				"plan.steps: break work into verifiable steps (each label is a desired state, 3-12 words).",
-				"Autopilot: plan.advance(start) → do the work → plan.advance(done) → follow Next. Repeat; then plan.close.",
-				"The focused plan is injected into context and shown in the TUI. Prefer advancing it over reinventing the task list in prose.",
-				"If gates fail, status becomes failed — fix, then plan.advance(start) to retry. Steps with dependsOn wait for all deps.",
+				"For 3+ step or ambiguous work: plan.open (current/desired/verify) then plan.steps; advance start→done; plan.close. Skip for single lookups. Use plan.list/focus to switch.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
 			onMount: (bus: Bus) => {

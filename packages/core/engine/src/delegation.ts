@@ -7,7 +7,12 @@ import type { SubagentFactory } from "./subagent-port.js";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
-import { buildAdapterDirectives, createToolShellAdapter } from "./tool-catalog.js";
+import {
+	buildAdapterDirectives,
+	createToolShellAdapter,
+	DEFAULT_ALWAYS_FULL_NAMESPACES,
+	DEFAULT_ALWAYS_FULL_TOOLS,
+} from "./tool-catalog.js";
 import { InProcessStrategy } from "./in-process.js";
 
 const EXPLORE_SYSTEM_PROMPT = `Read-only exploration agent. Read files, search code, fetch URLs, report findings.
@@ -57,6 +62,8 @@ export interface DelegationStackOptions {
 	materializeAdapters: (names: string[]) => Promise<Adapter[]>;
 	/** Policy-A plan retitle: called when plan.opened fires with desired text. */
 	onPlanOpened?: (desired: string) => void | Promise<void>;
+	/** Override ToolShell disclosure (default progressive for coding stack). */
+	toolDisclosure?: "full" | "progressive";
 }
 
 /** Materialized adapter set with explore/general strategies and context assembly pipeline. */
@@ -183,6 +190,9 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		tools: allAdapters.flatMap((o: Adapter) => o.tools),
 		getTools: () => allAdapters.flatMap((o: Adapter) => o.tools),
 		adapterDirectives: buildAdapterDirectives(allAdapters),
+		disclosure: opts.toolDisclosure ?? "progressive",
+		alwaysFullNamespaces: [...DEFAULT_ALWAYS_FULL_NAMESPACES],
+		alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
 	});
 
 	const adapters: Adapter[] = [...allAdapters, toolShell, contextAssembly];

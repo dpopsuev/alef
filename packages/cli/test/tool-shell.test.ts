@@ -57,7 +57,7 @@ function makeHarness(shell: ReturnType<typeof createToolShellAdapter>): Harness 
 		recorder,
 		publish(type: string, payload: Record<string, unknown>) {
 			// Use internal bus via the agent's observe-recorded event bus.
-			// Publish directly via command.publish on the agent's spine bus.
+			// Publish directly via command.publish on the agent's bus.
 			(agent as unknown as { bus: { asBus(): { command: { publish(e: unknown): void } } } }).bus
 				.asBus()
 				.command.publish({ type, payload, correlationId: "test" });
@@ -209,6 +209,62 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 
 		const current = shell.currentMetaTools();
 		expect(current.at(-1)?.name).toBe("tools.describe");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Hybrid progressive — core namespaces full; others omitted until describe
+// ---------------------------------------------------------------------------
+
+describe("currentMetaTools — hybrid always-full", { tags: ["unit"] }, () => {
+	it("keeps alwaysFullNamespaces with full schemas and omits the rest", () => {
+		const shell = createToolShellAdapter({
+			tools: ALL_TOOLS,
+			disclosure: "progressive",
+			alwaysFullNamespaces: ["fs", "shell"],
+		});
+		const current = shell.currentMetaTools();
+		const names = current.map((t) => t.name);
+		expect(names).toContain("fs.read");
+		expect(names).toContain("shell.exec");
+		expect(names).toContain("tools.describe");
+		expect(names).not.toContain("web.fetch");
+		expect(current.find((t) => t.name === "fs.read")?.inputSchema).toBe(FS_READ.inputSchema);
+		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).toBe(SHELL_EXEC.inputSchema);
+	});
+
+	it("alwaysFullTools does not unlock sibling tools in the same namespace", () => {
+		const agentRun = makeTool("agent.run", "Run a subagent");
+		const agentSpawn = makeTool("agent.spawn", "Spawn a child");
+		const shell = createToolShellAdapter({
+			tools: [...ALL_TOOLS, agentRun, agentSpawn],
+			disclosure: "progressive",
+			alwaysFullNamespaces: ["fs"],
+			alwaysFullTools: ["agent.run"],
+		});
+		const current = shell.currentMetaTools();
+		const names = current.map((t) => t.name);
+		expect(names).toContain("agent.run");
+		expect(names).not.toContain("agent.spawn");
+		expect(current.find((t) => t.name === "agent.run")?.inputSchema).toBe(agentRun.inputSchema);
+	});
+
+	it("describing a hidden tool promotes its namespace onto the surface", async () => {
+		const shell = createToolShellAdapter({
+			tools: ALL_TOOLS,
+			disclosure: "progressive",
+			alwaysFullNamespaces: ["fs"],
+		});
+		const harness = makeHarness(shell);
+		harnesses.push(harness);
+
+		expect(shell.currentMetaTools().map((t) => t.name)).not.toContain("web.fetch");
+
+		harness.publish("tools.describe", { names: ["web.fetch"] });
+		await new Promise((r) => setTimeout(r, 50));
+
+		const current = shell.currentMetaTools();
+		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).toBe(WEB_FETCH.inputSchema);
 	});
 });
 

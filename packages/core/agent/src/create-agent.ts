@@ -3,7 +3,7 @@ const DIRECTIVE_BUDGET_FRACTION = 0.1;
 const CHARS_PER_TOKEN = 4;
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
-import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { buildAdapterDirectives, createToolShellAdapter, DEFAULT_ALWAYS_FULL_NAMESPACES, DEFAULT_ALWAYS_FULL_TOOLS } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { newCorrelationId } from "@dpopsuev/alef-kernel/bus";
@@ -125,8 +125,12 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 
 	const toolShell = createToolShellAdapter({
 		tools,
-		getTools: () => agent.tools,
+		getTools: () =>
+			agent.tools.filter((t) => t.name !== "tools.describe" && t.name !== "tools.status" && t.name !== "tools.cancel"),
 		adapterDirectives: buildAdapterDirectives(opts.adapters),
+		disclosure: "progressive",
+		alwaysFullNamespaces: [...DEFAULT_ALWAYS_FULL_NAMESPACES],
+		alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
 	});
 
 	for (const adapter of opts.adapters) agent.load(adapter);

@@ -92,6 +92,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 			return materializedAdapters;
 		},
 		onPlanOpened: (desired) => refreshMetadataOnPlanOpened(opts.sessionStore, desired),
+		toolDisclosure: opts.toolDisclosure,
 	});
 
 	return { adapters, contextAssembly };

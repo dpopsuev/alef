@@ -59,6 +59,12 @@ const CANCEL_TOOL = {
 /** Strategy for exposing tool schemas to the LLM — all at once or on demand. */
 export type ToolDisclosure = "full" | "progressive";
 
+/** Namespaces that always ship full schemas under progressive disclosure. */
+export const DEFAULT_ALWAYS_FULL_NAMESPACES = ["fs", "shell", "web", "tools"] as const;
+
+/** Exact tool names that always ship full schemas under progressive disclosure. */
+export const DEFAULT_ALWAYS_FULL_TOOLS = ["agent.run"] as const;
+
 /** Configuration for the ToolShell adapter's catalog, disclosure mode, and eviction timing. */
 export interface ToolShellOptions {
 	/** All domain tools available to the agent, captured at construction time. */
@@ -79,17 +85,15 @@ export interface ToolShellOptions {
 	 */
 	evictAfterTurn?: number;
 	/**
-	 * Tool schema disclosure strategy. Default: "full".
-	 *
-	 * "full" — all tools sent with complete schemas from turn 1. No boot
-	 *          catalog, no tools.describe step. Progressive disclosure pattern.
-	 *
-	 * "progressive" — tools sent with stripped schemas ({}). Boot catalog
-	 *                 injected as user message. Model must call tools.describe
-	 *                 before use. Saves ~55% schema tokens but some models
-	 *                 output text instead of tool_use.
+	 * Tool schema disclosure strategy. Default: "full" (legacy). Coding stack
+	 * passes "progressive" with alwaysFullNamespaces for cold-start savings.
+	 * Override via opts.disclosure or ALEF_TOOL_DISCLOSURE.
 	 */
 	disclosure?: ToolDisclosure;
+	/** Namespace prefixes that keep full schemas under progressive mode. */
+	alwaysFullNamespaces?: readonly string[];
+	/** Exact tool names that keep full schemas under progressive mode. */
+	alwaysFullTools?: readonly string[];
 	/** Logger for warn/debug output. Defaults to no-op. */
 	logger?: AdapterLogger;
 }
@@ -105,9 +109,49 @@ function getByNameMap(tools: readonly ToolDefinition[]): Map<string, ToolDefinit
 	return map;
 }
 
-/** Return tool definitions with their input schemas replaced by empty passthrough schemas. */
+/** Return tool definitions with empty schemas and one-line descriptions (cold-start cheap). */
 function getStripped(tools: readonly ToolDefinition[]): ToolDefinition[] {
-	return tools.map((t) => ({ name: t.name, description: t.description, inputSchema: z.object({}).passthrough() }));
+	return tools.map((t) => ({
+		name: t.name,
+		description: t.description.split(".")[0] ?? t.description,
+		inputSchema: z.object({}).passthrough(),
+	}));
+}
+
+/** Build a synthetic user message listing available tools (names; full schema via tools.describe). */
+function buildCatalogContent(tools: readonly ToolDefinition[], alwaysFull: ReadonlySet<string>): RawMsg {
+	const lines = [...tools]
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => {
+			if (alwaysFull.has(t.name)) {
+				return `- **${t.name}** — ready (full schema)`;
+			}
+			const short = t.description.split(".")[0] ?? t.description;
+			return `- **${t.name}** — ${short}`;
+		});
+	const content = [
+		CATALOG_MARKER,
+		"**Available Tools** — core tools have full schemas; others need `tools.describe([name])` first.",
+		"",
+		...lines,
+	].join("\n");
+	const msg: RawMsg = { role: "user", content };
+	return msg;
+}
+
+/** Build a compacted catalog message summarizing described and remaining tools after eviction. */
+function buildEvictionContent(described: Set<string>, tools: readonly ToolDefinition[]): RawMsg {
+	const used = [...described].sort().join(", ") || "none";
+	const remaining = tools
+		.filter((t) => !described.has(t.name))
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => t.name)
+		.join(", ");
+	const msg: RawMsg = {
+		role: "user",
+		content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
+	};
+	return msg;
 }
 
 /** Rank tools by keyword relevance against a search query, returning the top matches. */
@@ -135,40 +179,13 @@ function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ n
 		.map((s) => ({ name: s.tool.name, description: s.tool.description }));
 }
 
-/** Build a synthetic user message listing all available tools for boot-time catalog injection. */
-function buildCatalogContent(tools: readonly ToolDefinition[]): RawMsg {
-	const lines = [...tools]
-		.sort((a, b) => a.name.localeCompare(b.name))
-		.map((t) => `- **${t.name}** — ${t.description}`);
-	const content = [
-		CATALOG_MARKER,
-		"**Available Tools** (complete list — do not call tools.search):",
-		'Call `tools.describe(["tool-name"])` to get the full schema before using any tool.',
-		"",
-		...lines,
-	].join("\n");
-	const msg: RawMsg = { role: "user", content };
-	return msg;
-}
-
-/** Build a compacted catalog message summarizing described and remaining tools after eviction. */
-function buildEvictionContent(described: Set<string>, tools: readonly ToolDefinition[]): RawMsg {
-	const used = [...described].sort().join(", ") || "none";
-	const remaining = tools
-		.filter((t) => !described.has(t.name))
-		.sort((a, b) => a.name.localeCompare(b.name))
-		.map((t) => t.name)
-		.join(", ");
-	const msg: RawMsg = {
-		role: "user",
-		content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
-	};
-	return msg;
-}
-
 /** Prepend the boot catalog message to the conversation history. */
-function injectCatalogMsg(messages: RawMsg[], tools: readonly ToolDefinition[]): RawMsg[] {
-	return [buildCatalogContent(tools), ...messages];
+function injectCatalogMsg(
+	messages: RawMsg[],
+	tools: readonly ToolDefinition[],
+	alwaysFullNames: ReadonlySet<string>,
+): RawMsg[] {
+	return [buildCatalogContent(tools, alwaysFullNames), ...messages];
 }
 
 /** Replace the boot catalog message in history with a compact eviction summary. */
@@ -210,10 +227,33 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	const disclosure: ToolDisclosure =
 		opts.disclosure ?? (envDisclosure === "full" || envDisclosure === "progressive" ? envDisclosure : "full");
 
+	const alwaysFullNamespaces = new Set(opts.alwaysFullNamespaces ?? []);
+	const alwaysFullExact = new Set(opts.alwaysFullTools ?? []);
+
 	const resolveTools = opts.getTools ?? (() => opts.tools);
 
 	let catalogInjected = false; // lint-ignore: RAWTIMER not a timer — mutable lifecycle flag
 	const tracker = createPromotionTracker();
+
+	/** Whether this tool keeps a full schema without tools.describe. */
+	function isAlwaysFull(name: string): boolean {
+		return alwaysFullExact.has(name) || alwaysFullNamespaces.has(namespaceOf(name));
+	}
+
+	// Pre-promote core namespaces so getPromotedTools is correct from turn 1.
+	// Exact always-full tools are handled by isAlwaysFull — do not promote their
+	// whole namespace (agent.run must not unlock agent.spawn).
+	for (const ns of alwaysFullNamespaces) tracker.promote(`${ns}.x`);
+
+	const alwaysFullNameSet = (): ReadonlySet<string> => {
+		const set = new Set<string>();
+		for (const t of resolveTools()) {
+			if (isAlwaysFull(t.name)) set.add(t.name);
+		}
+		return set;
+	};
+
+	const hybridCore = alwaysFullNamespaces.size > 0 || alwaysFullExact.size > 0;
 
 	const inflightCalls = new Map<string, { name: string; startedAt: number; callId: string }>();
 	let cancelCall: ((callId: string) => void) | null = null;
@@ -257,8 +297,13 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		const tools = resolveTools();
 		const stripped = getStripped(tools);
 		const strippedByName = new Map(stripped.map((s) => [s.name, s]));
-		const promoted = tools.map((t) =>
-			tracker.isPromoted(t.name) ? t : (strippedByName.get(t.name) ?? t),
+		// Hybrid (coding cold-start): only core + described tools are callable.
+		// Pure progressive (no alwaysFull*): all tools stay listed, schemas stripped.
+		const visible = hybridCore
+			? tools.filter((t) => isAlwaysFull(t.name) || tracker.isPromoted(t.name))
+			: tools;
+		const promoted = visible.map((t) =>
+			isAlwaysFull(t.name) || tracker.isPromoted(t.name) ? t : (strippedByName.get(t.name) ?? t),
 		);
 		return [...promoted, DESCRIBE_TOOL];
 	}
@@ -368,7 +413,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 			if (disclosure === "full") return [...messages];
 			let msgs = [...messages];
 			if (turn === 1 && !catalogInjected) {
-				msgs = injectCatalogMsg(msgs, resolveTools());
+				msgs = injectCatalogMsg(msgs, resolveTools(), alwaysFullNameSet());
 				catalogInjected = true;
 			} else if (catalogInjected && turn > evictAfterTurn) {
 				msgs = evictCatalogMsg(msgs, tracker.described, resolveTools());

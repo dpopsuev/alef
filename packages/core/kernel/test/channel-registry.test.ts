@@ -30,12 +30,18 @@ describe("bus channel registry", { tags: ["unit"] }, () => {
 		const notificationEvents = [
 			"llm.chunk", "llm.thinking", "llm.tool-start", "llm.tool-end",
 			"llm.tool-chunk", "llm.tool-stall", "llm.token-usage", "llm.result",
+			"telemetry.progress.step", "telemetry.progress.outcome",
 			"context.compact.request", "context.compacting", "context.compacted", "context.injection", "context.overflow-recovery",
 			"session.metadata.refresh", "plan.opened",
 		];
 		for (const type of notificationEvents) {
 			expect(canonicalChannel(type), `${type} should be notification`).toBe("notification");
 		}
+	});
+
+	it("telemetry.progress.step and .outcome belong on notification", () => {
+		expect(canonicalChannel("telemetry.progress.step")).toBe("notification");
+		expect(canonicalChannel("telemetry.progress.outcome")).toBe("notification");
 	});
 });
 

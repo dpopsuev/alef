@@ -59,6 +59,26 @@ const activeToolCalls = new Gauge({
 	help: "Number of currently active tool calls",
 });
 
+const progressTokens = new Counter({
+	name: "alef_progress_tokens_total",
+	help: "Tokens attributed on telemetry.progress.step events",
+});
+
+const progressDelta = new Counter({
+	name: "alef_progress_delta_total",
+	help: "Sum of Progress (P) from telemetry.progress.step when Gap shrinks",
+});
+
+const tokPerProgress = new Gauge({
+	name: "alef_tok_per_progress",
+	help: "Latest Token per Progress (tok/P) from telemetry.progress.step; NaN when P unavailable",
+});
+
+const outcomeTokPerProgress = new Gauge({
+	name: "alef_outcome_tok_per_progress",
+	help: "Latest outcome-level tok/P from telemetry.progress.outcome",
+});
+
 /** Subscribe to agent bus events and update Prometheus counters, histograms, and gauges. */
 export function setupMetrics(bus: Bus): void {
 	bus.notification.subscribe("llm.token-usage", (event) => {
@@ -110,6 +130,25 @@ export function setupMetrics(bus: Bus): void {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof check
 		if (usage && typeof usage === "object" && typeof (usage as Record<string, unknown>).totalTokens === "number") {
 			turnDuration.observe({ model: "unknown" }, event.elapsed / 1000);
+		}
+	});
+
+	bus.notification.subscribe("telemetry.progress.step", (event) => {
+		const p = event.payload;
+		const tokens = typeof p.tokens === "number" ? p.tokens : 0;
+		progressTokens.inc(tokens);
+		if (typeof p.progress === "number" && p.progress > 0) {
+			progressDelta.inc(p.progress);
+		}
+		if (typeof p.tok_per_progress === "number") {
+			tokPerProgress.set(p.tok_per_progress);
+		}
+	});
+
+	bus.notification.subscribe("telemetry.progress.outcome", (event) => {
+		const p = event.payload;
+		if (typeof p.tok_per_progress === "number") {
+			outcomeTokPerProgress.set(p.tok_per_progress);
 		}
 	});
 }

@@ -24,6 +24,14 @@ export {
 	type E2eSessionOptions,
 	HAVE_REAL_LLM,
 } from "./e2e-session.js";
+export {
+	createHeadlessSession,
+	haveHeadlessLlm,
+	type HeadlessResult,
+	type HeadlessSession,
+	type HeadlessSessionOptions,
+} from "./headless-session.js";
+
 export { InMemorySessionStore } from "./in-memory-session-store.js";
 export {
 	createInMemoryStorage,

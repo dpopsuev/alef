@@ -37,8 +37,8 @@ function tmpDir(): string {
 	return d;
 }
 
-afterEach(() => {
-	for (const h of harnesses.splice(0)) h.dispose();
+afterEach(async () => {
+	await Promise.all(harnesses.splice(0).map((h) => h.dispose()));
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -50,7 +50,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 	it("send() returns scripted reply text", async () => {
 		const cwd = tmpDir();
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				script: [step.reply("hello from script")],
 			}),
@@ -62,7 +62,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 	it("assertReply matches substring (case-insensitive)", async () => {
 		const cwd = tmpDir();
 		const h = track(
-			BlueprintHarness.create({ cwd, script: [step.reply("The Login function validates passwords.")] }),
+			await BlueprintHarness.create({ cwd, script: [step.reply("The Login function validates passwords.")] }),
 		);
 		await h.send({ text: "what does login do?" });
 		h.assertReply("login");
@@ -72,7 +72,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 	it("multi-turn: each send() advances the script", async () => {
 		const cwd = tmpDir();
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				script: [step.reply("first"), step.reply("second")],
 			}),
@@ -83,7 +83,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 
 	it("script exhausted: returns sentinel text without throwing", async () => {
 		const cwd = tmpDir();
-		const h = track(BlueprintHarness.create({ cwd, script: [step.reply("only one")] }));
+		const h = track(await BlueprintHarness.create({ cwd, script: [step.reply("only one")] }));
 		await h.send({ text: "turn 1" });
 		const reply = await h.send({ text: "turn 2" }); // script exhausted
 		expect(reply).toContain("script exhausted");
@@ -100,7 +100,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
 
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				adapters: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "auth.ts" }, "I read the file.")],
@@ -117,7 +117,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		writeFileSync(join(cwd, "config.ts"), "export const PORT = 3000;");
 
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				adapters: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "config.ts" }, "Done.")],
@@ -131,7 +131,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 	it("assertNotToolCalled verifies tools were NOT used", async () => {
 		const cwd = tmpDir();
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				script: [step.reply("just a reply, no tools")],
 			}),
@@ -147,7 +147,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		writeFileSync(join(cwd, "b.ts"), "export const B = 2;");
 
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				adapters: [createFsAdapter({ cwd })],
 				script: [
@@ -230,7 +230,7 @@ describe("BlueprintHarness — event observation", { tags: ["unit"] }, () => {
 	it("commandEvents cleared between send() calls", async () => {
 		const cwd = tmpDir();
 		const h = track(
-			BlueprintHarness.create({
+			await BlueprintHarness.create({
 				cwd,
 				script: [step.reply("one"), step.reply("two")],
 			}),

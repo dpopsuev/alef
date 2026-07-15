@@ -37,14 +37,17 @@ describe.skipIf(!HAVE_REAL_LLM)("reasoner — real LLM E2E", { tags: ["real-llm"
 			},
 		);
 
-		const session = createE2eSession([tokenAdapter]);
-		const { reply, events } = await session.send("Call token.get and tell me the exact token value.");
+		const session = await createE2eSession([tokenAdapter]);
+		try {
+			const { reply, events } = await session.send("Call token.get and tell me the exact token value.");
 
-		expect(reply).toContain(token);
-		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("token"))).toBe(
-			true,
-		);
-		expect(events.some((e) => e.type === "llm.tool-end" && Boolean(e.payload.ok))).toBe(true);
-		session.dispose();
+			expect(reply).toContain(token);
+			expect(
+				events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("token")),
+			).toBe(true);
+			expect(events.some((e) => e.type === "llm.tool-end" && Boolean(e.payload.ok))).toBe(true);
+		} finally {
+			await session.dispose();
+		}
 	}, 60_000);
 });

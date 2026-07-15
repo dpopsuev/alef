@@ -3,6 +3,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
+import { context, propagation } from "@opentelemetry/api";
+import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { stringify as stringifyYaml } from "yaml";
 
@@ -153,6 +155,8 @@ export interface SpawnChildOptions {
 	writableRoots?: readonly string[];
 	/** Depth level to propagate to the child (child reads via ALEF_AGENT_DEPTH). */
 	childDepth?: number;
+	/** Parent session id for cross-process cause walks (ALEF_PARENT_SESSION_ID). */
+	parentSessionId?: string;
 }
 
 /**
@@ -197,17 +201,28 @@ export async function spawnChild(
 
 	const alefNodeModules = new URL("../../../node_modules", import.meta.url).pathname;
 	const nodePath = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(delimiter);
-	const env: NodeJS.ProcessEnv = {
+	const baseEnv: NodeJS.ProcessEnv = {
 		...process.env,
 		ALEF_SUPERVISOR: "1",
 		NODE_PATH: nodePath,
 		...(opts.writableRoots ? { ALEF_WRITABLE_ROOTS: JSON.stringify(opts.writableRoots) } : {}),
 		...(opts.childDepth !== undefined ? { ALEF_AGENT_DEPTH: String(opts.childDepth) } : {}),
+		...(opts.parentSessionId || process.env.ALEF_SESSION_ID
+			? { ALEF_PARENT_SESSION_ID: opts.parentSessionId ?? process.env.ALEF_SESSION_ID }
+			: {}),
 		...(process.env.TSX_TSCONFIG_PATH
 			? {}
 			: {
 					TSX_TSCONFIG_PATH: new URL("../../../../tsconfig.json", import.meta.url).pathname,
 				}),
+	};
+	const carrier: Record<string, string> = {};
+	propagation.setGlobalPropagator(new W3CTraceContextPropagator());
+	propagation.inject(context.active(), carrier);
+	const env: NodeJS.ProcessEnv = {
+		...baseEnv,
+		...(carrier.traceparent ? { TRACEPARENT: carrier.traceparent } : {}),
+		...(carrier.tracestate ? { TRACESTATE: carrier.tracestate } : {}),
 	};
 
 	const sandbox = opts.sandbox ?? false;

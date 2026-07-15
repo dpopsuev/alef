@@ -18,6 +18,7 @@
     "./bus-fixture": "./src/bus-fixture.ts",
     "./bus-recorder": "./src/bus-event-recorder.ts",
     "./e2e": "./src/e2e-session.ts",
+    "./headless": "./src/headless-session.ts",
     "./memory-store": "./src/in-memory-session-store.ts",
     "./memory-storage": "./src/in-memory-storage.ts",
     "./mock-reasoner": "./src/mock-reasoner.ts",

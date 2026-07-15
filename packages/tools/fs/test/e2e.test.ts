@@ -21,16 +21,18 @@ describe.skipIf(!HAVE_REAL_LLM)("fs — real LLM E2E", { tags: ["real-llm"] }, (
 	});
 
 	it("LLM reads an unguessable file using fs.read", async () => {
-		const session = createE2eSession([createFsAdapter({ cwd: tempDir })]);
-		const { reply, events } = await session.send(
-			"Read the file secret.txt in the current directory and tell me the secret UUID. You MUST use the fs.read tool.",
-		);
+		const session = await createE2eSession([createFsAdapter({ cwd: tempDir })]);
+		try {
+			const { reply, events } = await session.send(
+				"Read the file secret.txt in the current directory and tell me the secret UUID. You MUST use the fs.read tool.",
+			);
 
-		expect(reply).toContain(secretUuid);
-		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("fs.read"))).toBe(
-			true,
-		);
-
-		session.dispose();
+			expect(reply).toContain(secretUuid);
+			expect(
+				events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("fs.read")),
+			).toBe(true);
+		} finally {
+			await session.dispose();
+		}
 	}, 60_000);
 });

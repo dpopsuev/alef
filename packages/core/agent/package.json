@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./loop-detector": "./src/loop-detector.ts",
+    "./progress-telemetry": "./src/progress-telemetry.ts",
     "./resource-meter": "./src/resource-meter.ts",
     "./event-pressure": "./src/event-pressure.ts",
     "./input-patterns": "./src/input-patterns.ts",
@@ -23,6 +24,7 @@
     "./subagent-factory": "./src/subagent-factory.ts",
     "./build-llm": "./src/build-llm.ts",
     "./create-agent": "./src/create-agent.ts",
+    "./otel-setup": "./src/otel-setup.ts",
     "./workflow": "./src/workflow/index.ts"
   },
   "scripts": {
@@ -35,7 +37,15 @@
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
-    "@dpopsuev/alef-session": "workspace:*"
+    "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-storage": "workspace:*",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.78.0",
+    "@opentelemetry/core": "^2.8.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
+    "@opentelemetry/instrumentation": "^0.220.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
+    "@opentelemetry/sdk-trace-node": "^2.8.0"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

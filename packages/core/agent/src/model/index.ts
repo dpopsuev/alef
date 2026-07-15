@@ -1,10 +1,11 @@
 export { getProfileNames, resolveProfile, resolveTier } from "./profiles.js";
-export type { ModelConfig, ModelLogger, ModelResolutionInput } from "./resolve.js";
+export type { ModelConfig, ModelLogger, ModelResolutionInput, ResolveEnvModelOptions } from "./resolve.js";
 export {
 	autoDetectModel,
 	buildModel,
 	detectedProviders,
 	hasCredentials,
+	resolveEnvModel,
 	resolveStartupModel,
 	setModelConfigProvider,
 	setModelLogger,

@@ -275,33 +275,73 @@ function validateApiKey(model: Model<Api>): void {
 /**
  *
  */
-export function resolveStartupModel(
-	args: ModelResolutionInput,
-	blueprintModelId: string | undefined,
-	cfg: ModelConfig,
-): Model<Api> {
+export interface ResolveEnvModelOptions {
+	/** Explicit model id (alias, provider/id, or catalog id). */
+	modelId?: string;
+	/**
+	 * What to do when credentials/model cannot be resolved.
+	 * - throw (default): libraries and tests
+	 * - exit: CLI startup (process.exit(1))
+	 */
+	onMissing?: "throw" | "exit";
+	/** When true and credentials exist, log detected providers. */
+	debug?: boolean;
+}
+
+/**
+ * Resolve a model from the current process environment.
+ * Shared by CLI, headless sessions, and eval — one credential/model policy.
+ */
+export function resolveEnvModel(opts: ResolveEnvModelOptions = {}): Model<Api> {
+	const onMissing = opts.onMissing ?? "throw";
 	if (!hasCredentials()) {
-		_logger.warn(
+		const message =
 			"no LLM credentials detected. " +
-				"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).",
-		);
-	} else if (args.debug) {
+			"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY) " +
+			"or Anthropic-on-Vertex (ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION).";
+		if (onMissing === "exit") {
+			_logger.warn(message);
+		} else {
+			throw new Error(message);
+		}
+	} else if (opts.debug) {
 		_logger.warn(`detected providers: ${detectedProviders().join(", ")}`);
 	}
-	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model;
-	if (resolvedId) {
-		const model = buildModel(resolvedId);
+
+	const id = opts.modelId ?? process.env.ALEF_MODEL ?? process.env.ALEF_E2E_MODEL;
+	if (id) {
+		const model = buildModel(id);
 		validateApiKey(model);
 		return model;
 	}
 	const detected = autoDetectModel();
 	if (detected) return detected;
-	_logger.error(
+
+	const message =
 		"no model configured. " +
-			"Set one of: --model <id>, ALEF_MODEL env var, model: in config.yaml, " +
-			"or configure a provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.).",
-	);
-	process.exit(1);
+		"Pass modelId, set ALEF_MODEL / ALEF_E2E_MODEL, " +
+		"or configure a provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.).";
+	if (onMissing === "exit") {
+		_logger.error(message);
+		process.exit(1);
+	}
+	throw new Error(message);
+}
+
+/**
+ *
+ */
+export function resolveStartupModel(
+	args: ModelResolutionInput,
+	blueprintModelId: string | undefined,
+	cfg: ModelConfig,
+): Model<Api> {
+	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model ?? process.env.ALEF_MODEL;
+	return resolveEnvModel({
+		modelId: resolvedId,
+		onMissing: "exit",
+		debug: args.debug,
+	});
 }
 
 /**

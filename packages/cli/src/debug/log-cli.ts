@@ -23,6 +23,7 @@
  */
 
 import type { Client, InValue } from "@libsql/client";
+import { parseCauseFlags, resolveSpanIdFromEffect, walkCauseChain } from "./cause-walk.js";
 
 /** Dispatch a log-query subcommand (sessions, events, trace, summary, tail, cause, spans). */
 export async function runLogCommand(subcmd: string, args: string[]): Promise<void> {
@@ -448,40 +449,29 @@ async function listSpans(db: Client, args: string[]): Promise<void> {
 	console.log(`\n${result.rows.length} span(s)`);
 }
 
-/** Walk the parent-span chain from a given span ID to reconstruct the causal path. */
+/** Walk the parent-span chain from a span ID, or resolve an effect via --path / --type. */
 async function walkCause(db: Client, args: string[]): Promise<void> {
-	const spanId = args[0];
+	const flags = parseCauseFlags(args);
+	let spanId = flags.spanId;
+
+	if (!spanId && (flags.path || flags.type)) {
+		spanId = (await resolveSpanIdFromEffect(db, flags)) ?? undefined;
+		if (!spanId) {
+			console.error(
+				`No effect found${flags.type ? ` type=${flags.type}` : ""}${flags.path ? ` path=${flags.path}` : ""}`,
+			);
+			process.exit(1);
+		}
+	}
+
 	if (!spanId) {
 		console.error("Usage: alef log cause <span-id>");
+		console.error("       alef log cause --path <file> [--type <event-type>]");
 		console.error("  Find span IDs with: alef log spans <session-id>");
 		process.exit(1);
 	}
 
-	const chain: Array<{ name: string; spanId: string; duration: number; attributes: string }> = [];
-	const visited = new Set<string>();
-	let nextId: string | null = spanId;
-
-	while (nextId && !visited.has(nextId)) {
-		visited.add(nextId);
-		const rows: Array<Record<string, unknown>> = (
-			await db.execute({
-				sql: "SELECT span_id, parent_span_id, name, start_time, end_time, attributes FROM spans WHERE span_id LIKE ?",
-				args: [`${nextId}%`] as InValue[],
-			})
-		).rows;
-
-		if (rows.length === 0) break;
-
-		const row = rows[0]!;
-		chain.push({
-			name: String(row.name),
-			spanId: String(row.span_id).slice(0, 16),
-			duration: Number(row.end_time) - Number(row.start_time),
-			attributes: String(row.attributes ?? "{}"),
-		});
-
-		nextId = row.parent_span_id ? String(row.parent_span_id) : null;
-	}
+	const chain = await walkCauseChain(db, spanId);
 
 	if (chain.length === 0) {
 		console.log(`No span found matching ${spanId}`);
@@ -504,6 +494,8 @@ async function walkCause(db: Client, args: string[]): Promise<void> {
 				detail += ` model:${String(attrs["gen_ai.request.model"])}`;
 			if (typeof attrs["alef.tool.call.id"] === "string")
 				detail += ` call:${String(attrs["alef.tool.call.id"]).slice(0, 12)}`;
+			if (typeof attrs["alef.parent.session_id"] === "string")
+				detail += ` parentSession:${String(attrs["alef.parent.session_id"]).slice(0, 8)}`;
 		} catch {
 			// skip
 		}

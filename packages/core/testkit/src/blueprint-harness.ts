@@ -1,8 +1,9 @@
 /**
  * BlueprintHarness — deterministic blueprint test harness.
  *
- * Loads a blueprint (file or inline adapters), wires ScriptedReasoner,
- * provides send() + assertion API. No real LLM call. No API key needed.
+ * Loads a blueprint (file or inline adapters), wires ScriptedReasoner via
+ * createAgent (same composition root as production), provides send() +
+ * assertion API. No real LLM call. No API key needed.
  *
  * Two factory methods:
  * BlueprintHarness.fromBlueprint(path, opts) — loads agent.yaml
@@ -22,16 +23,32 @@
  *
  */
 
+import { createAgent } from "@dpopsuev/alef-agent/create-agent";
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
 import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage, CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
+
+/** Placeholder model for scripted harnesses — never used for API calls. */
+const SCRIPTED_PLACEHOLDER_MODEL: Model<Api> = {
+	id: "scripted",
+	name: "scripted",
+	api: "anthropic-messages",
+	provider: "anthropic",
+	baseUrl: "",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 128_000,
+	maxTokens: 8_192,
+};
 
 // ---------------------------------------------------------------------------
 // BlueprintHarness
@@ -115,20 +132,21 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 * Create a harness with an explicit adapter list. Useful when testing
 	 * custom adapters directly or when no blueprint file is available.
 	 */
-	static create(opts: BlueprintHarnessOptions & { adapters?: Adapter[] }): BlueprintHarness {
+	static async create(opts: BlueprintHarnessOptions & { adapters?: Adapter[] }): Promise<BlueprintHarness> {
 		const recorder = new BusEventRecorder();
 		const scriptedLlm = new ScriptedReasoner(opts.script);
-		const agent = new Agent();
+		const adapters = opts.adapters ?? [];
 
-		agent.load(scriptedLlm);
-		for (const adapter of opts.adapters ?? []) {
-			agent.load(adapter);
-		}
+		const { agent, controller } = await createAgent({
+			cwd: opts.cwd,
+			model: SCRIPTED_PLACEHOLDER_MODEL,
+			adapters,
+			llmAdapter: scriptedLlm,
+			...(opts.systemPrompt !== undefined ? { systemPrompt: opts.systemPrompt } : {}),
+		});
 
 		agent.observe(recorder);
-		agent.validate();
 
-		const controller = new AgentController(agent);
 		// eslint-disable-next-line no-magic-numbers
 		return new BlueprintHarness(agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
 	}
@@ -194,6 +212,11 @@ export class BlueprintHarness implements ExecutionStrategy {
 		return this.recorder.event;
 	}
 
+	/** All Notification messages from the last send() call. */
+	get notificationMessages(): readonly BusMessage[] {
+		return this.recorder.notification;
+	}
+
 	// -------------------------------------------------------------------------
 	// Assertions
 	// -------------------------------------------------------------------------
@@ -254,6 +277,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 
 	/** Dispose the agent and clean up. */
 	async dispose(): Promise<void> {
+		this.controller.dispose();
 		await this.agent.dispose();
 	}
 }

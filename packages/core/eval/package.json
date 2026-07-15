@@ -37,6 +37,7 @@
     "test": "vitest --run"
   },
   "dependencies": {
+    "@dpopsuev/alef-agent": "workspace:*",
     "@dpopsuev/alef-tool-fs": "workspace:*",
     "@dpopsuev/alef-tool-shell": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",

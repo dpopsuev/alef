@@ -20,19 +20,22 @@ describe.skipIf(!HAVE_REAL_LLM)("code-intel — real LLM E2E", { tags: ["real-ll
 	afterAll(() => rmSync(tempDir, { recursive: true, force: true }));
 
 	it("LLM uses code.read then code.edit to modify a TypeScript function", async () => {
-		const session = createE2eSession([createCodeIntelAdapter({ cwd: tempDir })]);
-		const { events } = await session.send(
-			`Read the file target.ts using code.read, then use code.edit to change the function to return "REPLACED" instead of the current UUID string. You MUST call code.read first, then code.edit.`,
-		);
-		const content = readFileSync(filePath, "utf-8");
-		expect(
-			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("code.read")),
-		).toBe(true);
-		expect(
-			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("code.edit")),
-		).toBe(true);
-		expect(content).toContain("REPLACED");
-		expect(content).not.toContain(uuid);
-		session.dispose();
+		const session = await createE2eSession([createCodeIntelAdapter({ cwd: tempDir })]);
+		try {
+			const { events } = await session.send(
+				`Read the file target.ts using code.read, then use code.edit to change the function to return "REPLACED" instead of the current UUID string. You MUST call code.read first, then code.edit.`,
+			);
+			const content = readFileSync(filePath, "utf-8");
+			expect(
+				events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("code.read")),
+			).toBe(true);
+			expect(
+				events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("code.edit")),
+			).toBe(true);
+			expect(content).toContain("REPLACED");
+			expect(content).not.toContain(uuid);
+		} finally {
+			await session.dispose();
+		}
 	}, 90_000);
 });

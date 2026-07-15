@@ -13,7 +13,7 @@ const cwd = tmpdir();
 
 describe("sequential prompts", { tags: ["integration"] }, () => {
 	it("each of 5 prompts receives its own reply in order", async () => {
-		const h = BlueprintHarness.create({
+		const h = await BlueprintHarness.create({
 			cwd,
 			script: [
 				step.reply("Reply about cats"),
@@ -33,12 +33,13 @@ describe("sequential prompts", { tags: ["integration"] }, () => {
 		for (let i = 0; i < topics.length; i++) {
 			expect(replies[i]).toContain(topics[i]);
 		}
+		await h.dispose();
 	});
 });
 
 describe("concurrent prompt handling", { tags: ["integration"] }, () => {
 	it("two rapid sends both eventually settle", async () => {
-		const h = BlueprintHarness.create({
+		const h = await BlueprintHarness.create({
 			cwd,
 			script: [step.reply("First"), step.reply("Second")],
 		});
@@ -49,6 +50,7 @@ describe("concurrent prompt handling", { tags: ["integration"] }, () => {
 		const results = await Promise.allSettled([p1, p2]);
 		const fulfilled = results.filter((r) => r.status === "fulfilled");
 		expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+		await h.dispose();
 	});
 
 	it("spinner guard: startThinking clears previous timer", () => {

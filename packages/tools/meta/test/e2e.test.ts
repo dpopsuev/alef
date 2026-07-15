@@ -4,16 +4,18 @@ import { createMetaAdapter } from "../src/adapter.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("meta — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches running Alef config using alef.config.get", async () => {
-		const session = createE2eSession([createMetaAdapter({ dialogEventType: "llm.input" })]);
-		const { reply, events } = await session.send(
-			"Use alef.config.get to fetch the current Alef configuration and summarise what model it uses. You MUST call alef.config.get.",
-		);
+		const session = await createE2eSession([createMetaAdapter({ dialogEventType: "llm.input" })]);
+		try {
+			const { reply, events } = await session.send(
+				"Use alef.config.get to fetch the current Alef configuration and summarise what model it uses. You MUST call alef.config.get.",
+			);
 
-		expect(reply.length).toBeGreaterThan(0);
-		expect(
-			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("alef.config")),
-		).toBe(true);
-
-		session.dispose();
+			expect(reply.length).toBeGreaterThan(0);
+			expect(
+				events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("alef.config")),
+			).toBe(true);
+		} finally {
+			await session.dispose();
+		}
 	}, 60_000);
 });

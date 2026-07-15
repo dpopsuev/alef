@@ -175,12 +175,6 @@ importers:
       '@dpopsuev/alef-tui':
         specifier: workspace:*
         version: link:../ui/tui
-      '@opentelemetry/sdk-trace-base':
-        specifier: ^2.8.0
-        version: 2.9.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-node':
-        specifier: ^2.8.0
-        version: 2.9.0(@opentelemetry/api@1.9.1)
       chalk:
         specifier: ^5.6.2
         version: 5.6.2
@@ -260,6 +254,30 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session
+      '@dpopsuev/alef-storage':
+        specifier: workspace:*
+        version: link:../storage
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
+      '@opentelemetry/auto-instrumentations-node':
+        specifier: ^0.78.0
+        version: 0.78.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))
+      '@opentelemetry/core':
+        specifier: ^2.8.0
+        version: 2.9.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http':
+        specifier: ^0.220.0
+        version: 0.220.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation':
+        specifier: ^0.220.0
+        version: 0.220.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-base':
+        specifier: ^2.8.0
+        version: 2.9.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-node':
+        specifier: ^2.8.0
+        version: 2.9.0(@opentelemetry/api@1.9.1)
     devDependencies:
       typescript:
         specifier: ^5.9.2
@@ -397,6 +415,9 @@ importers:
 
   packages/core/eval:
     dependencies:
+      '@dpopsuev/alef-agent':
+        specifier: workspace:*
+        version: link:../agent
       '@dpopsuev/alef-ai':
         specifier: workspace:*
         version: link:../ai
@@ -739,6 +760,12 @@ importers:
       '@dpopsuev/alef-supervisor':
         specifier: workspace:*
         version: link:../../core/supervisor
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
+      '@opentelemetry/core':
+        specifier: ^2.8.0
+        version: 2.9.0(@opentelemetry/api@1.9.1)
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -802,6 +829,37 @@ importers:
         specifier: ^0.17.4
         version: 0.17.4
     devDependencies:
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/tools/dot:
+    dependencies:
+      '@dpopsuev/alef-kernel':
+        specifier: workspace:*
+        version: link:../../core/kernel
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@dpopsuev/alef-blueprint':
+        specifier: workspace:*
+        version: link:../../core/blueprint
+      '@dpopsuev/alef-testkit':
+        specifier: workspace:*
+        version: link:../../core/testkit
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.2
+      shx:
+        specifier: ^0.4.0
+        version: 0.4.0
+      tsx:
+        specifier: ^4.20.3
+        version: 4.22.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
       vitest:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))

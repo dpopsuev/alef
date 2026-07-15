@@ -232,6 +232,7 @@ import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
 const preview: SessionPreviewProvider = storage.sessionPreview();
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
+process.env.ALEF_SESSION_ID = session.id;
 
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel/log");
 initSessionSink((record) => {

@@ -44,6 +44,36 @@ export interface DiscussionState {
 	subscriptions: DiscussionSubscription[];
 }
 
+/** Stable role assignment metadata attached to a delegated run. */
+export interface WorkRoleRef {
+	category: string;
+	roleId: string;
+	laneId?: string;
+	blueprintId?: string;
+}
+
+/** Optional ownership metadata for a delegated run. */
+export interface WorkOwnerRef {
+	actorAddress?: string;
+	logicalAgentId?: string;
+	roleId?: string;
+}
+
+/** Optional grouping coordinates for higher-layer orchestration models. */
+export interface WorkgroupRef {
+	id: string;
+	category: string;
+	domainId?: string;
+	objectiveId?: string;
+}
+
+/** Shared higher-layer work metadata attached to delegated runs. */
+export interface WorkContext {
+	role?: WorkRoleRef;
+	owner?: WorkOwnerRef;
+	group?: WorkgroupRef;
+}
+
 /** Stable metadata that binds a delegated run to plans, discourse, and operator-visible task state. */
 export interface RunDescriptor {
 	taskId: string;
@@ -62,6 +92,7 @@ export interface RunDescriptor {
 	tokenBudget?: number;
 	retryOfTaskId?: string;
 	attempt?: number;
+	work?: WorkContext;
 }
 
 /** Snapshot of the current async task state. */

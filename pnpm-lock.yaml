@@ -962,6 +962,9 @@ importers:
       diff:
         specifier: ^5.2.0
         version: 5.2.2
+      minimatch:
+        specifier: ^10.2.5
+        version: 10.2.5
       zod:
         specifier: ^4.4.3
         version: 4.4.3

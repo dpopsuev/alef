@@ -70,6 +70,11 @@
       "source": "./src/xdg.ts",
       "import": "./src/xdg.ts",
       "default": "./src/xdg.ts"
+    },
+    "./backend": {
+      "source": "./src/backend.ts",
+      "import": "./src/backend.ts",
+      "default": "./src/backend.ts"
     }
   },
   "files": [

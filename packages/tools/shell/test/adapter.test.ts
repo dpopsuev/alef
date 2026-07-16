@@ -94,3 +94,43 @@ describe("ShellAdapter — COLUMNS injection", { tags: ["compliance"] }, () => {
 		f.dispose();
 	});
 });
+
+describe("ShellAdapter — timeout kills hung grandchildren", { tags: ["compliance"] }, () => {
+	it("timeout:1 ends a silent sleep before the 300s outer default", async () => {
+		const f = fixture();
+		const started = Date.now();
+		// sleep with no stdout — same silence pattern as hung tsc
+		const final = await f.callStreaming("shell.exec", {
+			command: "sleep 120",
+			timeout: 1,
+		});
+		const elapsedMs = Date.now() - started;
+		expect(final.isError).toBe(true);
+		expect(final.errorMessage ?? "").toMatch(/timed out/i);
+		expect(elapsedMs).toBeLessThan(15_000);
+		f.dispose();
+	});
+});
+
+describe("ShellAdapter — heartbeat supervision", { tags: ["compliance"] }, () => {
+	it("emits heartbeats for quiet but healthy commands and still succeeds", async () => {
+		const f = fixture();
+		const partials: Array<Record<string, unknown>> = [];
+		f.bus.asBus().event.subscribe("shell.exec", (event) => {
+			if (event.payload.isFinal === false) partials.push(event.payload as Record<string, unknown>);
+		});
+
+		const final = await f.callStreaming("shell.exec", {
+			command: "sleep 6; echo done",
+			timeout: 15,
+		});
+
+		expect(final.isError).toBe(false);
+		expect(String(final.payload.output ?? "")).toContain("done");
+		expect(String(final.payload.output ?? "")).not.toContain("__alefHeartbeat");
+		expect(
+			partials.some((payload) => typeof payload.classification === "string" && payload.classification.includes("cpu")),
+		).toBe(true);
+		f.dispose();
+	}, 20_000);
+});

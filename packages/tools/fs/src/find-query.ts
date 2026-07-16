@@ -48,6 +48,30 @@ const FD_TYPE_FLAG: Record<string, string> = {
 	symlink: "l",
 };
 
+/**
+ *
+ */
+function killSubprocessTree(pid: number | undefined): void {
+	if (!pid) return;
+	if (process.platform === "win32") {
+		try {
+			process.kill(pid, "SIGKILL");
+		} catch {
+			/* process already dead */
+		}
+		return;
+	}
+	try {
+		process.kill(-pid, "SIGKILL");
+	} catch {
+		try {
+			process.kill(pid, "SIGKILL");
+		} catch {
+			/* process already dead */
+		}
+	}
+}
+
 /** Rules for conditionally appending fd CLI arguments based on query input. */
 const FD_ARG_RULES: {
 	test: (input: FindToolInput) => boolean;
@@ -308,15 +332,16 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				args.push("--", effectivePattern, searchPath);
 
 				traceEvent("fs:find:spawn", { cmd: fdPath, args, pattern: effectivePattern, searchPath });
-				const child = spawn(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+				const child = spawn(fdPath, args, {
+					stdio: ["ignore", "pipe", "pipe"],
+					detached: process.platform !== "win32",
+				});
 				const rl = createInterface({ input: child.stdout });
 				let stderr = "";
 				const lines: string[] = [];
 
 				stopChild = () => {
-					if (!child.killed) {
-						child.kill();
-					}
+					killSubprocessTree(child.pid);
 				};
 
 				const fdStart = Date.now();

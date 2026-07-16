@@ -31,6 +31,13 @@ export { type BorderStyle, Box, type BoxOptions } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
 export { Collapsible, type CollapsibleOptions } from "./components/collapsible.js";
 export { Dialog, type DialogAction, type DialogOptions, type DialogTheme } from "./components/dialog.js";
+export {
+	ApprovalDialog,
+	type ApprovalDialogOptions,
+	type ApprovalDialogTheme,
+	type ApprovalAction,
+	type ToolCallInfo,
+} from "./components/approval-dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { Envelope, type EnvelopeOptions } from "./components/envelope.js";
 export { FlowEdge, type FlowEdgeOptions } from "./components/flow-edge.js";

@@ -29,7 +29,8 @@ describe("bus channel registry", { tags: ["unit"] }, () => {
 	it("all notification events are registered", () => {
 		const notificationEvents = [
 			"llm.chunk", "llm.thinking", "llm.tool-start", "llm.tool-end",
-			"llm.tool-chunk", "llm.tool-stall", "llm.token-usage", "llm.result",
+			"llm.tool-chunk", "llm.tool-progress", "llm.tool-heartbeat", "llm.tool-wake",
+			"llm.tool-budget-extended", "llm.tool-stall", "llm.token-usage", "llm.result",
 			"telemetry.progress.step", "telemetry.progress.outcome",
 			"context.compact.request", "context.compacting", "context.compacted", "context.injection", "context.overflow-recovery",
 			"session.metadata.refresh", "plan.opened",

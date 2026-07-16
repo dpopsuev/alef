@@ -10,7 +10,14 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Adapter, AdapterLogger, PortDefinition, ContextAssemblyHandler, ContextAssemblyInput } from "@dpopsuev/alef-kernel/adapter";
+import type {
+	Adapter,
+	AdapterLogger,
+	FilesystemPermission,
+	PortDefinition,
+	ContextAssemblyHandler,
+	ContextAssemblyInput,
+} from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -33,6 +40,7 @@ import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 import { InMemoryEventStore, type TimelineEvent } from "./event-store.js";
 import { WatchManager } from "./watch-manager.js";
+import { createPermissionGuard, type PermissionGuard } from "./permissions.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -252,6 +260,8 @@ export interface FsAdapterOptions {
 	actions?: readonly string[];
 	/** Directories the adapter is allowed to access (OCAP grant). Undefined = [cwd]. */
 	writableRoots?: readonly string[];
+	/** Declarative permission rules for filesystem operations. */
+	permissions?: FilesystemPermission[];
 	/** Pino-compatible logger. Passed to defineAdapter for Orange/Yellow ROGYB output. */
 	logger?: AdapterLogger;
 }
@@ -277,9 +287,17 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
-/** Resolve a relative file path against cwd and enforce allowed-roots access control. */
-function resolveFilePath(cwd: string, filePath: string, allowedRoots?: readonly string[]): string {
+/** Resolve a relative file path against cwd and enforce allowed-roots access control and permissions. */
+function resolveFilePath(
+	cwd: string,
+	filePath: string,
+	operation: "read" | "write" | "delete",
+	allowedRoots?: readonly string[],
+	permissionGuard?: PermissionGuard,
+): string {
 	const abs = nodeResolve(cwd, filePath);
+	
+	// Check allowed roots (OCAP grant)
 	if (allowedRoots) {
 		const normalized = abs.endsWith("/") ? abs : `${abs}/`;
 		const allowed = allowedRoots.some((root) => {
@@ -290,10 +308,30 @@ function resolveFilePath(cwd: string, filePath: string, allowedRoots?: readonly 
 			throw new Error(`Path '${filePath}' resolves outside allowed roots. Access denied.`);
 		}
 	}
+	
+	// Check declarative permissions
+	if (permissionGuard) {
+		permissionGuard.assert(operation, abs);
+	}
+	
 	return abs;
 }
 
-/** Detect binary or image files by magic bytes, returning the MIME type or null for text. */
+/** Supported image MIME types for multimodal content blocks. */
+const SUPPORTED_IMAGE_TYPES = new Set([
+	"image/png",
+	"image/jpeg",
+	"image/gif",
+	"image/webp",
+]);
+
+/** Maximum file size for inline image content (5MB). Larger files should be offloaded. */
+const MAX_INLINE_IMAGE_SIZE = 5 * 1024 * 1024;
+
+/**
+ * Detect binary or image files by magic bytes, returning the MIME type or null for text.
+ * Supports: PNG, JPEG, GIF, WebP, BMP, PDF, and generic binary (null-byte heuristic).
+ */
 function detectBinaryMime(buf: Buffer): string | null {
 	if (buf.length < 4) return null;
 	const b = buf;
@@ -316,16 +354,45 @@ async function handleRead(
 	ctx: { payload: { path: string; offset?: number; limit?: number; format?: string } },
 	opts: FsAdapterOptions,
 	tracker: FileTracker,
+	permissionGuard?: PermissionGuard,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, offset, limit, format } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "read", opts.writableRoots ?? [opts.cwd], permissionGuard);
 
 	// Read as buffer first to detect binary/image files by magic bytes.
 	const rawBuf = await fsReadFile(absolutePath);
 	const mimeType = detectBinaryMime(rawBuf);
+	
+	// Check if this is a supported image type for multimodal content
+	const isImage = mimeType !== null && SUPPORTED_IMAGE_TYPES.has(mimeType);
+	
+	if (isImage) {
+		// Check size limit for inline image content
+		if (rawBuf.length > MAX_INLINE_IMAGE_SIZE) {
+			const sizeMB = (rawBuf.length / (1024 * 1024)).toFixed(2);
+			throw new Error(
+				`fs.read: '${filePath}' is too large (${sizeMB}MB). ` +
+					`Images larger than 5MB should be offloaded or accessed via a dedicated tool.`,
+			);
+		}
+		
+		// Return image content block with base64 data URI
+		tracker.record(absolutePath);
+		const base64 = rawBuf.toString("base64");
+		const dataUri = `data:${mimeType};base64,${base64}`;
+		
+		return {
+			type: "image",
+			data: dataUri,
+			mimeType,
+			sizeBytes: rawBuf.length,
+		};
+	}
+	
 	if (mimeType !== null) {
+		// Non-image binary file
 		throw new Error(
 			`fs.read: '${filePath}' is a binary file (detected: ${mimeType}). ` +
 				`Use a dedicated tool to handle binary content.`,
@@ -370,10 +437,11 @@ async function handleWrite(
 	ctx: { payload: { path: string; content: string } },
 	opts: FsAdapterOptions,
 	tracker: FileTracker,
+	permissionGuard?: PermissionGuard,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
 	let prev: string | undefined;
 	try {
 		prev = await fsReadFile(absolutePath, "utf-8");
@@ -459,6 +527,7 @@ async function handleEdit(
 	opts: FsAdapterOptions,
 	tracker: FileTracker,
 	bus?: Bus,
+	permissionGuard?: PermissionGuard,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath } = ctx.payload;
 	if (!filePath) throw new Error("fs.edit: path is required");
@@ -478,7 +547,7 @@ async function handleEdit(
 		editList = [{ oldText, newText }];
 	}
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
 	let fileStat: Stats;
@@ -572,6 +641,7 @@ async function handleHashlineEdit(
 	opts: FsAdapterOptions,
 	tracker: FileTracker,
 	bus?: Bus,
+	permissionGuard?: PermissionGuard,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, script } = ctx.payload;
 	if (!filePath) throw new Error("fs.hashline-edit: path is required");
@@ -587,7 +657,7 @@ async function handleHashlineEdit(
 		parseHashlineEdits,
 	} = await import("./hashline.js");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
 
 	let fileStat: Stats;
 	try {
@@ -714,12 +784,14 @@ async function handleFind(
 async function handlePatch(
 	ctx: { payload: { patch: string } },
 	opts: FsAdapterOptions,
+	permissionGuard?: PermissionGuard,
 ): Promise<Record<string, unknown>> {
 	const { patch } = ctx.payload;
 	const ops = parsePatch(patch);
 	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
 
-	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.writableRoots ?? [opts.cwd]);
+	// Patch operations include add/update/delete/move - using write permission for all
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
 	const errors = await validateOps(ops, resolveAbs);
 	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
 
@@ -745,7 +817,9 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();
 	const allowedRoots = options.writableRoots ?? [options.cwd];
-	const resolve = (filePath: string) => resolveFilePath(options.cwd, filePath, allowedRoots);
+	const permissionGuard = createPermissionGuard(options.permissions);
+	const resolve = (filePath: string, operation: "read" | "write" | "delete" = "read") =>
+		resolveFilePath(options.cwd, filePath, operation, allowedRoots, permissionGuard);
 	
 	// Service state: watch manager and event store
 	const watchManager = new WatchManager();
@@ -791,7 +865,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 				"fs.read": typedAction(
 					FS_READ_TOOL,
 					async (ctx) => {
-						const result = await handleRead(ctx, options, tracker);
+						const result = await handleRead(ctx, options, tracker, permissionGuard);
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleRead returns known shape
 						const truncated = result.truncated as boolean;
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleRead returns known shape
@@ -826,7 +900,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					FS_WRITE_TOOL,
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-						const raw = await withQueue(absolutePath, () => handleWrite(ctx, options, tracker));
+						const raw = await withQueue(absolutePath, () => handleWrite(ctx, options, tracker, permissionGuard));
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleWrite returns known shape
 						const filePath = raw.path as string;
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleWrite returns known shape
@@ -842,7 +916,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					FS_EDIT_TOOL,
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-						const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker, busRef));
+						const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker, busRef, permissionGuard));
 						return withDisplay(
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
 							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleEdit returns known shape
@@ -856,7 +930,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
 						const result = await withQueue(absolutePath, () =>
-							handleHashlineEdit(ctx, options, tracker, busRef),
+							handleHashlineEdit(ctx, options, tracker, busRef, permissionGuard),
 						);
 						return withDisplay(
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
@@ -866,12 +940,12 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					},
 					{ invalidates: () => WRITE_INVALIDATES },
 				),
-				"fs.patch": typedAction(FS_PATCH_TOOL, (ctx) => handlePatch(ctx, options), {
+				"fs.patch": typedAction(FS_PATCH_TOOL, (ctx) => handlePatch(ctx, options, permissionGuard), {
 					invalidates: () => WRITE_INVALIDATES,
 				}),
 				"fs.undo": typedAction(FS_UNDO_TOOL, async (ctx) => {
 					const { path: filePath } = ctx.payload;
-					const absolutePath = resolve(filePath);
+					const absolutePath = resolve(filePath, "write");
 					const snapshot = tracker.getSnapshot(absolutePath);
 					if (snapshot === undefined)
 						throw new Error(`fs.undo: no snapshot for '${filePath}'. File was not modified this session.`);

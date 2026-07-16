@@ -43,7 +43,8 @@
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "zod": "^4.4.3",
-    "diff": "^5.2.0"
+    "diff": "^5.2.0",
+    "minimatch": "^10.2.5"
   },
   "devDependencies": {
     "@dpopsuev/alef-testkit": "workspace:*",

@@ -3,6 +3,7 @@ import type { createContextAssembler } from "@dpopsuev/alef-kernel/context-assem
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
+import type { PermissionSchema } from "@dpopsuev/alef-kernel/adapter";
 
 export type { SubagentFactory, SubagentFactoryOptions, SubagentSession } from "@dpopsuev/alef-engine/subagent-port";
 
@@ -35,6 +36,11 @@ export interface BlueprintStackOptions {
 	writableRoots?: readonly string[];
 	/** ToolShell disclosure override from config (full | progressive). */
 	toolDisclosure?: "full" | "progressive";
+	/**
+	 * Declarative permission rules for filesystem operations.
+	 * When provided, all filesystem tools are gated by these rules.
+	 */
+	permissions?: PermissionSchema;
 }
 
 /**

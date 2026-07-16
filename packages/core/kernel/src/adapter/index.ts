@@ -47,6 +47,12 @@ export type {
 	SkillBook,
 	SkillPage,
 } from "./contributions.js";
+export type {
+	FilesystemOperation,
+	FilesystemPermission,
+	PermissionMode,
+	PermissionSchema,
+} from "./permissions.js";
 export { createCompositeAgentRunContribution } from "./contributions.js";
 export type { AdapterTheme, UiContribution, UiSignalHandler } from "./ui.js";
 export { defineAdapter } from "./framework.js";

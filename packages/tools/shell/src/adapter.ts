@@ -59,6 +59,8 @@ export class ShellTimeoutError extends Error {
 export const DEFAULT_SHELL_TIMEOUT_S = 300;
 /** Hard cap in seconds on LLM-requested timeouts. */
 export const MAX_SHELL_TIMEOUT_S = 600;
+const SHELL_HEARTBEAT_INTERVAL_MS = 5_000;
+const SHELL_OUTPUT_TAIL_MAX_CHARS = 4_000;
 
 /** Configuration for the shell adapter including cwd, timeouts, guards, and PTY mode. */
 export interface ShellAdapterOptions {
@@ -196,6 +198,40 @@ interface ResolvedShellExec {
 	timeoutMs: number | undefined;
 }
 
+interface ShellHeartbeat {
+	__alefHeartbeat?: boolean;
+	processAlive?: boolean;
+	cpuActive?: boolean;
+	classification?: string;
+	outputTail?: string;
+}
+
+/** Read an arbitrary object property as unknown. */
+function getUnknownProperty(value: object, key: string): unknown {
+	return Reflect.get(value, key);
+}
+
+/** Decode internal heartbeat messages without leaking `any` into the stream path. */
+function parseHeartbeatChunk(text: string): ShellHeartbeat | null {
+	try {
+		const value: unknown = JSON.parse(text);
+		if (typeof value !== "object" || value === null) return null;
+		const processAliveValue = getUnknownProperty(value, "processAlive");
+		const cpuActiveValue = getUnknownProperty(value, "cpuActive");
+		const classificationValue = getUnknownProperty(value, "classification");
+		const outputTailValue = getUnknownProperty(value, "outputTail");
+		return {
+			__alefHeartbeat: getUnknownProperty(value, "__alefHeartbeat") === true,
+			processAlive: typeof processAliveValue === "boolean" ? processAliveValue : undefined,
+			cpuActive: typeof cpuActiveValue === "boolean" ? cpuActiveValue : undefined,
+			classification: typeof classificationValue === "string" ? classificationValue : undefined,
+			outputTail: typeof outputTailValue === "string" ? outputTailValue : undefined,
+		};
+	} catch {
+		return null;
+	}
+}
+
 /** Validate, guard, and resolve timeout/command prefix for shell.exec. */
 function resolveShellExec(payload: ShellExecPayload, opts: ShellAdapterOptions): ResolvedShellExec {
 	const { command, timeout } = payload;
@@ -247,6 +283,30 @@ function hardKillShell(pid: number | undefined): void {
 	killProcessTree(pid);
 }
 
+/** Tear down child stdio so the stream can finish even if close is delayed. */
+function forceCloseShell(child: ReturnType<typeof spawn>, endStream: (() => void) | undefined): void {
+	hardKillShell(child.pid);
+	try {
+		child.stdout?.destroy();
+	} catch {
+		/* already closed */
+	}
+	try {
+		child.stderr?.destroy();
+	} catch {
+		/* already closed */
+	}
+	endStream?.();
+}
+
+/**
+ *
+ */
+function appendOutputTail(current: string, next: string): string {
+	const combined = current ? `${current}${next}` : next;
+	return combined.length > SHELL_OUTPUT_TAIL_MAX_CHARS ? combined.slice(-SHELL_OUTPUT_TAIL_MAX_CHARS) : combined;
+}
+
 /** Stream a shell command's stdout/stderr via spawn, with timeout and stall detection. */
 async function* streamExec(
 	ctx: CommandHandlerCtx<ShellExecPayload>,
@@ -257,81 +317,124 @@ async function* streamExec(
 	ctx.log.info({ command, timeoutMs, cwd: opts.cwd }, "shell.exec start");
 
 	const shellCfg = getShellConfig(opts.shellPath);
+	// New process group on Unix so kill(-pid) can reap npx/tsc grandchildren.
 	const child = spawn(shellCfg.shell, [...shellCfg.args, resolvedCommand], {
 		cwd: opts.cwd,
 		env: { ...getShellEnv({ binDir: opts.binDir }), COLUMNS: "220", LINES: "50" },
+		detached: process.platform !== "win32",
+		stdio: ["ignore", "pipe", "pipe"],
 	});
 
 	const timeout$ = { timedOut: false };
 	let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
-	let stallTimer: ReturnType<typeof setInterval> | undefined;
-	let stallKillTimer: ReturnType<typeof setTimeout> | undefined;
+	let endStream: (() => void) | undefined;
+
+	const armKill = (detail: Record<string, unknown>): void => {
+		timeout$.timedOut = true;
+		ctx.log.warn({ pid: child.pid, ...detail }, "shell.exec timeout — SIGTERM");
+		try {
+			if (child.pid !== undefined && process.platform !== "win32") {
+				process.kill(-child.pid, "SIGTERM");
+			} else {
+				child.kill("SIGTERM");
+			}
+		} catch {
+			child.kill("SIGTERM");
+		}
+		if (sigkillTimer2) clearTimeout(sigkillTimer2);
+		// lint-ignore: RAWTIMER SIGKILL + stream force-close after SIGTERM
+		sigkillTimer2 = setTimeout(() => {
+			ctx.log.warn({ pid: child.pid }, "shell.exec timeout — SIGKILL");
+			forceCloseShell(child, endStream);
+		}, 5000);
+	};
 
 	if (timeoutMs !== undefined) {
 		// lint-ignore: RAWTIMER hard wall-clock cap (safety net)
 		sigkillTimer = setTimeout(() => {
-			timeout$.timedOut = true;
-			ctx.log.warn({ pid: child.pid, timeoutMs }, "shell.exec timeout — SIGTERM");
-			child.kill("SIGTERM");
-			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
-			sigkillTimer2 = setTimeout(() => {
-				ctx.log.warn({ pid: child.pid }, "shell.exec timeout — SIGKILL");
-				hardKillShell(child.pid);
-			}, 5000);
+			armKill({ timeoutMs });
 		}, timeoutMs);
-	}
-
-	if (child.pid) {
-		let lastCpuTime = -1;
-		let stallCount = 0;
-		const STALL_CHECK_MS = 10_000;
-		const STALL_THRESHOLD = 6;
-		// lint-ignore: RAWTIMER /proc CPU stall detector, not a deadline
-		stallTimer = setInterval(() => {
-			try {
-				const stat = readFileSync(`/proc/${child.pid}/stat`, "utf-8");
-				const fields = stat.split(" ");
-				const utime = Number.parseInt(fields[13]!, 10) || 0;
-				const stime = Number.parseInt(fields[14]!, 10) || 0;
-				const cpuTime = utime + stime;
-				if (lastCpuTime >= 0 && cpuTime === lastCpuTime) {
-					stallCount++;
-					if (stallCount >= STALL_THRESHOLD) {
-						timeout$.timedOut = true;
-						ctx.log.warn({ pid: child.pid, stallCount }, "shell.exec stalled — SIGTERM");
-						child.kill("SIGTERM");
-						if (stallKillTimer) clearTimeout(stallKillTimer);
-						// lint-ignore: RAWTIMER SIGKILL escalation after stall SIGTERM
-						stallKillTimer = setTimeout(() => {
-							ctx.log.warn({ pid: child.pid }, "shell.exec stalled — SIGKILL");
-							hardKillShell(child.pid);
-						}, 5000);
-					}
-				} else {
-					stallCount = 0;
-				}
-				lastCpuTime = cpuTime;
-			} catch {
-				// process gone — interval will be cleared in finally
-			}
-		}, STALL_CHECK_MS);
 	}
 
 	try {
 		const chunks: Buffer[] = [];
 		let exitCode = 0;
+		let latestOutputTail = "";
+		let lastOutputAt = Date.now();
+		let lastCpuTime = -1;
 
 		for await (const buf of pushQueue<Buffer>((push, done) => {
-			child.stdout.on("data", push);
-			child.stderr.on("data", push);
+			endStream = done;
+			child.stdout.on("data", (data: Buffer) => {
+				const text = data.toString("utf-8");
+				latestOutputTail = appendOutputTail(latestOutputTail, text);
+				lastOutputAt = Date.now();
+				push(data);
+			});
+			child.stderr.on("data", (data: Buffer) => {
+				const text = data.toString("utf-8");
+				latestOutputTail = appendOutputTail(latestOutputTail, text);
+				lastOutputAt = Date.now();
+				push(data);
+			});
+			// lint-ignore: RAWTIMER health heartbeat for quiet shell commands
+			const heartbeatTimer = setInterval(() => {
+				if (!child.pid) return;
+				let processAlive = true;
+				let cpuActive = false;
+				let classification = "cpu-idle";
+				try {
+					const stat = readFileSync(`/proc/${child.pid}/stat`, "utf-8");
+					const fields = stat.split(" ");
+					const utime = Number.parseInt(fields[13]!, 10) || 0;
+					const stime = Number.parseInt(fields[14]!, 10) || 0;
+					const cpuTime = utime + stime;
+					cpuActive = lastCpuTime >= 0 ? cpuTime !== lastCpuTime : false;
+					lastCpuTime = cpuTime;
+					if (Date.now() - lastOutputAt < SHELL_HEARTBEAT_INTERVAL_MS) classification = "output-progress";
+					else if (cpuActive) classification = "cpu-active";
+				} catch {
+					processAlive = false;
+					classification = "process-gone";
+				}
+				push(
+					Buffer.from(
+						JSON.stringify({
+							__alefHeartbeat: true,
+							processAlive,
+							cpuActive,
+							classification,
+							outputTail: latestOutputTail,
+						}),
+						"utf-8",
+					),
+				);
+			}, SHELL_HEARTBEAT_INTERVAL_MS);
 			child.on("close", (code) => {
+				clearInterval(heartbeatTimer);
 				exitCode = code ?? 0;
 				done();
 			});
 		})) {
+			const text = buf.toString("utf-8");
+			const heartbeat = parseHeartbeatChunk(text);
+			if (heartbeat?.__alefHeartbeat) {
+				yield {
+					heartbeat: {
+						processAlive: heartbeat.processAlive,
+						cpuActive: heartbeat.cpuActive,
+						classification: heartbeat.classification,
+					},
+					processAlive: heartbeat.processAlive,
+					cpuActive: heartbeat.cpuActive,
+					classification: heartbeat.classification,
+					outputTail: heartbeat.outputTail,
+				};
+				continue;
+			}
 			chunks.push(buf);
-			yield { chunk: buf.toString("utf-8") };
+			yield { chunk: text };
 		}
 
 		const raw = Buffer.concat(chunks).toString("utf-8");
@@ -350,8 +453,6 @@ async function* streamExec(
 	} finally {
 		if (sigkillTimer) clearTimeout(sigkillTimer);
 		if (sigkillTimer2) clearTimeout(sigkillTimer2);
-		if (stallKillTimer) clearTimeout(stallKillTimer);
-		if (stallTimer) clearInterval(stallTimer);
 	}
 }
 
@@ -496,7 +597,21 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 			publishSchemas: {
 				event: {
 					"shell.exec": z.discriminatedUnion("isFinal", [
-						z.object({ chunk: z.string().min(1), isFinal: z.literal(false) }),
+						z.object({
+							isFinal: z.literal(false),
+							chunk: z.string().min(1).optional(),
+							heartbeat: z
+								.object({
+									processAlive: z.boolean().optional(),
+									cpuActive: z.boolean().optional(),
+									classification: z.string().optional(),
+								})
+								.optional(),
+							processAlive: z.boolean().optional(),
+							cpuActive: z.boolean().optional(),
+							classification: z.string().optional(),
+							outputTail: z.string().optional(),
+						}),
 						z.object({
 							output: z.string().min(1),
 							exitCode: z.number(),

@@ -12,6 +12,24 @@
 
 Use MCP servers when they are available and relevant. Do not fall back to Bash, file reads, or direct API calls when an MCP tool covers the same operation. Before reading a file manually, check if an MCP tool can fetch it. Before writing a markdown file to disk, check if the artifact belongs in Scribe.
 
+## Session Debugging
+
+When diagnosing hung tools, missing history, empty TUI, vanished events, or "why did this session fail" — use Alef's debug CLI, not raw SQL.
+
+```bash
+alef log sessions                         # list sessions (newest first)
+alef log chain [session-id]               # round-trip link check
+alef log events <id> --adapter shell      # tool-specific events
+alef log events <id> --type 'llm.tool-%'  # tool start/end/stall
+alef log events <id> --payload <substr>   # payload search
+alef log trace <id> <correlationId>       # one turn
+alef debug session [id]                   # unpaired command/event check
+```
+
+Canonical playbook: `packages/cli/src/skills/debug-alef/SKILL.md` (also `.cursor/skills/debug-alef`).
+
+**Never open `alef.db` with `sqlite3` first.** That is the escape hatch only when `alef log` cannot express the query — then extend `alef log` (and file a Scribe need), do not normalize raw SQL.
+
 ## Prior Art & Existing Config
 
 Before changing any config or theme: grep for what already exists. Never introduce a new dependency (true color, a new crate, a new env var) without first checking whether it is already present and working. If the existing code works, the fix is the smallest possible delta to the existing code — not a replacement.

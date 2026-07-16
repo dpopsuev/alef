@@ -171,6 +171,21 @@ Options:
   --migrate              Import existing JSONL sessions into SQLite and exit
   -h, --help             Show this help
 
+Debug / session store:
+  log sessions [--search <q>]              List or search sessions
+  log events <id> [filters...]             Query session events
+  log trace <id> <correlationId>           Show one turn
+  log summary [<id>]                       Token/tool/error summary
+  log tail [filters...]                    Latest session events
+  log chain [<id>]                         Round-trip link check (✅/❌)
+  log spans <id>                           List OTel spans
+  log cause <span-id>                      Walk cause chain
+  debug session [id|--list]                Unpaired command/event check
+  debug tui [prompt] [--attach]            Capture or attach debug TUI
+
+  Event filters (composable): --bus --type --adapter --after --before
+                              --corr --errors --payload --limit --json
+
 Package manager:
   install <adapter>[@ver]  Install an adapter (e.g. alef install adapter-fs@0.1.2)
   remove  <adapter>        Remove an adapter
@@ -190,6 +205,8 @@ Examples:
   alef --cwd ~/project -p "Audit src/auth.ts"
   alef --blueprint agent.yaml -p "Fix the bug"  # blueprint-configured run
   alef --json -p "Fix the bug"        # machine-readable output
+  alef log chain                      # diagnose latest session round-trip
+  alef log events <id> --adapter shell --payload tsc
 `.trim();
 
 // ── Named constants ─────────────────────────────────────────────────────────

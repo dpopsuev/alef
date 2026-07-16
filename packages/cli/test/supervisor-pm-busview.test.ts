@@ -7,9 +7,9 @@
  *   3. Hub bus view notifications pass through unfiltered
  */
 
+import { createPackageManagerDescriptor, type DiscoveredService } from "@dpopsuev/alef-foundry";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { createPackageManagerDescriptor, type DiscoveredService } from "@dpopsuev/alef-supervisor/package-manager";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { afterEach, describe, expect, it } from "vitest";
 

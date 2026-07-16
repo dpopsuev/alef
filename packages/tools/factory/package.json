@@ -13,6 +13,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "yaml": "^2.8.0",

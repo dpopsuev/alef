@@ -1,11 +1,8 @@
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import {
-	CODING_AGENT_BLUEPRINT,
-	materializeBlueprint,
-	materializeDefaultAdapters,
-} from "@dpopsuev/alef-blueprint/materializer";
+import { CODING_AGENT_BLUEPRINT } from "@dpopsuev/alef-blueprint/materializer";
+import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { completeSimple } from "@dpopsuev/alef-ai/stream";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
@@ -18,7 +15,6 @@ import {
 } from "@dpopsuev/alef-session/metadata";
 import { createLlmSummarizer } from "@dpopsuev/alef-session/summarizer";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -49,20 +45,15 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
 	}
 
-	const supervisor = new Supervisor();
-	const resolveService = createServiceResolver(supervisor);
-	const materialiOpts = { cwd: opts.cwd, resolveService };
+	const foundry = createFoundryRuntime({ cwd: opts.cwd });
 
 	const domainAdapters =
 		opts.domainAdapters && opts.domainAdapters.length > 0
 			? [...opts.domainAdapters]
-			: await materializeDefaultAdapters(opts.cwd);
+			: (await foundry.materializeBlueprint(CODING_AGENT_BLUEPRINT)).adapters;
 
 	const exploreAdapters = exploreSliceFrom(domainAdapters);
-	const generalAdapters =
-		opts.domainAdapters && opts.domainAdapters.length > 0
-			? domainAdapters
-			: (await materializeBlueprint(CODING_AGENT_BLUEPRINT, materialiOpts)).adapters;
+	const generalAdapters = domainAdapters;
 
 	const { adapters, contextAssembly } = await buildDelegationStack({
 		cwd: opts.cwd,
@@ -82,12 +73,11 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		allowedBlueprints: blueprintRegistry.list(),
 		materializeAdapters: async (names) => {
-			const { adapters: materializedAdapters } = await materializeBlueprint(
+			const { adapters: materializedAdapters } = await foundry.materializeBlueprint(
 				{
 					...CODING_AGENT_BLUEPRINT,
 					adapters: names.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
 				},
-				materialiOpts,
 			);
 			return materializedAdapters;
 		},

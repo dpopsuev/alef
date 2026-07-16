@@ -25,6 +25,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "typescript-language-server": "^5.2.0",

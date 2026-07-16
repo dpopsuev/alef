@@ -53,6 +53,9 @@
 			"path": "../core/blueprint/tsconfig.build.json"
 		},
 		{
+			"path": "../core/foundry/tsconfig.build.json"
+		},
+		{
 			"path": "../profiles/coding/tsconfig.build.json"
 		},
 		{

@@ -182,6 +182,12 @@
 			"@dpopsuev/alef-eval/*": [
 				"./packages/core/eval/src/*.ts"
 			],
+			"@dpopsuev/alef-foundry": [
+				"./packages/core/foundry/src/index.ts"
+			],
+			"@dpopsuev/alef-foundry/*": [
+				"./packages/core/foundry/src/*.ts"
+			],
 			"@dpopsuev/alef/ui-port": [
 				"./packages/cli/src/boot/views.ts"
 			],

@@ -28,6 +28,7 @@
     "@dpopsuev/alef-tool-skills": "workspace:*",
     "@dpopsuev/alef-tool-web": "workspace:*",
     "@dpopsuev/alef-blueprint": "workspace:*",
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",

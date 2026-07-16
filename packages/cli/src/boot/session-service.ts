@@ -1,10 +1,10 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { RouterAdapter } from "@dpopsuev/alef-engine/http";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { defineManagedService } from "@dpopsuev/alef-foundry";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Logger } from "pino";
 import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";
@@ -35,13 +35,12 @@ export interface SessionService extends ManagedService {
 
 /** Build a ServiceDescriptor that assembles the local session with identity, adapters, and HTTP surface. */
 export function createSessionServiceDescriptor(opts: SessionServiceOptions): ServiceDescriptor {
-	return {
+	return defineManagedService({
 		name: "session",
 		restart: "permanent",
 		shareable: true,
 		dependsOn: ["storage"],
-
-		async create(_createOpts: ServiceCreateOpts): Promise<SessionService> {
+		async create() {
 			const identity = opts.identity ?? buildIdentityContext(opts.store);
 			const {
 				session: handle,
@@ -63,17 +62,12 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 
 			let stopped = false;
 			return {
-				name: "session",
-				restart: "permanent" as const,
-				adapters: [] as Adapter[],
-				tools: [],
 				session: handle,
 				resolvedModelDisplay,
 				humanAddress,
 				agentAddress,
 				blueprintName,
 				setupSurface,
-				start: () => Promise.resolve(),
 				stop() {
 					stopped = true;
 					void handle.dispose();
@@ -82,5 +76,5 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				health: () => Promise.resolve(!stopped),
 			};
 		},
-	};
+	});
 }

@@ -1,17 +1,13 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor, ServiceRegistry } from "./lifecycle.js";
+import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import { defineManagedService } from "./managed-service.js";
 
-/**
- *
- */
+/** Service discovered from the runtime package manager surface. */
 export interface DiscoveredService {
 	readonly name: string;
 	readonly descriptor: ServiceDescriptor;
 }
 
-/**
- *
- */
+/** Operations required to back the Foundry package-manager service. */
 export interface PackageManagerOps {
 	discover(cwd: string): Promise<readonly DiscoveredService[]>;
 	resolve?(name: string): Promise<ServiceDescriptor | undefined>;
@@ -21,9 +17,7 @@ export interface PackageManagerOps {
 	sbom?(): Record<string, string>;
 }
 
-/**
- *
- */
+/** Managed-service surface for dynamic service discovery and install flows. */
 export interface PackageManager {
 	discover(): Promise<readonly DiscoveredService[]>;
 	resolve(name: string): Promise<ServiceDescriptor | undefined>;
@@ -32,16 +26,13 @@ export interface PackageManager {
 	remove(name: string): Promise<void>;
 }
 
-/**
- *
- */
+/** Build a `ServiceDescriptor` that bootstraps runtime package discovery. */
 export function createPackageManagerDescriptor(ops: PackageManagerOps): ServiceDescriptor {
-	return {
+	return defineManagedService<PackageManager>({
 		name: "pm",
 		restart: "permanent",
 		shareable: true,
-
-		create(opts: ServiceCreateOpts): Promise<ManagedService & PackageManager> {
+		create(opts: ServiceCreateOpts) {
 			const supervisor = opts.supervisor;
 			const discovered = new Map<string, ServiceDescriptor>();
 
@@ -84,10 +75,6 @@ export function createPackageManagerDescriptor(ops: PackageManagerOps): ServiceD
 			};
 
 			return Promise.resolve({
-				name: "pm",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
 				...pm,
 				async start() {
 					await pm.discover();
@@ -96,5 +83,5 @@ export function createPackageManagerDescriptor(ops: PackageManagerOps): ServiceD
 				health: () => Promise.resolve(true),
 			});
 		},
-	};
+	});
 }

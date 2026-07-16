@@ -5,7 +5,7 @@ import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
 import { resolveBootstrapBlueprintPath, type BootstrapBlueprintId } from "@dpopsuev/alef-blueprint/bootstrap";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
+import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
@@ -17,7 +17,6 @@ import {
 	provisionalTitleFromText,
 } from "@dpopsuev/alef-session/metadata";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -74,9 +73,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
 	}
 
-	const supervisor = new Supervisor();
-	const resolveService = createServiceResolver(supervisor);
-	const materialiOpts = { cwd: opts.cwd, resolveService };
+	const foundry = createFoundryRuntime({ cwd: opts.cwd });
 	const definition = loadFactoryBlueprint();
 	const staffRoleDefinitions = STAFF_ROLE_PROFILES.map((entry) => ({
 		...entry,
@@ -86,7 +83,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	const domainAdapters =
 		opts.domainAdapters && opts.domainAdapters.length > 0
 			? [...opts.domainAdapters]
-			: (await materializeBlueprint(definition, materialiOpts)).adapters;
+			: (await foundry.materializeBlueprint(definition)).adapters;
 
 	const exploreAdapters = exploreSliceFrom(domainAdapters);
 	const generalAdapters = domainAdapters;
@@ -112,12 +109,11 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 			return profiles;
 		}, {}),
 		materializeAdapters: async (names) => {
-			const { adapters: materializedAdapters } = await materializeBlueprint(
+			const { adapters: materializedAdapters } = await foundry.materializeBlueprint(
 				{
 					...definition,
 					adapters: names.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
 				},
-				materialiOpts,
 			);
 			return materializedAdapters;
 		},

@@ -1,7 +1,8 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
+import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import { defineManagedService } from "./managed-service.js";
 
 const execAsync = promisify(exec);
 
@@ -11,7 +12,8 @@ export interface HotReloadRebuildHandle {
 	requestRebuild(): Promise<void>;
 }
 
-interface HotReloadOpts {
+/** Configuration for the Foundry hot-reload service descriptor. */
+export interface HotReloadOpts {
 	buildCommand: string;
 	swap: (serviceName: string, opts: { cwd: string; logger?: AdapterLogger }) => Promise<void>;
 	sessionServiceName: string;
@@ -21,17 +23,13 @@ interface HotReloadOpts {
 	onStopped?: () => void;
 }
 
-/**
- *
- */
+/** Build a `ServiceDescriptor` that exposes in-process rebuild and session swap. */
 export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescriptor {
-	return {
+	return defineManagedService({
 		name: "hot-reload",
 		restart: "permanent",
 		shareable: true,
-
-		// eslint-disable-next-line @typescript-eslint/require-await -- ServiceDescriptor.create returns Promise
-		async create({ logger }: ServiceCreateOpts) {
+		create({ logger }: ServiceCreateOpts) {
 			let active = false;
 			let rebuildInFlight: Promise<void> | undefined;
 
@@ -72,29 +70,21 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 			};
 
 			return {
-				name: "hot-reload",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
-
-				// eslint-disable-next-line @typescript-eslint/require-await -- ManagedLifecycle.start returns Promise
-				async start() {
+				start() {
 					active = true;
 					opts.onReady?.(handle);
 					logger?.info({}, "Hot reload service ready");
+					return Promise.resolve();
 				},
-
-				// eslint-disable-next-line @typescript-eslint/require-await -- ManagedLifecycle.stop returns Promise
-				async stop() {
+				stop() {
 					opts.onStopped?.();
 					active = false;
+					return Promise.resolve();
 				},
-
-				// eslint-disable-next-line @typescript-eslint/require-await -- ManagedLifecycle.health returns Promise
-				async health() {
-					return active;
+				health() {
+					return Promise.resolve(active);
 				},
 			};
 		},
-	};
+	});
 }

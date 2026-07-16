@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-ai": "workspace:*",
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "zod": "^4.4.3"

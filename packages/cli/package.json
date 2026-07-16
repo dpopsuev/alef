@@ -37,6 +37,7 @@
     "@dpopsuev/alef-embedding": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-factory-agent": "workspace:*",
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",

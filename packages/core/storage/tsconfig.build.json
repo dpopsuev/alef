@@ -21,6 +21,9 @@
 	],
 	"references": [
 		{
+			"path": "../foundry/tsconfig.build.json"
+		},
+		{
 			"path": "../session/tsconfig.build.json"
 		}
 	]

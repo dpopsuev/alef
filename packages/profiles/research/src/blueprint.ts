@@ -2,10 +2,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-coding-agent";
 import { createCodingAgentStack } from "@dpopsuev/alef-coding-agent";
+import { createFoundryRuntime, defineAdapterService } from "@dpopsuev/alef-foundry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { McpAdapter } from "@dpopsuev/alef-tool-mcp-registry";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 
@@ -28,26 +29,13 @@ function mcpServiceDescriptor(
 	restart: "permanent" | "transient" = "permanent",
 	dependsOn?: string[],
 ): ServiceDescriptor {
-	return {
+	return defineAdapterService({
 		name,
 		restart,
 		shareable: true,
 		dependsOn,
-		async create(_opts: ServiceCreateOpts): Promise<ManagedService> {
-			const adapter = await McpAdapter.stdio(binary, args, name);
-			return {
-				name,
-				restart,
-				adapters: [adapter],
-				tools: [...adapter.tools],
-				start: () => Promise.resolve(),
-				async stop() {
-					await adapter.close?.();
-				},
-				health: () => Promise.resolve(true),
-			};
-		},
-	};
+		createAdapter: () => McpAdapter.stdio(binary, args, name),
+	});
 }
 
 /**
@@ -60,11 +48,11 @@ export async function createResearchAgentStack(
 	const scribeDbPath = opts.scribeDbPath ?? join(XDG_DATA_HOME, "alef", "scribe.db");
 	const locusBinary = opts.locusBinary ?? process.env.ALEF_LOCUS_BIN ?? "locus";
 
-	const supervisor = new Supervisor();
-	supervisor.register(
+	const foundry = createFoundryRuntime({ cwd: opts.cwd });
+	foundry.register(
 		mcpServiceDescriptor("scribe", scribeBinary, ["serve", "--db", scribeDbPath]),
 	);
-	supervisor.register(
+	foundry.register(
 		mcpServiceDescriptor("locus", locusBinary, ["serve", "--workspace", opts.cwd], "permanent", ["scribe"]),
 	);
 
@@ -75,6 +63,6 @@ export async function createResearchAgentStack(
 	return {
 		adapters,
 		contextAssembly: codingStack.contextAssembly,
-		supervisor,
+		supervisor: foundry.supervisor,
 	};
 }

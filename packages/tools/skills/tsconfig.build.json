@@ -20,6 +20,9 @@
 	],
 	"references": [
 		{
+			"path": "../../core/foundry/tsconfig.build.json"
+		},
+		{
 			"path": "../../core/kernel/tsconfig.build.json"
 		}
 	]

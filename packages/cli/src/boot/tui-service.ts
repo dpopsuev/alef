@@ -1,5 +1,6 @@
+import { defineManagedService } from "@dpopsuev/alef-foundry";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
 import { ServeViewMode, selectViewMode } from "./views.js";
@@ -17,13 +18,12 @@ export interface TuiServiceOptions {
 
 /** Build a ServiceDescriptor that runs the selected view mode as a managed service. */
 export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDescriptor {
-	return {
+	return defineManagedService({
 		name: "tui",
 		restart: "permanent",
 		shareable: true,
 		dependsOn: ["session"],
-
-		create(createOpts: ServiceCreateOpts): Promise<TuiService> {
+		create(createOpts) {
 			const raw = createOpts.supervisor?.get("session");
 			if (!raw || !("session" in raw)) throw new Error("Session service not found — TUI depends on session");
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
@@ -52,10 +52,6 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 			});
 
 			return Promise.resolve({
-				name: "tui",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
 				done,
 				start() {
 					running = true;
@@ -74,5 +70,5 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				health: () => Promise.resolve(running),
 			});
 		},
-	};
+	});
 }

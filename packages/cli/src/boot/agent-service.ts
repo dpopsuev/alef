@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { defineManagedService } from "@dpopsuev/alef-foundry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import { type AlefConfig, resolveDaemonConfig } from "./config.js";
 import type { SessionService } from "./session-service.js";
@@ -15,13 +15,12 @@ export interface AgentServiceOptions {
 
 /** Build a ServiceDescriptor that manages daemon registration, heartbeat, and HTTP surface readiness. */
 export function createAgentServiceDescriptor(opts: AgentServiceOptions): ServiceDescriptor {
-	return {
+	return defineManagedService({
 		name: "agent",
 		restart: "permanent",
 		shareable: false,
 		dependsOn: ["session"],
-
-		async create(createOpts: ServiceCreateOpts): Promise<ManagedService> {
+		async create(createOpts) {
 			const raw = createOpts.supervisor?.get("session");
 			if (!raw || !("session" in raw)) throw new Error("Session service not found — agent depends on session");
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
@@ -62,11 +61,6 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 
 			let stopped = false;
 			return {
-				name: "agent",
-				restart: "permanent" as const,
-				adapters: [] as Adapter[],
-				tools: [],
-				start: () => Promise.resolve(),
 				stop() {
 					stopped = true;
 					if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -76,5 +70,5 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 				health: () => Promise.resolve(!stopped),
 			};
 		},
-	};
+	});
 }

@@ -1,4 +1,5 @@
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import { defineManagedService } from "@dpopsuev/alef-foundry";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { StorageFactory } from "./interfaces.js";
 
 /**
@@ -22,12 +23,11 @@ export interface StorageServiceConfig {
  *
  */
 export function createStorageDescriptor(config?: StorageServiceConfig): ServiceDescriptor {
-	return {
+	return defineManagedService({
 		name: "storage",
 		restart: "permanent",
 		shareable: true,
-
-		async create(_opts: ServiceCreateOpts): Promise<StorageService> {
+		async create() {
 			if (config) {
 				const { configureStorage } = await import("./sqlite/database.js");
 				configureStorage(config);
@@ -38,12 +38,7 @@ export function createStorageDescriptor(config?: StorageServiceConfig): ServiceD
 			const factory = new SqliteStorageFactory(db);
 
 			return {
-				name: "storage",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
 				factory,
-				start: () => Promise.resolve(),
 				stop() {
 					factory.close();
 					return Promise.resolve();
@@ -51,5 +46,5 @@ export function createStorageDescriptor(config?: StorageServiceConfig): ServiceD
 				health: () => Promise.resolve(true),
 			};
 		},
-	};
+	});
 }

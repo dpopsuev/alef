@@ -2,9 +2,9 @@
  * Scheduler service tests — defer, repeat, cancel, list, cleanup.
  */
 
+import type { Scheduler } from "@dpopsuev/alef-foundry";
+import { createSchedulerDescriptor } from "@dpopsuev/alef-foundry";
 import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
-import type { Scheduler } from "@dpopsuev/alef-supervisor/scheduler";
-import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { afterEach, describe, expect, it } from "vitest";
 

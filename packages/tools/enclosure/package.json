@@ -41,6 +41,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "testcontainers": "^11.14.0"

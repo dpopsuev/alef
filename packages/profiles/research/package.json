@@ -9,6 +9,7 @@
   "dependencies": {
     "@dpopsuev/alef-tool-mcp-registry": "workspace:*",
     "@dpopsuev/alef-coding-agent": "workspace:*",
+    "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*"

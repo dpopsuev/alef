@@ -9,8 +9,8 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 	});
 
 	it("invokes onReady/onStopped and reports health", async () => {
-		const onReady = vi.fn((h: HotReloadRebuildHandle) => {
-			handle = h;
+		const onReady = vi.fn((readyHandle: HotReloadRebuildHandle) => {
+			handle = readyHandle;
 		});
 		const onStopped = vi.fn(() => {
 			handle = undefined;
@@ -38,8 +38,8 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 	});
 
 	it("keeps handle after a failed build until stop", async () => {
-		const onReady = vi.fn((h: HotReloadRebuildHandle) => {
-			handle = h;
+		const onReady = vi.fn((readyHandle: HotReloadRebuildHandle) => {
+			handle = readyHandle;
 		});
 		const descriptor = createHotReloadDescriptor({
 			buildCommand: "false",
@@ -77,8 +77,8 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 			},
 			sessionServiceName: "session",
 			cwd: process.cwd(),
-			onReady: (h) => {
-				handle = h;
+			onReady: (readyHandle) => {
+				handle = readyHandle;
 			},
 		});
 		const service = await descriptor.create({ cwd: process.cwd() });

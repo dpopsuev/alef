@@ -115,4 +115,37 @@ describe("prependSessionHistory", { tags: ["unit"] }, () => {
 		expect(calls).toContain("tool:fs.read:/tmp/f.ts");
 		expect(calls).toContain("assistant:first answer");
 	});
+
+	it("loads dialog even when the newest events are resume boot noise", async () => {
+		const { writer, calls } = fakeWriter();
+		const noise: StorageRecord[] = Array.from({ length: 60 }, (_, i) => ({
+			bus: "event" as const,
+			type: "adapter.loaded",
+			correlationId: `n${i}`,
+			payload: { name: `adapter-${i}` },
+			timestamp: 100 + i,
+		}));
+		const store = storeWith([
+			{
+				bus: "event",
+				type: "llm.input",
+				correlationId: "c1",
+				payload: { text: "Spawn a single subagent" },
+				timestamp: 1,
+			},
+			{
+				bus: "command",
+				type: "llm.response",
+				correlationId: "c1",
+				payload: { text: "Spawned child-1" },
+				timestamp: 2,
+			},
+			...noise,
+		]);
+
+		await prependSessionHistory(store, writer, { maxTurns: 5 });
+
+		expect(calls).toContain("user:Spawn a single subagent");
+		expect(calls).toContain("assistant:Spawned child-1");
+	});
 });

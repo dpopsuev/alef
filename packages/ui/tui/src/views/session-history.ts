@@ -7,11 +7,8 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import {
 	type DisplayBlock,
-	eventWindowForTurns,
 	loadPlanPreview,
-	projectSessionRecords,
-	selectTranscriptBlocks,
-	type SessionRecordProjection,
+	projectTranscriptSlice,
 } from "@dpopsuev/alef-session/context";
 import type { ChatLog } from "./chat-log.js";
 
@@ -29,6 +26,7 @@ export interface SessionHistoryOptions {
 
 /**
  * Map projected display blocks onto ChatLog write APIs.
+ * Shared by resume history and session-picker preview (via renderDisplayBlocksToLines).
  */
 export function appendDisplayBlocks(writer: ChatLog, blocks: readonly DisplayBlock[]): void {
 	for (const block of blocks) {
@@ -64,22 +62,19 @@ export async function prependSessionHistory(
 ): Promise<void> {
 	const maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;
 	const events = await store.events();
-	const windowSize = eventWindowForTurns(maxTurns);
-	const recent = events.slice(-windowSize);
-	const records: SessionRecordProjection[] = recent.map((event) => ({
-		bus: event.bus,
-		type: event.type,
-		payload: event.payload,
-	}));
-
 	const plan = await loadPlanPreview(opts.cwd);
-	const blocks = projectSessionRecords(records, plan ? { plan } : undefined);
-	if (blocks.length === 0) return;
+	const kept = projectTranscriptSlice(
+		events.map((event) => ({
+			bus: event.bus,
+			type: event.type,
+			payload: event.payload,
+		})),
+		maxTurns,
+		plan ? { plan } : undefined,
+	);
+	if (kept.length === 0) return;
 
-	const userCount = blocks.filter((block) => block.kind === "user").length;
-	const turnCount = Math.min(maxTurns, Math.max(1, userCount));
-	const kept = selectTranscriptBlocks(blocks, turnCount);
-
+	const turnCount = kept.filter((block) => block.kind === "user").length;
 	const totalBefore = writer.container.children.length;
 	writer.addNotice(`Resumed — ${turnCount} prior turn${turnCount === 1 ? "" : "s"} loaded`);
 	appendDisplayBlocks(writer, kept);

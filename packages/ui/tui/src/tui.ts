@@ -258,6 +258,12 @@ export class TUI extends Container {
 	private previousViewportTop = 0; // Track previous viewport top for resize-aware cursor moves
 	private fullRedrawCount = 0;
 	private stopped = false;
+	/** First child of the sticky bottom band (streaming + input + footer). Null = disabled. */
+	private stickyFromChild: Component | null = null;
+	/** Last scrollable (chat) lines — used to archive into terminal scrollback. */
+	private previousScrollable: string[] = [];
+	/** Body rows above sticky on the previous frame. */
+	private previousStickyBodyRows = 0;
 
 	// Overlay stack for modal components rendered on top of base content
 	private focusOrderCounter = 0;
@@ -305,6 +311,15 @@ export class TUI extends Container {
 	 */
 	setClearOnShrink(enabled: boolean): void {
 		this.clearOnShrink = enabled;
+	}
+
+	/**
+	 * Pin this child and everything after it to the bottom of the viewport.
+	 * Live widgets (plan, tasks, editor, footer) must use this so chat growth
+	 * cannot scroll them into terminal scrollback.
+	 */
+	setStickyFrom(component: Component | null): void {
+		this.stickyFromChild = component;
 	}
 
 	setFocus(component: Component | null): void {
@@ -976,12 +991,211 @@ export class TUI extends Container {
 		return null;
 	}
 
+	private partitionChildren(width: number): { scrollable: string[]; sticky: string[] } {
+		const split = this.stickyFromChild ? this.children.indexOf(this.stickyFromChild) : -1;
+		const stickyAt = split >= 0 ? split : this.children.length;
+		const scrollable: string[] = [];
+		const sticky: string[] = [];
+		for (let i = 0; i < this.children.length; i++) {
+			const childLines = this.children[i]!.render(width);
+			if (i < stickyAt) scrollable.push(...childLines);
+			else sticky.push(...childLines);
+		}
+		return { scrollable, sticky };
+	}
+
+	/** Keep the bottom of the sticky band (editor/footer); drop overflow from the top. */
+	private capStickyLines(sticky: string[], height: number): string[] {
+		const maxSticky = Math.max(1, height - 1);
+		if (sticky.length <= maxSticky) return sticky;
+		return sticky.slice(sticky.length - maxSticky);
+	}
+
+	private alignBody(scrollable: string[], bodyRows: number): string[] {
+		if (bodyRows <= 0) return [];
+		if (scrollable.length >= bodyRows) return scrollable.slice(-bodyRows);
+		return [...Array.from({ length: bodyRows - scrollable.length }, () => ""), ...scrollable];
+	}
+
+	/**
+	 * Push archived chat lines into terminal scrollback via a body-only scroll region,
+	 * so the sticky band (rows below bodyRows) never enters scrollback.
+	 */
+	private scrollArchivedIntoHistory(archived: string[], bodyRows: number): void {
+		if (archived.length === 0 || bodyRows <= 0) return;
+		let buffer = `\x1b[1;${bodyRows}r`;
+		buffer += `\x1b[${bodyRows};1H`;
+		for (const line of archived) {
+			buffer += `\r\n\x1b[2K${line}`;
+		}
+		buffer += "\x1b[r";
+		this.terminal.write(buffer);
+	}
+
+	/**
+	 * Sticky-band render path: viewport is always a fixed-height frame
+	 * (chat body + sticky). Live widgets never shift into scrollback.
+	 */
+	private doRenderSticky(width: number, height: number, widthChanged: boolean, heightChanged: boolean): void {
+		const { scrollable, sticky: stickyRaw } = this.partitionChildren(width);
+		const sticky = this.capStickyLines(stickyRaw, height);
+		const bodyRows = height - sticky.length;
+		let frame = [...this.alignBody(scrollable, bodyRows), ...sticky];
+
+		if (this.overlayStack.length > 0) {
+			frame = this.compositeOverlays(frame, width, height);
+			if (frame.length > height) frame = frame.slice(-height);
+			while (frame.length < height) frame.push("");
+		}
+
+		const cursorPos = this.extractCursorPosition(frame, height);
+		frame = this.applyLineResets(frame);
+
+		const prevScroll = this.previousScrollable;
+		const prevBodyRows = this.previousStickyBodyRows;
+		if (!widthChanged && !heightChanged && prevBodyRows > 0 && prevScroll.length > 0) {
+			const oldStart = Math.max(0, prevScroll.length - prevBodyRows);
+			const newStart = Math.max(0, scrollable.length - bodyRows);
+			if (newStart > oldStart) {
+				this.scrollArchivedIntoHistory(scrollable.slice(oldStart, newStart), bodyRows);
+			}
+		}
+		this.previousScrollable = scrollable;
+		this.previousStickyBodyRows = bodyRows;
+
+		const useDec2026 =
+			"dec2026Active" in this.terminal ? (this.terminal as { dec2026Active: boolean }).dec2026Active : true;
+
+		const paintFrame = (clear: boolean): void => {
+			this.fullRedrawCount += 1;
+			let buffer = useDec2026 ? "\x1b[?2026h" : "";
+			buffer += "\x1b[?25l";
+			if (clear) {
+				buffer += this.deleteKittyImages(this.previousKittyImageIds);
+				buffer += "\x1b[2J\x1b[H\x1b[3J";
+			} else {
+				buffer += "\x1b[H";
+			}
+			for (let i = 0; i < frame.length; i++) {
+				if (i > 0) buffer += "\r\n";
+				buffer += "\x1b[2K";
+				buffer += frame[i];
+			}
+			buffer += "\x1b[?25h";
+			if (useDec2026) buffer += "\x1b[?2026l";
+			this.terminal.write(buffer);
+			this.cursorRow = Math.max(0, frame.length - 1);
+			this.hardwareCursorRow = this.cursorRow;
+			this.maxLinesRendered = height;
+			this.previousViewportTop = 0;
+			this.positionHardwareCursor(cursorPos, frame.length);
+			this.previousLines = frame;
+			this.previousKittyImageIds = this.collectKittyImageIds(frame);
+			this.previousWidth = width;
+			this.previousHeight = height;
+			this.onRender?.(frame.join("\n"), width, height);
+		};
+
+		if (this.previousLines.length === 0 || widthChanged || heightChanged) {
+			this.renderMeta = {
+				renderPath: this.previousLines.length === 0 ? "first" : widthChanged ? "width-change" : "height-change",
+				firstChanged: 0,
+				prevViewportTop: 0,
+				totalLines: frame.length,
+				height,
+				ts: Date.now(),
+			};
+			paintFrame(this.previousLines.length > 0);
+			return;
+		}
+
+		// Viewport-sized frames — differential never hits the scrollback path.
+		let firstChanged = -1;
+		let lastChanged = -1;
+		const maxLines = Math.max(frame.length, this.previousLines.length);
+		for (let i = 0; i < maxLines; i++) {
+			const oldLine = i < this.previousLines.length ? this.previousLines[i] : "";
+			const newLine = i < frame.length ? frame[i] : "";
+			if (oldLine !== newLine) {
+				if (firstChanged === -1) firstChanged = i;
+				lastChanged = i;
+			}
+		}
+
+		if (firstChanged === -1) {
+			this.renderMeta = {
+				renderPath: "no-change",
+				firstChanged: -1,
+				prevViewportTop: 0,
+				totalLines: frame.length,
+				height,
+				ts: Date.now(),
+			};
+			this.positionHardwareCursor(cursorPos, frame.length);
+			this.previousHeight = height;
+			return;
+		}
+
+		this.renderMeta = {
+			renderPath: "diff",
+			firstChanged,
+			prevViewportTop: 0,
+			totalLines: frame.length,
+			height,
+			ts: Date.now(),
+		};
+
+		let buffer = useDec2026 ? "\x1b[?2026h" : "";
+		buffer += "\x1b[?25l";
+		buffer += this.deleteChangedKittyImages(firstChanged, lastChanged);
+		const lineDiff = firstChanged - this.hardwareCursorRow;
+		if (lineDiff > 0) buffer += `\x1b[${lineDiff}B`;
+		else if (lineDiff < 0) buffer += `\x1b[${-lineDiff}A`;
+		buffer += "\r";
+		const renderEnd = Math.min(lastChanged, frame.length - 1);
+		for (let i = firstChanged; i <= renderEnd; i++) {
+			if (i > firstChanged) buffer += "\r\n";
+			buffer += "\x1b[2K";
+			const line = frame[i]!;
+			buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "…") : line;
+		}
+		const finalCursorRow = renderEnd;
+		if (this.previousLines.length > frame.length) {
+			const extra = this.previousLines.length - frame.length;
+			buffer += "\x1b[1B";
+			for (let i = 0; i < extra; i++) {
+				buffer += "\r\x1b[2K";
+				if (i < extra - 1) buffer += "\x1b[1B";
+			}
+			buffer += `\x1b[${extra}A`;
+		}
+		buffer += "\x1b[?25h";
+		if (useDec2026) buffer += "\x1b[?2026l";
+		this.terminal.write(buffer);
+		this.cursorRow = Math.max(0, frame.length - 1);
+		this.hardwareCursorRow = finalCursorRow;
+		this.maxLinesRendered = height;
+		this.previousViewportTop = 0;
+		this.positionHardwareCursor(cursorPos, frame.length);
+		this.previousLines = frame;
+		this.previousKittyImageIds = this.collectKittyImageIds(frame);
+		this.previousWidth = width;
+		this.previousHeight = height;
+		this.onRender?.(frame.join("\n"), width, height);
+	}
+
 	private doRender(): void {
 		if (this.stopped) return;
 		const width = this.terminal.columns;
 		const height = this.terminal.rows;
 		const widthChanged = this.previousWidth !== 0 && this.previousWidth !== width;
 		const heightChanged = this.previousHeight !== 0 && this.previousHeight !== height;
+
+		if (this.stickyFromChild && this.children.includes(this.stickyFromChild)) {
+			this.doRenderSticky(width, height, widthChanged, heightChanged);
+			return;
+		}
+
 		const previousBufferLength = this.previousHeight > 0 ? this.previousViewportTop + this.previousHeight : height;
 		let prevViewportTop = heightChanged ? Math.max(0, previousBufferLength - height) : this.previousViewportTop;
 		let viewportTop = prevViewportTop;

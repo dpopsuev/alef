@@ -351,6 +351,16 @@ export class Markdown implements Component {
 		const renderCode = (): void => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "code"
 			const codeToken = token as Tokens.Code;
+			const rawCode = codeToken.raw.trimEnd();
+			const startsFencedBlock = rawCode.startsWith("```") || rawCode.startsWith("~~~");
+			const fenceMarker = rawCode.slice(0, 3);
+			const fenceClosed = startsFencedBlock && rawCode.endsWith(fenceMarker);
+			if (startsFencedBlock && !fenceClosed) {
+				for (const line of codeToken.raw.split("\n")) {
+					lines.push(this.applyDefaultStyle(line));
+				}
+				return;
+			}
 			const indent = this.theme.codeBlockIndent ?? "  ";
 			// Terminal chrome — never paint markdown fence markers (```).
 			const openLabel = codeToken.lang?.trim() ? `┌ ${codeToken.lang.trim()}` : "┌";

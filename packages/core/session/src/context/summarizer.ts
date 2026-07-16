@@ -89,7 +89,10 @@ export function createLlmSummarizer(
 	opts?: { instructions?: string; priorSummary?: string },
 ) => Promise<string> {
 	return async (messages, opts) => {
-		const conversation = formatConversation(messages);
+		// Import truncation from compaction module
+		const { truncateToolArgsForSummary } = await import("./compaction.js");
+		const truncated = truncateToolArgsForSummary(messages);
+		const conversation = formatConversation(truncated);
 		const focus = opts?.instructions ? `\n\nAdditional focus instructions:\n${opts.instructions}` : "";
 		const prior = opts?.priorSummary ? `\n\nPrior compaction summary (fold forward):\n${opts.priorSummary}` : "";
 		try {

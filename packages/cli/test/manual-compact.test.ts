@@ -183,4 +183,87 @@ describe(":compact command", { tags: ["unit"] }, () => {
 		expect(compaction!.payload.summary).toBe("## Goal\nFrom session summarizer");
 		expect(String(compaction!.payload.summary)).not.toMatch(/Manual compaction/);
 	});
+
+	it("dispatches compacting and compacted UI signals for :compact", async () => {
+		const cwd = tmpCwd();
+		const store = await JsonlSessionStore.create(cwd);
+		await seedHistory(store, [
+			{ role: "user", content: "alpha" },
+			{ role: "assistant", content: "beta" },
+			{ role: "user", content: "gamma" },
+			{ role: "assistant", content: "delta" },
+		]);
+
+		const dispatch = vi.fn();
+		const ctx = makeCtx({
+			store,
+			dispatch,
+			session: {
+				...makeCtx().session,
+				summarizeForCompaction: vi.fn(async () => "## Goal\nSignal test summary"),
+			},
+		});
+
+		compact.run(ctx, []);
+		await vi.waitFor(() => expect(noticeText(ctx)).toMatch(/compacted/));
+
+		expect(dispatch).toHaveBeenNthCalledWith(1, {
+			type: "adapter-signal",
+			signalType: "context.compacting",
+			payload: { active: true },
+		});
+		expect(dispatch).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				type: "adapter-signal",
+				signalType: "context.compacted",
+				payload: expect.objectContaining({
+					compactedTurns: expect.any(Number),
+					estimatedBefore: expect.any(Number),
+					estimatedAfter: expect.any(Number),
+				}),
+			}),
+		);
+		expect(dispatch).toHaveBeenNthCalledWith(3, {
+			type: "adapter-signal",
+			signalType: "context.compacting",
+			payload: { active: false },
+		});
+	});
+
+	it("dispatches context.compacting active=false when :compact fails", async () => {
+		const cwd = tmpCwd();
+		const store = await JsonlSessionStore.create(cwd);
+		await seedHistory(store, [
+			{ role: "user", content: "alpha" },
+			{ role: "assistant", content: "beta" },
+		]);
+
+		const dispatch = vi.fn();
+		const ctx = makeCtx({
+			store,
+			dispatch,
+			session: {
+				...makeCtx().session,
+				summarizeForCompaction: vi.fn(async () => {
+					throw new Error("summary failed");
+				}),
+			},
+		});
+
+		compact.run(ctx, []);
+		await vi.waitFor(() => expect(noticeText(ctx)).toMatch(/summary failed/));
+
+		expect(dispatch).toHaveBeenCalledWith({
+			type: "adapter-signal",
+			signalType: "context.compacting",
+			payload: { active: true },
+		});
+		expect(dispatch).toHaveBeenCalledWith({
+			type: "adapter-signal",
+			signalType: "context.compacting",
+			payload: { active: false },
+		});
+		expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ signalType: "context.compacted" }));
+	});
 });

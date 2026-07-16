@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
 	projectSessionRecords,
+	projectTranscriptSlice,
+	selectRecentTranscriptRecords,
 	selectTranscriptBlocks,
 	type SessionRecordProjection,
 } from "../src/context/projector.js";
@@ -106,6 +108,67 @@ describe("selectTranscriptBlocks", { tags: ["unit"] }, () => {
 			{ kind: "assistant", text: "mid reply" },
 			{ kind: "user", text: "new" },
 			{ kind: "tool", name: "fs.edit", summary: "/new" },
+		]);
+	});
+});
+
+describe("selectRecentTranscriptRecords", { tags: ["unit"] }, () => {
+	it("skips post-dialog boot noise that would empty a naive slice(-N)", () => {
+		const dialog = [
+			rec("event", "llm.input", { text: "hello" }),
+			rec("command", "llm.response", { text: "hi" }),
+			rec("event", "llm.input", { text: "spawn agent" }),
+			rec("command", "llm.response", { text: "spawned" }),
+		];
+		const bootNoise = Array.from({ length: 80 }, (_, i) =>
+			i % 2 === 0 ? rec("event", "adapter.loaded", { name: `a${i}` }) : rec("event", "agent.run", { text: "x" }),
+		);
+		const selected = selectRecentTranscriptRecords([...dialog, ...bootNoise], 5);
+		expect(selected).toEqual(dialog);
+	});
+
+	it("stops after maxTurns user inputs while keeping tools between them", () => {
+		const selected = selectRecentTranscriptRecords(
+			[
+				rec("event", "llm.input", { text: "old" }),
+				rec("command", "fs.read", { path: "/old" }),
+				rec("command", "llm.response", { text: "old reply" }),
+				rec("event", "llm.input", { text: "new" }),
+				rec("command", "fs.edit", { path: "/new" }),
+				rec("command", "llm.response", { text: "new reply" }),
+				rec("event", "adapter.loaded", { name: "fs" }),
+			],
+			1,
+		);
+		expect(selected).toEqual([
+			rec("event", "llm.input", { text: "new" }),
+			rec("command", "fs.edit", { path: "/new" }),
+			rec("command", "llm.response", { text: "new reply" }),
+		]);
+	});
+});
+
+describe("projectTranscriptSlice", { tags: ["unit"] }, () => {
+	it("is the shared select→project→trim path for preview and resume", () => {
+		const bootNoise = Array.from({ length: 40 }, () => rec("event", "adapter.loaded", { name: "fs" }));
+		const blocks = projectTranscriptSlice(
+			[
+				rec("event", "llm.input", { text: "old" }),
+				rec("command", "llm.response", { text: "old reply" }),
+				rec("event", "llm.input", { text: "new" }),
+				rec("command", "fs.read", { path: "/x" }),
+				rec("command", "llm.response", { text: "new reply" }),
+				...bootNoise,
+			],
+			1,
+			{ plan: { phase: "ship", desired: "dry preview" } },
+		);
+
+		expect(blocks).toEqual([
+			{ kind: "plan", phase: "ship", desired: "dry preview", lines: [] },
+			{ kind: "user", text: "new" },
+			{ kind: "tool", name: "fs.read", summary: "/x" },
+			{ kind: "assistant", text: "new reply" },
 		]);
 	});
 });

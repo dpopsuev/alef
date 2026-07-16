@@ -17,27 +17,65 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
 
-const VITEST = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_modules/.bin/vitest");
+const MONOREPO_NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), "../../../../../node_modules");
+const VITEST_CLI = join(dirname(fileURLToPath(import.meta.url)), "../../../../../node_modules/vitest/vitest.mjs");
+const CHILD_VITEST_TIMEOUT_MS = 15_000;
+const CHILD_VITEST_KILL_GRACE_MS = 250;
+const PROCESS_TIMEOUT_EXIT_CODE = 124;
 
-const MONOREPO_NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_modules");
+/**
+ *
+ */
+function childVitestEnv(): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = { ...process.env };
+	for (const key of Object.keys(env)) {
+		if (key.startsWith("VITEST")) delete env[key];
+	}
+	return env;
+}
 
 /**
  *
  */
 function runVitest(workspace: string): Promise<{ exitCode: number; output: string }> {
 	return new Promise((resolve) => {
-		const proc = spawn(VITEST, ["run", "--root", workspace, "--reporter", "verbose"], {
+		const proc = spawn(process.execPath, [VITEST_CLI, "run", "--root", workspace, "--reporter", "verbose"], {
 			cwd: workspace,
 			stdio: ["ignore", "pipe", "pipe"],
+			env: childVitestEnv(),
 		});
 		let output = "";
+		let timedOut = false;
+		let settled = false;
+		const settle = (exitCode: number): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			resolve({
+				exitCode,
+				output: timedOut ? `${output}\nVitest timed out after ${CHILD_VITEST_TIMEOUT_MS}ms` : output,
+			});
+		};
+		const timeout = setTimeout(() => {
+			timedOut = true;
+			proc.kill("SIGTERM");
+			setTimeout(() => {
+				if (!settled) proc.kill("SIGKILL");
+			}, CHILD_VITEST_KILL_GRACE_MS);
+		}, CHILD_VITEST_TIMEOUT_MS);
 		proc.stdout.on("data", (d: Buffer) => {
 			output += d.toString();
 		});
 		proc.stderr.on("data", (d: Buffer) => {
 			output += d.toString();
 		});
-		proc.on("close", (code) => resolve({ exitCode: code ?? 1, output }));
+		proc.on("error", (error) => {
+			output += `\n${error.name}: ${error.message}`;
+			settle(1);
+		});
+		proc.on("exit", (code) => {
+			settle(timedOut ? PROCESS_TIMEOUT_EXIT_CODE : (code ?? 1));
+		});
 	});
 }
 

@@ -11,6 +11,12 @@ import {
 import type { SessionStore, StorageRecord } from "../src/contracts/storage.js";
 import { hashRecord } from "../src/contracts/storage.js";
 
+function contentText(content: unknown): string {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content.map((block) => (block?.type === "text" ? (block.text ?? "") : "")).join("");
+}
+
 describe("createCompactionStage — reserveTokens trigger", { tags: ["unit"] }, () => {
 	it("compacts when estimate exceeds window - reserveTokens", async () => {
 		const publishSignal = vi.fn();
@@ -179,7 +185,8 @@ describe("durable compaction", { tags: ["unit"] }, () => {
 			tools: [],
 			turn: 2,
 		});
-		expect(below.messages?.[0]).toMatchObject({ role: "user", content: expect.stringMatching(/^SUM:/) });
+		expect((below.messages ?? [])[0]).toMatchObject({ role: "user" });
+		expect(contentText(((below.messages ?? [])[0] as { content?: unknown })?.content)).toMatch(/^SUM:/);
 	});
 
 	it("eventsAfterCompaction returns events from firstKeptEventId", () => {
@@ -288,9 +295,7 @@ describe("durable compaction", { tags: ["unit"] }, () => {
 		});
 		expect(calls).toBe(1);
 		expect(out.messages).toBeDefined();
-		const texts = (out.messages ?? []).map((m) =>
-			typeof (m as { content?: unknown }).content === "string" ? (m as { content: string }).content : "",
-		);
+		const texts = (out.messages ?? []).map((m) => contentText((m as { content?: unknown }).content));
 		expect(texts.some((t) => t.includes("Forced summary"))).toBe(true);
 		expect(texts.some((t) => t.includes("Manual compaction"))).toBe(false);
 	});
@@ -342,9 +347,7 @@ describe("durable compaction", { tags: ["unit"] }, () => {
 			turn: 1,
 		});
 		expect(calls).toBe(0);
-		const texts = (out.messages ?? []).map((m) =>
-			typeof (m as { content?: unknown }).content === "string" ? (m as { content: string }).content : "",
-		);
+		const texts = (out.messages ?? []).map((m) => contentText((m as { content?: unknown }).content));
 		expect(texts.some((t) => t.includes("Context shaken"))).toBe(true);
 		expect(texts.some((t) => t.includes("llm-summary"))).toBe(false);
 	});
@@ -537,18 +540,29 @@ auto-tag
 		});
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-		const messages = result.messages as Array<{ role: string; content: string }>;
+		const messages = result.messages as Array<{ role: string; content: string | Array<{ type?: string; text?: string }> }>;
 		expect(messages).toBeDefined();
 
 		expect(messages[0]?.role).toBe("system");
-		expect(messages[0]?.content).toContain("Use tools from the request schema");
+		expect(String(messages[0]?.content)).toContain("Use tools from the request schema");
 
-		const joined = messages.map((m) => m.content).join("\n");
+		const joined = messages
+			.map((m) =>
+				typeof m.content === "string"
+					? m.content
+					: m.content
+							.map((block) => (block.type === "text" ? block.text ?? "" : ""))
+							.join(""),
+			)
+			.join("\n");
 		expect(joined, "must not teach Anthropic XML tool protocol after compact").not.toContain("<function_calls>");
 		expect(joined).not.toContain("<invoke");
 		expect(joined).not.toMatch(/<\/?parameter/);
 
-		const summaryIndex = messages.findIndex((m) => m.role === "user" && m.content === "[Context compacted]");
+		const summaryIndex = messages.findIndex((m) => {
+			if (m.role !== "user" || !Array.isArray(m.content)) return false;
+			return m.content.some((block) => block.type === "text" && block.text === "[Context compacted]");
+		});
 		expect(summaryIndex).toBeGreaterThan(0);
 	});
 });

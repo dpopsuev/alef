@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, Watchdog } from "@dpopsuev/alef-kernel/bus";
+import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
@@ -30,33 +30,160 @@ type EventBus = { subscribe: (type: string, handler: (event: EventMessage) => vo
 
 const CORRELATION_ID_DISPLAY_LENGTH = 8;
 const CHARS_PER_TOKEN = 4;
-const STALL_INTERVAL_MS = 5_000;
+const MILLISECONDS_PER_SECOND = 1_000;
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
-const TIMEOUT_BUFFER_MS = 10_000;
 const LONG_RUNNING_PREFIXES = ["agent.", "orchestration."];
+const MIN_SUPERVISION_WAKE_MS = 1_000;
+const MIN_SUPERVISION_STALL_MS = 2_000;
+const DEFAULT_HEARTBEAT_GRACE_MS = 20_000;
+const DEFAULT_WAKE_EXTENSION_MS = 60_000;
+const STANDARD_WAKE_CAP_MS = 30_000;
+const LONG_RUNNING_WAKE_RATIO = 0.2;
+const STANDARD_WAKE_RATIO = 0.5;
+const STALL_AFTER_WAKE_MULTIPLIER = 1.5;
+const OUTPUT_TAIL_MAX_CHARS = 4_000;
+const SUPERVISION_TIMER_MIN_MS = 50;
+const SUPERVISION_TIMER_DIVISOR = 4;
+const CANCEL_FALLBACK_ABORT_DELAY_MS = 1_000;
 
-/** Compute the outer wait timeout for a tool call, extending for long-running or explicitly-timed tools. */
-function toOuterTimeoutMs(
+/**
+ * Explicit tool deadline from call args.
+ * `timeoutMs` / `maxMs` are milliseconds; `timeout` is seconds (shell.exec / nodesh).
+ */
+export function explicitToolTimeoutMs(args: Record<string, unknown>): number | undefined {
+	if (typeof args.timeoutMs === "number" && Number.isFinite(args.timeoutMs) && args.timeoutMs >= 0) {
+		return args.timeoutMs;
+	}
+	if (typeof args.maxMs === "number" && Number.isFinite(args.maxMs) && args.maxMs >= 0) {
+		return args.maxMs;
+	}
+	if (typeof args.timeout === "number" && Number.isFinite(args.timeout) && args.timeout >= 0) {
+		return args.timeout * MILLISECONDS_PER_SECOND;
+	}
+	return undefined;
+}
+
+/** Ownership split between adapter execution caps and reasoner supervision patience. */
+export interface ToolSupervisionPolicy {
+	expectedRuntimeMs: number;
+	wakeAfterMs: number;
+	stallAfterMs: number;
+	heartbeatGraceMs: number;
+	allowInfiniteWait: boolean;
+	suggestedActions: Array<"wait" | "inspect" | "cancel" | "extend">;
+}
+
+/** Snapshot of the latest known progress for a tool call. */
+export interface ToolProgressSnapshot {
+	callId: string;
+	name: string;
+	elapsedMs: number;
+	outputTail?: string;
+	lastOutputMs?: number;
+	processAlive?: boolean;
+	cpuActive?: boolean;
+	classification?: string;
+}
+
+/** Wake-up payload sent to the supervisor when patience expires. */
+export interface ToolWakeSnapshot extends ToolProgressSnapshot {
+	reason: "slow" | "stall" | "protocol";
+	availableActions: Array<"wait" | "inspect" | "cancel" | "extend">;
+}
+
+/** Decision returned by the supervision handler. */
+export interface ToolWakeDecision {
+	action: "wait" | "cancel" | "extend";
+	extendMs?: number;
+}
+
+/**
+ *
+ */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return hasTruthyRecord(value) ? value : undefined;
+}
+
+/**
+ *
+ */
+function hasTruthyRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+/**
+ *
+ */
+function appendTail(current: string, next: string | undefined): string {
+	if (!next) return current;
+	const combined = current ? `${current}${next}` : next;
+	return combined.length > OUTPUT_TAIL_MAX_CHARS ? combined.slice(-OUTPUT_TAIL_MAX_CHARS) : combined;
+}
+
+/**
+ *
+ */
+function extractPartialText(payload: Record<string, unknown>): string | undefined {
+	if (typeof payload.text === "string") return payload.text;
+	if (typeof payload.chunk === "string") return payload.chunk;
+	if (typeof payload.outputTail === "string") return payload.outputTail;
+	if (typeof payload.output === "string") return payload.output;
+	if (typeof payload.content === "string") return payload.content;
+	return undefined;
+}
+
+/**
+ *
+ */
+function toolHasHeartbeat(toolName: string, args: Record<string, unknown>, toolDef?: ToolDefinition): boolean {
+	if (toolName === "shell.exec") return true;
+	if (toolDef?.streaming) return Boolean(toolDef.longRunning);
+	if (args.block_until_ms === 0) return true;
+	return false;
+}
+
+/**
+ *
+ */
+function isBackgroundLike(args: Record<string, unknown>): boolean {
+	return args.block_until_ms === 0 || hasTruthyRecord(args.notify_on_output);
+}
+
+/** Compute the reasoner's patience policy for a tool call without owning the kill switch. */
+export function resolveToolSupervisionPolicy(
 	toolName: string,
 	args: Record<string, unknown>,
 	defaultMs: number,
 	toolDef?: ToolDefinition,
-): number {
-	const longRunning = toolDef?.longRunning ?? LONG_RUNNING_PREFIXES.some((p) => toolName.startsWith(p));
-	if (longRunning) {
-		const parsed = toolDef?.inputSchema.safeParse(args);
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod safeParse .data is unknown at type level
-		const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
-		const explicit =
-			typeof data.maxMs === "number" ? data.maxMs : typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
-		return (explicit ?? LONG_RUNNING_TIMEOUT_MS) + TIMEOUT_BUFFER_MS;
-	}
+): ToolSupervisionPolicy {
+	const longRunning = toolDef?.longRunning ?? LONG_RUNNING_PREFIXES.some((prefix) => toolName.startsWith(prefix));
 	const parsed = toolDef?.inputSchema.safeParse(args);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod safeParse .data is unknown at type level
 	const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
-	const inner =
-		typeof data.timeoutMs === "number" ? data.timeoutMs : typeof data.maxMs === "number" ? data.maxMs : undefined;
-	return inner !== undefined ? inner + TIMEOUT_BUFFER_MS : defaultMs;
+	const explicitRuntimeMs = explicitToolTimeoutMs(data);
+	const backgroundLike = isBackgroundLike(data);
+	const allowInfiniteWait = longRunning || backgroundLike || toolName === "shell.exec";
+	const expectedRuntimeMs = explicitRuntimeMs ?? (allowInfiniteWait ? LONG_RUNNING_TIMEOUT_MS : defaultMs);
+	const wakeAfterMs = allowInfiniteWait
+		? Math.min(
+				DEFAULT_WAKE_EXTENSION_MS,
+				Math.max(MIN_SUPERVISION_WAKE_MS, Math.floor(expectedRuntimeMs * LONG_RUNNING_WAKE_RATIO)),
+			)
+		: Math.min(STANDARD_WAKE_CAP_MS, Math.max(MIN_SUPERVISION_WAKE_MS, Math.floor(expectedRuntimeMs * STANDARD_WAKE_RATIO)));
+	const stallAfterMs = allowInfiniteWait
+		? Math.max(MIN_SUPERVISION_STALL_MS, wakeAfterMs)
+		: Math.max(MIN_SUPERVISION_STALL_MS, Math.floor(wakeAfterMs * STALL_AFTER_WAKE_MULTIPLIER));
+	const heartbeatGraceMs = toolHasHeartbeat(toolName, data, toolDef)
+		? Math.max(MIN_SUPERVISION_WAKE_MS, Math.min(DEFAULT_HEARTBEAT_GRACE_MS, wakeAfterMs))
+		: Math.max(stallAfterMs, wakeAfterMs);
+	return {
+		expectedRuntimeMs,
+		wakeAfterMs,
+		stallAfterMs,
+		heartbeatGraceMs,
+		allowInfiniteWait,
+		suggestedActions: ["wait", "inspect", "cancel", "extend"],
+	};
 }
 
 /** Extract a validation error descriptor from a tool-result payload, if present. */
@@ -93,60 +220,81 @@ export interface ToolResultSubscription {
 	toolName: string;
 	toolCallId: string;
 	correlationId: string;
-	timeoutMs: number;
+	supervision: ToolSupervisionPolicy;
+	needsHeartbeat?: boolean;
 	signal?: AbortSignal;
 	onChunk?: (text: string) => void;
+	onProgress?: (snapshot: ToolProgressSnapshot) => void;
+	onHeartbeat?: (snapshot: ToolProgressSnapshot) => void;
 	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void;
-	stallIntervalMs?: number;
+	onWake?: (snapshot: ToolWakeSnapshot) => Promise<ToolWakeDecision | void> | ToolWakeDecision | void;
+	onBudgetExtended?: (info: { extendMs: number; wakeAfterMs: number }) => void;
 }
 
-/** Subscribe to the event bus and resolve when the matching tool-result event arrives or timeout/abort fires. */
+/**
+ *
+ */
+function isHeartbeatPayload(payload: Record<string, unknown>): boolean {
+	return Boolean(payload.heartbeat) || typeof payload.classification === "string";
+}
+
+/** Subscribe to the event bus and resolve when the matching tool-result event arrives or supervision ends it. */
 export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMessage> {
 	const {
 		event,
 		toolName,
 		toolCallId,
 		correlationId,
-		timeoutMs,
+		supervision,
+		needsHeartbeat = false,
 		signal,
 		onChunk,
+		onProgress,
+		onHeartbeat,
 		onStall,
-		stallIntervalMs: stallMs = STALL_INTERVAL_MS,
+		onWake,
+		onBudgetExtended,
 	} = sub;
 	const subscribedAt = Date.now();
 	traceEvent("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, CORRELATION_ID_DISPLAY_LENGTH) });
 	return new Promise((resolve, reject) => {
-		const watchdog = onStall
-			? new Watchdog(stallMs, () => {
-					traceEvent("tool:stall", {
-						name: toolName,
-						elapsedMs: Date.now() - subscribedAt,
-						lastChunkMs: stallMs,
-					});
-					onStall({ elapsedMs: Date.now() - subscribedAt, lastChunkMs: stallMs });
-				})
-			: null;
-		watchdog?.start();
+		let latestOutputTail = "";
+		let latestOutputAt: number | undefined;
+		let latestClassification: string | undefined;
+		let processAlive: boolean | undefined;
+		let cpuActive: boolean | undefined;
+		let lastActivityAt = subscribedAt;
+		let lastHeartbeatAt: number | undefined;
+		let slowWakeAfterMs = supervision.wakeAfterMs;
+		let wakeInFlight = false;
+		let settled = false;
+		let off: () => void = () => {};
 
-		const done = (): void => {
-			watchdog?.stop();
-		};
+		const snapshot = (elapsedMs: number): ToolProgressSnapshot => ({
+			callId: toolCallId,
+			name: toolName,
+			elapsedMs,
+			...(latestOutputTail ? { outputTail: latestOutputTail } : {}),
+			...(latestOutputAt !== undefined ? { lastOutputMs: elapsedMs - (Date.now() - latestOutputAt) } : {}),
+			...(processAlive !== undefined ? { processAlive } : {}),
+			...(cpuActive !== undefined ? { cpuActive } : {}),
+			...(latestClassification ? { classification: latestClassification } : {}),
+		});
 
-		// lint-ignore: RAWTIMER hard tool-call deadline; stall detection uses Watchdog above
-		const timer = setTimeout(() => {
-			done();
+		const settle = (handler: () => void): void => {
+			if (settled) return;
+			settled = true;
+			clearInterval(supervisionTimer);
 			off();
-			traceEvent("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
-			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
-		}, timeoutMs);
+			handler();
+		};
 
 		if (signal) {
 			const onAbort = () => {
-				clearTimeout(timer);
-				done();
-				off();
-				traceEvent("llm:tool:aborted", { name: toolName, elapsedMs: Date.now() - subscribedAt });
-				reject(new Error(`Tool aborted: ${toolName}`));
+				settle(() => {
+					traceEvent("llm:tool:aborted", { name: toolName, elapsedMs: Date.now() - subscribedAt });
+					reject(new Error(`Tool aborted: ${toolName}`));
+				});
 			};
 			if (signal.aborted) {
 				onAbort();
@@ -155,33 +303,112 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 			signal.addEventListener("abort", onAbort, { once: true });
 		}
 
-		const off = event.subscribe(toolName, (event) => {
+		const supervisionTimer = setInterval(() => {
+			if (settled || wakeInFlight) return;
+			const now = Date.now();
+			const elapsedMs = now - subscribedAt;
+			const quietMs = now - lastActivityAt;
+			const missingHeartbeatMs = lastHeartbeatAt === undefined ? elapsedMs : now - lastHeartbeatAt;
+			let reason: ToolWakeSnapshot["reason"] | undefined;
+			if (needsHeartbeat && lastHeartbeatAt === undefined && elapsedMs >= supervision.heartbeatGraceMs) {
+				reason = "protocol";
+			} else if (quietMs >= supervision.stallAfterMs) {
+				reason = "stall";
+			} else if (elapsedMs >= slowWakeAfterMs) {
+				reason = "slow";
+			}
+			if (!reason) return;
+			if (reason === "stall") {
+				traceEvent("tool:stall", { name: toolName, elapsedMs, lastChunkMs: quietMs });
+				onStall?.({ elapsedMs, lastChunkMs: quietMs });
+			}
+			if (reason === "protocol" && missingHeartbeatMs >= supervision.heartbeatGraceMs && !onWake) {
+				settle(() => reject(new Error(`Tool failed to establish heartbeat: ${toolName}`)));
+				return;
+			}
+			if (!onWake) {
+				slowWakeAfterMs += supervision.wakeAfterMs;
+				return;
+			}
+			wakeInFlight = true;
+			const wakeSnapshot: ToolWakeSnapshot = {
+				...snapshot(elapsedMs),
+				reason,
+				availableActions: supervision.suggestedActions,
+			};
+			void Promise.resolve(onWake(wakeSnapshot))
+				.then((decision) => {
+					if (settled) return;
+					if (decision?.action === "extend") {
+						const extendMs = Math.max(MIN_SUPERVISION_WAKE_MS, decision.extendMs ?? DEFAULT_WAKE_EXTENSION_MS);
+						slowWakeAfterMs = Math.max(slowWakeAfterMs, elapsedMs) + extendMs;
+						onBudgetExtended?.({ extendMs, wakeAfterMs: slowWakeAfterMs });
+						return;
+					}
+					if (decision?.action === "wait") {
+						slowWakeAfterMs = Math.max(slowWakeAfterMs, elapsedMs) + supervision.wakeAfterMs;
+					}
+				})
+				.finally(() => {
+					wakeInFlight = false;
+				});
+		}, Math.max(
+			SUPERVISION_TIMER_MIN_MS,
+			Math.min(
+				MIN_SUPERVISION_WAKE_MS,
+				Math.floor(Math.min(supervision.wakeAfterMs, supervision.stallAfterMs) / SUPERVISION_TIMER_DIVISOR),
+			),
+		));
+
+		off = event.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 				if (event.payload.isFinal === false) {
-					watchdog?.reset();
-					if (onChunk) {
-						const text =
-							typeof event.payload.text === "string"
-								? event.payload.text
-								: typeof event.payload.output === "string"
-									? event.payload.output
-									: typeof event.payload.content === "string"
-										? event.payload.content
-										: undefined;
-						if (text) onChunk(text);
+					const now = Date.now();
+					const text = extractPartialText(event.payload);
+					if (text) {
+						latestOutputTail = appendTail(latestOutputTail, text);
+						latestOutputAt = now;
+						lastActivityAt = now;
+						onChunk?.(text);
 					}
+					const heartbeat = asRecord(event.payload.heartbeat);
+					if (isHeartbeatPayload(event.payload) || heartbeat) {
+						lastHeartbeatAt = now;
+						processAlive =
+							typeof event.payload.processAlive === "boolean"
+								? event.payload.processAlive
+								: typeof heartbeat?.processAlive === "boolean"
+									? (heartbeat.processAlive)
+									: processAlive;
+						cpuActive =
+							typeof event.payload.cpuActive === "boolean"
+								? event.payload.cpuActive
+								: typeof heartbeat?.cpuActive === "boolean"
+									? (heartbeat.cpuActive)
+									: cpuActive;
+						latestClassification =
+							typeof event.payload.classification === "string"
+								? event.payload.classification
+								: typeof heartbeat?.classification === "string"
+									? (heartbeat.classification)
+									: latestClassification;
+						if (latestClassification === "output-progress" || latestClassification === "cpu-active") {
+							lastActivityAt = now;
+						}
+						onHeartbeat?.(snapshot(now - subscribedAt));
+					}
+					onProgress?.(snapshot(now - subscribedAt));
 					return;
 				}
-				clearTimeout(timer);
-				done();
-				off();
-				traceEvent("llm:tool:resolved", {
-					name: toolName,
-					elapsedMs: Date.now() - subscribedAt,
-					isError: event.isError,
-					...(event.isError && event.errorMessage ? { errorMessage: event.errorMessage } : {}),
+				settle(() => {
+					traceEvent("llm:tool:resolved", {
+						name: toolName,
+						elapsedMs: Date.now() - subscribedAt,
+						isError: event.isError,
+						...(event.isError && event.errorMessage ? { errorMessage: event.errorMessage } : {}),
+					});
+					resolve(event);
 				});
-				resolve(event);
 			}
 		});
 	});
@@ -199,6 +426,7 @@ interface DispatchToolsOptions {
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	callAbortControllers?: Map<string, AbortController>;
+	onToolWake?: (info: ToolWakeSnapshot & { args: Record<string, unknown> }) => Promise<ToolWakeDecision>;
 }
 
 /** Publish tool-call commands in parallel and collect all results with timeout and stall detection. */
@@ -217,6 +445,7 @@ export async function dispatchTools(
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
 			const callController = new AbortController();
+			let cancelFallbackTimer: ReturnType<typeof setTimeout> | undefined;
 			if (options.signal) {
 				options.signal.addEventListener("abort", () => callController.abort(options.signal?.reason), {
 					once: true,
@@ -228,17 +457,23 @@ export async function dispatchTools(
 				payload: { callId: tc.id, name: motorType, args: tc.args },
 				correlationId,
 			});
-			const outerWaitMs = toOuterTimeoutMs(
-				motorType,
-				tc.args,
-				timeoutMs,
-				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),
-			);
+			const toolDef = options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType);
+			const supervision = resolveToolSupervisionPolicy(motorType, tc.args, timeoutMs, toolDef);
 			const onChunk = (text: string) =>
 				signal.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
 			const onStall = (info: { elapsedMs: number; lastChunkMs: number }) =>
 				signal.publish({
 					type: "llm.tool-stall",
+					payload: { callId: tc.id, name: motorType, ...info },
+					correlationId,
+				});
+			const onProgress = (progress: ToolProgressSnapshot) =>
+				signal.publish({ type: "llm.tool-progress", payload: { ...progress }, correlationId });
+			const onHeartbeat = (heartbeat: ToolProgressSnapshot) =>
+				signal.publish({ type: "llm.tool-heartbeat", payload: { ...heartbeat }, correlationId });
+			const onBudgetExtended = (info: { extendMs: number; wakeAfterMs: number }) =>
+				signal.publish({
+					type: "llm.tool-budget-extended",
 					payload: { callId: tc.id, name: motorType, ...info },
 					correlationId,
 				});
@@ -248,14 +483,36 @@ export async function dispatchTools(
 				toolName: motorType,
 				toolCallId: tc.id,
 				correlationId,
-				timeoutMs: outerWaitMs,
+				supervision,
+				needsHeartbeat: toolHasHeartbeat(motorType, tc.args, toolDef),
 				signal: callController.signal,
 				onChunk,
+				onProgress,
+				onHeartbeat,
 				onStall,
+				onBudgetExtended,
+				onWake: async (wake) => {
+					signal.publish({
+						type: "llm.tool-wake",
+						payload: { ...wake },
+						correlationId,
+					});
+					const decision = await options.onToolWake?.({ ...wake, args: tc.args });
+					if (decision?.action === "cancel") {
+						signal.publish({ type: "tools.cancel-request", payload: { callId: tc.id }, correlationId });
+						// lint-ignore: RAWTIMER adapter gets first chance to honour cancel before waiter falls back
+						cancelFallbackTimer = setTimeout(() => {
+							callController.abort(new Error(`Cancelled after tool wake: ${motorType}`));
+						}, CANCEL_FALLBACK_ABORT_DELAY_MS);
+						return decision;
+					}
+					return decision ?? { action: "wait" };
+				},
 			});
 			command.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			return resultPromise
 				.then((r) => {
+					if (cancelFallbackTimer) clearTimeout(cancelFallbackTimer);
 					const validationErr = extractValidationError(r.payload);
 					if (validationErr) {
 						signal.publish({
@@ -284,6 +541,8 @@ export async function dispatchTools(
 					return r;
 				})
 				.catch((err: unknown) => {
+					if (cancelFallbackTimer) clearTimeout(cancelFallbackTimer);
+					callController.abort(err instanceof Error ? err : new Error(String(err)));
 					const elapsedMs = Date.now() - startedAt;
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					signal.publish({

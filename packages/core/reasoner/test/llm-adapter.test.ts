@@ -732,10 +732,14 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 // ---------------------------------------------------------------------------
 
 describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"] }, () => {
-	it("emits tool-end(ok:false) when tool times out — never leaves pill hanging", async () => {
-		// Given: a faux LLM that calls a tool that will never respond
+	it("emits tool-end(ok:false) when supervision cancels a hung tool", async () => {
+		// Given: a faux LLM that calls a tool that will never respond, then cancels it on wake
 		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage([fauxToolCall("hung_tool", { command: "wait" })])]);
+		faux.setResponses([
+			fauxAssistantMessage([fauxToolCall("hung_tool", { command: "wait" })]),
+			fauxAssistantMessage("cancel"),
+			fauxAssistantMessage("cancelled"),
+		]);
 
 		const capturedEvents: Array<{ type: string; ok?: boolean; result?: string }> = [];
 
@@ -778,12 +782,12 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				timeoutMs: 200, // short timeout for test speed
+				timeoutMs: 200, // short supervision budget for test speed
 			}),
 		);
 		f.mount(hungAdapter);
 
-		// When: the turn runs and the tool times out
+		// When: the turn runs and supervision cancels the tool
 		await driver.send("call hung_tool", "human", 2_000);
 		f.dispose();
 
@@ -793,7 +797,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		expect(starts).toHaveLength(1);
 		expect(ends).toHaveLength(1);
 		expect(ends[0]?.ok).toBe(false);
-		expect(ends[0]?.result).toMatch(/timed out/i);
+		expect(ends[0]?.result).toMatch(/aborted|cancelled/i);
 	}, 4_000);
 });
 
@@ -880,40 +884,58 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 // ---------------------------------------------------------------------------
 
 describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
-	it("fires onStall after stallIntervalMs with no chunks, before timeout", async () => {
+	it("fires onStall and wakes supervision when a tool goes quiet", async () => {
 		// Given: an event bus where the tool never responds (simulating a hung subagent)
 		const f = new BusFixture();
 		const correlationId = "corr-stall-test";
 		const toolCallId = "tc-stall-1";
 
 		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
+		const wakeReasons: string[] = [];
 
-		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
+		// When: waitForToolResult supervises the tool and we end it from the wake handler
 		const resultPromise = waitForToolResult({
 			event: f.bus.asBus().event,
 			toolName: "stall.test",
 			toolCallId,
 			correlationId,
-			timeoutMs: 600,
+			supervision: {
+				expectedRuntimeMs: 200,
+				wakeAfterMs: 150,
+				stallAfterMs: 150,
+				heartbeatGraceMs: 150,
+				allowInfiniteWait: false,
+				suggestedActions: ["wait", "inspect", "cancel", "extend"],
+			},
 			onStall: (info) => stallEvents.push(info),
-			stallIntervalMs: 200,
+			onWake: (wake) => {
+				wakeReasons.push(wake.reason);
+				setTimeout(() => {
+					f.bus.asBus().event.publish({
+						type: "stall.test",
+						correlationId,
+						payload: { toolCallId, isFinal: true, content: "cancelled" },
+						isError: true,
+						errorMessage: "cancelled",
+					});
+				}, 10);
+				return { action: "cancel" };
+			},
 		});
 
-		// The promise will reject at 600ms (timeout)
-		await expect(resultPromise).rejects.toThrow(/timed out/i);
+		await expect(resultPromise).resolves.toEqual(expect.anything());
 		f.dispose();
 
-		// onStall must have fired at least once before the timeout
-		expect(stallEvents.length, "stall watchdog must fire at least once before timeout").toBeGreaterThan(0);
+		expect(stallEvents.length, "stall watchdog must fire at least once before wake").toBeGreaterThan(0);
+		expect(wakeReasons).toEqual(["stall"]);
 
-		// Each stall event must report meaningful elapsed time and lastChunkMs
 		for (const event of stallEvents) {
 			expect(event.elapsedMs, "elapsedMs must be positive").toBeGreaterThan(0);
-			expect(event.lastChunkMs, "lastChunkMs must be >= stall interval").toBeGreaterThanOrEqual(200);
+			expect(event.lastChunkMs, "lastChunkMs must be >= stall interval").toBeGreaterThanOrEqual(150);
 		}
 	}, 3_000);
 
-	it("stall resets when a chunk arrives — onStall does not fire after chunk", async () => {
+	it("stall wake includes the latest chunk snapshot after progress resets the clock", async () => {
 		// Given: an event bus that sends one isFinal:false chunk then goes silent
 		const f = new BusFixture();
 		const correlationId = "corr-stall-reset";
@@ -921,16 +943,36 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
 		const chunks: string[] = [];
+		const wakePayloads: Array<{ outputTail?: string }> = [];
 
 		const resultPromise = waitForToolResult({
 			event: f.bus.asBus().event,
 			toolName: "stall.reset",
 			toolCallId,
 			correlationId,
-			timeoutMs: 600,
+			supervision: {
+				expectedRuntimeMs: 200,
+				wakeAfterMs: 120,
+				stallAfterMs: 160,
+				heartbeatGraceMs: 160,
+				allowInfiniteWait: false,
+				suggestedActions: ["wait", "inspect", "cancel", "extend"],
+			},
 			onChunk: (text) => chunks.push(text),
 			onStall: (info) => stallEvents.push(info),
-			stallIntervalMs: 200,
+			onWake: (wake) => {
+				wakePayloads.push({ outputTail: wake.outputTail });
+				setTimeout(() => {
+					f.bus.asBus().event.publish({
+						type: "stall.reset",
+						correlationId,
+						payload: { toolCallId, isFinal: true, content: "cancelled" },
+						isError: true,
+						errorMessage: "cancelled",
+					});
+				}, 10);
+				return { action: "cancel" };
+			},
 		});
 
 		// Emit one chunk at 50ms — resets the stall clock
@@ -943,16 +985,12 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 			});
 		}, 50);
 
-		await expect(resultPromise).rejects.toThrow(/timed out/i);
+		await expect(resultPromise).resolves.toEqual(expect.anything());
 		f.dispose();
 
-		// The chunk arrived at 50ms; stall can only fire at 250ms (50 + 200 interval)
-		// but lastChunkAt was reset to 50ms, so no stall fires until 250ms of silence
 		expect(chunks, "chunk must have been received").toContain("working...");
-
-		// Stall events that fired must show lastChunkMs starting from after the chunk
+		expect(wakePayloads).toEqual([{ outputTail: expect.stringContaining("working") }]);
 		for (const event of stallEvents) {
-			// Each stall event's lastChunkMs measures time since the chunk reset
 			expect(event.lastChunkMs, "lastChunkMs must reflect chunk reset").toBeGreaterThanOrEqual(150);
 		}
 	}, 3_000);

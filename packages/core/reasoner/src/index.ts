@@ -54,7 +54,10 @@ export interface LlmCallOptions {
 }
 
 /** Reserved extension point for LLM observability hooks (tracing, metrics). */
-export interface LlmObservabilityOptions {}
+export interface LlmObservabilityOptions {
+	/** Session ID for tool result offloading. Optional - when present, large results are written to filesystem. */
+	sessionId?: string;
+}
 
 /** Topology and capability options — routing, pipeline, concurrency, context prep. */
 export interface LlmTopologyOptions {

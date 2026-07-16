@@ -8,6 +8,9 @@ const SKIPPED_TYPES = new Set([
 	"llm.token-usage",
 ]);
 
+/** Buses that can contribute chat transcript blocks (matches session preview SQL). */
+const TRANSCRIPT_BUSES = new Set(["event", "command", "notification"]);
+
 /**
  *
  */
@@ -164,4 +167,53 @@ const MIN_EVENT_WINDOW = 40;
 /** Event-fetch window size for turn-bounded transcript projection (resume + preview). */
 export function eventWindowForTurns(turns: number): number {
 	return Math.max(Math.max(1, turns) * EVENTS_PER_TURN_ESTIMATE, MIN_EVENT_WINDOW);
+}
+
+/**
+ * Pick recent store records that can become chat blocks.
+ *
+ * Walks newest-first and keeps only records `projectRecord` would emit.
+ * Stops after `maxTurns` user inputs so boot noise (`adapter.loaded`,
+ * `agent.run`, internal debug) cannot displace the dialog window.
+ */
+export function selectRecentTranscriptRecords(
+	events: readonly SessionRecordProjection[],
+	maxTurns: number,
+): SessionRecordProjection[] {
+	const turnCount = Math.max(1, maxTurns);
+	const kept: SessionRecordProjection[] = [];
+	let usersSeen = 0;
+
+	for (let i = events.length - 1; i >= 0; i--) {
+		const record = events[i]!;
+		if (!TRANSCRIPT_BUSES.has(record.bus)) continue;
+		if (projectRecord(record) === undefined) continue;
+
+		kept.push(record);
+		if (record.bus === "event" && record.type === "llm.input") {
+			usersSeen++;
+			if (usersSeen >= turnCount) break;
+		}
+	}
+
+	kept.reverse();
+	return kept;
+}
+
+/**
+ * Shared transcript slice for picker preview and in-session resume.
+ * Same select → project → turn-trim path for both hosts.
+ */
+export function projectTranscriptSlice(
+	events: readonly SessionRecordProjection[],
+	maxTurns: number,
+	options?: ProjectSessionOptions,
+): DisplayBlock[] {
+	const turnBudget = Math.max(1, maxTurns);
+	const records = selectRecentTranscriptRecords(events, turnBudget);
+	const blocks = projectSessionRecords(records, options);
+	if (blocks.length === 0) return [];
+	const userCount = blocks.filter((block) => block.kind === "user").length;
+	const turnCount = Math.min(turnBudget, Math.max(1, userCount));
+	return selectTranscriptBlocks(blocks, turnCount);
 }

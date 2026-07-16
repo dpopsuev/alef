@@ -105,7 +105,7 @@ describe("schema", { tags: ["unit"] }, () => {
 				payload TEXT NOT NULL, timestamp INTEGER NOT NULL, elapsed INTEGER,
 				hash TEXT, actor_address TEXT, actor_type TEXT, adapter TEXT,
 				turn_number INTEGER, version TEXT, embedding BLOB)`, args: [] },
-			{ sql: `CREATE TABLE discourse_posts (rowid INTEGER PRIMARY KEY, session_id TEXT NOT NULL, topic TEXT NOT NULL, thread TEXT NOT NULL, author TEXT NOT NULL, content TEXT NOT NULL, timestamp INTEGER NOT NULL)`, args: [] },
+			{ sql: `CREATE TABLE discourse_posts (rowid INTEGER PRIMARY KEY, session_id TEXT NOT NULL, id TEXT NOT NULL, topic TEXT NOT NULL, thread TEXT NOT NULL, author TEXT NOT NULL, content TEXT NOT NULL, timestamp INTEGER NOT NULL, reply_to_post_id TEXT, references_json TEXT NOT NULL DEFAULT '[]')`, args: [] },
 			{ sql: `CREATE TABLE auth (provider TEXT PRIMARY KEY, type TEXT NOT NULL DEFAULT 'api_key', key TEXT NOT NULL)`, args: [] },
 			{ sql: `CREATE TABLE daemon (id INTEGER PRIMARY KEY DEFAULT 1, port INTEGER NOT NULL, pid INTEGER NOT NULL, session_id TEXT, cwd TEXT, started_at INTEGER)`, args: [] },
 			{ sql: `CREATE TABLE session_summaries (session_id TEXT PRIMARY KEY REFERENCES sessions(id), model TEXT NOT NULL, started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, tools TEXT NOT NULL, errors INTEGER NOT NULL, embedding BLOB)`, args: [] },

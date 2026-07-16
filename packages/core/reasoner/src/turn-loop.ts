@@ -2,7 +2,7 @@ import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adap
 import { DEFAULT_TOOL_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { isContextOverflow } from "@dpopsuev/alef-ai/overflow";
-import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
+import type { Api, AssistantMessage, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { QueuedInput } from "./message-queue.js";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
 import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
@@ -10,14 +10,25 @@ import { publishReply, reportUsage } from "./handlers/response-handler.js";
 import { appendToolResults } from "./handlers/tool-result-handler.js";
 import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type StreamRule } from "./stream-turn.js";
-import { dispatchTools } from "./tool-dispatch.js";
+import { dispatchTools, type ToolWakeDecision, type ToolWakeSnapshot } from "./tool-dispatch.js";
 import { createTurnSignals } from "./turn-signals.js";
+import {
+	applyStageTransformation,
+	canEscalate,
+	escalateStage,
+	getStageInstructions,
+	OverflowStage,
+	classifyOverflowSeverity,
+} from "./handlers/overflow.js";
 
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 const ERROR_REASON_MAX_LENGTH = 80;
 /** Minimum assemble window when recovering from overflow (even if phaseTimeoutMs is 0). */
 const OVERFLOW_RECOVERY_PHASE_MS = 500;
+const MAX_WAKE_INSPECTION_ROUNDS = 2;
+const MIN_WAKE_EXTENSION_MS = 30_000;
+const MAX_WAKE_EXTENSION_MS = 300_000;
 
 // ---------------------------------------------------------------------------
 // Options — structural subset of AgentLoopOptions, avoids circular import
@@ -51,6 +62,8 @@ export interface TurnLoopOptions {
 	streamRules?: readonly StreamRule[];
 	/** Called when a stream rule matches (typically enqueues steer). */
 	onStreamRuleMatch?: (rule: StreamRule) => void;
+	/** Session ID for tool result offloading. Optional - when present, large results are written to filesystem. */
+	sessionId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +92,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 
 	let appRetryCount = 0;
 	let turn = 0;
+	let overflowStage = OverflowStage.Standard;
 	let overflowRecoveryAttempted = false;
 
 	try {
@@ -143,40 +157,77 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				continue;
 			}
 
-			// Context overflow — force compact once, then retry the LLM call without publishing the error.
+			// Four-stage context overflow recovery
 			if (isContextOverflow(finalMessage, model.contextWindow)) {
+				// Classify severity on first overflow encounter
 				if (!overflowRecoveryAttempted) {
+					const inputTokens = (finalMessage.usage.input || 0) + (finalMessage.usage.cacheRead || 0);
+					const suggestedStage = classifyOverflowSeverity(inputTokens, model.contextWindow);
+					overflowStage = suggestedStage;
 					overflowRecoveryAttempted = true;
+				}
+
+				if (canEscalate(overflowStage) || overflowStage === OverflowStage.Standard) {
+					const stageName = OverflowStage[overflowStage];
 					signal.publish({
 						type: "context.overflow-recovery",
-						payload: { willRetry: true, errorMessage: finalMessage.errorMessage ?? "" },
+						payload: {
+							willRetry: true,
+							stage: stageName,
+							errorMessage: finalMessage.errorMessage ?? "",
+						},
 						correlationId,
 					});
-					signal.publish({
-						type: "context.compact.request",
-						payload: { instructions: "Recover from context overflow; preserve goals, paths, and decisions." },
-						correlationId,
-					});
-					traceEvent("llm:overflow-recovery", {
-						turn,
-						errorMessage: finalMessage.errorMessage?.slice(0, ERROR_REASON_MAX_LENGTH) ?? "overflow",
-					});
-					const phaseMs = Math.max(effectiveOptions.phaseTimeoutMs ?? 0, OVERFLOW_RECOVERY_PHASE_MS);
-					const phase = await runPhase(command, event, correlationId, messages, tools, turn, phaseMs);
-					if (phase?.kind === "abort") break;
-					if (phase?.kind === "skip") {
-						command.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
-						break;
+
+					const instructions = getStageInstructions(overflowStage);
+
+					// Apply stage-specific transformations
+					if (overflowStage !== OverflowStage.Standard) {
+						applyStageTransformation(messages, overflowStage);
 					}
-					if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
+
+					// Request compaction (for Standard and Aggressive stages)
+					if (overflowStage <= OverflowStage.Aggressive) {
+						signal.publish({
+							type: "context.compact.request",
+							payload: { instructions },
+							correlationId,
+						});
+						traceEvent("llm:overflow-recovery", {
+							turn,
+							stage: stageName,
+							errorMessage: finalMessage.errorMessage?.slice(0, ERROR_REASON_MAX_LENGTH) ?? "overflow",
+						});
+
+						const phaseMs = Math.max(effectiveOptions.phaseTimeoutMs ?? 0, OVERFLOW_RECOVERY_PHASE_MS);
+						const phase = await runPhase(command, event, correlationId, messages, tools, turn, phaseMs);
+						if (phase?.kind === "abort") break;
+						if (phase?.kind === "skip") {
+							command.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
+							break;
+						}
+						if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
+					} else {
+						traceEvent("llm:overflow-recovery", {
+							turn,
+							stage: stageName,
+							transformation: "direct message mutation",
+						});
+					}
+
+					// Escalate for next attempt
+					overflowStage = escalateStage(overflowStage);
 					continue;
 				}
+
+				// All stages exhausted
 				signal.publish({
 					type: "context.overflow-recovery",
 					payload: {
 						willRetry: false,
+						stage: OverflowStage[OverflowStage.Emergency],
 						errorMessage:
-							"Context overflow recovery failed after one compact-and-retry attempt. Try :compact or a larger-context model.",
+							"Context overflow recovery failed after all four stages. Try :compact or a larger-context model.",
 					},
 					correlationId,
 				});
@@ -197,7 +248,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			signal.publish({
 				type: "llm.result",
 				payload: {
-					response: { ...finalMessage } satisfies Record<string, unknown>,
+					response: { ...finalMessage} satisfies Record<string, unknown>,
 					toolCalls: toolCalls.map((tc) => ({ name: toMotorName(tc.name), args: tc.args, id: tc.id })),
 					turn,
 				},
@@ -222,8 +273,10 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				signal: effectiveSignal,
 				toolDefs: toolDefsMap,
 				callAbortControllers,
+				onToolWake: (wake) =>
+					decideToolWakeAction(messages, wake, model, turn, appRetryCount, correlationId, effectiveOptions),
 			});
-			appendToolResults(messages, toolCalls, results, toMotorName);
+			await appendToolResults(messages, toolCalls, results, toMotorName, options.sessionId);
 			signal.publish({
 				type: "llm.checkpoint",
 				payload: { conversationHistory: messages.slice() },
@@ -243,4 +296,113 @@ function injectSteering(messages: Message[], steering: QueuedInput[]): void {
 		if (!text) continue;
 		messages.push({ role: "user", content: text, timestamp: Date.now() });
 	}
+}
+
+/**
+ *
+ */
+function extractAssistantText(message: AssistantMessage | undefined): string {
+	if (!message) return "";
+	return message.content
+		.filter((block): block is { type: "text"; text: string } => block.type === "text")
+		.map((block) => block.text)
+		.join("")
+		.trim();
+}
+
+/**
+ *
+ */
+function renderWakePrompt(
+	wake: ToolWakeSnapshot & { args: Record<string, unknown> },
+	includeInspectionDetail: boolean,
+): string {
+	const lastOutput = wake.outputTail?.trim() ? wake.outputTail : "(no output captured yet)";
+	const outputAge = typeof wake.lastOutputMs === "number" ? `${wake.lastOutputMs}ms from start` : "n/a";
+	const health = [
+		typeof wake.processAlive === "boolean" ? `processAlive=${wake.processAlive}` : undefined,
+		typeof wake.cpuActive === "boolean" ? `cpuActive=${wake.cpuActive}` : undefined,
+		wake.classification ? `classification=${wake.classification}` : undefined,
+	]
+		.filter(Boolean)
+		.join(", ");
+	return [
+		"Tool supervision wake-up.",
+		`Tool: ${wake.name}`,
+		`Args: ${JSON.stringify(wake.args)}`,
+		`Elapsed: ${wake.elapsedMs}ms`,
+		`Reason: ${wake.reason}`,
+		`Last output age: ${outputAge}`,
+		health ? `Health: ${health}` : undefined,
+		includeInspectionDetail ? "Inspection requested. Review the latest output tail before deciding." : undefined,
+		"Latest output tail:",
+		lastOutput,
+		"Return exactly one word: wait, inspect, cancel, or extend.",
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+/**
+ *
+ */
+function parseWakeAction(text: string): "wait" | "inspect" | "cancel" | "extend" {
+	const normalized = text.trim().toLowerCase();
+	if (/\bcancel\b/.test(normalized)) return "cancel";
+	if (/\bextend\b/.test(normalized)) return "extend";
+	if (/\binspect\b/.test(normalized)) return "inspect";
+	return "wait";
+}
+
+const NOOP_BUS = {
+	publish() {},
+	subscribe() {
+		return () => {};
+	},
+};
+
+/**
+ *
+ */
+async function decideToolWakeAction(
+	messages: Message[],
+	wake: ToolWakeSnapshot & { args: Record<string, unknown> },
+	model: Model<Api>,
+	turn: number,
+	retryCount: number,
+	correlationId: string,
+	options: TurnLoopOptions,
+): Promise<ToolWakeDecision> {
+	const decisionMessages: Message[] = [
+		...messages,
+		{ role: "user", content: renderWakePrompt(wake, false), timestamp: Date.now() },
+	];
+	for (let inspectionRound = 0; inspectionRound <= MAX_WAKE_INSPECTION_ROUNDS; inspectionRound++) {
+		const { finalMessage, pendingCalls } = await callLLM(model, decisionMessages, [], turn, retryCount, {
+			...options,
+			command: NOOP_BUS,
+			notification: NOOP_BUS,
+			correlationId,
+		});
+		if (pendingCalls.length > 0) return { action: "wait" };
+		const text = extractAssistantText(finalMessage);
+		const action = parseWakeAction(text);
+		if (action !== "inspect" || inspectionRound === MAX_WAKE_INSPECTION_ROUNDS) {
+			if (action === "cancel") return { action: "cancel" };
+			if (action === "extend") {
+				return {
+					action: "extend",
+					extendMs: Math.max(MIN_WAKE_EXTENSION_MS, Math.min(MAX_WAKE_EXTENSION_MS, wake.elapsedMs)),
+				};
+			}
+			return { action: "wait" };
+		}
+		if (finalMessage) decisionMessages.push(finalMessage);
+		decisionMessages.push({
+			role: "user",
+			content: renderWakePrompt(wake, true),
+			timestamp: Date.now(),
+		});
+	}
+	return { action: "wait" };
 }

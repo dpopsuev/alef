@@ -126,3 +126,23 @@ export interface SessionStore {
 	/** Delete this session from durable storage. Idempotent. */
 	destroy(): Promise<void>;
 }
+/** Message delta operations for efficient storage. */
+export type MessageDeltaOp =
+	| { type: "append"; message: unknown }
+	| { type: "remove"; index: number }
+	| { type: "replace"; index: number; message: unknown };
+
+/** Batch of delta operations with sequence number. */
+export interface MessageDelta {
+	sequence: number;
+	operations: MessageDeltaOp[];
+	timestamp: number;
+}
+
+/** Full snapshot of conversation history. */
+export interface MessageSnapshot {
+	sequence: number;
+	messages: unknown[];
+	timestamp: number;
+}
+

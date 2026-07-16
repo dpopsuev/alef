@@ -93,6 +93,39 @@ type RawMessage = {
 	content?: string | Array<{ type?: string; text?: string; id?: string; tool_use_id?: string; name?: string }>;
 };
 
+/** Narrow unknown tool payload fragments to plain records. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+type SummaryUserMessage = {
+	role: "user";
+	content: [{ type: "text"; text: string }];
+	timestamp: number;
+};
+
+/**
+ *
+ */
+function summaryUserMessage(summary: string): SummaryUserMessage {
+	return {
+		role: "user",
+		content: [{ type: "text", text: summary }],
+		timestamp: Date.now(),
+	};
+}
+
+/**
+ *
+ */
+function messageIncludesExactText(message: unknown, text: string): boolean {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
+	const msg = message as RawMessage;
+	if (typeof msg.content === "string") return msg.content === text;
+	if (!Array.isArray(msg.content)) return false;
+	return msg.content.some((block) => block.type === "text" && block.text === text);
+}
+
 /**
  *
  */
@@ -194,6 +227,94 @@ export function findKeepStartIndex(
 	const headCost = messageTokens(messages[messages.length - 1]);
 	const splitTurn = aligned === messages.length - 1 && headCost > keepRecentTokens && messages.length > 1;
 	return { keepStart: aligned, splitTurn };
+}
+
+const FS_WRITE_CONTENT_MAX = 200; // First/last 100 chars of fs.write content
+const FS_EDIT_ARG_MAX = 100; // First 50 chars of fs.edit oldText/newText (50 + 50 = 100)
+const TOOL_ARG_TRUNCATE_SUFFIX = "…[truncated for summarization]";
+
+type ToolUseBlock = {
+	type: "tool_use" | "tool-use" | "toolCall";
+	id?: string;
+	tool_use_id?: string;
+	name?: string;
+	input?: unknown;
+	arguments?: unknown;
+};
+
+/**
+ * Truncate large tool arguments before LLM summarization to reduce token cost.
+ * Applied to tool_use blocks in assistant messages before passing to the summarizer.
+ *
+ * Rules:
+ * - fs.write: content → first/last 100 chars
+ * - fs.edit: oldText/newText → first 50 chars each
+ * - Other tools: unchanged
+ *
+ * This is only for summarization context; actual tool calls are unaffected.
+ */
+export function truncateToolArgsForSummary(messages: readonly unknown[]): unknown[] {
+	return messages.map((msg) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
+		const m = msg as RawMessage;
+		if (m.role !== "assistant" || !Array.isArray(m.content)) return msg;
+
+		const content = m.content.map((block) => {
+			const isToolUse =
+				block.type === "tool_use" || block.type === "tool-use" || block.type === "toolCall";
+			if (!isToolUse) return block;
+
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- tool_use block shape
+			const toolBlock = block as ToolUseBlock;
+			const toolName = toolBlock.name ?? "";
+			const args = isRecord(toolBlock.input)
+				? toolBlock.input
+				: isRecord(toolBlock.arguments)
+					? toolBlock.arguments
+					: undefined;
+
+			if (!args) return block;
+
+			if (toolName === "fs.write" || toolName === "fs_write") {
+				const content = args.content;
+				if (typeof content === "string" && content.length > FS_WRITE_CONTENT_MAX) {
+					const half = Math.floor(FS_WRITE_CONTENT_MAX / 2);
+					const truncated = `${content.slice(0, half)}${TOOL_ARG_TRUNCATE_SUFFIX}${content.slice(-half)}`;
+					return {
+						...toolBlock,
+						...(toolBlock.input ? { input: { ...args, content: truncated } } : {}),
+						...(toolBlock.arguments ? { arguments: { ...args, content: truncated } } : {}),
+					};
+				}
+			} else if (toolName === "fs.edit" || toolName === "fs_edit") {
+				const oldText = args.oldText;
+				const newText = args.newText;
+				const truncatedArgs = { ...args };
+				let changed = false;
+
+				if (typeof oldText === "string" && oldText.length > FS_EDIT_ARG_MAX) {
+					truncatedArgs.oldText = `${oldText.slice(0, FS_EDIT_ARG_MAX / 2)}${TOOL_ARG_TRUNCATE_SUFFIX}`;
+					changed = true;
+				}
+				if (typeof newText === "string" && newText.length > FS_EDIT_ARG_MAX) {
+					truncatedArgs.newText = `${newText.slice(0, FS_EDIT_ARG_MAX / 2)}${TOOL_ARG_TRUNCATE_SUFFIX}`;
+					changed = true;
+				}
+
+				if (changed) {
+					return {
+						...toolBlock,
+						...(toolBlock.input ? { input: truncatedArgs } : {}),
+						...(toolBlock.arguments ? { arguments: truncatedArgs } : {}),
+					};
+				}
+			}
+
+			return block;
+		});
+
+		return { ...m, content };
+	});
 }
 
 /**
@@ -326,7 +447,7 @@ function injectPriorSummary(messages: readonly unknown[], summary: string): Cont
 	const alreadyPresent = messages.some((m) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
 		const msg = m as RawMessage;
-		return msg.role === "user" && msg.content === summary;
+		return msg.role === "user" && messageIncludesExactText(msg, summary);
 	});
 	if (alreadyPresent) return {};
 
@@ -334,7 +455,7 @@ function injectPriorSummary(messages: readonly unknown[], summary: string): Cont
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message
 	const systemIdx = result.findIndex((m) => (m as RawMessage).role === "system");
 	const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
-	result.splice(insertAt, 0, { role: "user", content: summary });
+	result.splice(insertAt, 0, summaryUserMessage(summary));
 	return { messages: result };
 }
 
@@ -432,7 +553,7 @@ export async function compactMessages(
 	const compactedMessages: unknown[] = [];
 	if (systemMsg) compactedMessages.push(systemMsg);
 	compactedMessages.push(...preserved);
-	compactedMessages.push({ role: "user", content: summary });
+	compactedMessages.push(summaryUserMessage(summary));
 	compactedMessages.push(...toKeep);
 
 	const firstKeptEventId = await resolveFirstKeptEventId(opts.sessionStore, toKeep);

@@ -24,6 +24,17 @@ type RawMsg = { role: string; content: unknown };
 /**
  *
  */
+function summaryUserMessage(summary: string): RawMsg & { timestamp: number } {
+	return {
+		role: "user",
+		content: [{ type: "text", text: summary }],
+		timestamp: Date.now(),
+	};
+}
+
+/**
+ *
+ */
 export function createSessionContextStage(opts: SessionContextStageOptions): ContextAssemblyHandler {
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 
@@ -102,7 +113,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 
 		const assembled: RawMsg[] = [
 			...(systemMsg ? [systemMsg] : []),
-			...(summary ? [{ role: "user", content: summary }] : []),
+			...(summary ? [summaryUserMessage(summary)] : []),
 			...projectedMsgs,
 			...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 		];

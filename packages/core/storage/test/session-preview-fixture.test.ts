@@ -65,4 +65,41 @@ describe("session preview — realistic fixture", { tags: ["integration"] }, () 
 			{ kind: "assistant", text: "answer 49" },
 		]);
 	});
+
+	it("ignores post-dialog boot noise like in-session resume", async () => {
+		const { client, cleanup } = await makeTestDatabase();
+		cleanups.push(cleanup);
+		const factory = new SqliteStorageFactory(client);
+		const store = await SqliteSessionStore.create(client, "/tmp/fixture");
+
+		await store.append({
+			bus: "event",
+			type: "llm.input",
+			correlationId: "t1",
+			payload: { text: "Spawn a single subagent" },
+			timestamp: 1,
+		});
+		await store.append({
+			bus: "command",
+			type: "llm.response",
+			correlationId: "t1",
+			payload: { text: "Spawned child-1" },
+			timestamp: 2,
+		});
+		for (let i = 0; i < 60; i++) {
+			await store.append({
+				bus: "event",
+				type: "adapter.loaded",
+				correlationId: `boot${i}`,
+				payload: { name: `a${i}` },
+				timestamp: 100 + i,
+			});
+		}
+
+		const preview = await factory.sessionPreview().getSessionPreview(store.id, 5);
+		expect(preview).toEqual([
+			{ kind: "user", text: "Spawn a single subagent" },
+			{ kind: "assistant", text: "Spawned child-1" },
+		]);
+	});
 });

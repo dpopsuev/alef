@@ -17,7 +17,11 @@ packages/*/dist-firefox/
 .tmp-adapter-loop-*
 
 # Editor / local tooling
-.cursor/
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
+!.cursor/rules/
+!.cursor/rules/**
 limes.db
 limes.db-shm
 limes.db-wal

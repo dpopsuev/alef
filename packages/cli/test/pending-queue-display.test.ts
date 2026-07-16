@@ -111,8 +111,10 @@ describe("queued message display exclusivity", { tags: ["unit"] }, () => {
 				addNotice: vi.fn(),
 				addTokenFooter: () => ({ setText: () => {} }),
 				addCompletedToolBlock: vi.fn(),
+				addAgentReply: vi.fn(),
 				addBatchTiming: vi.fn(),
 				addSubagentReply: vi.fn(),
+				clearAll: vi.fn(),
 			},
 			promptConsole: {
 				syncPendingQueue: (opts: { queueLength: number; text?: string }) => {
@@ -139,6 +141,7 @@ describe("queued message display exclusivity", { tags: ["unit"] }, () => {
 				startThinking: vi.fn(),
 				stopThinking: vi.fn(),
 				setIntent: vi.fn(),
+				setTopicLabel: vi.fn(),
 				setStatus: vi.fn(),
 				onTurnComplete: vi.fn(),
 				setWidgetAbove: vi.fn(),

@@ -26,9 +26,11 @@ import {
 	typedAction,
 	typedStreamAction,
 } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
+import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
+import type { ExecutionStrategy, RunDescriptor, TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { z } from "zod";
 import { AsyncQueue } from "./async-queue.js";
 import {
@@ -49,13 +51,17 @@ import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { checkRelevance, needsWriteAccess } from "./text-analysis.js";
 import {
 	ASK_TOOL,
+	CANCEL_TOOL,
 	CONVERSE_TOOL,
 	KILL_TOOL,
 	LIST_TOOL,
+	MODELS_TOOL,
 	PROMOTE_TOOL,
 	RACE_TOOL,
+	RETRY_TOOL,
 	SPAWN_TOOL,
 	STATUS_TOOL,
+	TASKS_TOOL,
 } from "./tool-schemas.js";
 
 export type { ChildEntry };
@@ -72,7 +78,10 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	subagentFactory?: (opts: {
 		adapters: readonly Adapter[];
 		onChunk?: (chunk: string) => void;
+		onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
 		systemPrompt?: string;
+		run?: RunDescriptor;
+		tokenBudget?: number;
 		modelOverride?: string;
 	}) => {
 		send?(text: string, timeoutMs?: number): Promise<string>;
@@ -114,20 +123,170 @@ export function createAgentAdapter(
 		strategies,
 	};
 
-	interface AsyncTask {
-		id: string;
-		profile: string;
+	interface AsyncTaskRecord extends TaskSnapshot {
 		text: string;
-		status: "running" | "completed" | "failed";
-		reply?: string;
-		error?: string;
-		startedAt: number;
-		completedAt?: number;
+		priority: "normal" | "high";
+		abortController: AbortController;
+		originalPayload: Record<string, unknown>;
+		correlationId: string;
 	}
-	const asyncTasks = new Map<string, AsyncTask>();
+	const asyncTasks = new Map<string, AsyncTaskRecord>();
 	let taskSeq = 0;
 
 	const composite = createCompositeAgentRunContribution();
+
+	/**
+	 *
+	 */
+	function makeTaskId(): string {
+		taskSeq += 1;
+		return `task-${taskSeq}`;
+	}
+
+	/**
+	 *
+	 */
+	function snapshotTask(task: AsyncTaskRecord): TaskSnapshot {
+		return {
+			descriptor: { ...task.descriptor },
+			status: task.status,
+			startedAt: task.startedAt,
+			completedAt: task.completedAt,
+			lastActivityAt: task.lastActivityAt,
+			reply: task.reply,
+			error: task.error,
+		};
+	}
+
+	/**
+	 *
+	 */
+	function publishTaskEvent(
+		type: "task.started" | "task.progress" | "task.completed" | "task.failed" | "task.cancelled",
+		task: AsyncTaskRecord,
+		correlationId: string,
+		extra: Record<string, unknown> = {},
+	): void {
+		mountedBus?.notification.publish({
+			type,
+			payload: { task: snapshotTask(task), ...extra },
+			correlationId,
+		});
+	}
+
+	/**
+	 *
+	 */
+	function publishInnerEvent(
+		run: RunDescriptor,
+		correlationId: string,
+		parentCallId: string,
+		innerType: string,
+		innerPayload: Record<string, unknown>,
+	): void {
+		mountedBus?.notification.publish({
+			type: "agent.run.inner",
+			payload: { callId: parentCallId, innerType, innerPayload, run },
+			correlationId,
+		});
+	}
+
+	/**
+	 *
+	 */
+	function deriveProfile(text: string, payload: Record<string, unknown>): string {
+		const explicitProfile = typeof payload.profile === "string" ? payload.profile : undefined;
+		return explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
+	}
+
+	/** Return a string array only when every item is a string. */
+	function optionalStringArray(value: unknown): string[] | undefined {
+		if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) return undefined;
+		return value;
+	}
+
+	/** Read an arbitrary object property without propagating `any`. */
+	function getUnknownProperty(value: object, key: string): unknown {
+		return Reflect.get(value, key);
+	}
+
+	/** Pull optional adapter lists from strategies that expose them. */
+	function strategyAdapters(strategy: ExecutionStrategy | undefined): Adapter[] {
+		if (!strategy) return [];
+		const adapters = getUnknownProperty(strategy, "adapters");
+		return Array.isArray(adapters) ? adapters.filter((adapter): adapter is Adapter => typeof adapter === "object") : [];
+	}
+
+	/**
+	 *
+	 */
+	type RunCommandContext = Pick<CommandHandlerCtx<unknown>, "correlationId" | "toolCallId" | "log">;
+
+	/**
+	 *
+	 */
+	function createRunDescriptor(
+		taskId: string,
+		profile: string,
+		payload: Record<string, unknown>,
+		ctx: RunCommandContext,
+		overrides: Partial<RunDescriptor> = {},
+	): RunDescriptor {
+		const ownerAddress = typeof payload.ownerAddress === "string" ? payload.ownerAddress : undefined;
+		const logicalAgentId = typeof payload.logicalAgentId === "string" ? payload.logicalAgentId : undefined;
+		const planId = typeof payload.planId === "string" ? payload.planId : undefined;
+		const stepId = typeof payload.stepId === "string" ? payload.stepId : undefined;
+		const discourseTopic =
+			typeof payload.discourseTopic === "string" ? payload.discourseTopic : process.env.ALEF_DISCUSSION_FORUM;
+		const discourseThread =
+			typeof payload.discourseThread === "string"
+				? payload.discourseThread
+				: stepId ?? planId ?? taskId;
+		const modelId = typeof payload.model === "string" ? payload.model : undefined;
+		const tokenBudget = typeof payload.tokenBudget === "number" ? payload.tokenBudget : undefined;
+		return {
+			taskId,
+			profile,
+			actorAddress: ownerAddress,
+			logicalAgentId,
+			parentToolCallId: ctx.toolCallId,
+			sourceCallId: ctx.toolCallId,
+			correlationId: ctx.correlationId,
+			planId,
+			stepId,
+			discourseTopic,
+			discourseThread,
+			modelId,
+			tokenBudget,
+			attempt: 1,
+			...overrides,
+		};
+	}
+
+	const taskContextStage: ContextAssemblyHandler = (input) => {
+		if (asyncTasks.size === 0) return Promise.resolve({});
+		const tasks = [...asyncTasks.values()]
+			.toSorted((a, b) => b.lastActivityAt - a.lastActivityAt)
+			.slice(0, 5);
+		const lines = tasks.map((task) => {
+			const refs = [
+				task.descriptor.planId ? `plan=${task.descriptor.planId}` : null,
+				task.descriptor.stepId ? `step=${task.descriptor.stepId}` : null,
+				task.descriptor.discourseTopic && task.descriptor.discourseThread
+					? `forum=${task.descriptor.discourseTopic}/${task.descriptor.discourseThread}`
+					: null,
+			]
+				.filter(Boolean)
+				.join(" ");
+			const tail = task.reply?.slice(0, 80) ?? task.error ?? "running";
+			return `${task.descriptor.taskId} [${task.status}] ${task.descriptor.profile}${refs ? ` ${refs}` : ""} :: ${tail}`;
+		});
+		return Promise.resolve({
+			messages: injectContextBlock(input.messages, `[Tasks — ${asyncTasks.size} tracked]\n${lines.join("\n")}`, {
+				source: "agent-tasks",
+			}),
+		});
+	};
 
 	// ── agent.run — unified delegation facade ──────────────────────────
 
@@ -170,6 +329,13 @@ export function createAgentAdapter(
 			.describe(
 				"Soft token cap. When exceeded, a 'wrap up' message is injected — the agent gets one more turn to finish.",
 			),
+		taskId: z.string().optional().describe("Optional stable task id for orchestration bindings."),
+		logicalAgentId: z.string().optional().describe("Optional stable logical agent identity for this run."),
+		ownerAddress: z.string().optional().describe("Canonical @agent owner address for this run."),
+		planId: z.string().optional().describe("Bind this run to a parent plan id."),
+		stepId: z.string().optional().describe("Bind this run to a parent plan step id."),
+		discourseTopic: z.string().optional().describe("Bind this run to a discourse topic."),
+		discourseThread: z.string().optional().describe("Bind this run to a discourse thread."),
 		async: z
 			.boolean()
 			.optional()
@@ -191,6 +357,34 @@ export function createAgentAdapter(
 				"Profile selects the strategy: 'explore' (read-only), 'general' (full tools), or a spawned child name.",
 			inputSchema: z.object({ ...RUN_BASE_SCHEMA, ...composite.mergedSchema() }),
 			longRunning: true,
+		};
+	}
+
+	/** Parse `agent.run` input into a record with the key fields narrowed. */
+	function parseRunPayload(value: unknown): Record<string, unknown> & {
+		text: string;
+		maxMs?: number;
+		taskId?: string;
+		async?: boolean;
+	} {
+		const parsed = buildRunTool().inputSchema.parse(value);
+		if (typeof parsed !== "object" || parsed === null) {
+			throw new Error("agent.run: invalid payload");
+		}
+		const payload: Record<string, unknown> = {};
+		for (const [key, entryValue] of Object.entries(parsed)) {
+			payload[key] = entryValue;
+		}
+		const text = payload.text;
+		if (typeof text !== "string") {
+			throw new Error("agent.run: text is required");
+		}
+		return {
+			...payload,
+			text,
+			maxMs: typeof payload.maxMs === "number" ? payload.maxMs : undefined,
+			taskId: typeof payload.taskId === "string" ? payload.taskId : undefined,
+			async: payload.async === true ? true : undefined,
 		};
 	}
 
@@ -231,6 +425,163 @@ export function createAgentAdapter(
 		}
 	}
 
+	/**
+	 *
+	 */
+	async function executeDelegatedRun(
+		ctx: RunCommandContext,
+		payload: Record<string, unknown>,
+		run: RunDescriptor,
+		options: {
+			text: string;
+			timeoutMs: number;
+			signal?: AbortSignal;
+			onChunk?: (chunk: string) => void;
+		},
+	): Promise<{ reply: string; profile: string; elapsed: number; relevance: number }> {
+		const { text, timeoutMs, signal, onChunk } = options;
+		if (payload.isolate === true) {
+			const isolated = await runIsolated(text, payload, timeoutMs, ctx.correlationId, ctx.toolCallId);
+			return isolated;
+		}
+
+		const profile = deriveProfile(text, payload);
+		const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
+		const explicitInherit = typeof payload.inheritDirectives === "boolean" ? payload.inheritDirectives : undefined;
+		const inheritDirectives = profile === "explore" ? false : (explicitInherit ?? true);
+		const adapterNames = optionalStringArray(payload.adapters);
+		const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
+		const tokenBudget = typeof payload.tokenBudget === "number" ? payload.tokenBudget : undefined;
+		const stallMs = typeof payload.stallMs === "number" ? payload.stallMs : DEFAULT_STALL_MS;
+		const publishInner = (innerType: string, innerPayload: Record<string, unknown>) =>
+			publishInnerEvent(run, ctx.correlationId, run.taskId, innerType, innerPayload);
+
+		const needsAdHoc = instructions !== undefined || inheritDirectives || adapterNames !== undefined || modelOverride !== undefined;
+		if (needsAdHoc && factory) {
+			const t0 = Date.now();
+			const parentDirectives =
+				inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
+			const instructionParts = [parentDirectives, instructions].filter(Boolean);
+			const extraAdapters: Adapter[] = [];
+			const context: AgentRunContext = {
+				prependInstructions: (value) => instructionParts.unshift(value),
+				addAdapters: (added) => extraAdapters.push(...added),
+			};
+			await composite.extend(payload, context);
+			const systemPrompt = instructionParts.join("\n\n") || undefined;
+			let resolvedAdapters: Adapter[];
+			if (adapterNames && opts.materializeAdapters) {
+				resolvedAdapters = await opts.materializeAdapters(adapterNames);
+			} else {
+				const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
+				resolvedAdapters = strategyAdapters(strategy);
+			}
+			resolvedAdapters = [...resolvedAdapters, ...extraAdapters];
+			const session = factory({
+				adapters: resolvedAdapters,
+				onChunk,
+				onInnerEvent: (_callId, innerType, innerPayload) => publishInner(innerType, innerPayload),
+				systemPrompt,
+				run,
+				tokenBudget,
+				modelOverride,
+			});
+			const onAbort = () => {
+				session.dispose();
+			};
+			signal?.addEventListener("abort", onAbort, { once: true });
+			try {
+				const reply = await session.send!(text, timeoutMs);
+				const elapsed = Date.now() - t0;
+				const relevance = checkRelevance(text, reply);
+				if (!relevance.relevant) ctx.log.warn({ profile, overlap: relevance.overlap }, "agent:low-relevance");
+				if (relevance.shallow) {
+					ctx.log.warn({ profile, promptLen: text.length, replyLen: reply.length }, "agent:shallow-reply");
+				}
+				return { reply, profile, elapsed, relevance: relevance.overlap };
+			} finally {
+				signal?.removeEventListener("abort", onAbort);
+				session.dispose();
+			}
+		}
+
+		const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
+		if (!strategy) {
+			throw new Error(`unknown profile '${profile}'`);
+		}
+		const t0 = Date.now();
+		const reply = await strategy.send({
+			text,
+			sender: "human",
+			run,
+			timeoutMs,
+			stallMs,
+			signal,
+			onChunk,
+			onInnerEvent: (_callId, innerType, innerPayload) => publishInner(innerType, innerPayload),
+		});
+		const elapsed = Date.now() - t0;
+		const relevance = checkRelevance(text, reply);
+		if (!relevance.relevant) ctx.log.warn({ profile, overlap: relevance.overlap }, "agent:low-relevance");
+		if (relevance.shallow) {
+			ctx.log.warn({ profile, promptLen: text.length, replyLen: reply.length }, "agent:shallow-reply");
+		}
+		return { reply, profile, elapsed, relevance: relevance.overlap };
+	}
+
+	/**
+	 *
+	 */
+	function startAsyncTask(
+		ctx: RunCommandContext,
+		payload: Record<string, unknown>,
+		task: AsyncTaskRecord,
+	): void {
+		publishTaskEvent("task.started", task, ctx.correlationId);
+		void executeDelegatedRun(ctx, payload, task.descriptor, {
+			text: task.text,
+			timeoutMs: typeof payload.maxMs === "number" ? payload.maxMs : DEFAULT_RUN_MAX_MS,
+			signal: task.abortController.signal,
+			onChunk: (chunk) => {
+				if (task.abortController.signal.aborted) return;
+				task.lastActivityAt = Date.now();
+				publishTaskEvent("task.progress", task, ctx.correlationId, { chunk });
+			},
+		})
+			.then((result) => {
+				if (task.abortController.signal.aborted) return;
+				task.status = "completed";
+				task.reply = result.reply;
+				task.completedAt = Date.now();
+				task.lastActivityAt = task.completedAt;
+				task.descriptor.profile = result.profile;
+				publishTaskEvent("task.completed", task, ctx.correlationId, {
+					reply: result.reply,
+					elapsedMs: result.elapsed,
+				});
+			})
+			.catch((err: unknown) => {
+				const elapsedMs = Date.now() - task.startedAt;
+				task.completedAt = Date.now();
+				task.lastActivityAt = task.completedAt;
+				if (task.abortController.signal.aborted) {
+					task.status = "cancelled";
+					task.error = task.error ?? "Task cancelled";
+					publishTaskEvent("task.cancelled", task, ctx.correlationId, {
+						error: task.error,
+						elapsedMs,
+					});
+					return;
+				}
+				task.status = "failed";
+				task.error = err instanceof Error ? err.message : String(err);
+				publishTaskEvent("task.failed", task, ctx.correlationId, {
+					error: task.error,
+					elapsedMs,
+				});
+			});
+	}
+
 	// ── extracted command handlers ───────────────────────────────────────
 
 	/**
@@ -249,17 +600,20 @@ export function createAgentAdapter(
 				);
 			const elapsed = (task.completedAt ?? Date.now()) - task.startedAt;
 			return withDisplay(
-				{ ...task, elapsedMs: elapsed },
+				{ ...snapshotTask(task), elapsedMs: elapsed, text: task.text },
 				{
-					text: `${task.id} [${task.status}] ${task.profile} — ${task.reply?.slice(0, 200) ?? task.error ?? "running..."}`,
+					text: `${task.descriptor.taskId} [${task.status}] ${task.descriptor.profile} — ${task.reply?.slice(0, 200) ?? task.error ?? "running..."}`,
 					mimeType: "text/plain",
 				},
 			);
 		}
 		const tasks = [...asyncTasks.values()].map((t) => ({
-			id: t.id,
+			id: t.descriptor.taskId,
 			status: t.status,
-			profile: t.profile,
+			profile: t.descriptor.profile,
+			ownerAddress: t.descriptor.actorAddress,
+			planId: t.descriptor.planId,
+			stepId: t.descriptor.stepId,
 			elapsedMs: (t.completedAt ?? Date.now()) - t.startedAt,
 			preview: t.status === "completed" ? t.reply?.slice(0, 100) : (t.error ?? "running..."),
 		}));
@@ -271,6 +625,96 @@ export function createAgentAdapter(
 					)
 				: ["No async tasks"];
 		return withDisplay({ tasks }, { text: lines.join("\n"), mimeType: "text/plain" });
+	}
+
+	/**
+	 *
+	 */
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async function handleCancel(
+		ctx: CommandHandlerCtx<{ taskId: string }>,
+	): Promise<Record<string, unknown>> {
+		const task = asyncTasks.get(ctx.payload.taskId);
+		if (!task) {
+			return withDisplay(
+				{ error: "not found" },
+				{ text: `Task ${ctx.payload.taskId} not found`, mimeType: "text/plain" },
+			);
+		}
+		if (task.status !== "running") {
+			return withDisplay(
+				{ error: "not running", status: task.status },
+				{ text: `Task ${ctx.payload.taskId} is ${task.status}, cannot cancel`, mimeType: "text/plain" },
+			);
+		}
+		task.abortController.abort();
+		task.status = "cancelled";
+		task.error = "Task cancelled by user";
+		task.completedAt = Date.now();
+		task.lastActivityAt = task.completedAt;
+		publishTaskEvent("task.cancelled", task, ctx.correlationId, {
+			error: task.error,
+			elapsedMs: task.completedAt - task.startedAt,
+		});
+		return withDisplay(
+			{ taskId: task.descriptor.taskId, status: "cancelled" },
+			{ text: `Task ${task.descriptor.taskId} cancelled`, mimeType: "text/plain" },
+		);
+	}
+
+	/**
+	 *
+	 */
+	async function handleRetry(
+		ctx: CommandHandlerCtx<{ taskId: string }>,
+	): Promise<Record<string, unknown>> {
+		const task = asyncTasks.get(ctx.payload.taskId);
+		if (!task) {
+			return withDisplay(
+				{ error: "not found" },
+				{ text: `Task ${ctx.payload.taskId} not found`, mimeType: "text/plain" },
+			);
+		}
+		if (task.status === "running") {
+			return withDisplay(
+				{ error: "still running" },
+				{ text: `Task ${ctx.payload.taskId} is still running, cannot retry`, mimeType: "text/plain" },
+			);
+		}
+
+		// Create a new task with the original payload
+		const newTaskId =
+			typeof task.originalPayload.taskId === "string" && task.originalPayload.taskId !== task.descriptor.taskId
+				? task.originalPayload.taskId
+				: makeTaskId();
+		const abortController = new AbortController();
+		const profile = deriveProfile(task.text, task.originalPayload);
+		const descriptor = {
+			...task.descriptor,
+			taskId: newTaskId,
+			profile,
+			retryOfTaskId: task.descriptor.taskId,
+			attempt: (task.descriptor.attempt ?? 1) + 1,
+		};
+		const newTask: AsyncTaskRecord = {
+			descriptor,
+			text: task.text,
+			status: "running",
+			startedAt: Date.now(),
+			lastActivityAt: Date.now(),
+			priority: task.priority,
+			abortController,
+			originalPayload: { ...task.originalPayload, taskId: newTaskId, profile },
+			correlationId: ctx.correlationId,
+		};
+		asyncTasks.set(newTaskId, newTask);
+		await Promise.resolve();
+		startAsyncTask(ctx, newTask.originalPayload, newTask);
+
+		return withDisplay(
+			{ taskId: newTaskId, retryOf: task.descriptor.taskId, profile },
+			{ text: `Task ${newTaskId} started (retry of ${task.descriptor.taskId})`, mimeType: "text/plain" },
+		);
 	}
 
 	/**
@@ -331,66 +775,32 @@ export function createAgentAdapter(
 			},
 			command: {
 				"agent.run": typedStreamAction(buildRunTool(), async function* (ctx) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx.payload typed by zod schema
-					const payload = ctx.payload as Record<string, unknown>;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod text schema
-					const text = payload.text as string;
-					const isolate = payload.isolate === true;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod maxMs schema
-					const maxMs = (payload.maxMs as number | undefined) ?? DEFAULT_RUN_MAX_MS;
+					const payload = parseRunPayload(ctx.payload);
+					const text = payload.text;
+					const maxMs = payload.maxMs ?? DEFAULT_RUN_MAX_MS;
 					const timeoutMs = maxMs;
+					const profile = deriveProfile(text, payload);
+					const taskId = payload.taskId ?? makeTaskId();
+					const run = createRunDescriptor(taskId, profile, payload, ctx);
 
 					if (payload.async === true) {
-						const taskId = `task-${++taskSeq}`;
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod profile schema
-						const explicitProfile = payload.profile as string | undefined;
-						const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
-						const task: AsyncTask = { id: taskId, profile, text, status: "running", startedAt: Date.now() };
+						const abortController = new AbortController();
+						const task: AsyncTaskRecord = {
+							descriptor: run,
+							text,
+							status: "running",
+							startedAt: Date.now(),
+							lastActivityAt: Date.now(),
+							priority: "normal",
+							abortController,
+							originalPayload: { ...payload, taskId, profile },
+							correlationId: ctx.correlationId,
+						};
 						asyncTasks.set(taskId, task);
-
-						const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
-						if (!strategy) {
-							task.status = "failed";
-							task.error = `unknown profile '${profile}'`;
-							yield withDisplay({ taskId, error: task.error }, { text: task.error, mimeType: "text/plain" });
-							return;
-						}
-
-						strategy
-							.send({
-								text,
-								timeoutMs,
-								onChunk: (chunk) => {
-									mountedBus?.notification.publish({
-										type: "task.progress",
-										payload: { taskId, chunk },
-										correlationId: ctx.correlationId,
-									});
-								},
-							})
-							.then((reply) => {
-								task.status = "completed";
-								task.reply = reply;
-								task.completedAt = Date.now();
-								mountedBus?.notification.publish({
-									type: "task.completed",
-									payload: { taskId, profile, reply, elapsedMs: Date.now() - task.startedAt },
-									correlationId: ctx.correlationId,
-								});
-							})
-							.catch((err: unknown) => {
-								task.status = "failed";
-								task.error = err instanceof Error ? err.message : String(err);
-								task.completedAt = Date.now();
-								mountedBus?.notification.publish({
-									type: "task.failed",
-									payload: { taskId, profile, error: task.error, elapsedMs: Date.now() - task.startedAt },
-									correlationId: ctx.correlationId,
-								});
-							});
+						startAsyncTask(ctx, task.originalPayload, task);
 
 						yield withDisplay(
-							{ taskId, profile, async: true },
+							{ taskId, profile, async: true, run },
 							{
 								text: `Task ${taskId} started (${profile}). Use agent.tasks to check status.`,
 								mimeType: "text/plain",
@@ -398,150 +808,23 @@ export function createAgentAdapter(
 						);
 						return;
 					}
-
-					if (isolate) {
-						const result = await runIsolated(text, payload, timeoutMs, ctx.correlationId, ctx.toolCallId);
-						yield withDisplay(
-							{
-								reply: result.reply,
-								profile: result.profile,
-								elapsedMs: result.elapsed,
-								relevance: result.relevance,
-							},
-							{ text: result.reply || "(no reply)", mimeType: "text/plain" },
-						);
-						return;
-					}
-
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod profile schema
-					const explicitProfile = payload.profile as string | undefined;
-					const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
-					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod inheritDirectives schema
-					const explicitInherit = payload.inheritDirectives as boolean | undefined;
-					// Explore never inherits parent directives (avoids recursive parallel-run fan-out).
-					const inheritDirectives =
-						profile === "explore" ? false : (explicitInherit ?? true);
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod adapters schema
-					const adapterNames = Array.isArray(payload.adapters) ? (payload.adapters as string[]) : undefined;
-
-					const needsAdHoc = instructions !== undefined || inheritDirectives || adapterNames !== undefined;
-
-					if (needsAdHoc && factory) {
-						const queue = new AsyncQueue();
-						const t0 = Date.now();
-						const parentDirectives =
-							inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
-						const instructionParts = [parentDirectives, instructions].filter(Boolean);
-						const extraAdapters: Adapter[] = [];
-						const context: AgentRunContext = {
-							prependInstructions: (t) => instructionParts.unshift(t),
-							addAdapters: (o) => extraAdapters.push(...o),
-						};
-						await composite.extend(payload, context);
-						const systemPrompt = instructionParts.join("\n\n") || undefined;
-						let resolvedAdapters: Adapter[];
-						if (adapterNames && opts.materializeAdapters) {
-							resolvedAdapters = await opts.materializeAdapters(adapterNames);
-						} else {
-							const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- strategy duck-typed for optional adapters property
-							resolvedAdapters = (strategy as unknown as { adapters?: Adapter[] }).adapters ?? [];
-						}
-						resolvedAdapters = [...resolvedAdapters, ...extraAdapters];
-						const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
-						const session = factory({
-							adapters: resolvedAdapters,
-							onChunk: (c) => queue.push(c),
-							systemPrompt,
-							modelOverride,
-						});
-						const replyPromise = session.send!(text, timeoutMs).finally(() => {
-							queue.finish();
-							session.dispose();
-						});
-						for await (const chunkText of queue.iter()) yield { text: chunkText };
-						const reply = await replyPromise;
-						const elapsed = Date.now() - t0;
-						const relevance = checkRelevance(text, reply);
-						if (!relevance.relevant) ctx.log.warn({ profile, overlap: relevance.overlap }, "agent:low-relevance");
-						if (relevance.shallow)
-							ctx.log.warn({ profile, promptLen: text.length, replyLen: reply.length }, "agent:shallow-reply");
-						yield withDisplay(
-							{ reply, profile, elapsedMs: elapsed, relevance: relevance.overlap },
-							{ text: reply || "(no reply)", mimeType: "text/plain" },
-						);
-						return;
-					}
-
-					const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
-					if (!strategy) {
-						const available = [...strategies.keys()].join(", ");
-						yield withDisplay(
-							{ error: `unknown profile '${profile}'`, available },
-							{
-								text: `agent.run: unknown profile '${profile}'. Available: ${available || "(none)"}`,
-								mimeType: "text/plain",
-							},
-						);
-						return;
-					}
-
-					const t0 = Date.now();
 					const queue = new AsyncQueue();
-					const replyPromise = strategy
-						.send({
-							text,
-							sender: "human",
-							timeoutMs,
-							onChunk: (chunk: string) => queue.push(chunk),
-							onInnerEvent: deps.publishInnerSignal
-								? (_callId, innerType, innerPayload) =>
-										deps.publishInnerSignal?.(
-											innerType,
-											{ ...innerPayload, callId: ctx.toolCallId ?? ctx.correlationId },
-											ctx.correlationId,
-										)
-								: undefined,
-						})
-						.finally(() => queue.finish());
+					const replyPromise = executeDelegatedRun(ctx, payload, run, {
+						text,
+						timeoutMs,
+						onChunk: (chunk) => queue.push(chunk),
+					}).finally(() => queue.finish());
 					for await (const chunkText of queue.iter()) yield { text: chunkText };
-					const reply = await replyPromise;
-					const elapsed = Date.now() - t0;
-					const relevance = checkRelevance(text, reply);
-					if (!relevance.relevant) ctx.log.warn({ profile, overlap: relevance.overlap }, "agent:low-relevance");
-					if (relevance.shallow)
-						ctx.log.warn({ profile, promptLen: text.length, replyLen: reply.length }, "agent:shallow-reply");
+					const result = await replyPromise;
 					yield withDisplay(
-						{ reply, profile, elapsedMs: elapsed, relevance: relevance.overlap },
-						{ text: reply || "(no reply)", mimeType: "text/plain" },
+						{ reply: result.reply, profile: result.profile, elapsedMs: result.elapsed, relevance: result.relevance, run },
+						{ text: result.reply || "(no reply)", mimeType: "text/plain" },
 					);
 				}),
-				"agent.tasks": typedAction(
-					{
-						name: "agent.tasks",
-						description:
-							"List async tasks started via agent.run(async=true). Shows status, elapsed time, and results for completed tasks.",
-						inputSchema: z.object({
-							taskId: z.string().optional().describe("Get details for a specific task. Omit to list all."),
-						}),
-					},
-					handleTasks,
-				),
-				"agent.models": typedAction(
-					{
-						name: "agent.models",
-						description:
-							"List available LLM models. Returns model IDs that can be passed to agent.run(model=...) for subagent model selection.",
-						inputSchema: z.object({
-							provider: z
-								.string()
-								.optional()
-								.describe("Filter by provider (e.g. 'anthropic', 'google-vertex'). Omit to list all."),
-						}),
-					},
-					handleModels,
-				),
+				"agent.tasks": typedAction(TASKS_TOOL, handleTasks),
+				"agent.models": typedAction(MODELS_TOOL, handleModels),
+				"agent.cancel": typedAction(CANCEL_TOOL, handleCancel),
+				"agent.retry": typedAction(RETRY_TOOL, handleRetry),
 				"agent.spawn": typedAction(SPAWN_TOOL, (ctx) => handleSpawn(deps, ctx)),
 				"agent.ask": typedAction(ASK_TOOL, (ctx) => handleAsk(deps, ctx)),
 				"agent.race": typedAction(RACE_TOOL, (ctx) => handleRace(deps, ctx)),
@@ -570,6 +853,7 @@ export function createAgentAdapter(
 				deps.publishInnerSignal = undefined;
 			},
 			contributions: {
+				"context.assemble": taskContextStage,
 				ui: {
 					signals: {
 						"agent.intent": (payload, ui) => {
@@ -599,6 +883,10 @@ Prefer direct fs/grep for small reads. Spawn/ask/kill for persistent children.`,
 		get(): readonly ToolDefinition[] {
 			return [
 				buildRunTool(),
+				TASKS_TOOL,
+				MODELS_TOOL,
+				CANCEL_TOOL,
+				RETRY_TOOL,
 				SPAWN_TOOL,
 				ASK_TOOL,
 				RACE_TOOL,

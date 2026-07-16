@@ -109,3 +109,41 @@ export const PROMOTE_TOOL = {
 		blueprintPath: z.string().optional().describe("Production blueprint path."),
 	}),
 };
+
+export const CANCEL_TOOL = {
+	name: "agent.cancel",
+	description: "Cancel a running async task. Aborts the task immediately and marks it as cancelled.",
+	inputSchema: z.object({
+		taskId: z.string().min(1).describe("The task ID to cancel (from agent.tasks)."),
+	}),
+};
+
+export const RETRY_TOOL = {
+	name: "agent.retry",
+	description:
+		"Retry a failed or cancelled async task. Creates a new task with the same parameters as the original.",
+	inputSchema: z.object({
+		taskId: z.string().min(1).describe("The task ID to retry (from agent.tasks)."),
+	}),
+};
+
+export const TASKS_TOOL = {
+	name: "agent.tasks",
+	description:
+		"List async tasks started via agent.run(async=true). Shows status, elapsed time, and results for completed tasks.",
+	inputSchema: z.object({
+		taskId: z.string().optional().describe("Get details for a specific task. Omit to list all."),
+	}),
+};
+
+export const MODELS_TOOL = {
+	name: "agent.models",
+	description:
+		"List available LLM models. Returns model IDs that can be passed to agent.run(model=...) for subagent model selection.",
+	inputSchema: z.object({
+		provider: z
+			.string()
+			.optional()
+			.describe("Filter by provider (e.g. 'anthropic', 'google-vertex'). Omit to list all."),
+	}),
+};

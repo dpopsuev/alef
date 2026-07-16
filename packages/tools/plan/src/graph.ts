@@ -28,12 +28,23 @@ export interface Inspector {
 /** Lifecycle status of a plan step. */
 export type StepStatus = "pending" | "active" | "done" | "failed" | "dropped";
 
+/** Claim metadata for parallel workers coordinating on a ready step. */
+export interface StepClaim {
+	owner: string;
+	state: "reserved" | "active";
+	token: string;
+	claimedAt: number;
+	leaseExpiresAt?: number;
+	note?: string;
+}
+
 /** A single step in the plan DAG with gates and optional inspector. */
 export interface Step {
 	id: string;
 	label: string;
 	dependsOn: string[];
 	status: StepStatus;
+	claim?: StepClaim;
 	gates: Gate[];
 	inspector?: Inspector;
 	result?: string;
@@ -212,8 +223,62 @@ export class PlanGraph {
 	}
 
 	startStep(id: string): Step | null {
+		return this.startClaimedStep(id);
+	}
+
+	claimStep(
+		id: string,
+		owner: string,
+		opts: { leaseMs?: number; note?: string } = {},
+	): { step: Step; token: string } | null {
+		const step = this.stepIndex.get(id);
+		if (!step) return null;
+		this.clearExpiredClaim(step);
+		if (!this.isReady(step) || step.claim) return null;
+		const token = `claim-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+		step.claim = {
+			owner,
+			state: "reserved",
+			token,
+			claimedAt: Date.now(),
+			leaseExpiresAt: opts.leaseMs ? Date.now() + opts.leaseMs : undefined,
+			note: opts.note,
+		};
+		this.touch();
+		return { step, token };
+	}
+
+	heartbeatClaim(id: string, token: string, leaseMs?: number): Step | null {
+		const step = this.stepIndex.get(id);
+		if (!step) return null;
+		this.clearExpiredClaim(step);
+		if (!step.claim || step.claim.token !== token) return null;
+		if (leaseMs) step.claim.leaseExpiresAt = Date.now() + leaseMs;
+		this.touch();
+		return step;
+	}
+
+	releaseClaim(id: string, token: string): Step | null {
+		const step = this.stepIndex.get(id);
+		if (!step) return null;
+		this.clearExpiredClaim(step);
+		if (!step.claim || step.claim.token !== token) return null;
+		if (step.status === "active") step.status = "pending";
+		delete step.claim;
+		this.touch();
+		return step;
+	}
+
+	startClaimedStep(id: string, token?: string): Step | null {
 		const step = this.stepIndex.get(id);
 		if (!step || (step.status !== "pending" && step.status !== "failed")) return null;
+		this.clearExpiredClaim(step);
+		if (step.claim) {
+			if (token !== step.claim.token) return null;
+			step.claim = { ...step.claim, state: "active" };
+		} else if (!this.isReady(step) && step.status !== "failed") {
+			return null;
+		}
 		step.status = "active";
 		step.startedAt = Date.now();
 		if (this.data.phase === "open") this.data.phase = "working";
@@ -221,9 +286,11 @@ export class PlanGraph {
 		return step;
 	}
 
-	completeStep(id: string, result?: string): { step: Step; gateResults: GateResult[] } | null {
+	completeStep(id: string, result?: string, token?: string): { step: Step; gateResults: GateResult[] } | null {
 		const step = this.stepIndex.get(id);
 		if (!step || step.status !== "active") return null;
+		this.clearExpiredClaim(step);
+		if (step.claim && step.claim.token !== token) return null;
 
 		const gateResults = this.runGates(step.gates);
 		step.gateResults = gateResults;
@@ -233,30 +300,38 @@ export class PlanGraph {
 		if (allPassed) {
 			step.status = "done";
 			step.completedAt = Date.now();
+			delete step.claim;
 		} else {
 			step.status = "failed";
 			step.result = gateResults
 				.filter((g) => !g.passed)
 				.map((g) => `gate failed: ${g.gate.type} ${g.gate.target} — ${g.output}`)
 				.join("; ");
+			delete step.claim;
 		}
 		this.touch();
 		return { step, gateResults };
 	}
 
-	failStep(id: string, reason: string): Step | null {
+	failStep(id: string, reason: string, token?: string): Step | null {
 		const step = this.stepIndex.get(id);
 		if (!step || step.status !== "active") return null;
+		this.clearExpiredClaim(step);
+		if (step.claim && step.claim.token !== token) return null;
 		step.status = "failed";
 		step.result = reason;
+		delete step.claim;
 		this.touch();
 		return step;
 	}
 
-	dropStep(id: string): Step | null {
+	dropStep(id: string, token?: string): Step | null {
 		const step = this.stepIndex.get(id);
 		if (!step || step.status === "done" || step.status === "dropped") return null;
+		this.clearExpiredClaim(step);
+		if (step.claim && step.claim.token !== token) return null;
 		step.status = "dropped";
+		delete step.claim;
 		this.touch();
 		return step;
 	}
@@ -288,8 +363,17 @@ export class PlanGraph {
 		return this.data.steps.filter((s) => s.dependsOn.length === 0);
 	}
 
+	private clearExpiredClaim(step: Step): void {
+		if (!step.claim?.leaseExpiresAt) return;
+		if (step.claim.leaseExpiresAt <= Date.now()) {
+			delete step.claim;
+		}
+	}
+
 	private isReady(step: Step): boolean {
+		this.clearExpiredClaim(step);
 		if (step.status !== "pending") return false;
+		if (step.claim) return false;
 		if (step.dependsOn.length === 0) return true;
 		return step.dependsOn.every((dep) => this.stepIndex.get(dep)?.status === "done");
 	}
@@ -349,7 +433,13 @@ export class PlanGraph {
 		for (const step of this.data.steps) {
 			const marker = PlanGraph.glyph(step.status);
 			const focus = step.status === "active" ? "  ◄" : "";
-			lines.push(`  ${marker} ${step.label}${focus}`);
+			const claim =
+				step.claim?.owner
+					? step.claim.state === "reserved"
+						? `  · reserved ${step.claim.owner}`
+						: `  · ${step.claim.owner}`
+					: "";
+			lines.push(`  ${marker} ${step.label}${claim}${focus}`);
 			if (step.status === "active") {
 				for (const g of step.gates) {
 					const gateStr = g.expect ? `${g.type}: ${g.target} = ${g.expect}` : `${g.type}: ${g.target}`;

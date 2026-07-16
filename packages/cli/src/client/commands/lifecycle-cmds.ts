@@ -164,14 +164,30 @@ export const compact: Command = {
 				ctx.tui.requestRender();
 				return;
 			}
-			const { notice } = await runManualCompact({
-				store,
-				summarize: summarize ?? (() => ""),
-				instructions,
-				strategy,
-			});
-			ctx.writer.addNotice(notice);
-			ctx.tui.requestRender();
+			ctx.dispatch({ type: "adapter-signal", signalType: "context.compacting", payload: { active: true } });
+			try {
+				const { result, notice } = await runManualCompact({
+					store,
+					summarize: summarize ?? (() => ""),
+					instructions,
+					strategy,
+				});
+				if (result.compactedTurns > 0) {
+					ctx.dispatch({
+						type: "adapter-signal",
+						signalType: "context.compacted",
+						payload: {
+							compactedTurns: result.compactedTurns,
+							estimatedBefore: result.estimatedBefore,
+							estimatedAfter: result.estimatedAfter,
+						},
+					});
+				}
+				ctx.writer.addNotice(notice);
+				ctx.tui.requestRender();
+			} finally {
+				ctx.dispatch({ type: "adapter-signal", signalType: "context.compacting", payload: { active: false } });
+			}
 		});
 	},
 };

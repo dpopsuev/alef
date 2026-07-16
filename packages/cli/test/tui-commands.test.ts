@@ -460,6 +460,7 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 				requestRender: () => {},
 				addInputListener: () => {},
 				setFocus: () => {},
+				setStickyFrom: () => {},
 				terminal: { rows: 40, cols: width },
 			} as unknown as TUIClass;
 
@@ -467,10 +468,8 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 			const zone = new PromptConsole(fakeTui, t, "test-model");
 			zone.mount();
 
-			// PromptConsole.mount() adds: pendingFooter, inFlightQueue, statusText,
-			// EditorWrapper, hintBar — EditorWrapper is at index 3.
-			const arcWrapper = children[3];
-			if (!arcWrapper) throw new Error("EditorWrapper not found at index 3");
+			const arcWrapper = children.find((child) => child.render(width).length > 1);
+			if (!arcWrapper) throw new Error("EditorWrapper not found");
 
 			const rendered = arcWrapper.render(width);
 			for (const line of rendered) {
@@ -479,4 +478,33 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 			}
 		});
 	}
+
+	it("renders the mode label on the left with a trailing separator", () => {
+		const width = 40;
+		const children: Component[] = [];
+		const fakeTui = {
+			addChild: (c: Component) => children.push(c),
+			removeChild: () => {},
+			requestRender: () => {},
+			addInputListener: () => {},
+			setFocus: () => {},
+			setStickyFrom: () => {},
+			terminal: { rows: 40, cols: width },
+		} as unknown as TUIClass;
+
+		const t = getTheme();
+		const zone = new PromptConsole(fakeTui, t, "test-model");
+		zone.mount();
+		zone.setStatus("INSERT");
+
+		const wrapper = children.find((child) => child.render(width).some((line) => line.includes("INSERT")));
+		if (!wrapper) throw new Error("EditorWrapper with mode label not found");
+
+		const visible = wrapper
+			.render(width)
+			.at(-1)!
+			.replace(/\x1b\[[0-9;]*m/g, "");
+		expect(visible.startsWith("─ INSERT ")).toBe(true);
+		expect(visible.endsWith("─")).toBe(true);
+	});
 });

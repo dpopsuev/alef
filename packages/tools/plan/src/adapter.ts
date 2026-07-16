@@ -44,10 +44,14 @@ const PLAN_STEPS = {
 
 const PLAN_ADVANCE = {
 	name: "plan.advance",
-	description: "Advance a step: start, done, fail, or drop.",
+	description: "Advance a step: claim, release, heartbeat, start, done, fail, or drop.",
 	inputSchema: z.object({
 		stepId: z.string().min(1).describe("Step ID"),
-		action: z.enum(["start", "done", "fail", "drop"]),
+		action: z.enum(["claim", "release", "heartbeat", "start", "done", "fail", "drop"]),
+		owner: z.string().optional().describe("Owner address for claim actions."),
+		token: z.string().optional().describe("Claim token required for claimed-step transitions."),
+		leaseMs: z.number().optional().describe("Lease extension in ms for claim/heartbeat."),
+		note: z.string().optional().describe("Optional reservation note."),
 		result: z.string().optional().describe("Outcome (required for done/fail)"),
 	}),
 };
@@ -130,10 +134,12 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	 *
 	 */
 	function postToDiscourse(planId: string, thread: string, content: Record<string, unknown>): void {
+		const discussionForum = process.env.ALEF_DISCUSSION_FORUM?.trim();
+		const topic = discussionForum === undefined || discussionForum === "" ? "plan" : discussionForum;
 		mountedBus?.command.publish({
 			type: "discourse.post",
 			correlationId: "",
-			payload: { topic: "plan", thread: planId, content, author: opts.actorAddress ?? "plan-adapter" },
+			payload: { topic, thread, content, author: opts.actorAddress ?? "plan-adapter" },
 		});
 	}
 
@@ -269,22 +275,86 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		const plan = focused();
 		if (!plan) return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 
-		const { stepId, action, result } = ctx.payload;
+		const { stepId, action, result, token } = ctx.payload;
 
 		switch (action) {
+			case "claim": {
+				const owner = ctx.payload.owner ?? opts.actorAddress;
+				if (!owner) {
+					return withDisplay(
+						{ error: "owner required" },
+						{ text: "Claim requires owner or adapter actorAddress", mimeType: "text/plain" },
+					);
+				}
+				const claim = plan.claimStep(stepId, owner, { leaseMs: ctx.payload.leaseMs, note: ctx.payload.note });
+				if (!claim) {
+					return withDisplay({ error: "cannot claim" }, { text: `Cannot claim ${stepId}`, mimeType: "text/plain" });
+				}
+				store.sync(plan);
+				emit("plan.tree", { tree: plan.renderTree() });
+				postToDiscourse(plan.id, plan.id, {
+					type: "step:claimed",
+					stepId,
+					owner,
+					token: claim.token,
+					note: ctx.payload.note,
+				});
+				return withDisplay(
+					{ stepId, status: claim.step.status, claim: claim.step.claim },
+					{ text: `Claimed ${stepId} for ${owner}`, mimeType: "text/plain" },
+				);
+			}
+			case "heartbeat": {
+				const step = plan.heartbeatClaim(stepId, token ?? "", ctx.payload.leaseMs);
+				if (!step) {
+					return withDisplay(
+						{ error: "cannot heartbeat" },
+						{ text: `Cannot heartbeat ${stepId}`, mimeType: "text/plain" },
+					);
+				}
+				store.sync(plan);
+				return withDisplay(
+					{ stepId, status: step.status, claim: step.claim },
+					{ text: `Heartbeat applied to ${stepId}`, mimeType: "text/plain" },
+				);
+			}
+			case "release": {
+				const step = plan.releaseClaim(stepId, token ?? "");
+				if (!step) {
+					return withDisplay(
+						{ error: "cannot release" },
+						{ text: `Cannot release ${stepId}`, mimeType: "text/plain" },
+					);
+				}
+				store.sync(plan);
+				emit("plan.tree", { tree: plan.renderTree() });
+				postToDiscourse(plan.id, plan.id, { type: "step:released", stepId });
+				return withDisplay(
+					{ stepId, status: step.status, claim: null },
+					{ text: `Released ${stepId}`, mimeType: "text/plain" },
+				);
+			}
 			case "start": {
-				const step = plan.startStep(stepId);
+				const step = plan.startClaimedStep(stepId, token);
 				if (!step) return withDisplay({ error: "cannot start" }, { text: `Cannot start ${stepId}`, mimeType: "text/plain" });
 				store.sync(plan);
-				emit("step.started", { planId: plan.id, stepId, label: step.label });
-				postToDiscourse(plan.id, plan.id, { type: "step:started", stepId, label: step.label });
+				emit("step.started", { planId: plan.id, stepId, label: step.label, claim: step.claim ?? null });
+				postToDiscourse(plan.id, plan.id, {
+					type: "step:started",
+					stepId,
+					label: step.label,
+					owner: step.claim?.owner,
+				});
 				emit("plan.intent", { text: step.label });
 				emit("plan.tree", { tree: plan.renderTree() });
 				const next = plan.nextReady();
-				return withDisplay({ stepId, status: "active", next: next?.id ?? null }, { text: `Started: ${step.label}`, mimeType: "text/plain" });
+				return withDisplay(
+					{ stepId, status: "active", claim: step.claim ?? null, next: next?.id ?? null },
+					{ text: `Started: ${step.label}`, mimeType: "text/plain" },
+				);
 			}
 			case "done": {
-				const outcome = plan.completeStep(stepId, result);
+				const outcome = plan.completeStep(stepId, result, token);
 				if (!outcome) return withDisplay({ error: "cannot complete" }, { text: `Cannot complete ${stepId}`, mimeType: "text/plain" });
 				store.sync(plan);
 				const { step, gateResults } = outcome;
@@ -322,7 +392,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				);
 			}
 			case "fail": {
-				const step = plan.failStep(stepId, result ?? "failed");
+				const step = plan.failStep(stepId, result ?? "failed", token);
 				if (!step) return withDisplay({ error: "cannot fail" }, { text: `Cannot fail ${stepId}`, mimeType: "text/plain" });
 				store.sync(plan);
 				emit("step.failed", { planId: plan.id, stepId, reason: result });
@@ -331,7 +401,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				return withDisplay({ stepId, status: "failed" }, { text: `Failed: ${step.label} — ${result ?? "no reason"}`, mimeType: "text/plain" });
 			}
 			case "drop": {
-				const step = plan.dropStep(stepId);
+				const step = plan.dropStep(stepId, token);
 				if (!step) return withDisplay({ error: "cannot drop" }, { text: `Cannot drop ${stepId}`, mimeType: "text/plain" });
 				store.sync(plan);
 				emit("plan.tree", { tree: plan.renderTree() });

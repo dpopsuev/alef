@@ -8,6 +8,25 @@ function msg(type: string, payload: Record<string, unknown> = {}): BusMessage {
 	};
 }
 
+function taskSnapshot(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		descriptor: {
+			taskId: "t-1",
+			profile: "coding",
+			actorAddress: "@planner",
+			planId: "plan-1",
+			stepId: "step-1",
+			discourseTopic: "plan",
+			discourseThread: "plan-1",
+			attempt: 1,
+		},
+		status: "running",
+		startedAt: 1000,
+		lastActivityAt: 1500,
+		...overrides,
+	};
+}
+
 describe("signalToAgentEvent — bus→AgentEvent bridge", { tags: ["unit"] }, () => {
 	it("llm.chunk → chunk with text", () => {
 		const result = signalToAgentEvent(msg("llm.chunk", { text: "hello" }));
@@ -123,6 +142,20 @@ describe("signalToAgentEvent — bus→AgentEvent bridge", { tags: ["unit"] }, (
 		});
 	});
 
+	it("agent.run.inner with subagent-token-usage → subagent-token-usage", () => {
+		const result = signalToAgentEvent(msg("agent.run.inner", {
+			callId: "call-1",
+			innerType: "subagent-token-usage",
+			innerPayload: { input: 123, output: 45 },
+		}));
+		expect(result).toEqual({
+			type: "subagent-token-usage",
+			callId: "call-1",
+			input: 123,
+			output: 45,
+		});
+	});
+
 	it("agent.run.inner with llm.tool-start → inner-tool-start", () => {
 		const result = signalToAgentEvent(msg("agent.run.inner", {
 			callId: "parent-1", innerType: "llm.tool-start",
@@ -217,34 +250,52 @@ describe("signalToAgentEvent — bus→AgentEvent bridge", { tags: ["unit"] }, (
 		});
 	});
 
+	it("task.started → task-started", () => {
+		const task = taskSnapshot();
+		const result = signalToAgentEvent(msg("task.started", { task }));
+		expect(result).toEqual({ type: "task-started", task });
+	});
+
 	it("task.progress → task-progress", () => {
-		const result = signalToAgentEvent(msg("task.progress", { taskId: "t-1", chunk: "searching..." }));
-		expect(result).toEqual({ type: "task-progress", taskId: "t-1", chunk: "searching..." });
+		const task = taskSnapshot();
+		const result = signalToAgentEvent(msg("task.progress", { task, chunk: "searching..." }));
+		expect(result).toEqual({
+			type: "task-progress",
+			task,
+			chunk: "searching...",
+		});
 	});
 
 	it("task.completed → task-completed", () => {
-		const result = signalToAgentEvent(msg("task.completed", {
-			taskId: "t-1", profile: "coding", reply: "done", elapsedMs: 3000,
-		}));
+		const task = taskSnapshot({ status: "completed", completedAt: 4000, reply: "done" });
+		const result = signalToAgentEvent(msg("task.completed", { task, reply: "done", elapsedMs: 3000 }));
 		expect(result).toEqual({
 			type: "task-completed",
-			taskId: "t-1",
-			profile: "coding",
+			task,
 			reply: "done",
 			elapsedMs: 3000,
 		});
 	});
 
 	it("task.failed → task-failed", () => {
-		const result = signalToAgentEvent(msg("task.failed", {
-			taskId: "t-1", profile: "coding", error: "timeout", elapsedMs: 60000,
-		}));
+		const task = taskSnapshot({ status: "failed", completedAt: 61_000, error: "timeout" });
+		const result = signalToAgentEvent(msg("task.failed", { task, error: "timeout", elapsedMs: 60000 }));
 		expect(result).toEqual({
 			type: "task-failed",
-			taskId: "t-1",
-			profile: "coding",
+			task,
 			error: "timeout",
 			elapsedMs: 60000,
+		});
+	});
+
+	it("task.cancelled → task-cancelled", () => {
+		const task = taskSnapshot({ status: "cancelled", completedAt: 5000, error: "Task cancelled" });
+		const result = signalToAgentEvent(msg("task.cancelled", { task, error: "Task cancelled", elapsedMs: 4000 }));
+		expect(result).toEqual({
+			type: "task-cancelled",
+			task,
+			error: "Task cancelled",
+			elapsedMs: 4000,
 		});
 	});
 

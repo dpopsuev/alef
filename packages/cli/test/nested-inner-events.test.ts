@@ -13,11 +13,13 @@ function noopUi() {
 	return {
 		writer: {
 			addCompletedToolBlock: () => {},
+			addAgentReply: () => {},
 			addBatchTiming: () => {},
 			addNotice: () => {},
 			addSubagentReply: () => {},
 			addTokenFooter: () => ({ setText: () => {} }),
 			addUserMessage: () => {},
+			clearAll: () => {},
 		},
 		replyBlock: { reset: () => {}, clear: () => {}, hideThinking: false, setHideThinking: () => {} },
 		replyTW: { receive: () => {}, flush: () => {}, reset: () => {} },
@@ -32,6 +34,7 @@ function noopUi() {
 			startThinking: () => {},
 			stopThinking: () => {},
 			setIntent: () => {},
+			setTopicLabel: () => {},
 			setStatus: () => {},
 			onTurnComplete: () => {},
 			isThinking: false,

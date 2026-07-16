@@ -195,6 +195,43 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 
 			expect(plan.allReady()).toHaveLength(3);
 		});
+
+		it("claimStep reserves a ready step and removes it from ready queues", () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const step = plan.addStep("write the api reference docs");
+			const claim = plan.claimStep(step.id, "@planner");
+			expect(claim?.step.claim?.owner).toBe("@planner");
+			expect(plan.nextReady()).toBeNull();
+			expect(plan.allReady()).toHaveLength(0);
+		});
+
+		it("startClaimedStep requires the matching token when reserved", () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const step = plan.addStep("write the api reference docs");
+			const claim = plan.claimStep(step.id, "@planner");
+			expect(plan.startClaimedStep(step.id)).toBeNull();
+			const started = plan.startClaimedStep(step.id, claim?.token);
+			expect(started?.status).toBe("active");
+			expect(started?.claim?.state).toBe("active");
+		});
+
+		it("releaseClaim returns the step to the ready queue", () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const step = plan.addStep("write the api reference docs");
+			const claim = plan.claimStep(step.id, "@planner");
+			expect(plan.releaseClaim(step.id, claim?.token ?? "")?.claim).toBeUndefined();
+			expect(plan.nextReady()?.id).toBe(step.id);
+		});
+
+		it("expired claims become reclaimable", async () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const step = plan.addStep("write the api reference docs");
+			const claim = plan.claimStep(step.id, "@planner", { leaseMs: 1 });
+			expect(claim).not.toBeNull();
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			const reclaimed = plan.claimStep(step.id, "@reviewer");
+			expect(reclaimed?.step.claim?.owner).toBe("@reviewer");
+		});
 	});
 
 	describe("cycle detection", () => {

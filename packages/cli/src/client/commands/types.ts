@@ -7,6 +7,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../../boot/interactive.js";
 import type { TuiEvent } from "../events.js";
+import type { TaskLedgerEntry } from "../state.js";
 import type { ThemeTokens } from "../theme.js";
 
 /** Shared context passed to every TUI command handler. */
@@ -32,6 +33,7 @@ export interface TuiHandlerContext {
 		contextFill: number;
 		contextWindow: number;
 	};
+	taskLedger?: readonly TaskLedgerEntry[];
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */

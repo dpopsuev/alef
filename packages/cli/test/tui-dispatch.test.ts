@@ -10,11 +10,13 @@ function makeMockUi(): TuiUi {
 	return {
 		writer: {
 			addCompletedToolBlock: vi.fn(),
+			addAgentReply: vi.fn(),
 			addBatchTiming: vi.fn(),
 			addNotice: vi.fn(),
 			addSubagentReply: vi.fn(),
 			addTokenFooter: vi.fn(() => ({ setText: vi.fn() })),
 			addUserMessage: vi.fn(),
+			clearAll: vi.fn(),
 		},
 		replyBlock: { reset: vi.fn(), clear: vi.fn(), hideThinking: false, setHideThinking: vi.fn() },
 		replyTW: { receive: vi.fn(), flush: vi.fn(), reset: vi.fn() },
@@ -29,6 +31,7 @@ function makeMockUi(): TuiUi {
 			startThinking: vi.fn(),
 			stopThinking: vi.fn(),
 			setIntent: vi.fn(),
+			setTopicLabel: vi.fn(),
 			setStatus: vi.fn(),
 			onTurnComplete: vi.fn(),
 			isThinking: false,
@@ -240,6 +243,36 @@ describe("dispatchTuiEvent — tool-start / tool-end", { tags: ["unit"] }, () =>
 	});
 });
 
+describe("dispatchTuiEvent — discussion", { tags: ["unit"] }, () => {
+	it("updates the prompt topic label when discussion changes", () => {
+		const ui = makeMockUi();
+		dispatchTuiEvent(
+			initialTuiState(),
+			{
+				type: "discussion-changed",
+				discussion: {
+					home: { forumId: "workspace-1234", topicId: "root-topic", topicTitle: "Workspace Root" },
+					active: { forumId: "workspace-1234", topicId: "topic-1", topicTitle: "Main Topic" },
+					subscriptions: [
+						{
+							discussion: { forumId: "workspace-1234", topicId: "root-topic", topicTitle: "Workspace Root" },
+							subscribedAt: 1,
+							mode: "participate",
+						},
+						{
+							discussion: { forumId: "workspace-1234", topicId: "topic-1", topicTitle: "Main Topic" },
+							subscribedAt: 2,
+							mode: "watch",
+						},
+					],
+				},
+			},
+			ui,
+		);
+		expect(ui.promptConsole.setTopicLabel).toHaveBeenCalledWith("Main Topic");
+	});
+});
+
 describe("dispatchTuiEvent — token-usage", { tags: ["unit"] }, () => {
 	it("accumulates sessionTokensTotal", () => {
 		const ui = makeMockUi();
@@ -446,5 +479,35 @@ describe("dispatchTuiEvent — message-queued", { tags: ["unit"] }, () => {
 		dispatchTuiEvent(initialTuiState(), { type: "message-queued", queueLength: 0 }, ui);
 		expect(ui.promptConsole.syncPendingQueue).toHaveBeenCalledWith({ queueLength: 0, text: undefined });
 		expect(ui.writer.addNotice).not.toHaveBeenCalled();
+	});
+});
+
+describe("dispatchTuiEvent — adapter-signal", { tags: ["unit"] }, () => {
+	it("updates contextFillTokens after context.compacted", () => {
+		const ui = makeMockUi();
+		const state = dispatchTuiEvent(
+			{ ...initialTuiState(), contextFillTokens: 197_000 },
+			{
+				type: "adapter-signal",
+				signalType: "context.compacted",
+				payload: {
+					compactedTurns: 279,
+					estimatedBefore: 197_000,
+					estimatedAfter: 36_000,
+				},
+			},
+			ui,
+			new Map([
+				[
+					"context.compacted",
+					(_payload, uiHandle) => {
+						uiHandle.setStatus("compacted 279 turns, recovered ~161k tokens", 2);
+					},
+				],
+			]),
+		);
+
+		expect(state.contextFillTokens).toBe(36_000);
+		expect(ui.promptConsole.setStatus).toHaveBeenCalledWith("compacted 279 turns, recovered ~161k tokens", 2);
 	});
 });

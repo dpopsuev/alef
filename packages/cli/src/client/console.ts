@@ -20,13 +20,17 @@ import { CommandHintGrid } from "./hints.js";
 
 /** Wraps the Editor component with top and bottom separator borders. */
 class EditorWrapper implements Component {
-	private readonly topBorder = new SeparatorLine();
-	private readonly bottomBorder = new SeparatorLine({ labelAlign: "right" });
+	private readonly topBorder = new SeparatorLine({ labelAlign: "right" });
+	private readonly bottomBorder = new SeparatorLine();
 
 	constructor(private readonly inner: Editor) {}
 
 	setModeLabel(label: string): void {
 		this.bottomBorder.setLabel(label);
+	}
+
+	setTopicLabel(label: string): void {
+		this.topBorder.setLabel(label);
 	}
 
 	render(width: number): string[] {
@@ -48,7 +52,6 @@ const SPINNER_FRAME_COUNT = 12;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
 const TOAST_DURATION_MS = 3000;
-const BACKGROUND_TASK_POLL_MS = 10_000;
 const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
 const MIN_WIDGET_LINES = 3;
 
@@ -103,7 +106,7 @@ export class PromptConsole {
 	private readonly backgroundTaskPanel = new Text("", 0, 0);
 	private readonly backgroundTasks = new Map<
 		string,
-		{ taskId: string; profile: string; status: string; startedAt: number }
+		{ taskId: string; profile: string; status: string; startedAt: number; updatedAt: number; detail?: string }
 	>();
 	private readonly pendingQueue: PendingQueuePanel;
 	readonly widgetSlotAbove = new Container();
@@ -145,6 +148,7 @@ export class PromptConsole {
 
 	mount(): void {
 		this.tui.addChild(this.pendingFooter);
+		this.tui.setStickyFrom(this.pendingFooter);
 		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
@@ -245,6 +249,10 @@ export class PromptConsole {
 
 	setIntent(text: string): void {
 		this.intentText = text;
+	}
+
+	setTopicLabel(text: string): void {
+		this.editorWrapper.setTopicLabel(text);
 	}
 
 	setWidgetAbove(text: string): void {
@@ -454,7 +462,13 @@ export class PromptConsole {
 	}
 
 	showBackgroundTask(taskId: string, profile: string): void {
-		this.backgroundTasks.set(taskId, { taskId, profile, status: "running", startedAt: Date.now() });
+		this.backgroundTasks.set(taskId, {
+			taskId,
+			profile,
+			status: "running",
+			startedAt: Date.now(),
+			updatedAt: Date.now(),
+		});
 		this.refreshBackgroundTaskPanel();
 	}
 
@@ -491,12 +505,12 @@ export class PromptConsole {
 
 	updateBackgroundTask(taskId: string, status: "completed" | "failed", _detail?: string): void {
 		const task = this.backgroundTasks.get(taskId);
-		if (task) task.status = status;
+		if (task) {
+			task.status = status;
+			task.updatedAt = Date.now();
+			task.detail = _detail;
+		}
 		this.refreshBackgroundTaskPanel();
-		setTimeout(() => {
-			this.backgroundTasks.delete(taskId);
-			this.refreshBackgroundTaskPanel();
-		}, BACKGROUND_TASK_POLL_MS);
 	}
 
 	private refreshBackgroundTaskPanel(): void {
@@ -505,19 +519,20 @@ export class PromptConsole {
 			this.tui.requestRender();
 			return;
 		}
-		const lines: string[] = [];
-		for (const task of this.backgroundTasks.values()) {
-			const elapsed = fmtMs(Date.now() - task.startedAt);
-			const icon =
-				task.status === "running"
-					? statusGlyph("active")
-					: task.status === "completed"
-						? statusGlyph("done")
-						: statusGlyph("error");
-			const style = task.status === "running" ? this.t.accentFg : this.t.mutedFg;
-			lines.push(color(`  ${icon} ${task.taskId}  ${task.profile}  ${elapsed}`, style));
-		}
-		this.backgroundTaskPanel.setText(lines.join("\n"));
+		const tasks = [...this.backgroundTasks.values()];
+		const running = tasks.filter((task) => task.status === "running").length;
+		const failed = tasks.filter((task) => task.status === "failed").length;
+		const completed = tasks.filter((task) => task.status === "completed").length;
+		const latest = tasks.toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
+		const summaryParts = [
+			`${statusGlyph("active")} ${running} running`,
+			completed > 0 ? `${statusGlyph("done")} ${completed} done` : null,
+			failed > 0 ? `${statusGlyph("error")} ${failed} failed` : null,
+		].filter(Boolean);
+		const latestText = latest ? `  ${latest.taskId} ${latest.profile} ${fmtMs(Date.now() - latest.startedAt)}` : "";
+		this.backgroundTaskPanel.setText(
+			color(`  Tasks · ${summaryParts.join("  ")}${latestText}`, running > 0 ? this.t.accentFg : this.t.mutedFg),
+		);
 		this.tui.requestRender();
 	}
 

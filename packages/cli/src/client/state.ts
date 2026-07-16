@@ -26,14 +26,22 @@ export interface TokenFooterHandle {
 	setText(text: string): void;
 }
 
-/** State of an async background task launched via agent.run. */
-export interface BackgroundTask {
+/** Durable async task ledger entry derived from task lifecycle events. */
+export interface TaskLedgerEntry {
 	taskId: string;
 	profile: string;
-	status: "running" | "completed" | "failed";
+	status: "running" | "completed" | "failed" | "cancelled";
 	startedAt: number;
+	lastActivityAt: number;
 	completedAt?: number;
-	chunks: string[];
+	ownerAddress?: string;
+	modelId?: string;
+	planId?: string;
+	stepId?: string;
+	discourseTopic?: string;
+	discourseThread?: string;
+	attempt?: number;
+	chunkTail: string[];
 	reply?: string;
 	error?: string;
 }
@@ -66,8 +74,8 @@ export interface TuiState {
 	exitCodes: Map<string, number>;
 	/** Accumulated subagent reply text per parent callId. */
 	innerReplies: Map<string, string>;
-	/** Background tasks launched via agent.run(async: true). */
-	backgroundTasks: Map<string, BackgroundTask>;
+	/** Durable async task ledger launched via agent.run(async: true). */
+	taskLedger: Map<string, TaskLedgerEntry>;
 }
 
 /** Create a fresh TuiState with all counters zeroed and collections empty. */
@@ -92,7 +100,7 @@ export function initialTuiState(): TuiState {
 		validationErrors: new Map(),
 		exitCodes: new Map(),
 		innerReplies: new Map(),
-		backgroundTasks: new Map(),
+		taskLedger: new Map(),
 	};
 }
 
@@ -120,11 +128,13 @@ export interface TuiWriter {
 		display: string | null,
 		displayKind: string | null,
 	): void;
+	addAgentReply(text: string): void;
 	addBatchTiming(elapsedMs: number): void;
 	addNotice(text: string): void;
 	addSubagentReply(name: string, reply: string): void;
 	addTokenFooter(): TokenFooterHandle;
 	addUserMessage(text: string): void;
+	clearAll(): void;
 }
 
 /** Structural interface for the streaming reply block component. */
@@ -153,6 +163,7 @@ export interface TuiPromptConsole {
 	startThinking(): void;
 	stopThinking(): void;
 	setIntent(text: string): void;
+	setTopicLabel(text: string): void;
 	setStatus(text: string, clearAfterTurns?: number): void;
 	setWidgetAbove(text: string): void;
 	onTurnComplete(): void;

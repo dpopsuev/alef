@@ -9,6 +9,7 @@ import { type ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
+import { displayActorName } from "./actor-label.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
 import { dispatchTuiEvent, type TuiEvent } from "./events.js";
 import { handleColonCommand, handleCtrlC } from "./handlers.js";
@@ -27,6 +28,65 @@ export {
 } from "@dpopsuev/alef-tui/views";
 export type { TuiHandlerContext } from "./handlers.js";
 export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./handlers.js";
+
+interface DiscussionTimelineEntry {
+	timestamp: number;
+	render(): void;
+}
+
+/**
+ *
+ */
+export interface DiscussionTimelineMessage {
+	author: string;
+	role: "user" | "assistant" | "other";
+	text: string;
+	timestamp: number;
+}
+
+/**
+ *
+ */
+export interface RuntimeToolHistoryEntry {
+	name: string;
+	keyArg: string;
+	timestamp: number;
+}
+
+/**
+ *
+ */
+export type DiscussionTimelineRenderEntry =
+	| { kind: "message"; message: DiscussionTimelineMessage }
+	| { kind: "tool"; tool: RuntimeToolHistoryEntry };
+
+/**
+ *
+ */
+function toolSummary(payload: Record<string, unknown>): string {
+	if (typeof payload.path === "string" && payload.path) return payload.path;
+	for (const value of Object.values(payload)) {
+		if (typeof value === "string" && value) return value;
+	}
+	return "";
+}
+
+/**
+ *
+ */
+export function buildDiscussionTimeline(
+	messages: readonly DiscussionTimelineMessage[],
+	tools: readonly RuntimeToolHistoryEntry[],
+): DiscussionTimelineRenderEntry[] {
+	return [
+		...messages.map((message) => ({ kind: "message", message }) as const),
+		...tools.map((tool) => ({ kind: "tool", tool }) as const),
+	].toSorted((left, right) => {
+		const leftTimestamp = left.kind === "message" ? left.message.timestamp : left.tool.timestamp;
+		const rightTimestamp = right.kind === "message" ? right.message.timestamp : right.tool.timestamp;
+		return leftTimestamp - rightTimestamp;
+	});
+}
 
 /** Boot the interactive TUI loop — wires layout, event dispatch, modal input, and session I/O. */
 export async function runTuiMode(
@@ -65,6 +125,52 @@ export async function runTuiMode(
 	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore, store);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
+	let discussionReloadSeq = 0;
+	let activeDiscussionKey = opts.discussion ? `${opts.discussion.forumId}/${opts.discussion.topicId}` : "";
+	const loadDiscussion = async (topicId?: string): Promise<void> => {
+		if (!session.readDiscussionTopic) return;
+		const reloadSeq = ++discussionReloadSeq;
+		const messages = await session.readDiscussionTopic(topicId);
+		const tools: RuntimeToolHistoryEntry[] = [];
+		const activeDiscussion = session.getDiscussion?.();
+		const homeDiscussion = session.getDiscussionState?.()?.home;
+		if (
+			store &&
+			activeDiscussion &&
+			homeDiscussion &&
+			activeDiscussion.forumId === homeDiscussion.forumId &&
+			(topicId ?? activeDiscussion.topicId) === homeDiscussion.topicId
+		) {
+			const events = await store.events();
+			for (const event of events) {
+				if (event.bus !== "command") continue;
+				if (event.type === "discourse.post" || event.type.startsWith("llm.") || event.type.startsWith("context."))
+					continue;
+				tools.push({ name: event.type, keyArg: toolSummary(event.payload), timestamp: event.timestamp });
+			}
+		}
+		if (reloadSeq !== discussionReloadSeq) return;
+		const entries: DiscussionTimelineEntry[] = buildDiscussionTimeline(messages, tools).map((entry) =>
+			entry.kind === "message"
+				? {
+						timestamp: entry.message.timestamp,
+						render: () => {
+							if (entry.message.role === "assistant") writer.addAgentReply(entry.message.text);
+							else if (entry.message.role === "user") writer.addUserMessage(entry.message.text);
+							else writer.addNotice(`${displayActorName(entry.message.author, "other")}: ${entry.message.text}`);
+						},
+					}
+				: {
+						timestamp: entry.tool.timestamp,
+						render: () =>
+							writer.addCompletedToolBlock(entry.tool.name, entry.tool.keyArg, {}, 0, true, null, null),
+					},
+		);
+		writer.clearAll();
+		for (const entry of entries) entry.render();
+	};
+	await loadDiscussion();
+	promptConsole.setTopicLabel(opts.discussion?.topicTitle ?? "");
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	const signalHandlers = getUiSignalHandlers();
@@ -90,6 +196,13 @@ export async function runTuiMode(
 	session.subscribe((event) => {
 		traceEvent("tui:observer", { eventType: event.type });
 		dispatch(event);
+		if (event.type === "discussion-changed") {
+			const nextKey = `${event.discussion.active.forumId}/${event.discussion.active.topicId}`;
+			if (nextKey !== activeDiscussionKey) {
+				activeDiscussionKey = nextKey;
+				void loadDiscussion(event.discussion.active.topicId);
+			}
+		}
 	});
 
 	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store);
@@ -113,7 +226,20 @@ export async function runTuiMode(
 		actorRoutes,
 		session,
 		writer,
-		forums,
+		forums:
+			session.getDiscussion && session.setDiscussion && session.listDiscussionTopics
+				? {
+						switchTo: (name: string) => {
+							session.setDiscussion?.({ topicId: name, topicTitle: name });
+						},
+						list: () => session.listDiscussionTopics?.() ?? [],
+						getActive: () => session.getDiscussion?.()?.topicId ?? "",
+					}
+				: {
+						switchTo: (name: string) => forums.switchTo(name),
+						list: () => forums.list(),
+						getActive: () => forums.active,
+					},
 		addToHistory: (text) => {
 			editor.addToHistory(text);
 			editor.clearAttachments();
@@ -209,6 +335,7 @@ export function createContextFactory(
 				contextFill: state.contextFillTokens,
 				contextWindow: session.state.contextWindow || 0,
 			},
+			taskLedger: [...state.taskLedger.values()],
 		};
 	};
 }

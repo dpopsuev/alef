@@ -7,14 +7,17 @@
  */
 
 import { describe, expect, it } from "vitest";
+import type { SubmitConfig } from "../src/client/submit.js";
 import { createSubmitHandler } from "../src/client/submit.js";
 
 function makeStubConfig() {
 	const sent: string[] = [];
 	const notices: string[] = [];
 	const userMessages: string[] = [];
+	const agentReplies: string[] = [];
 	const dispatched: Array<{ type: string }> = [];
 	const history: string[] = [];
+	let cleared = 0;
 
 	return {
 		config: {
@@ -29,11 +32,15 @@ function makeStubConfig() {
 			},
 			writer: {
 				addUserMessage: (text: string) => userMessages.push(text),
+				addAgentReply: (text: string) => agentReplies.push(text),
 				addNotice: (text: string) => notices.push(text),
 				addTokenFooter: () => ({ setText: () => {} }),
 				addCompletedToolBlock: () => {},
 				addBatchTiming: () => {},
 				addSubagentReply: () => {},
+				clearAll: () => {
+					cleared += 1;
+				},
 			},
 			addToHistory: (text: string) => history.push(text),
 			addHistoryEntry: () => {},
@@ -51,10 +58,12 @@ function makeStubConfig() {
 				dispatch: (event: { type: string }) => dispatched.push(event),
 			}),
 			onThinkingStop: () => {},
-		},
+		} as unknown as SubmitConfig,
 		sent,
 		notices,
 		userMessages,
+		agentReplies,
+		getCleared: () => cleared,
 		dispatched,
 		history,
 	};
@@ -96,5 +105,26 @@ describe("colon command submit interception", () => {
 		await handler("/help");
 
 		expect(sent, "Slash command was sent to LLM as a prompt").toHaveLength(0);
+	});
+
+	it("bare @topic switches the active discussion topic", async () => {
+		const { config, notices, userMessages, agentReplies, getCleared } = makeStubConfig();
+		let activeTopic = "root";
+		config.forums = {
+			switchTo: (name: string) => {
+				activeTopic = name;
+			},
+			list: async () => ["root", "review"],
+			getActive: () => activeTopic,
+		};
+		const handler = createSubmitHandler(config as never);
+
+		await handler("@review");
+
+		expect(activeTopic).toBe("review");
+		expect(getCleared()).toBe(0);
+		expect(userMessages).toEqual([]);
+		expect(agentReplies).toEqual([]);
+		expect(notices.at(-1)).toBe("Switched to topic @review");
 	});
 });

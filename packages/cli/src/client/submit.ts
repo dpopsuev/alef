@@ -27,7 +27,11 @@ export interface SubmitConfig {
 	onThinkingStop: () => void;
 	/** True while a turn is in flight — mid-turn prompts are queued, not scrollbacked yet. */
 	isTurnActive?: () => boolean;
-	forums?: { switchTo(name: string): unknown; list(): string[]; active: string };
+	forums?: {
+		switchTo(name: string): unknown;
+		list(): Promise<readonly string[]> | readonly string[];
+		getActive(): string;
+	};
 }
 
 /**
@@ -95,19 +99,20 @@ export function createSubmitHandler(config: SubmitConfig) {
 		handle: async (text) => {
 			const trimmed = text.trim();
 
-			// Bare "@" → list available forums
+			// Bare "@" → list available discussion topics
 			if (trimmed === "@" && config.forums) {
-				const chans = config.forums.list();
-				const active = config.forums.active;
-				writer.addNotice(`Channels: ${chans.map((c) => `@${c}${c === active ? " (active)" : ""}`).join(", ")}`);
+				const chans = await config.forums.list();
+				const active = config.forums.getActive();
+				writer.addNotice(`Topics: ${chans.map((c) => `@${c}${c === active ? " (active)" : ""}`).join(", ")}`);
 				return true;
 			}
 
-			// Bare "@name" (no message) → switch forum
+			// Bare "@name" (no message) → switch active topic
 			const bareMatch = /^@([\w.]+)$/.exec(trimmed);
 			if (bareMatch && config.forums) {
-				config.forums.switchTo(bareMatch[1]!);
-				writer.addNotice(`Switched to @${bareMatch[1]}`);
+				const nextTopic = bareMatch[1]!;
+				config.forums.switchTo(nextTopic);
+				writer.addNotice(`Switched to topic @${nextTopic}`);
 				return true;
 			}
 

@@ -37,6 +37,7 @@ describe("DiscourseStore", () => {
 				author: "alice",
 				content: "too deep",
 			});
+			expect(posts[0]!.id).toEqual(expect.any(String));
 			expect(posts[0]!.timestamp).toBeGreaterThan(0);
 		});
 
@@ -55,9 +56,23 @@ describe("DiscourseStore", () => {
 			expect(posts[0]!.content).toEqual({ score: 42, tags: ["a", "b"] });
 		});
 
+		it("records reply ancestry metadata", () => {
+			const parent = store.append("reviews", "nesting", "alice", "root");
+			const reply = store.append("reviews", "nesting", "bob", "reply", { replyToPostId: parent.id });
+			const posts = store.readThread("reviews", "nesting");
+			expect(reply.replyToPostId).toBe(parent.id);
+			expect(reply.references).toEqual([parent.id]);
+			expect(posts[1]).toMatchObject({
+				id: reply.id,
+				replyToPostId: parent.id,
+				references: [parent.id],
+			});
+		});
+
 		it("returns the created post from append", () => {
 			const post = store.append("t", "th", "me", "hello");
 			expect(post).toMatchObject({ topic: "t", thread: "th", author: "me", content: "hello" });
+			expect(post.id).toEqual(expect.any(String));
 		});
 
 		it("writes JSONL to disk", () => {
@@ -65,6 +80,7 @@ describe("DiscourseStore", () => {
 			const path = join(sessionDir, "discourse", "t", "th.jsonl");
 			const raw = readFileSync(path, "utf-8").trim();
 			const parsed = JSON.parse(raw);
+			expect(parsed.id).toEqual(expect.any(String));
 			expect(parsed.author).toBe("a");
 			expect(parsed.content).toBe("msg");
 			expect(parsed.timestamp).toBeGreaterThan(0);
@@ -81,8 +97,8 @@ describe("DiscourseStore", () => {
 
 	describe("readThread with since filter", () => {
 		it("filters posts older than since", () => {
-			store.append("t", "th", "a", "old");
-			const cutoff = Date.now() - 1;
+			const post = store.append("t", "th", "a", "old");
+			const cutoff = post.timestamp - 1;
 			const posts = store.readThread("t", "th", cutoff);
 			expect(posts).toHaveLength(1);
 			expect(posts[0]!.author).toBe("a");

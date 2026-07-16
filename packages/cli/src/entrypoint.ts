@@ -18,7 +18,7 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { createHotReloadDescriptor } from "@dpopsuev/alef-supervisor/hot-reload";
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
 import { loadAdapters } from "./boot/adapters.js";
@@ -26,11 +26,12 @@ import { createAgentServiceDescriptor } from "./boot/agent-service.js";
 import { parseArgs } from "./boot/args.js";
 import { BUILD_INFO } from "./boot/build-info.js";
 import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
+import { deriveDiscussionRef } from "./boot/discussion.js";
 import { initPmBlueprints } from "./boot/init-pm-blueprints.js";
 import { createRunnerLogger } from "./boot/logger.js";
 import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
-import { loadSession } from "./boot/session.js";
+import { buildIdentityContext, loadSession } from "./boot/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "./boot/session-service.js";
 import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
 import { createTuiServiceDescriptor } from "./boot/tui-service.js";
@@ -233,6 +234,8 @@ import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 const preview: SessionPreviewProvider = storage.sessionPreview();
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
 process.env.ALEF_SESSION_ID = session.id;
+const identity = buildIdentityContext(session);
+const discussion = deriveDiscussionRef(session, args.cwd);
 
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel/log");
 initSessionSink((record) => {
@@ -258,7 +261,11 @@ Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/
 
 // Boot-time inputs
 const sessionDir = dirname(session.path);
-const loaded = await loadAdapters(args, cfg, log, sessionDir);
+const loaded = await loadAdapters(args, cfg, log, sessionDir, {
+	resolveService: createServiceResolver(supervisor),
+	actorAddress: identity.agentActor.address,
+	discussion,
+});
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
@@ -289,6 +296,7 @@ supervisor.register(
 		loaded,
 		model,
 		storage,
+		identity,
 	}),
 );
 

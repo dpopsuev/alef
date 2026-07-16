@@ -1,5 +1,6 @@
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 
 /**
@@ -39,6 +40,7 @@ export interface ServiceCreateOpts {
 	logger?: AdapterLogger;
 	supervisor?: ServiceRegistry;
 	actorAddress?: string;
+	discussion?: DiscussionRef;
 }
 
 /**

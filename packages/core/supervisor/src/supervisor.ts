@@ -1,5 +1,6 @@
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
+import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor, ServiceRegistry } from "./lifecycle.js";
 
 /**
@@ -15,6 +16,8 @@ export function isServiceDescriptor(v: unknown): v is ServiceDescriptor {
 export interface ServiceResolverOpts {
 	cwd: string;
 	logger?: AdapterLogger;
+	actorAddress?: string;
+	discussion?: DiscussionRef;
 }
 
 /**

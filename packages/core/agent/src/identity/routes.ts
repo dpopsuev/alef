@@ -14,32 +14,39 @@ export type ActorRoute = (message: string, timeoutMs: number) => Promise<void>;
 /**
  *
  */
+function normalizeAddress(address: string): string {
+	return address.trim().replace(/^@+/, "");
+}
+
+/**
+ *
+ */
 export class ActorRouteTable {
 	private readonly _routes = new Map<string, ActorRoute>();
 	private _humanAddress: string | null = null;
 
 	register(address: string, route: ActorRoute): void {
-		this._routes.set(address, route);
+		this._routes.set(normalizeAddress(address), route);
 	}
 
 	unregister(address: string): void {
-		this._routes.delete(address);
+		this._routes.delete(normalizeAddress(address));
 	}
 
 	resolve(address: string): ActorRoute | undefined {
-		return this._routes.get(address);
+		return this._routes.get(normalizeAddress(address));
 	}
 
 	addresses(): string[] {
 		return [...this._routes.keys()];
 	}
 
-	setHumanAddress(color: string): void {
-		this._humanAddress = color;
+	setHumanAddress(address: string): void {
+		this._humanAddress = normalizeAddress(address);
 	}
 
-	isHumanAddress(color: string): boolean {
-		return this._humanAddress === color;
+	isHumanAddress(address: string): boolean {
+		return this._humanAddress === normalizeAddress(address);
 	}
 }
 

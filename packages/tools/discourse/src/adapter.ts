@@ -14,8 +14,9 @@ import type { Post } from "./types.js";
  *
  */
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
-	sessionDir: string;
+	sessionDir?: string;
 	actorAddress?: string;
+	ignoredThread?: { topic: string; thread: string };
 	/** When set, posts go to Scribe via message_add (JSONL is not SoR). */
 	scribeCall?: ScribeArtifactCall;
 	/** Scope stamp for Scribe-backed containers (default: default). */
@@ -30,6 +31,7 @@ const FORUM_POST = {
 		thread: z.string().min(1).describe("Thread name within the topic (e.g. 'long-functions', 'nesting')"),
 		content: z.unknown().describe("Message content — any JSON-serializable value"),
 		author: z.string().optional().describe("Author name (defaults to agent identity)"),
+		replyToPostId: z.string().optional().describe("Reply to this existing post id within the same thread"),
 	}),
 };
 
@@ -100,7 +102,7 @@ function resolveBackend(opts: DiscourseAdapterOptions): DiscourseBackend {
 	if (call) {
 		return new ScribeDiscourseBackend(call, opts.scope ?? "default");
 	}
-	return new DiscourseStore(opts.sessionDir);
+	return new DiscourseStore(opts.sessionDir ?? opts.cwd ?? process.cwd());
 }
 
 /** Create the discourse adapter with forum tools and question-aware context injection. */
@@ -111,10 +113,15 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		const newPosts = await store.readNewPosts(lastReadTs);
 		const blocks: string[] = [];
+		const visiblePosts = opts.ignoredThread
+			? newPosts.filter((post) => !(post.topic === opts.ignoredThread!.topic && post.thread === opts.ignoredThread!.thread))
+			: newPosts;
 
 		if (newPosts.length > 0) {
 			lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
-			blocks.push(`[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`);
+		}
+		if (visiblePosts.length > 0) {
+			blocks.push(`[Forum — ${visiblePosts.length} new post(s)]\n${visiblePosts.map(formatContextPost).join("\n")}`);
 		}
 
 		const unanswered = await findUnansweredQuestions(store, opts.actorAddress);
@@ -130,10 +137,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	async function handlePost(
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
-		const { topic, thread, content, author } = ctx.payload;
-		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content);
+		const { topic, thread, content, author, replyToPostId } = ctx.payload;
+		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content, { replyToPostId });
 		return withDisplay(
-			{ posted: true, topic, thread, timestamp: post.timestamp },
+			{ posted: true, id: post.id, topic, thread, timestamp: post.timestamp, replyToPostId: post.replyToPostId },
 			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
 		);
 	}

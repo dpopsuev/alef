@@ -3,6 +3,7 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
+import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
 /**
@@ -39,6 +40,53 @@ export interface AgentServer {
  */
 function isRecord(v: unknown): v is Record<string, unknown> {
 	return typeof v === "object" && v !== null;
+}
+
+/**
+ *
+ */
+function taskSnapshotFromPayload(payload: Record<string, unknown>): TaskSnapshot | null {
+	const task = payload.task;
+	if (!isRecord(task)) return null;
+	const descriptor = task.descriptor;
+	if (!isRecord(descriptor)) return null;
+	const taskId = typeof descriptor.taskId === "string" ? descriptor.taskId : "";
+	const profile = typeof descriptor.profile === "string" ? descriptor.profile : "";
+	if (!taskId || !profile) return null;
+	const status = task.status;
+	if (status !== "running" && status !== "completed" && status !== "failed" && status !== "cancelled") {
+		return null;
+	}
+	const startedAt = task.startedAt;
+	const lastActivityAt = task.lastActivityAt;
+	if (typeof startedAt !== "number" || typeof lastActivityAt !== "number") return null;
+	return {
+		descriptor: {
+			taskId,
+			profile,
+			logicalAgentId: typeof descriptor.logicalAgentId === "string" ? descriptor.logicalAgentId : undefined,
+			actorAddress: typeof descriptor.actorAddress === "string" ? descriptor.actorAddress : undefined,
+			parentSessionId: typeof descriptor.parentSessionId === "string" ? descriptor.parentSessionId : undefined,
+			parentToolCallId:
+				typeof descriptor.parentToolCallId === "string" ? descriptor.parentToolCallId : undefined,
+			sourceCallId: typeof descriptor.sourceCallId === "string" ? descriptor.sourceCallId : undefined,
+			correlationId: typeof descriptor.correlationId === "string" ? descriptor.correlationId : undefined,
+			planId: typeof descriptor.planId === "string" ? descriptor.planId : undefined,
+			stepId: typeof descriptor.stepId === "string" ? descriptor.stepId : undefined,
+			discourseTopic: typeof descriptor.discourseTopic === "string" ? descriptor.discourseTopic : undefined,
+			discourseThread: typeof descriptor.discourseThread === "string" ? descriptor.discourseThread : undefined,
+			modelId: typeof descriptor.modelId === "string" ? descriptor.modelId : undefined,
+			tokenBudget: typeof descriptor.tokenBudget === "number" ? descriptor.tokenBudget : undefined,
+			retryOfTaskId: typeof descriptor.retryOfTaskId === "string" ? descriptor.retryOfTaskId : undefined,
+			attempt: typeof descriptor.attempt === "number" ? descriptor.attempt : undefined,
+		},
+		status,
+		startedAt,
+		completedAt: typeof task.completedAt === "number" ? task.completedAt : undefined,
+		lastActivityAt,
+		reply: typeof task.reply === "string" ? task.reply : undefined,
+		error: typeof task.error === "string" ? task.error : undefined,
+	};
 }
 
 /** Safely extract payload from a bus event (BusMessage base type has no payload; concrete subtypes do). */
@@ -113,6 +161,15 @@ export function signalToAgentEvent(
 					callId: innerCallId,
 					color: typeof innerPayload.color === "string" ? innerPayload.color : "",
 					address: typeof innerPayload.address === "string" ? innerPayload.address : "",
+					modelId: typeof innerPayload.modelId === "string" ? innerPayload.modelId : undefined,
+				};
+			}
+			if (innerType === "subagent-token-usage" && innerPayload) {
+				return {
+					type: "subagent-token-usage",
+					callId: innerCallId,
+					input: typeof innerPayload.input === "number" ? innerPayload.input : 0,
+					output: typeof innerPayload.output === "number" ? innerPayload.output : 0,
 				};
 			}
 			if (innerType === "llm.tool-start" && innerPayload) {
@@ -185,27 +242,53 @@ export function signalToAgentEvent(
 				score: p.score !== undefined ? Number(p.score) : undefined,
 			};
 		case "task.progress":
-			return {
-				type: "task-progress",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				chunk: typeof p.chunk === "string" ? p.chunk : "",
-			};
+			return (() => {
+				const task = taskSnapshotFromPayload(p);
+				if (!task) return null;
+				return {
+					type: "task-progress",
+					task,
+					chunk: typeof p.chunk === "string" ? p.chunk : "",
+				} satisfies AgentEvent;
+			})();
+		case "task.started":
+			return (() => {
+				const task = taskSnapshotFromPayload(p);
+				return task ? ({ type: "task-started", task } satisfies AgentEvent) : null;
+			})();
 		case "task.completed":
-			return {
-				type: "task-completed",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				profile: typeof p.profile === "string" ? p.profile : "",
-				reply: typeof p.reply === "string" ? p.reply : "",
-				elapsedMs: Number(p.elapsedMs ?? 0),
-			};
+			return (() => {
+				const task = taskSnapshotFromPayload(p);
+				if (!task) return null;
+				return {
+					type: "task-completed",
+					task,
+					reply: typeof p.reply === "string" ? p.reply : "",
+					elapsedMs: Number(p.elapsedMs ?? 0),
+				} satisfies AgentEvent;
+			})();
 		case "task.failed":
-			return {
-				type: "task-failed",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				profile: typeof p.profile === "string" ? p.profile : "",
-				error: typeof p.error === "string" ? p.error : "",
-				elapsedMs: Number(p.elapsedMs ?? 0),
-			};
+			return (() => {
+				const task = taskSnapshotFromPayload(p);
+				if (!task) return null;
+				return {
+					type: "task-failed",
+					task,
+					error: typeof p.error === "string" ? p.error : "",
+					elapsedMs: Number(p.elapsedMs ?? 0),
+				} satisfies AgentEvent;
+			})();
+		case "task.cancelled":
+			return (() => {
+				const task = taskSnapshotFromPayload(p);
+				if (!task) return null;
+				return {
+					type: "task-cancelled",
+					task,
+					error: typeof p.error === "string" ? p.error : undefined,
+					elapsedMs: Number(p.elapsedMs ?? 0),
+				} satisfies AgentEvent;
+			})();
 		default: {
 			if (signalMappers) {
 				const mapper = signalMappers.get(event.type);

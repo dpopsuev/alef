@@ -1,4 +1,5 @@
 import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
+import type { DiscussionRef, DiscussionState, DiscussionSubscription, TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 
 // ---------------------------------------------------------------------------
 // AgentEvent — typed output from the agent to any observer.
@@ -60,9 +61,12 @@ export type AgentEvent =
 	| { type: "workflow-completed"; workflowId: string; elapsedMs: number }
 	| { type: "workflow-error"; workflowId: string; step: string; error: string }
 	| { type: "workflow-escalated"; workflowId: string; rule: string; retries?: number; score?: number }
-	| { type: "task-progress"; taskId: string; chunk: string }
-	| { type: "task-completed"; taskId: string; profile: string; reply: string; elapsedMs: number }
-	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number }
+	| { type: "task-started"; task: TaskSnapshot }
+	| { type: "task-progress"; task: TaskSnapshot; chunk: string }
+	| { type: "task-completed"; task: TaskSnapshot; reply: string; elapsedMs: number }
+	| { type: "task-failed"; task: TaskSnapshot; error: string; elapsedMs: number }
+	| { type: "task-cancelled"; task: TaskSnapshot; error?: string; elapsedMs: number }
+	| { type: "discussion-changed"; discussion: DiscussionState }
 	| { type: "adapter-signal"; signalType: string; payload: Record<string, unknown> }
 	| { type: "state-changed"; modelId: string; thinking: string; contextWindow: number };
 
@@ -95,6 +99,7 @@ export interface SessionState {
 	readonly id: string;
 	modelId: string;
 	contextWindow: number;
+	discussion?: DiscussionState;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +117,23 @@ export interface AdapterManagementSession {
 	readonly adapters: ReadonlyArray<{ name: string; description?: string }>;
 }
 
+/** Optional capability for discourse-backed topic navigation and operator I/O. */
+export interface DiscussionSession {
+	getDiscussionState(): DiscussionState | undefined;
+	getDiscussion(): DiscussionRef | undefined;
+	setDiscussion(next: Partial<DiscussionRef>): void;
+	subscribeDiscussion(
+		discussion: DiscussionRef,
+		opts?: { mode?: DiscussionSubscription["mode"]; leaseMs?: number },
+	): void;
+	unsubscribeDiscussion(discussion: Pick<DiscussionRef, "forumId" | "topicId">): boolean;
+	listDiscussionSubscriptions(): Promise<readonly DiscussionSubscription[]>;
+	listDiscussionTopics(): Promise<readonly string[]>;
+	readDiscussionTopic?(topicId?: string): Promise<
+		readonly { author: string; role: "user" | "assistant" | "other"; text: string; timestamp: number }[]
+	>;
+}
+
 // ---------------------------------------------------------------------------
 // Session — Strategy interface
 // ---------------------------------------------------------------------------
@@ -119,7 +141,7 @@ export interface AdapterManagementSession {
 /**
  *
  */
-export interface Session extends Partial<AdapterManagementSession> {
+export interface Session extends Partial<AdapterManagementSession>, Partial<DiscussionSession> {
 	readonly state: SessionState;
 
 	getModel(): string;

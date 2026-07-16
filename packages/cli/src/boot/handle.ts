@@ -17,10 +17,19 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import type { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { DiscussionRef, DiscussionState, DiscussionSubscription } from "@dpopsuev/alef-kernel/execution";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import { createLlmSummarizer } from "@dpopsuev/alef-session/summarizer";
+import type { DiscourseBackend } from "@dpopsuev/alef-tool-discourse";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
+
+/** Extract text content from a discourse payload when present. */
+function contentText(value: unknown): string | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const text: unknown = Reflect.get(value, "text");
+	return typeof text === "string" ? text : undefined;
+}
 
 /** Dependencies injected into SessionHandle at construction time. */
 export interface SessionHandleComponents {
@@ -34,6 +43,10 @@ export interface SessionHandleComponents {
 	log: Logger;
 	observers: Set<(event: AgentEvent) => void>;
 	modelFactory: (id: string) => Model<Api>;
+	discussion: DiscussionState;
+	discourseBackend: DiscourseBackend;
+	humanAddress: string;
+	agentAddress: string;
 }
 
 /** Thin runtime state wrapper that delegates send/receive/subscribe to the assembled agent. */
@@ -46,6 +59,10 @@ export class SessionHandle implements Session {
 	private _turnCount = 0;
 	private readonly _observers: Set<(event: AgentEvent) => void>;
 	private readonly _modelFactory: (id: string) => Model<Api>;
+	private _discussionState: DiscussionState;
+	private readonly _discourseBackend: DiscourseBackend;
+	private readonly _humanAddress: string;
+	private readonly _agentAddress: string;
 
 	private readonly _agent: Agent;
 	private readonly _directives: Directives;
@@ -64,6 +81,10 @@ export class SessionHandle implements Session {
 		log,
 		observers,
 		modelFactory,
+		discussion,
+		discourseBackend,
+		humanAddress,
+		agentAddress,
 	}: SessionHandleComponents) {
 		this.state = state;
 		this._currentModel = model;
@@ -75,6 +96,10 @@ export class SessionHandle implements Session {
 		this._log = log;
 		this._observers = observers;
 		this._modelFactory = modelFactory;
+		this._discussionState = discussion;
+		this._discourseBackend = discourseBackend;
+		this._humanAddress = humanAddress;
+		this._agentAddress = agentAddress;
 	}
 
 	getModel(): string {
@@ -117,6 +142,188 @@ export class SessionHandle implements Session {
 		this._llmController = ctrl;
 	}
 
+	getDiscussionState(): DiscussionState | undefined {
+		return this._discussionState;
+	}
+
+	getDiscussion(): DiscussionRef | undefined {
+		return this._discussionState.active;
+	}
+
+	setDiscussion(next: Partial<DiscussionRef>): void {
+		const active = { ...this._discussionState.active, ...next };
+		const subscriptions = this._upsertSubscription(this._discussionState.subscriptions, active, {
+			mode: "participate",
+		});
+		this._setDiscussionState({ ...this._discussionState, active, subscriptions });
+	}
+
+	subscribeDiscussion(
+		discussion: DiscussionRef,
+		opts?: { mode?: DiscussionSubscription["mode"]; leaseMs?: number },
+	): void {
+		const subscriptions = this._upsertSubscription(this._discussionState.subscriptions, discussion, {
+			mode: opts?.mode ?? "watch",
+			leaseMs: opts?.leaseMs,
+		});
+		this._setDiscussionState({ ...this._discussionState, subscriptions });
+	}
+
+	unsubscribeDiscussion(discussion: Pick<DiscussionRef, "forumId" | "topicId">): boolean {
+		if (this._sameDiscussion(this._discussionState.home, discussion)) return false;
+		const subscriptions = this._discussionState.subscriptions.filter(
+			(entry) => !this._sameDiscussion(entry.discussion, discussion),
+		);
+		if (subscriptions.length === this._discussionState.subscriptions.length) return false;
+		const active = this._sameDiscussion(this._discussionState.active, discussion)
+			? this._discussionState.home
+			: this._discussionState.active;
+		this._setDiscussionState({ ...this._discussionState, active, subscriptions });
+		return true;
+	}
+
+	async listDiscussionSubscriptions(): Promise<readonly DiscussionSubscription[]> {
+		const subscriptions = this._pruneExpiredSubscriptions(
+			this._discussionState.subscriptions,
+			this._discussionState,
+		).map((entry) => ({
+			...entry,
+			discussion: { ...entry.discussion },
+		}));
+		const refreshed = await Promise.all(
+			subscriptions.map(async (entry) => {
+				if (this._sameDiscussion(entry.discussion, this._discussionState.active)) {
+					return { ...entry, unreadCount: 0 };
+				}
+				const unreadCount = await this._countUnreadPosts(entry);
+				return { ...entry, unreadCount };
+			}),
+		);
+		this._setDiscussionState({ ...this._discussionState, subscriptions: refreshed }, false);
+		return refreshed;
+	}
+
+	private _setDiscussionState(next: DiscussionState, emit = true): void {
+		this._discussionState = {
+			...next,
+			subscriptions: this._pruneExpiredSubscriptions(next.subscriptions, next),
+		};
+		process.env.ALEF_DISCUSSION_FORUM = this._discussionState.active.forumId;
+		process.env.ALEF_DISCUSSION_TOPIC = this._discussionState.active.topicId;
+		process.env.ALEF_DISCUSSION_HOME_TOPIC = this._discussionState.home.topicId;
+		this.state.discussion = this._discussionState;
+		if (!emit) return;
+		const event: AgentEvent = { type: "discussion-changed", discussion: this._discussionState };
+		for (const obs of this._observers) obs(event);
+	}
+
+	async listDiscussionTopics(): Promise<readonly string[]> {
+		const topics = await this._discourseBackend.listThreads(this._discussionState.active.forumId);
+		return topics.length > 0 ? topics : [this._discussionState.active.topicId];
+	}
+
+	async readDiscussionTopic(
+		topicId = this._discussionState.active.topicId,
+	): Promise<readonly { author: string; role: "user" | "assistant" | "other"; text: string; timestamp: number }[]> {
+		const posts = await this._discourseBackend.readThread(this._discussionState.active.forumId, topicId);
+		const knownDiscussion =
+			this._discussionState.subscriptions.find((entry) => entry.discussion.topicId === topicId)?.discussion ??
+			(this._sameDiscussion(this._discussionState.active, {
+				forumId: this._discussionState.active.forumId,
+				topicId,
+			})
+				? this._discussionState.active
+				: { forumId: this._discussionState.active.forumId, topicId, topicTitle: topicId });
+		this._markDiscussionRead(knownDiscussion, posts);
+		return posts.map((post) => {
+			const postText = contentText(post.content);
+			const content = typeof post.content === "string" ? post.content : (postText ?? JSON.stringify(post.content));
+			const role =
+				post.author === this._humanAddress ? "user" : post.author === this._agentAddress ? "assistant" : "other";
+			return { author: post.author, role, text: content, timestamp: post.timestamp };
+		});
+	}
+
+	private _sameDiscussion(
+		left: Pick<DiscussionRef, "forumId" | "topicId">,
+		right: Pick<DiscussionRef, "forumId" | "topicId">,
+	): boolean {
+		return left.forumId === right.forumId && left.topicId === right.topicId;
+	}
+
+	private _pruneExpiredSubscriptions(
+		subscriptions: readonly DiscussionSubscription[],
+		state: Pick<DiscussionState, "home" | "active">,
+	): DiscussionSubscription[] {
+		const now = Date.now();
+		return subscriptions.filter((entry) => {
+			if (this._sameDiscussion(entry.discussion, state.home)) return true;
+			if (this._sameDiscussion(entry.discussion, state.active)) return true;
+			return !entry.leaseExpiresAt || entry.leaseExpiresAt > now;
+		});
+	}
+
+	private _upsertSubscription(
+		subscriptions: readonly DiscussionSubscription[],
+		discussion: DiscussionRef,
+		opts?: { mode?: DiscussionSubscription["mode"]; leaseMs?: number; lastReadAt?: number; unreadCount?: number },
+	): DiscussionSubscription[] {
+		const nextLease = opts?.leaseMs ? Date.now() + opts.leaseMs : undefined;
+		const existing = subscriptions.find(
+			(entry) => entry.discussion.forumId === discussion.forumId && entry.discussion.topicId === discussion.topicId,
+		);
+		if (existing) {
+			return subscriptions.map((entry) =>
+				entry === existing
+					? {
+							...entry,
+							discussion: { ...entry.discussion, ...discussion },
+							mode: opts?.mode ?? entry.mode,
+							leaseExpiresAt: nextLease ?? entry.leaseExpiresAt,
+							lastReadAt: opts?.lastReadAt ?? entry.lastReadAt,
+							unreadCount: opts?.unreadCount ?? entry.unreadCount,
+						}
+					: entry,
+			);
+		}
+		return [
+			...subscriptions,
+			{
+				discussion,
+				subscribedAt: Date.now(),
+				mode: opts?.mode,
+				leaseExpiresAt: nextLease,
+				lastReadAt: opts?.lastReadAt,
+				unreadCount: opts?.unreadCount ?? 0,
+			},
+		];
+	}
+
+	private _markDiscussionRead(discussion: DiscussionRef, posts: readonly { timestamp: number }[]): void {
+		const lastReadAt = posts.length > 0 ? Math.max(...posts.map((post) => post.timestamp)) : Date.now();
+		const subscriptions = this._upsertSubscription(this._discussionState.subscriptions, discussion, {
+			mode: this._sameDiscussion(discussion, this._discussionState.active) ? "participate" : undefined,
+			lastReadAt,
+			unreadCount: 0,
+		});
+		this._setDiscussionState({ ...this._discussionState, subscriptions }, false);
+	}
+
+	private async _countUnreadPosts(entry: DiscussionSubscription): Promise<number> {
+		const unread = await this._discourseBackend.readThread(
+			entry.discussion.forumId,
+			entry.discussion.topicId,
+			entry.lastReadAt,
+		);
+		if (entry.mode !== "mentions-only") return unread.length;
+		return unread.filter((post) => this._postMentionsActor(post.content)).length;
+	}
+
+	private _postMentionsActor(content: unknown): boolean {
+		const text = typeof content === "string" ? content : (contentText(content) ?? JSON.stringify(content));
+		return text.includes(this._agentAddress);
+	}
+
 	async loadAdapter(path: string): Promise<void> {
 		const adapter = await loadAdapterFromPath(path, {
 			cwd: this._args.cwd,
@@ -141,17 +348,44 @@ export class SessionHandle implements Session {
 		await this._agent.dispose();
 	}
 
-	send = (text: string, timeoutMs?: number): Promise<string> => {
+	send = async (text: string, timeoutMs?: number): Promise<string> => {
 		if (this._args.maxTurns > 0 && this._turnCount >= this._args.maxTurns) {
 			return Promise.reject(
 				new Error(`Max turns reached (${this._args.maxTurns}). Start a new session to continue.`),
 			);
 		}
 		this._turnCount++;
-		return this._controller.send(text, "human", timeoutMs);
+		const reply = await this._controller.send(text, "human", timeoutMs);
+		const userPost = await this._discourseBackend.append(
+			this._discussionState.active.forumId,
+			this._discussionState.active.topicId,
+			this._humanAddress,
+			text,
+		);
+		const agentPost = await this._discourseBackend.append(
+			this._discussionState.active.forumId,
+			this._discussionState.active.topicId,
+			this._agentAddress,
+			reply,
+		);
+		this._markDiscussionRead(this._discussionState.active, [userPost, agentPost]);
+		return reply;
 	};
 
 	receive(text: string, opts?: { delivery?: "steer" | "followUp" | "nextTurn" }): void {
+		void Promise.resolve(
+			this._discourseBackend.append(
+				this._discussionState.active.forumId,
+				this._discussionState.active.topicId,
+				this._humanAddress,
+				{
+					text,
+					delivery: opts?.delivery ?? "steer",
+				},
+			),
+		).then((post) => {
+			this._markDiscussionRead(this._discussionState.active, [post]);
+		});
 		this._controller.receive(text, "user", undefined, opts?.delivery);
 	}
 

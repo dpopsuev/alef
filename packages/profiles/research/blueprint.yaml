@@ -15,6 +15,8 @@ adapters:
     package: "@dpopsuev/alef-tool-agent"
   - name: skills
     package: "@dpopsuev/alef-tool-skills"
+  - name: discourse
+    package: "@dpopsuev/alef-tool-discourse"
 
 capabilities:
   orchestration: true

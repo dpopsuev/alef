@@ -1,12 +1,22 @@
 /**
  *
  */
+export interface PostWriteOptions {
+	readonly replyToPostId?: string;
+}
+
+/**
+ *
+ */
 export interface Post {
+	readonly id: string;
 	readonly topic: string;
 	readonly thread: string;
 	readonly author: string;
 	readonly content: unknown;
 	readonly timestamp: number;
+	readonly replyToPostId?: string;
+	readonly references?: readonly string[];
 }
 
 /**

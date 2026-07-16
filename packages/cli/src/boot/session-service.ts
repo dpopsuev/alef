@@ -9,7 +9,7 @@ import type { Logger } from "pino";
 import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";
-import { buildIdentityContext, createLocalSession } from "./session.js";
+import { buildIdentityContext, createLocalSession, type IdentityContext } from "./session.js";
 
 /** Dependencies injected into the session supervisor service. */
 export interface SessionServiceOptions {
@@ -20,6 +20,7 @@ export interface SessionServiceOptions {
 	loaded: AdapterLoadResult;
 	model: Model<Api>;
 	storage: StorageFactory;
+	identity?: IdentityContext;
 }
 
 /** Managed service exposing the assembled session, model display, and HTTP surface setup. */
@@ -41,8 +42,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 		dependsOn: ["storage"],
 
 		async create(_createOpts: ServiceCreateOpts): Promise<SessionService> {
-			const identity = buildIdentityContext(opts.store);
-
+			const identity = opts.identity ?? buildIdentityContext(opts.store);
 			const {
 				session: handle,
 				resolvedModelDisplay,

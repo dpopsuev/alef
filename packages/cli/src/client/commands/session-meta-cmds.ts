@@ -2,10 +2,10 @@ import { applySessionMetadataRefresh, normalizeSessionTags } from "@dpopsuev/ale
 import type { Command, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
 
-/** Rename the current session (user-owned; freezes auto title). */
+/** Rename the active discussion topic (persisted via session metadata for now). */
 export const rename: Command = {
 	name: "rename",
-	description: "Rename this session [:rename <name>]",
+	description: "Rename the active topic [:rename <name>]",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const name = args.join(" ").trim();
 		if (!name) {
@@ -25,7 +25,8 @@ export const rename: Command = {
 				title: name,
 				nameSource: "user",
 			});
-			ctx.writer.addNotice(`Renamed session to "${store.name()}"`);
+			ctx.session.setDiscussion?.({ topicTitle: name });
+			ctx.writer.addNotice(`Renamed topic to "${store.name()}"`);
 			ctx.tui.requestRender();
 		});
 	},

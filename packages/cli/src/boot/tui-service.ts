@@ -41,6 +41,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				humanAddress: sessionSvc.humanAddress,
 				agentAddress: sessionSvc.agentAddress,
 				blueprintName: sessionSvc.blueprintName,
+				discussion: sessionSvc.session.state.discussion?.active,
 			};
 
 			const viewer = selectViewMode(opts.args, interactiveOpts, opts.store);

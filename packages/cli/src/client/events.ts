@@ -1,9 +1,10 @@
 import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
+import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
-import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
+import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 
 /** TUI input events — dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
 export type TuiInputEvent =
@@ -30,6 +31,7 @@ export type TuiEvent = AgentEvent | TuiInputEvent;
 
 const CONTEXT_WARNING_THRESHOLD = 0.75;
 const CONTEXT_CRITICAL_THRESHOLD = 0.9;
+const TASK_CHUNK_TAIL_LIMIT = 20;
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -40,6 +42,30 @@ function resetUIComponents(ui: TuiUi): void {
 	ui.replyTW.flush();
 	ui.thinkingTW.flush();
 	ui.replyBlock.reset();
+}
+
+/**
+ *
+ */
+function taskEntryFromEvent(task: TaskSnapshot): TaskLedgerEntry {
+	return {
+		taskId: task.descriptor.taskId,
+		profile: task.descriptor.profile,
+		status: task.status,
+		startedAt: task.startedAt,
+		lastActivityAt: task.lastActivityAt,
+		completedAt: task.completedAt,
+		ownerAddress: task.descriptor.actorAddress,
+		modelId: task.descriptor.modelId,
+		planId: task.descriptor.planId,
+		stepId: task.descriptor.stepId,
+		discourseTopic: task.descriptor.discourseTopic,
+		discourseThread: task.descriptor.discourseThread,
+		attempt: task.descriptor.attempt,
+		chunkTail: [],
+		reply: task.reply,
+		error: task.error,
+	};
 }
 
 /** Process a tool-end event: remove the in-flight card, display output, and update batch state. */
@@ -183,6 +209,11 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	if (event.type === "discussion-changed") {
+		promptConsole.setTopicLabel(event.discussion.active.topicTitle);
+		return state;
+	}
+
 	if (event.type === "adapter-signal" && signalHandlers) {
 		const handler = signalHandlers.get(event.signalType);
 		if (handler) {
@@ -191,6 +222,9 @@ export function dispatchTuiEvent(
 				setStatus: (text, clearAfterTurns) => promptConsole.setStatus(text, clearAfterTurns),
 				setWidgetAbove: (text) => promptConsole.setWidgetAbove(text),
 			});
+		}
+		if (event.signalType === "context.compacted" && typeof event.payload.estimatedAfter === "number") {
+			return { ...state, contextFillTokens: event.payload.estimatedAfter };
 		}
 		return state;
 	}
@@ -467,51 +501,78 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
+	/** Track background task creation. */
+	function onTaskStarted(e: Extract<TuiEvent, { type: "task-started" }>): TuiState {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskEntryFromEvent(e.task);
+		taskLedger.set(task.taskId, task);
+		promptConsole.showBackgroundTask(task.taskId, task.profile);
+		return { ...state, taskLedger };
+	}
+
 	/** Track background task progress. */
 	function onTaskProgress(e: Extract<TuiEvent, { type: "task-progress" }>): TuiState {
-		const tasks = new Map(state.backgroundTasks);
-		let task = tasks.get(e.taskId);
+		const taskLedger = new Map(state.taskLedger);
+		let task = taskLedger.get(e.task.descriptor.taskId);
 		if (!task) {
-			task = {
-				taskId: e.taskId,
-				profile: "background",
-				status: "running",
-				startedAt: Date.now(),
-				chunks: [],
-			};
-			tasks.set(e.taskId, task);
-			promptConsole.showBackgroundTask(e.taskId, task.profile);
+			task = taskEntryFromEvent(e.task);
+			taskLedger.set(task.taskId, task);
+			promptConsole.showBackgroundTask(task.taskId, task.profile);
 		}
-		task.chunks.push(e.chunk);
-		return { ...state, backgroundTasks: tasks };
+		task.status = e.task.status;
+		task.lastActivityAt = e.task.lastActivityAt;
+		task.completedAt = e.task.completedAt;
+		task.reply = e.task.reply;
+		task.error = e.task.error;
+		task.chunkTail.push(e.chunk);
+		if (task.chunkTail.length > TASK_CHUNK_TAIL_LIMIT) {
+			task.chunkTail.splice(0, task.chunkTail.length - TASK_CHUNK_TAIL_LIMIT);
+		}
+		return { ...state, taskLedger };
 	}
 
 	/** Handle background task completion. */
 	function onTaskCompleted(e: Extract<TuiEvent, { type: "task-completed" }>): TuiState {
-		const tasks = new Map(state.backgroundTasks);
-		const task = tasks.get(e.taskId);
-		if (task) {
-			task.status = "completed";
-			task.completedAt = Date.now();
-			task.reply = e.reply;
-		}
-		promptConsole.updateBackgroundTask(e.taskId, "completed");
-		promptConsole.showToast(`Task ${e.taskId} completed (${e.profile})`, TASK_TOAST_DURATION_MS);
-		return { ...state, backgroundTasks: tasks };
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
+		task.status = "completed";
+		task.completedAt = e.task.completedAt ?? Date.now();
+		task.lastActivityAt = e.task.lastActivityAt;
+		task.reply = e.reply;
+		task.error = e.task.error;
+		taskLedger.set(task.taskId, task);
+		promptConsole.updateBackgroundTask(task.taskId, "completed");
+		promptConsole.showToast(`Task ${task.taskId} completed (${task.profile})`, TASK_TOAST_DURATION_MS);
+		return { ...state, taskLedger };
 	}
 
 	/** Handle background task failure. */
 	function onTaskFailed(e: Extract<TuiEvent, { type: "task-failed" }>): TuiState {
-		const tasks = new Map(state.backgroundTasks);
-		const task = tasks.get(e.taskId);
-		if (task) {
-			task.status = "failed";
-			task.completedAt = Date.now();
-			task.error = e.error;
-		}
-		promptConsole.updateBackgroundTask(e.taskId, "failed", e.error);
-		promptConsole.showToast(`Task ${e.taskId} failed: ${e.error}`, TASK_TOAST_DURATION_MS);
-		return { ...state, backgroundTasks: tasks };
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
+		task.status = "failed";
+		task.completedAt = e.task.completedAt ?? Date.now();
+		task.lastActivityAt = e.task.lastActivityAt;
+		task.error = e.error;
+		task.reply = e.task.reply;
+		taskLedger.set(task.taskId, task);
+		promptConsole.updateBackgroundTask(task.taskId, "failed", e.error);
+		promptConsole.showToast(`Task ${task.taskId} failed: ${e.error}`, TASK_TOAST_DURATION_MS);
+		return { ...state, taskLedger };
+	}
+
+	/** Handle background task cancellation. */
+	function onTaskCancelled(e: Extract<TuiEvent, { type: "task-cancelled" }>): TuiState {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
+		task.status = "cancelled";
+		task.completedAt = e.task.completedAt ?? Date.now();
+		task.lastActivityAt = e.task.lastActivityAt;
+		task.error = e.error ?? e.task.error;
+		taskLedger.set(task.taskId, task);
+		promptConsole.updateBackgroundTask(task.taskId, "failed", task.error);
+		promptConsole.showToast(`Task ${task.taskId} cancelled`, TASK_TOAST_DURATION_MS);
+		return { ...state, taskLedger };
 	}
 
 	// ── Dispatch table ──────────────────────────────────────────────────
@@ -547,9 +608,11 @@ export function dispatchTuiEvent(
 		"turn-complete": onBusTurnComplete,
 		"turn-error": onLlmTurnError,
 		"message-queued": onMessageQueued,
+		"task-started": onTaskStarted,
 		"task-progress": onTaskProgress,
 		"task-completed": onTaskCompleted,
 		"task-failed": onTaskFailed,
+		"task-cancelled": onTaskCancelled,
 	};
 
 	const handle = handlers[event.type];

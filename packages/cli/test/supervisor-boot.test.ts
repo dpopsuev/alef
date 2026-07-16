@@ -9,7 +9,7 @@
  *   5. Multi-UI: two observers subscribe to same Session, both receive events
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
@@ -23,8 +23,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
+import { DiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
+import { deriveDiscussionRef } from "../src/boot/discussion.js";
 import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
@@ -248,5 +250,102 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		expect(eventsA.length).toBeGreaterThan(0);
 		expect(eventsB.length).toBeGreaterThan(0);
 		expect(eventsA).toEqual(eventsB);
+	}, 15_000);
+
+	it("root session turns persist into the active discourse topic", async () => {
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const { opts } = makeSessionOpts(cwd, store);
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
+
+		await supervisor.startAll({ cwd });
+		const sessionSvc = supervisor.get("session") as SessionService;
+		await sessionSvc.session.send?.("hello", 10_000);
+
+		const discussion = deriveDiscussionRef(store, cwd);
+		const path = join(cwd, "discourse", discussion.forumId, `${discussion.topicId}.jsonl`);
+		const entries = readFileSync(path, "utf-8")
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { author: string; content: string });
+		expect(entries).toHaveLength(2);
+		expect(entries[0]!.content).toBe("hello");
+		expect(entries[1]!.content).toBe("hello");
+		expect(entries[0]!.author).toMatch(/^@/);
+		expect(entries[1]!.author).toMatch(/^@/);
+		expect(entries[0]!.author).not.toBe(entries[1]!.author);
+	}, 15_000);
+
+	it("switching discussion updates active thread without rewriting home thread", async () => {
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const { opts } = makeSessionOpts(cwd, store);
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
+
+		await supervisor.startAll({ cwd });
+		const sessionSvc = supervisor.get("session") as SessionService;
+		const session = sessionSvc.session;
+		const initial = session.getDiscussionState?.();
+
+		expect(initial?.home.topicId).toBe(store.id);
+		expect(initial?.active.topicId).toBe(store.id);
+		expect(initial?.subscriptions.map((entry) => entry.discussion.topicId)).toContain(store.id);
+
+		session.setDiscussion?.({ topicId: "review", topicTitle: "review" });
+		const next = session.getDiscussionState?.();
+
+		expect(next?.home.topicId).toBe(store.id);
+		expect(next?.active.topicId).toBe("review");
+		expect(next?.subscriptions.map((entry) => entry.discussion.topicId)).toEqual(
+			expect.arrayContaining([store.id, "review"]),
+		);
+	}, 15_000);
+
+	it("tracks subscription modes, leases, and unread counts", async () => {
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const { opts } = makeSessionOpts(cwd, store);
+		const discussion = deriveDiscussionRef(store, cwd);
+		const discourse = new DiscourseStore(cwd);
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
+
+		await supervisor.startAll({ cwd });
+		const sessionSvc = supervisor.get("session") as SessionService;
+		const session = sessionSvc.session;
+
+		session.subscribeDiscussion?.(
+			{ forumId: discussion.forumId, topicId: "watch", topicTitle: "watch" },
+			{ mode: "mentions-only", leaseMs: 60_000 },
+		);
+
+		discourse.append(discussion.forumId, "watch", "@other", `hello ${sessionSvc.agentAddress}`);
+		discourse.append(discussion.forumId, "watch", "@other", "no mention here");
+
+		const watched = (await session.listDiscussionSubscriptions?.())?.find(
+			(entry) => entry.discussion.topicId === "watch",
+		);
+		expect(watched?.mode).toBe("mentions-only");
+		expect(watched?.leaseExpiresAt).toBeGreaterThan(Date.now());
+		expect(watched?.unreadCount).toBe(1);
+
+		await session.readDiscussionTopic?.("watch");
+
+		const refreshed = (await session.listDiscussionSubscriptions?.())?.find(
+			(entry) => entry.discussion.topicId === "watch",
+		);
+		expect(refreshed?.unreadCount).toBe(0);
+		expect(session.unsubscribeDiscussion?.({ forumId: discussion.forumId, topicId: "watch" })).toBe(true);
+		expect(
+			(await session.listDiscussionSubscriptions?.())?.some((entry) => entry.discussion.topicId === "watch"),
+		).toBe(false);
 	}, 15_000);
 });

@@ -48,6 +48,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		humanAddress: opts.humanAddress ?? "@you",
 		agentAddress: opts.agentAddress ?? "@alef",
 		actorRoutes: opts.actorRoutes,
+		discussion: opts.session.state.discussion?.active,
 	};
 
 	if (isHeadlessServe(args)) {

@@ -26,6 +26,8 @@ adapters:
     package: "@dpopsuev/alef-tool-factory"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
+  - name: discourse
+    package: "@dpopsuev/alef-tool-discourse"
 
 capabilities:
   orchestration: true

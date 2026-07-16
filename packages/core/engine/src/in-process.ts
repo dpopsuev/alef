@@ -25,6 +25,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		timeoutMs: conversationTimeoutMs = DEFAULT_CONVERSATION_TIMEOUT_MS,
 		stallMs = DEFAULT_STALL_TIMEOUT_MS,
 		signal,
+		run,
 		onChunk,
 		onInnerEvent,
 	}: SendRequest): Promise<string> {
@@ -54,6 +55,8 @@ export class InProcessStrategy implements ExecutionStrategy {
 			adapters: this.adapters,
 			onChunk: wrappedChunk,
 			onInnerEvent: wrappedInnerEvent,
+			run,
+			tokenBudget: run?.tokenBudget,
 			systemPrompt: this.baseSystemPrompt,
 		});
 		traceEvent("in-process:start", { adapters: this.adapters.map((o) => o.name), conversationTimeoutMs, stallMs });

@@ -1,12 +1,38 @@
+import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DiscourseBackend } from "./scribe-backend.js";
-import type { Post, ThreadInfo, TopicSummary } from "./types.js";
+import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
 interface StoredPost {
+	id: string;
 	author: string;
 	content: unknown;
 	timestamp: number;
+	replyToPostId?: string;
+	references?: readonly string[];
+}
+
+/**
+ *
+ */
+function resolveReplyMeta(existing: readonly Post[], opts?: PostWriteOptions): Pick<Post, "replyToPostId" | "references"> {
+	if (!opts?.replyToPostId) return { replyToPostId: undefined, references: [] };
+	const parent = existing.find((post) => post.id === opts.replyToPostId);
+	return {
+		replyToPostId: opts.replyToPostId,
+		references: parent ? [...(parent.references ?? []), parent.id] : [],
+	};
+}
+
+/**
+ *
+ */
+function fallbackPostId(topic: string, thread: string, stored: StoredPost): string {
+	return createHash("sha1")
+		.update(JSON.stringify([topic, thread, stored.author, stored.timestamp, stored.content]))
+		.digest("hex")
+		.slice(0, 16);
 }
 
 /**
@@ -19,11 +45,28 @@ export class DiscourseStore implements DiscourseBackend {
 		this.root = join(sessionDir, "discourse");
 	}
 
-	append(topic: string, thread: string, author: string, content: unknown): Post {
-		const post: Post = { topic, thread, author, content, timestamp: Date.now() };
+	append(topic: string, thread: string, author: string, content: unknown, opts?: PostWriteOptions): Post {
+		const replyMeta = resolveReplyMeta(this.readThread(topic, thread), opts);
+		const post: Post = {
+			id: randomUUID(),
+			topic,
+			thread,
+			author,
+			content,
+			timestamp: Date.now(),
+			replyToPostId: replyMeta.replyToPostId,
+			references: replyMeta.references,
+		};
 		const path = this.threadPath(topic, thread);
 		mkdirSync(join(path, ".."), { recursive: true });
-		const stored: StoredPost = { author: post.author, content: post.content, timestamp: post.timestamp };
+		const stored: StoredPost = {
+			id: post.id,
+			author: post.author,
+			content: post.content,
+			timestamp: post.timestamp,
+			replyToPostId: post.replyToPostId,
+			references: post.references,
+		};
 		appendFileSync(path, `${JSON.stringify(stored)}\n`, "utf-8");
 		return post;
 	}
@@ -38,7 +81,16 @@ export class DiscourseStore implements DiscourseBackend {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL line parsed from append-only store with known schema
 				const stored = JSON.parse(line) as StoredPost;
 				if (since !== undefined && stored.timestamp <= since) continue;
-				posts.push({ topic, thread, author: stored.author, content: stored.content, timestamp: stored.timestamp });
+				posts.push({
+					id: typeof stored.id === "string" ? stored.id : fallbackPostId(topic, thread, stored),
+					topic,
+					thread,
+					author: stored.author,
+					content: stored.content,
+					timestamp: stored.timestamp,
+					replyToPostId: stored.replyToPostId,
+					references: stored.references,
+				});
 			} catch {
 				// skip malformed lines — append-only JSONL may have partial writes on crash
 			}

@@ -8,6 +8,7 @@
  */
 
 import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
+import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { readStdinLines } from "./readline.js";
 
@@ -33,6 +34,8 @@ export interface InteractiveOptions {
 	actorRoutes?: ActorRouteTable;
 	/** Blueprint/profile name for display */
 	blueprintName?: string;
+	/** Active discourse forum/topic shown in the UI. */
+	discussion?: DiscussionRef;
 	/** Optional LLM summarizer override for :compact (tests / headless). */
 	summarize?: (
 		messages: readonly unknown[],

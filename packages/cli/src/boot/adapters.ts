@@ -10,6 +10,7 @@ import {
 	CODING_AGENT_BLUEPRINT,
 	DEFAULT_COMPILED_DEFINITION,
 	loadUserAdaptersConfig,
+	type MaterializerOptions,
 	materializeBlueprint,
 } from "@dpopsuev/alef-blueprint/materializer";
 import type { AgentDefinitionSurfaceInput, CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
@@ -93,6 +94,7 @@ export async function loadAdapters(
 	cfg: AlefConfig,
 	log: Logger,
 	sessionDir?: string,
+	extra: Pick<MaterializerOptions, "resolveService" | "discussion"> & { actorAddress?: string } = {},
 ): Promise<AdapterLoadResult> {
 	let blueprintPath: string | undefined;
 	let blueprintName: string | undefined;
@@ -173,6 +175,9 @@ export async function loadAdapters(
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 			writableRoots: resolveWritableRoots(args.cwd, cfg),
 			resolveExternalPath: resolveAdapterPath,
+			resolveService: extra.resolveService,
+			actorAddress: extra.actorAddress,
+			discussion: extra.discussion,
 		});
 
 		return {
@@ -194,6 +199,9 @@ export async function loadAdapters(
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 			writableRoots: resolveWritableRoots(args.cwd, cfg),
 			resolveExternalPath: resolveAdapterPath,
+			resolveService: extra.resolveService,
+			actorAddress: extra.actorAddress,
+			discussion: extra.discussion,
 		});
 		return {
 			adapters: materialized.adapters,
@@ -218,6 +226,9 @@ export async function loadAdapters(
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 		writableRoots: resolveWritableRoots(args.cwd, cfg),
 		resolveExternalPath: resolveAdapterPath,
+		resolveService: extra.resolveService,
+		actorAddress: extra.actorAddress,
+		discussion: extra.discussion,
 	});
 
 	return {

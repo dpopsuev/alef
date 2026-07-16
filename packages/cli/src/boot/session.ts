@@ -19,6 +19,12 @@ import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/c
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { createTokenTelemetry } from "@dpopsuev/alef-session/token-telemetry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import {
+	type DiscourseBackend,
+	DiscourseStore,
+	ScribeDiscourseBackend,
+	scribeCallFromEnv,
+} from "@dpopsuev/alef-tool-discourse";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
 import { getTheme, setTheme } from "../client/theme.js";
@@ -27,12 +33,18 @@ import type { Args } from "./args.js";
 import { type HttpSurface, setupHttpSurface } from "./build-delegation.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
 import type { AlefConfig } from "./config.js";
+import { deriveDiscussionState } from "./discussion.js";
 import { SessionHandle } from "./handle.js";
 import { makeSink } from "./output.js";
 import { loadWorkspace } from "./workspace.js";
 
 const DIRECTIVE_BUDGET_FRACTION = 0.1;
 const CHARS_PER_TOKEN_ESTIMATE = 4;
+
+/** Narrow unknown payload fragments to plain records. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
 
 const adapterSignalMaps = new Map<string, SignalMapper>();
 
@@ -158,7 +170,7 @@ export function buildIdentityContext(store: SessionStore): IdentityContext {
 	setTheme({ ...getTheme(), userFg: { truecolor: humanActor.hex }, agentFg: { truecolor: agentActor.hex } });
 
 	const actorRoutes = new ActorRouteTable();
-	actorRoutes.setHumanAddress(humanActor.color);
+	actorRoutes.setHumanAddress(humanActor.address);
 
 	return { humanActor, agentActor, actorRoutes };
 }
@@ -194,8 +206,22 @@ export async function createLocalSession(
 	};
 	const replySink = !args.print && !args.json && !args.noTui && process.stdin.isTTY ? undefined : makeSink(args.json);
 
-	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
+	const discussion = deriveDiscussionState(store, args.cwd);
+	process.env.ALEF_DISCUSSION_FORUM = discussion.active.forumId;
+	process.env.ALEF_DISCUSSION_TOPIC = discussion.active.topicId;
+	process.env.ALEF_DISCUSSION_HOME_TOPIC = discussion.home.topicId;
+	const discourseCall = scribeCallFromEnv();
+	const discourseBackend: DiscourseBackend = discourseCall
+		? new ScribeDiscourseBackend(discourseCall, "default")
+		: new DiscourseStore(args.cwd);
+	const sessionState: SessionState = {
+		id: store.id,
+		modelId: model.id,
+		contextWindow: model.contextWindow,
+		discussion,
+	};
 	const { humanActor, agentActor, actorRoutes } = identity;
+	const boardId = store.id.slice(0, 12);
 
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
@@ -214,7 +240,14 @@ export async function createLocalSession(
 	}
 	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
 
-	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
+	const subagentFactory = buildSubagentFactory({
+		model,
+		trackConcurrentOps: true,
+		forwardToolChunks: true,
+		parentSessionId: store.id,
+		boardId,
+		actorRoutes,
+	});
 
 	const getParentDirectives = async () => Promise.resolve(directives.build(directivesBudgetChars));
 
@@ -270,7 +303,7 @@ export async function createLocalSession(
 
 	const controller = new AgentController(agent, { onReply: replySink });
 
-	actorRoutes.register(agentActor.color, async (message, timeout) => {
+	actorRoutes.register(agentActor.address, async (message, timeout) => {
 		await controller.send(message, "human", timeout);
 	});
 
@@ -332,13 +365,20 @@ export async function createLocalSession(
 		onNotification(event) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
 			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+			const task = isRecord(p.task) ? p.task : undefined;
+			const descriptor = task && isRecord(task.descriptor) ? task.descriptor : undefined;
+			const taskId = typeof descriptor?.taskId === "string" ? descriptor.taskId : "";
+			const profile = typeof descriptor?.profile === "string" ? descriptor.profile : "";
 			const s = (key: string): string => (typeof p[key] === "string" ? p[key] : "");
 			if (event.type === "task.completed") {
-				const label = s("profile") ? `[${s("profile")}] ` : "";
-				controller.receive(`${label}Background task ${s("taskId")} completed:\n${s("reply")}`, "system");
+				const label = profile ? `[${profile}] ` : "";
+				controller.receive(`${label}Background task ${taskId} completed:\n${s("reply")}`, "system");
 			}
 			if (event.type === "task.failed") {
-				controller.receive(`Background task ${s("taskId")} failed: ${s("error") || "unknown error"}`, "system");
+				controller.receive(`Background task ${taskId} failed: ${s("error") || "unknown error"}`, "system");
+			}
+			if (event.type === "task.cancelled") {
+				controller.receive(`Background task ${taskId} cancelled`, "system");
 			}
 		},
 	});
@@ -365,6 +405,10 @@ export async function createLocalSession(
 		log,
 		observers,
 		modelFactory: buildModel,
+		discussion,
+		discourseBackend,
+		humanAddress: humanActor.address,
+		agentAddress: agentActor.address,
 	});
 	if (llmController) handle.setTurnController(llmController);
 

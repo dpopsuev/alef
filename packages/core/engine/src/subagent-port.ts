@@ -1,5 +1,6 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
+import type { RunDescriptor } from "@dpopsuev/alef-kernel/execution";
 
 /**
  *
@@ -9,6 +10,7 @@ export interface SubagentFactoryOptions {
 	onChunk?: (chunk: string) => void;
 	onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
 	systemPrompt?: string;
+	run?: RunDescriptor;
 	/** Soft token budget. When exceeded, a "wrap up" message is injected instead of hard-aborting. */
 	tokenBudget?: number;
 	/** Override the model for this subagent (e.g. 'claude-haiku-4-5' for cheap exploration). */

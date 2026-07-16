@@ -19,10 +19,67 @@ export const DEFAULT_LLM_TIMEOUT_MS = envInt("ALEF_LLM_TIMEOUT_MS", 120_000);
 // eslint-disable-next-line no-magic-numbers
 export const DEFAULT_TOOL_TIMEOUT_MS = envInt("ALEF_TOOL_TIMEOUT_MS", 300_000);
 
+/** Ambient discussion coordinates for a workspace forum and the active topic within it. */
+export interface DiscussionRef {
+	forumId: string;
+	topicId: string;
+	topicTitle: string;
+}
+
+/** Lightweight thread watch record. Delivery semantics are defined separately from the base runtime model. */
+export interface DiscussionSubscription {
+	discussion: DiscussionRef;
+	subscribedAt: number;
+	mode?: "watch" | "participate" | "mentions-only";
+	leaseExpiresAt?: number;
+	unreadCount?: number;
+	lastReadAt?: number;
+	auto?: boolean;
+}
+
+/** Full discussion runtime state: canonical home thread, current active thread, and watched threads. */
+export interface DiscussionState {
+	home: DiscussionRef;
+	active: DiscussionRef;
+	subscriptions: DiscussionSubscription[];
+}
+
+/** Stable metadata that binds a delegated run to plans, discourse, and operator-visible task state. */
+export interface RunDescriptor {
+	taskId: string;
+	profile: string;
+	logicalAgentId?: string;
+	actorAddress?: string;
+	parentSessionId?: string;
+	parentToolCallId?: string;
+	sourceCallId?: string;
+	correlationId?: string;
+	planId?: string;
+	stepId?: string;
+	discourseTopic?: string;
+	discourseThread?: string;
+	modelId?: string;
+	tokenBudget?: number;
+	retryOfTaskId?: string;
+	attempt?: number;
+}
+
+/** Snapshot of the current async task state. */
+export interface TaskSnapshot {
+	descriptor: RunDescriptor;
+	status: "running" | "completed" | "failed" | "cancelled";
+	startedAt: number;
+	completedAt?: number;
+	lastActivityAt: number;
+	reply?: string;
+	error?: string;
+}
+
 /** Parameters for sending a user message through an execution strategy. */
 export interface SendRequest {
 	text: string;
 	sender?: string;
+	run?: RunDescriptor;
 	timeoutMs?: number;
 	/** Idle timeout in ms. Strategy aborts if no activity (chunks, events) for this long. */
 	stallMs?: number;

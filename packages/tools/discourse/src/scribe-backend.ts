@@ -1,13 +1,14 @@
 /**
  * Discourse persistence backends — file JSONL (default) or Scribe vault via artifact calls.
  */
-import type { Post, ThreadInfo, TopicSummary } from "./types.js";
+import { randomUUID } from "node:crypto";
+import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
 /**
  *
  */
 export interface DiscourseBackend {
-	append(topic: string, thread: string, author: string, content: unknown): Post | Promise<Post>;
+	append(topic: string, thread: string, author: string, content: unknown, opts?: PostWriteOptions): Post | Promise<Post>;
 	readThread(topic: string, thread: string, since?: number): Post[] | Promise<Post[]>;
 	listTopics(): string[] | Promise<string[]>;
 	listThreads(topic: string): string[] | Promise<string[]>;
@@ -42,10 +43,89 @@ function threadId(scope: string, topic: string, thread: string): string {
 	return `ctx-thread-${slugPart(scope)}-${slugPart(topic)}-${slugPart(thread)}`;
 }
 
+/**
+ *
+ */
+function encodeMetaLine(meta: Pick<Post, "id" | "replyToPostId" | "references">): string {
+	return `[[alef-discourse-meta ${JSON.stringify(meta)}]]`;
+}
+
 /** Serialize post body for message_add. */
-function contentToText(content: unknown): string {
-	if (typeof content === "string") return content;
-	return JSON.stringify(content);
+function contentToText(post: Pick<Post, "id" | "content" | "replyToPostId" | "references">): string {
+	const body = typeof post.content === "string" ? post.content : JSON.stringify(post.content);
+	const metaLine = encodeMetaLine(post);
+	return `${metaLine}\n${body}`;
+}
+
+/**
+ *
+ */
+function resolveReplyMeta(existing: readonly Post[], opts?: PostWriteOptions): Pick<Post, "replyToPostId" | "references"> {
+	if (!opts?.replyToPostId) return { replyToPostId: undefined, references: [] };
+	const parent = existing.find((post) => post.id === opts.replyToPostId);
+	return {
+		replyToPostId: opts.replyToPostId,
+		references: parent ? [...(parent.references ?? []), parent.id] : [],
+	};
+}
+
+interface ParsedMetaBody {
+	id?: string;
+	content: unknown;
+	replyToPostId?: string;
+	references?: string[];
+}
+
+/** Read an arbitrary object property as unknown. */
+function getUnknownProperty(value: object, key: string): unknown {
+	return Reflect.get(value, key);
+}
+
+/** Parse the inline metadata envelope when it is a plain object. */
+function parseMeta(value: unknown): { id?: string; replyToPostId?: string; references: string[] } | null {
+	if (typeof value !== "object" || value === null) return null;
+	const idValue = getUnknownProperty(value, "id");
+	const id = typeof idValue === "string" ? idValue : undefined;
+	const replyToPostIdValue = getUnknownProperty(value, "replyToPostId");
+	const replyToPostId =
+		typeof replyToPostIdValue === "string"
+			? replyToPostIdValue
+			: undefined;
+	const referencesValue = getUnknownProperty(value, "references");
+	const references =
+		Array.isArray(referencesValue) && referencesValue.every((item) => typeof item === "string")
+			? referencesValue
+			: [];
+	return { id, replyToPostId, references };
+}
+
+/**
+ *
+ */
+function parseMetaBody(body: string): ParsedMetaBody {
+	const lines = body.split("\n");
+	const firstLine = lines[0] ?? "";
+	const metaMatch = /^\[\[alef-discourse-meta\s+(.+)\]\]$/.exec(firstLine);
+	const bodyText = metaMatch ? lines.slice(1).join("\n") : body;
+	let content: unknown = bodyText;
+	try {
+		content = JSON.parse(bodyText);
+	} catch {
+		/* plain text */
+	}
+	if (!metaMatch) return { content };
+	try {
+		const meta = parseMeta(JSON.parse(metaMatch[1] ?? "{}"));
+		if (!meta) return { content };
+		return {
+			id: meta.id,
+			content,
+			replyToPostId: meta.replyToPostId,
+			references: meta.references,
+		};
+	} catch {
+		return { content };
+	}
 }
 
 /** Parse message_list / comment_list stream text into posts. */
@@ -57,27 +137,30 @@ function parseStream(text: string, topic: string, thread: string): Post[] {
 		const lines = chunk.split("\n");
 		const header = lines[0] ?? "";
 		const parts = header.split("\t");
+		const headerId = parts[0];
+		let id = headerId !== undefined && headerId !== "" ? headerId : randomUUID();
 		const timestamp = Number(parts[1] ?? 0);
 		const body = lines.slice(1).join("\n");
 		let author = "agent";
 		let content: unknown = body;
+		let replyToPostId: string | undefined;
+		let references: string[] | undefined;
 		const at = /^@([^:]+):\s([\s\S]*)$/.exec(body);
 		if (at) {
 			author = at[1] ?? author;
-			content = at[2] ?? body;
-			try {
-				content = JSON.parse(String(content));
-			} catch {
-				/* plain text */
-			}
+			const parsed = parseMetaBody(at[2] ?? body);
+			id = parsed.id !== undefined && parsed.id !== "" ? parsed.id : id;
+			content = parsed.content;
+			replyToPostId = parsed.replyToPostId;
+			references = parsed.references?.length ? parsed.references : undefined;
 		} else {
-			try {
-				content = JSON.parse(body);
-			} catch {
-				/* plain text */
-			}
+			const parsed = parseMetaBody(body);
+			id = parsed.id !== undefined && parsed.id !== "" ? parsed.id : id;
+			content = parsed.content;
+			replyToPostId = parsed.replyToPostId;
+			references = parsed.references?.length ? parsed.references : undefined;
 		}
-		posts.push({ topic, thread, author, content, timestamp });
+		posts.push({ id, topic, thread, author, content, timestamp, replyToPostId, references });
 	}
 	return posts;
 }
@@ -91,19 +174,31 @@ export class ScribeDiscourseBackend implements DiscourseBackend {
 		private readonly scope = "default",
 	) {}
 
-	async append(topic: string, thread: string, author: string, content: unknown): Promise<Post> {
+	async append(topic: string, thread: string, author: string, content: unknown, opts?: PostWriteOptions): Promise<Post> {
+		const existing = await this.readThread(topic, thread);
+		const replyMeta = resolveReplyMeta(existing, opts);
+		const id = randomUUID();
 		const tid = topicId(this.scope, topic);
 		const thid = threadId(this.scope, topic, thread);
 		await this.ensureContext(tid, `topic ${topic}`, ["role:channel", `topic:${topic}`]);
 		await this.ensureContext(thid, `thread ${topic}/${thread}`, ["role:thread", `topic:${topic}`, `thread:${thread}`], tid);
-		const text = contentToText(content);
+		const text = contentToText({ id, content, ...replyMeta });
 		await this.call("message_add", {
 			parent: thid,
 			text,
 			author,
 			scope: this.scope,
 		});
-		return { topic, thread, author, content, timestamp: Date.now() };
+		return {
+			id,
+			topic,
+			thread,
+			author,
+			content,
+			timestamp: Date.now(),
+			replyToPostId: replyMeta.replyToPostId,
+			references: replyMeta.references,
+		};
 	}
 
 	async readThread(topic: string, thread: string, since?: number): Promise<Post[]> {

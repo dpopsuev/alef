@@ -3,6 +3,7 @@ import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
+import { displayActorName } from "./actor-label.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { renderSplash } from "./greeter.js";
 import { InputPanel } from "./panel.js";
@@ -59,8 +60,8 @@ export async function buildLayout(
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 2, 0));
 
-	const humanLabel = opts.humanAddress ?? "@you";
-	const agentLabel = opts.agentAddress ?? "@alef";
+	const humanLabel = displayActorName(opts.humanAddress, "you");
+	const agentLabel = displayActorName(opts.agentAddress, "alef");
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
 	if (store) await output.loadHistory(store, tui, opts.cwd);
 

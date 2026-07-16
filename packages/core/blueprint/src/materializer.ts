@@ -22,6 +22,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { type Bus, type EventInput, extractToolCallId } from "@dpopsuev/alef-kernel/bus";
+import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
@@ -50,6 +51,8 @@ function resolveAdapterPackage(name: string): string {
 export interface AdapterFactoryOptions {
 	cwd: string;
 	sessionDir?: string;
+	actorAddress?: string;
+	discussion?: DiscussionRef;
 	actions?: string[];
 	logger?: AdapterLogger;
 	/**
@@ -114,6 +117,8 @@ export interface MaterializerOptions {
 	 */
 	writableRoots?: readonly string[];
 	sessionDir?: string;
+	actorAddress?: string;
+	discussion?: DiscussionRef;
 	/**
 	 * Resolve adapters through a service supervisor instead of createAdapter().
 	 * When provided, the materializer passes the module's `service` export (opaque)
@@ -366,7 +371,7 @@ export async function materializeBlueprint(
 	const adapters: Adapter[] = [];
 
 	for (const adapterDef of definition.adapters) {
-		if (["ai", "discourse", "symbols"].includes(adapterDef.name)) continue;
+		if (["ai", "symbols"].includes(adapterDef.name)) continue;
 
 		const label = adapterDef.path ?? resolveAdapterPackage(adapterDef.name);
 		try {
@@ -374,6 +379,8 @@ export async function materializeBlueprint(
 			const factoryOpts: AdapterFactoryOptions = {
 				cwd: opts.cwd,
 				sessionDir: opts.sessionDir,
+				actorAddress: opts.actorAddress,
+				discussion: opts.discussion,
 				actions: adapterDef.actions.length > 0 ? adapterDef.actions : undefined,
 				logger: opts.loggerFor?.(adapterDef.name),
 				writableRoots: opts.writableRoots,

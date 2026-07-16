@@ -40,8 +40,39 @@ export interface SubagentSessionOptions {
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
 	return (callOpts) => {
 		const { adapters, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;
-		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(RANDOM_ID_RADIX).slice(2, RANDOM_ID_LENGTH)}`;
-		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", subId, opts.boardId ?? "");
+		const run = callOpts.run;
+		const subSessionId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(RANDOM_ID_RADIX).slice(2, RANDOM_ID_LENGTH)}`;
+		const discourseTopic = run?.discourseTopic;
+		const discourseThread = run?.discourseThread;
+		const discussion =
+			discourseTopic && discourseThread
+				? {
+						home: {
+							forumId: discourseTopic,
+							topicId: discourseThread,
+							topicTitle: discourseThread,
+						},
+						active: {
+							forumId: discourseTopic,
+							topicId: discourseThread,
+							topicTitle: discourseThread,
+						},
+						subscriptions: [
+							{
+								discussion: {
+									forumId: discourseTopic,
+									topicId: discourseThread,
+									topicTitle: discourseThread,
+								},
+								subscribedAt: Date.now(),
+								mode: "participate" as const,
+								auto: true,
+							},
+						],
+					}
+				: undefined;
+		const actorSeed = run?.logicalAgentId ?? run?.taskId ?? subSessionId;
+		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", actorSeed, opts.boardId ?? "");
 
 		const dateContext = `Date: ${new Date().toISOString().split("T")[0]}`;
 		const systemPrompt =
@@ -70,7 +101,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const tokenBudget = callOpts.tokenBudget;
 		let budgetExceeded = false;
 
-		onInnerEvent?.(subId, "agent.identity", {
+		onInnerEvent?.(subSessionId, "agent.identity", {
 			color: subActor.color,
 			address: subActor.address,
 			modelId: resolvedModel.id,
@@ -88,8 +119,8 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 						"system",
 					);
 				}
-				onInnerEvent?.(subId, "subagent-token-usage", {
-					callId: subId,
+				onInnerEvent?.(subSessionId, "subagent-token-usage", {
+					callId: subSessionId,
 					input: totalInputTokens,
 					output: totalOutputTokens,
 				});
@@ -103,11 +134,11 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 				for (const [k, v] of Object.entries(event)) {
 					if (k !== "type") payload[k] = v;
 				}
-				onInnerEvent(subId, event.type, payload);
+				onInnerEvent(subSessionId, event.type, payload);
 			}
 		});
 
-		opts.actorRoutes?.register(subActor.color, async (message, timeout) => {
+		opts.actorRoutes?.register(subActor.address, async (message, timeout) => {
 			await agent.ready();
 			await controller.send(message, "human", timeout);
 		});
@@ -115,7 +146,12 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		agent.validate();
 
 		const session = new AgentSession({
-			state: { id: subId, modelId: resolvedModel.id, contextWindow: resolvedModel.contextWindow },
+			state: {
+				id: subSessionId,
+				modelId: resolvedModel.id,
+				contextWindow: resolvedModel.contextWindow,
+				discussion,
+			},
 			send: async (text, _sender, timeoutMs) => {
 				await agent.ready();
 				await controller.send(text, "human", timeoutMs);
@@ -123,7 +159,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			},
 			receive: (text) => controller.receive(text, "human"),
 			dispose: () => {
-				opts.actorRoutes?.unregister(subActor.color);
+				opts.actorRoutes?.unregister(subActor.address);
 					void agent.dispose();
 			},
 			observers,

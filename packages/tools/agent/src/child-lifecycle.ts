@@ -2,11 +2,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
+import { defineManagedService, type FoundryServiceHost } from "@dpopsuev/alef-foundry";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { RemoteStrategy } from "@dpopsuev/alef-engine/remote";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
-import type { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import type { ChildEntry } from "./child-process.js";
 import { healthCheck, resolvePath, spawnChild } from "./child-process.js";
 import { DEFAULT_ASK_MAX_MS, DEFAULT_ASK_STALL_MS, MIN_REMAINING_MS, SIGKILL_GRACE_MS } from "./constants.js";
@@ -24,7 +24,7 @@ let childSeq = 0;
  *
  */
 function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefined {
-	const svc = deps.supervisor.get(name);
+	const svc = deps.runtime.get(name);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by "entry" in svc guard
 	if (svc && "entry" in svc) return (svc as ChildAgentService).entry;
 	return undefined;
@@ -34,7 +34,7 @@ function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefine
  *
  */
 function listChildren(deps: ChildLifecycleDeps): ChildEntry[] {
-	return deps.supervisor
+	return deps.runtime
 		.names()
 		.filter((n) => n.startsWith("child-"))
 		.map((n) => getChild(deps, n))
@@ -51,7 +51,7 @@ export interface ChildLifecycleDeps {
 	currentDepth: number;
 	maxDepth: number;
 	writableRoots?: readonly string[];
-	supervisor: Supervisor;
+	runtime: FoundryServiceHost;
 	strategies: Map<string, unknown>;
 	publishInnerSignal?: (type: string, payload: Record<string, unknown>, correlationId: string) => void;
 	allowedBlueprints?: readonly string[];
@@ -115,18 +115,13 @@ export async function handleSpawn(
 		startedAt: Date.now(),
 		tmpDir: result.tmpDir,
 	};
-	const descriptor = {
+	const descriptor = defineManagedService<{ entry: ChildEntry }>({
 		name,
-		restart: "temporary" as const,
+		restart: "temporary",
 		shareable: false,
 		create: () =>
 			Promise.resolve({
-				name,
-				restart: "temporary" as const,
-				adapters: [],
-				tools: [],
 				entry,
-				start: () => Promise.resolve(),
 				async stop() {
 					entry.process.kill("SIGTERM");
 					if (entry.tmpDir) {
@@ -136,8 +131,8 @@ export async function handleSpawn(
 				},
 				health: () => healthCheck(entry.endpoint),
 			}),
-	};
-	await deps.supervisor.getOrStart(descriptor, { cwd: deps.cwd });
+	});
+	await deps.runtime.ensure(descriptor, { cwd: deps.cwd });
 
 	const strategy = new RemoteStrategy({ endpoint: result.endpoint, replyEvent: deps.replyEvent });
 	deps.strategies.set(name, strategy);
@@ -176,7 +171,7 @@ export async function handleAsk(
 			);
 			deps.logger?.warn({ child: childName }, "Child stalled — stopping");
 			entry.process.kill("SIGTERM");
-			void deps.supervisor.stop(childName);
+			void deps.runtime.stopService(childName);
 			deps.strategies.delete(childName);
 		},
 	});
@@ -339,7 +334,7 @@ export async function handleKill(
 			res();
 		});
 	});
-	void deps.supervisor.stop(childName);
+	void deps.runtime.stopService(childName);
 	deps.strategies.delete(childName);
 	return withDisplay(
 		{ stopped: true, name: childName },

@@ -23,7 +23,7 @@ describe("handleAsk stall signal", { tags: ["unit"] }, () => {
 			readinessTimeoutMs: 1000,
 			currentDepth: 0,
 			maxDepth: 2,
-			supervisor: {
+			runtime: {
 				get: () =>
 					({
 						entry: {
@@ -32,7 +32,7 @@ describe("handleAsk stall signal", { tags: ["unit"] }, () => {
 							process: { kill },
 						},
 					}) as never,
-				stop,
+				stopService: stop,
 				names: () => ["child-a"],
 			} as never,
 			strategies: new Map([["child-a", {}]]),

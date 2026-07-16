@@ -31,6 +31,7 @@ import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, RunDescriptor, TaskSnapshot, WorkContext } from "@dpopsuev/alef-kernel/execution";
+import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
 import { z } from "zod";
 import { AsyncQueue } from "./async-queue.js";
 import {
@@ -46,7 +47,6 @@ import {
 } from "./child-lifecycle.js";
 import type { ChildEntry } from "./child-process.js";
 import { DEFAULT_MAX_DEPTH, DEFAULT_READINESS_TIMEOUT_MS, DEFAULT_RUN_MAX_MS, DEFAULT_STALL_MS } from "./constants.js";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 import { checkRelevance, needsWriteAccess } from "./text-analysis.js";
 import {
@@ -112,7 +112,10 @@ export function createAgentAdapter(
 	const factory = opts.subagentFactory;
 	let mountedBus: Bus | null = null;
 
-	const childSupervisor = new Supervisor();
+	const childRuntime = createFoundryRuntime({
+		cwd: opts.cwd ?? process.cwd(),
+		logger: opts.logger,
+	});
 
 	const deps: ChildLifecycleDeps = {
 		cwd: opts.cwd ?? process.cwd(),
@@ -123,7 +126,7 @@ export function createAgentAdapter(
 		writableRoots: opts.writableRoots,
 		allowedBlueprints: opts.allowedBlueprints,
 		parentAdapterNames: opts.parentAdapterNames,
-		supervisor: childSupervisor,
+		runtime: childRuntime,
 		strategies,
 	};
 
@@ -919,6 +922,7 @@ export function createAgentAdapter(
 			onUnmount: () => {
 				mountedBus = null;
 				deps.publishInnerSignal = undefined;
+				void childRuntime.stop();
 			},
 			contributions: {
 				"context.assemble": taskContextStage,

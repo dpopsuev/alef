@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
 /**
- * Supervisor-based entrypoint.
+ * Foundry-backed entrypoint.
  *
  * Phase 1: Pure setup (config, OTel, args)
  * Phase 2: CLI dispatch (early-exit commands)
- * Phase 3: Supervisor boot (storage → agent → TUI)
+ * Phase 3: Foundry boot (storage → agent → TUI)
  */
 
 import "@dpopsuev/alef-coding-agent";
@@ -13,28 +13,22 @@ import "@dpopsuev/alef-factory-agent";
 
 import { dirname } from "node:path";
 import { resolveStartupModel, setModelConfigProvider } from "@dpopsuev/alef-agent/model";
-import type { StorageFactory } from "@dpopsuev/alef-storage";
-import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-storage/service";
 import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
-import { createHotReloadDescriptor } from "@dpopsuev/alef-supervisor/hot-reload";
-import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
-import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
 import { loadAdapters } from "./boot/adapters.js";
-import { createAgentServiceDescriptor } from "./boot/agent-service.js";
 import { parseArgs } from "./boot/args.js";
 import { BUILD_INFO } from "./boot/build-info.js";
 import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
 import { deriveDiscussionRef } from "./boot/discussion.js";
+import { createCliFoundryRuntime } from "./boot/foundry-runtime.js";
 import { initPmBlueprints } from "./boot/init-pm-blueprints.js";
 import { createRunnerLogger } from "./boot/logger.js";
 import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
 import { buildIdentityContext, loadSession } from "./boot/session.js";
-import { createSessionServiceDescriptor, type SessionService } from "./boot/session-service.js";
+import type { SessionService } from "./boot/session-service.js";
 import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
-import { createTuiServiceDescriptor } from "./boot/tui-service.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { pickSession } from "./client/commands/sessions.js";
 import { loadTheme, queryPalette } from "./client/theme.js";
@@ -76,25 +70,14 @@ if (args.host === "0.0.0.0") {
 await runPmCommand(args);
 await handleSelfUpdate(args);
 
-const supervisor = new Supervisor();
-supervisor.register(createStorageDescriptor(cfg.storage));
-supervisor.register(createSchedulerDescriptor());
-
-/** Start the supervisor and return the initialized storage factory. */
-async function getStorage(): Promise<StorageFactory> {
-	await supervisor.startAll({ cwd: args.cwd });
-	const svc = supervisor.get("storage");
-	if (!svc) throw new Error("Storage service failed to start");
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageService extends ManagedService with factory field
-	return (svc as StorageService).factory;
-}
+const runtime = createCliFoundryRuntime({ cwd: args.cwd, storage: cfg.storage });
 
 if (args.debugSubcmd) {
 	switch (args.debugSubcmd) {
 		case "session": {
-			const storage = await getStorage();
+			const storage = await runtime.getStorage();
 			await runDebugSession(args.debugSubcmdArgs, args.cwd, storage.sessions);
-			await supervisor.stopAll();
+			await runtime.stop();
 			break;
 		}
 		case "tui": {
@@ -123,7 +106,7 @@ if (args.replay !== undefined) {
 }
 
 if (args.listDaemons) {
-	const storage = await getStorage();
+	const storage = await runtime.getStorage();
 	const store = storage.daemonRegistry();
 	await store.prune();
 	const entries = await store.list();
@@ -135,12 +118,12 @@ if (args.listDaemons) {
 			console.log(`  ${e.sessionId}  pid=${e.pid}  port=${e.port}  cwd=${e.cwd}  age=${age}s`);
 		}
 	}
-	await supervisor.stopAll();
+	await runtime.stop();
 	process.exit(0);
 }
 
 if (args.killDaemon !== undefined) {
-	const storage = await getStorage();
+	const storage = await runtime.getStorage();
 	const store = storage.daemonRegistry();
 	const entry = await store.get(args.killDaemon);
 	if (!entry) {
@@ -154,12 +137,12 @@ if (args.killDaemon !== undefined) {
 		console.error(`Daemon ${entry.sessionId} (pid ${entry.pid}) is not running.`);
 	}
 	await store.unregister(entry.sessionId);
-	await supervisor.stopAll();
+	await runtime.stop();
 	process.exit(0);
 }
 
 if (args.attach !== undefined) {
-	const storage = await getStorage();
+	const storage = await runtime.getStorage();
 	const daemonRegistry = storage.daemonRegistry();
 	await daemonRegistry.prune();
 	const entry =
@@ -189,12 +172,12 @@ if (args.attach !== undefined) {
 		getDirectiveAdapter: () => undefined,
 		session: remoteSession,
 	});
-	await supervisor.stopAll();
+	await runtime.stop();
 	process.exit(0);
 }
 
 // ---------------------------------------------------------------------------
-// Phase 3: Supervisor boot — agent + TUI as services
+// Phase 3: Foundry boot — agent + TUI as services
 // ---------------------------------------------------------------------------
 
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
@@ -218,7 +201,7 @@ setModelLogger({ warn: (msg) => log.warn(msg), error: (msg) => log.error(msg) })
 const env = detectEnvironment(args.cwd);
 log.info({ mode: env.mode, hotReload: env.canHotReload }, "Runtime environment");
 
-const storage = await getStorage();
+const storage = await runtime.getStorage();
 
 import { upgradeToSqliteExporter } from "./boot/otel.js";
 
@@ -262,7 +245,7 @@ Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/
 // Boot-time inputs
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir, {
-	resolveService: createServiceResolver(supervisor),
+	resolveService: runtime.resolveService,
 	actorAddress: identity.agentActor.address,
 	discussion,
 });
@@ -274,37 +257,26 @@ import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch((
 // supervisor owns alefRequestRebuild via ALEF_SUPERVISOR=1 IPC.
 if (env.canHotReload && process.env.ALEF_SUPERVISOR !== "1") {
 	const { setRebuildPort } = await import("./boot/rebuild-port.js");
-	supervisor.register(
-		createHotReloadDescriptor({
-			buildCommand: env.buildCommand!,
-			swap: supervisor.swap.bind(supervisor),
-			sessionServiceName: "session",
-			cwd: args.cwd,
-			onReady: (handle) => setRebuildPort(handle),
-			onStopped: () => setRebuildPort(undefined),
-		}),
-	);
+	runtime.registerHotReload({
+		buildCommand: env.buildCommand!,
+		swap: runtime.swap,
+		sessionServiceName: "session",
+		cwd: args.cwd,
+		onReady: (handle) => setRebuildPort(handle),
+		onStopped: () => setRebuildPort(undefined),
+	});
 }
 
-// Session service — the mediator between agent and UI surfaces
-supervisor.register(
-	createSessionServiceDescriptor({
-		args,
-		cfg,
-		log,
-		store: session,
-		loaded,
-		model,
-		storage,
-		identity,
-	}),
-);
-
-// Agent service — manages daemon registration, depends on session
-supervisor.register(createAgentServiceDescriptor({ args, cfg, storage }));
-
-// TUI service — depends on session (not agent), runs ViewMode
-supervisor.register(createTuiServiceDescriptor({ args, store: session }));
+runtime.registerApplicationServices({
+	args,
+	cfg,
+	log,
+	store: session,
+	loaded,
+	model,
+	storage,
+	identity,
+});
 
 // Theme
 const [isDark, terminalPalette] = await Promise.all([
@@ -320,9 +292,9 @@ loadTheme(
 );
 
 // Start agent + TUI (topo-sorted: storage already running, agent first, TUI after)
-await supervisor.startAll({ cwd: args.cwd });
+await runtime.start();
 
-const sessionRaw = supervisor.get("session");
+const sessionRaw = runtime.get("session");
 if (sessionRaw && "session" in sessionRaw) {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check; SessionService.session is SessionHandle at runtime
 	dispatchCliOp(args, (sessionRaw as SessionService).session as SessionHandle);
@@ -334,7 +306,7 @@ import { shutdownOTel } from "./boot/otel.js";
 const daemonCfg = resolveDaemonConfig(cfg);
 let draining = false;
 
-/** Drain active work and stop all supervisor services on process signal. */
+/** Drain active work and stop all Foundry services on process signal. */
 async function gracefulShutdown(signal: string): Promise<void> {
 	if (draining) {
 		process.stderr.write(`[alef] second ${signal} — force exit\n`);
@@ -349,7 +321,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
 	}, daemonCfg.grace_period * 1000);
 	graceTimer.unref();
 
-	await supervisor.stopAll();
+	await runtime.stop();
 	await Promise.race([shutdownOTel(), new Promise<void>((r) => setTimeout(r, 2000).unref())]);
 	clearTimeout(graceTimer);
 	process.exit(0);
@@ -363,7 +335,7 @@ process.on("SIGINT", () => {
 });
 
 const { awaitProcessLifetime } = await import("./boot/process-lifetime.js");
-const tuiRaw = supervisor.get("tui");
+const tuiRaw = runtime.get("tui");
 await awaitProcessLifetime({
 	daemon: args.daemon,
 	serve: args.serve !== undefined && !args.print,
@@ -374,5 +346,5 @@ await awaitProcessLifetime({
 			: undefined,
 });
 
-await supervisor.stopAll();
+await runtime.stop();
 process.exit(0);

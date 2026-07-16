@@ -18,6 +18,11 @@ function taskSnapshot(overrides: Record<string, unknown> = {}): Record<string, u
 			stepId: "step-1",
 			discourseTopic: "plan",
 			discourseThread: "plan-1",
+			work: {
+				role: { category: "staff", roleId: "gensec", blueprintId: "gensec" },
+				owner: { actorAddress: "@planner", roleId: "coordination-owner" },
+				group: { id: "ptp-factory", category: "mission", domainId: "ptp", objectiveId: "staffed-runtime" },
+			},
 			attempt: 1,
 		},
 		status: "running",

@@ -7,6 +7,7 @@ import type { SubagentFactory } from "./subagent-port.js";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import type { WorkContext } from "@dpopsuev/alef-kernel/execution";
 import {
 	buildAdapterDirectives,
 	createToolShellAdapter,
@@ -59,6 +60,8 @@ export interface DelegationStackOptions {
 	compactionStrategy?: "summarize" | "shake" | "off";
 	adapters: DelegationAdapters;
 	allowedBlueprints?: readonly string[];
+	profileRoles?: Record<string, NonNullable<WorkContext["role"]>>;
+	profilePrompts?: Record<string, string>;
 	materializeAdapters: (names: string[]) => Promise<Adapter[]>;
 	/** Policy-A plan retitle: called when plan.opened fires with desired text. */
 	onPlanOpened?: (desired: string) => void | Promise<void>;
@@ -132,6 +135,8 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			return materializeAdapters(allowed);
 		},
 		subagentFactory: factory,
+		profileRoles: opts.profileRoles,
+		profilePrompts: opts.profilePrompts,
 	});
 
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;

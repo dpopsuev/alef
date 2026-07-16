@@ -3,7 +3,7 @@ import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-e
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
-import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
+import type { TaskSnapshot, WorkContext } from "@dpopsuev/alef-kernel/execution";
 import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
 /**
@@ -40,6 +40,62 @@ export interface AgentServer {
  */
 function isRecord(v: unknown): v is Record<string, unknown> {
 	return typeof v === "object" && v !== null;
+}
+
+/** Normalize opaque work metadata from event payloads. */
+function workContextFromValue(value: unknown): WorkContext | undefined {
+	if (!isRecord(value)) return undefined;
+	const role = isRecord(value.role)
+		? {
+				category: typeof value.role.category === "string" ? value.role.category : undefined,
+				roleId: typeof value.role.roleId === "string" ? value.role.roleId : undefined,
+				laneId: typeof value.role.laneId === "string" ? value.role.laneId : undefined,
+				blueprintId: typeof value.role.blueprintId === "string" ? value.role.blueprintId : undefined,
+			}
+		: undefined;
+	const owner = isRecord(value.owner)
+		? {
+				actorAddress: typeof value.owner.actorAddress === "string" ? value.owner.actorAddress : undefined,
+				logicalAgentId: typeof value.owner.logicalAgentId === "string" ? value.owner.logicalAgentId : undefined,
+				roleId: typeof value.owner.roleId === "string" ? value.owner.roleId : undefined,
+			}
+		: undefined;
+	const group = isRecord(value.group)
+		? {
+				id: typeof value.group.id === "string" ? value.group.id : undefined,
+				category: typeof value.group.category === "string" ? value.group.category : undefined,
+				domainId: typeof value.group.domainId === "string" ? value.group.domainId : undefined,
+				objectiveId: typeof value.group.objectiveId === "string" ? value.group.objectiveId : undefined,
+			}
+		: undefined;
+	const normalizedRole =
+		role && role.category && role.roleId
+			? {
+					category: role.category,
+					roleId: role.roleId,
+					laneId: role.laneId,
+					blueprintId: role.blueprintId,
+				}
+			: undefined;
+	const normalizedGroup =
+		group && group.id && group.category
+			? {
+					id: group.id,
+					category: group.category,
+					domainId: group.domainId,
+					objectiveId: group.objectiveId,
+				}
+			: undefined;
+	const normalizedOwner =
+		owner && (owner.actorAddress || owner.logicalAgentId || owner.roleId)
+			? owner
+			: undefined;
+	if (!normalizedRole && !normalizedOwner && !normalizedGroup) return undefined;
+	return {
+		role: normalizedRole,
+		owner: normalizedOwner,
+		group: normalizedGroup,
+	};
 }
 
 /**
@@ -79,6 +135,7 @@ function taskSnapshotFromPayload(payload: Record<string, unknown>): TaskSnapshot
 			tokenBudget: typeof descriptor.tokenBudget === "number" ? descriptor.tokenBudget : undefined,
 			retryOfTaskId: typeof descriptor.retryOfTaskId === "string" ? descriptor.retryOfTaskId : undefined,
 			attempt: typeof descriptor.attempt === "number" ? descriptor.attempt : undefined,
+			work: workContextFromValue(descriptor.work),
 		},
 		status,
 		startedAt,

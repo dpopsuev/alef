@@ -40,8 +40,15 @@ function getShippedBootstrapBlueprintDir(): string {
 /**
  *
  */
+export function resolveBootstrapBlueprintPath(id: BootstrapBlueprintId): string {
+	const blueprint = SHIPPED_BLUEPRINT_FILES[id];
+	return join(getShippedBootstrapBlueprintDir(), blueprint.fileName);
+}
+
+/**
+ *
+ */
 export function ensureBootstrapBlueprints(agentDir: string): MaterializedBootstrapBlueprintSet {
-	const sourceDir = getShippedBootstrapBlueprintDir();
 	const targetDir = join(agentDir, "blueprints", "bootstrap");
 	if (!existsSync(targetDir)) {
 		mkdirSync(targetDir, { recursive: true });
@@ -52,7 +59,7 @@ export function ensureBootstrapBlueprints(agentDir: string): MaterializedBootstr
 	for (const [id, blueprint] of Object.entries(SHIPPED_BLUEPRINT_FILES) as Array<
 		[BootstrapBlueprintId, { fileName: string; label: string }]
 	>) {
-		const sourcePath = join(sourceDir, blueprint.fileName);
+		const sourcePath = resolveBootstrapBlueprintPath(id);
 		const targetPath = join(targetDir, blueprint.fileName);
 		if (!existsSync(sourcePath)) {
 			throw new Error(`Bootstrap blueprint is missing from the package: ${sourcePath}`);

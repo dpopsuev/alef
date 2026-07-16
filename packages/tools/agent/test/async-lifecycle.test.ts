@@ -146,6 +146,11 @@ describe("Agent async lifecycle tools", () => {
 				stepId: "step-1",
 				discourseTopic: "plan",
 				discourseThread: "plan-1",
+				work: {
+					role: { category: "line", laneId: "qe", roleId: "triage" },
+					owner: { actorAddress: "@planner", roleId: "triage-owner" },
+					group: { id: "ptp-qe", category: "mission", domainId: "ptp", objectiveId: "bug-lifecycle" },
+				},
 			});
 			const taskId = String(result.payload.taskId);
 
@@ -154,6 +159,11 @@ describe("Agent async lifecycle tools", () => {
 			expect((startedPayload.task as { descriptor: { taskId: string } }).descriptor.taskId).toBe(taskId);
 			expect((startedPayload.task as { descriptor: { actorAddress: string } }).descriptor.actorAddress).toBe("@planner");
 			expect((startedPayload.task as { descriptor: { planId: string } }).descriptor.planId).toBe("plan-1");
+			expect(
+				(startedPayload.task as {
+					descriptor: { work: { role: { category: string; laneId?: string; roleId: string } } };
+				}).descriptor.work.role,
+			).toEqual({ category: "line", laneId: "qe", roleId: "triage" });
 
 			const progress = await progressNotification;
 			const progressPayload = notificationPayload(progress);

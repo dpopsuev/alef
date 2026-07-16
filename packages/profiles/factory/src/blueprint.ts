@@ -2,11 +2,13 @@ import { createRequire } from "node:module";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
 import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
+import { resolveBootstrapBlueprintPath, type BootstrapBlueprintId } from "@dpopsuev/alef-blueprint/bootstrap";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
+import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import {
@@ -20,6 +22,26 @@ import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/sup
 export type { BlueprintStack, BlueprintStackOptions };
 
 const require = createRequire(import.meta.url);
+
+const STAFF_ROLE_PROFILES = [
+	{
+		profile: "gensec",
+		blueprintId: "gensec" as BootstrapBlueprintId,
+		role: { category: "staff", roleId: "gensec", blueprintId: "gensec" },
+	},
+	{
+		profile: "2sec",
+		blueprintId: "2sec" as BootstrapBlueprintId,
+		role: { category: "staff", roleId: "2sec", blueprintId: "2sec" },
+	},
+] as const;
+
+/** Narrow adapters that support dynamic strategy registration. */
+function isStrategyRegistrar(
+	adapter: Adapter,
+): adapter is Adapter & { registerStrategy(name: string, strategy: InProcessStrategy): void } {
+	return "registerStrategy" in adapter && typeof adapter.registerStrategy === "function";
+}
 
 /** Load the factory profile SBOM from the published package export. */
 function loadFactoryBlueprint() {
@@ -56,6 +78,10 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	const resolveService = createServiceResolver(supervisor);
 	const materialiOpts = { cwd: opts.cwd, resolveService };
 	const definition = loadFactoryBlueprint();
+	const staffRoleDefinitions = STAFF_ROLE_PROFILES.map((entry) => ({
+		...entry,
+		definition: loadAgentDefinition(resolveBootstrapBlueprintPath(entry.blueprintId)),
+	}));
 
 	const domainAdapters =
 		opts.domainAdapters && opts.domainAdapters.length > 0
@@ -78,6 +104,13 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		excludeNames: ["workflow"],
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		allowedBlueprints: blueprintRegistry.list(),
+		profileRoles: Object.fromEntries(staffRoleDefinitions.map((entry) => [entry.profile, entry.role])),
+		profilePrompts: staffRoleDefinitions.reduce<Record<string, string>>((profiles, entry) => {
+			if (typeof entry.definition.systemPrompt === "string" && entry.definition.systemPrompt.length > 0) {
+				profiles[entry.profile] = entry.definition.systemPrompt;
+			}
+			return profiles;
+		}, {}),
 		materializeAdapters: async (names) => {
 			const { adapters: materializedAdapters } = await materializeBlueprint(
 				{
@@ -90,6 +123,13 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		},
 		onPlanOpened: (desired) => refreshMetadataOnPlanOpened(opts.sessionStore, desired),
 	});
+
+	const agentAdapter = adapters.find((adapter) => adapter.name === "agent");
+	if (agentAdapter && isStrategyRegistrar(agentAdapter)) {
+		for (const role of staffRoleDefinitions) {
+			agentAdapter.registerStrategy(role.profile, new InProcessStrategy(general, opts.subagentFactory, role.definition.systemPrompt));
+		}
+	}
 
 	const wireAdapter = createWireAdapterWithFactory({
 		cwd: opts.cwd,

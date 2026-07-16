@@ -30,7 +30,7 @@ import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assem
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import type { ExecutionStrategy, RunDescriptor, TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
+import type { ExecutionStrategy, RunDescriptor, TaskSnapshot, WorkContext } from "@dpopsuev/alef-kernel/execution";
 import { z } from "zod";
 import { AsyncQueue } from "./async-queue.js";
 import {
@@ -72,6 +72,8 @@ export type { ChildEntry };
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
+	profileRoles?: Record<string, NonNullable<WorkContext["role"]>>;
+	profilePrompts?: Record<string, string>;
 	/** Supervisor for service lifecycle. When set, strategy resolution falls through to supervisor before the global registry. */
 	supervisor?: { strategy(name: string): ExecutionStrategy | undefined };
 	/** Subagent factory for ad-hoc sessions with custom adapters/prompt/model. */
@@ -105,6 +107,8 @@ export function createAgentAdapter(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
+	const profileRoles = new Map(Object.entries(opts.profileRoles ?? {}));
+	const profilePrompts = new Map(Object.entries(opts.profilePrompts ?? {}));
 	const factory = opts.subagentFactory;
 	let mountedBus: Bus | null = null;
 
@@ -158,6 +162,32 @@ export function createAgentAdapter(
 		};
 	}
 
+	const WORK_ROLE_SCHEMA = z.object({
+		category: z.string().min(1).describe("Higher-layer role category, e.g. 'staff' or 'line'."),
+		roleId: z.string().min(1).describe("Stable role id, e.g. 'gensec' or 'validator'."),
+		laneId: z.string().min(1).optional().describe("Optional work lane id, e.g. 'qe' or 'dev'."),
+		blueprintId: z.string().min(1).optional().describe("Blueprint backing this staffed role."),
+	});
+
+	const WORK_OWNER_SCHEMA = z.object({
+		actorAddress: z.string().min(1).optional().describe("Canonical actor address responsible for the work."),
+		logicalAgentId: z.string().min(1).optional().describe("Stable logical agent id for the responsible owner."),
+		roleId: z.string().min(1).optional().describe("Role id for the responsible owner."),
+	});
+
+	const WORK_GROUP_SCHEMA = z.object({
+		id: z.string().min(1).describe("Stable higher-layer grouping id."),
+		category: z.string().min(1).describe("Grouping category, e.g. 'mission' or 'customer'."),
+		domainId: z.string().min(1).optional().describe("Optional domain identifier served by the group."),
+		objectiveId: z.string().min(1).optional().describe("Optional objective identifier served by the group."),
+	});
+
+	const WORK_CONTEXT_SCHEMA = z.object({
+		role: WORK_ROLE_SCHEMA.optional(),
+		owner: WORK_OWNER_SCHEMA.optional(),
+		group: WORK_GROUP_SCHEMA.optional(),
+	});
+
 	/**
 	 *
 	 */
@@ -189,6 +219,31 @@ export function createAgentAdapter(
 			payload: { callId: parentCallId, innerType, innerPayload, run },
 			correlationId,
 		});
+	}
+
+	/** Return a compact tag list for neutral work metadata. */
+	function formatWorkContext(work: WorkContext | undefined): string[] {
+		if (!work) return [];
+		const tags: string[] = [];
+		if (work.role) {
+			const lane = work.role.laneId ? `/${work.role.laneId}` : "";
+			tags.push(`role=${work.role.category}:${work.role.roleId}${lane}`);
+		}
+		if (work.group) {
+			tags.push(`group=${work.group.id}:${work.group.category}`);
+		}
+		if (work.owner?.actorAddress) {
+			tags.push(`owner=${work.owner.actorAddress}`);
+		} else if (work.owner?.logicalAgentId) {
+			tags.push(`owner=${work.owner.logicalAgentId}`);
+		}
+		return tags;
+	}
+
+	/** Safely parse higher-layer work metadata from an arbitrary payload. */
+	function parseWorkContext(value: unknown): WorkContext | undefined {
+		const parsed = WORK_CONTEXT_SCHEMA.safeParse(value);
+		return parsed.success ? parsed.data : undefined;
 	}
 
 	/**
@@ -244,6 +299,12 @@ export function createAgentAdapter(
 				: stepId ?? planId ?? taskId;
 		const modelId = typeof payload.model === "string" ? payload.model : undefined;
 		const tokenBudget = typeof payload.tokenBudget === "number" ? payload.tokenBudget : undefined;
+		const payloadWork = parseWorkContext(payload.work);
+		const defaultRole = profileRoles.get(profile);
+		const work =
+			defaultRole && !payloadWork?.role
+				? { ...payloadWork, role: defaultRole }
+				: payloadWork;
 		return {
 			taskId,
 			profile,
@@ -258,6 +319,7 @@ export function createAgentAdapter(
 			discourseThread,
 			modelId,
 			tokenBudget,
+			work,
 			attempt: 1,
 			...overrides,
 		};
@@ -275,6 +337,7 @@ export function createAgentAdapter(
 				task.descriptor.discourseTopic && task.descriptor.discourseThread
 					? `forum=${task.descriptor.discourseTopic}/${task.descriptor.discourseThread}`
 					: null,
+				...formatWorkContext(task.descriptor.work),
 			]
 				.filter(Boolean)
 				.join(" ");
@@ -343,6 +406,9 @@ export function createAgentAdapter(
 				"Fire-and-forget: return a taskId immediately without waiting. " +
 					"The subagent runs in the background. Use agent.tasks to check status and retrieve results.",
 			),
+		work: WORK_CONTEXT_SCHEMA.optional().describe(
+			"Optional higher-layer work metadata: role assignment, owner, and grouping coordinates.",
+		),
 	} as const;
 
 	/**
@@ -446,6 +512,7 @@ export function createAgentAdapter(
 		}
 
 		const profile = deriveProfile(text, payload);
+		const profilePrompt = profilePrompts.get(profile);
 		const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
 		const explicitInherit = typeof payload.inheritDirectives === "boolean" ? payload.inheritDirectives : undefined;
 		const inheritDirectives = profile === "explore" ? false : (explicitInherit ?? true);
@@ -461,7 +528,7 @@ export function createAgentAdapter(
 			const t0 = Date.now();
 			const parentDirectives =
 				inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
-			const instructionParts = [parentDirectives, instructions].filter(Boolean);
+			const instructionParts = [profilePrompt, parentDirectives, instructions].filter(Boolean);
 			const extraAdapters: Adapter[] = [];
 			const context: AgentRunContext = {
 				prependInstructions: (value) => instructionParts.unshift(value),
@@ -614,6 +681,7 @@ export function createAgentAdapter(
 			ownerAddress: t.descriptor.actorAddress,
 			planId: t.descriptor.planId,
 			stepId: t.descriptor.stepId,
+			work: t.descriptor.work,
 			elapsedMs: (t.completedAt ?? Date.now()) - t.startedAt,
 			preview: t.status === "completed" ? t.reply?.slice(0, 100) : (t.error ?? "running..."),
 		}));

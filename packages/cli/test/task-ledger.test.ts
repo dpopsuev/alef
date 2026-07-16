@@ -74,6 +74,11 @@ function snapshot(overrides: Partial<TaskSnapshot> = {}): TaskSnapshot {
 			stepId: "step-1",
 			discourseTopic: "plan",
 			discourseThread: "plan-1",
+			work: {
+				role: { category: "line", laneId: "dev", roleId: "implementer" },
+				owner: { actorAddress: "@planner", roleId: "owner" },
+				group: { id: "ptp-dev", category: "cross_functional", domainId: "ptp" },
+			},
 			modelId: "claude-sonnet",
 			attempt: 1,
 		},
@@ -92,6 +97,7 @@ describe("task ledger reducer", { tags: ["unit"] }, () => {
 		expect(task?.profile).toBe("explore");
 		expect(task?.ownerAddress).toBe("@planner");
 		expect(task?.planId).toBe("plan-1");
+		expect(task?.work?.role?.laneId).toBe("dev");
 		expect(task?.status).toBe("running");
 	});
 

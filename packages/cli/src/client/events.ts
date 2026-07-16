@@ -61,6 +61,7 @@ function taskEntryFromEvent(task: TaskSnapshot): TaskLedgerEntry {
 		stepId: task.descriptor.stepId,
 		discourseTopic: task.descriptor.discourseTopic,
 		discourseThread: task.descriptor.discourseThread,
+		work: task.descriptor.work,
 		attempt: task.descriptor.attempt,
 		chunkTail: [],
 		reply: task.reply,

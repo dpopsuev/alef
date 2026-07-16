@@ -1,3 +1,4 @@
+import type { WorkContext } from "@dpopsuev/alef-kernel/execution";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { Component, TUI } from "@dpopsuev/alef-tui";
 import type { ColorToken, ThemeTokens } from "./theme.js";
@@ -40,6 +41,7 @@ export interface TaskLedgerEntry {
 	stepId?: string;
 	discourseTopic?: string;
 	discourseThread?: string;
+	work?: WorkContext;
 	attempt?: number;
 	chunkTail: string[];
 	reply?: string;

@@ -26,6 +26,26 @@ function summarizeTask(task: TaskLedgerEntry): string {
 /**
  *
  */
+function formatWorkSummary(task: TaskLedgerEntry): string {
+	const parts: string[] = [];
+	if (task.work?.role) {
+		const lane = task.work.role.laneId ? `/${task.work.role.laneId}` : "";
+		parts.push(`${task.work.role.category}:${task.work.role.roleId}${lane}`);
+	}
+	if (task.work?.group) {
+		parts.push(`group:${task.work.group.id}`);
+	}
+	if (task.work?.owner?.actorAddress) {
+		parts.push(`owner:${task.work.owner.actorAddress}`);
+	} else if (task.work?.owner?.logicalAgentId) {
+		parts.push(`owner:${task.work.owner.logicalAgentId}`);
+	}
+	return parts.length > 0 ? parts.join(" · ") : "-";
+}
+
+/**
+ *
+ */
 function detailText(task: TaskLedgerEntry): string {
 	const lines = [
 		`Task: ${task.taskId}`,
@@ -36,6 +56,7 @@ function detailText(task: TaskLedgerEntry): string {
 		`Plan: ${task.planId ?? "-"}`,
 		`Step: ${task.stepId ?? "-"}`,
 		`Forum: ${task.discourseTopic && task.discourseThread ? `${task.discourseTopic}/${task.discourseThread}` : "-"}`,
+		`Work: ${formatWorkSummary(task)}`,
 		`Attempt: ${task.attempt ?? "-"}`,
 		`Started: ${formatWhen(task.startedAt)}`,
 		`Last Activity: ${formatWhen(task.lastActivityAt)}`,
@@ -91,7 +112,9 @@ export const tasks: Command = {
 			toItem: (task): SelectItem => ({
 				value: task.taskId,
 				label: summarizeTask(task),
-				description: [task.ownerAddress, task.planId, task.stepId].filter(Boolean).join(" "),
+				description: [task.ownerAddress, task.planId, task.stepId, formatWorkSummary(task)]
+					.filter((value) => value && value !== "-")
+					.join(" "),
 			}),
 			onSelect: (task) => openTaskInspector(ctx, task),
 		});

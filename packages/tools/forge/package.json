@@ -1,0 +1,30 @@
+{
+  "name": "@dpopsuev/alef-tool-forge",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@dpopsuev/alef-testkit": "workspace:*",
+    "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "alef": {
+    "type": "tool",
+    "entry": "./src/index.ts"
+  }
+}

@@ -11,14 +11,14 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
+import { buildEvalTsconfig, buildEvalVitestConfig, monorepoNodeModulesPath, monorepoPath } from "./tooling-paths.js";
 
-const MONOREPO_NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), "../../../../../node_modules");
-const VITEST_CLI = join(dirname(fileURLToPath(import.meta.url)), "../../../../../node_modules/vitest/vitest.mjs");
+const MONOREPO_NODE_MODULES = monorepoNodeModulesPath();
+const VITEST_CLI = monorepoPath("node_modules", "vitest", "vitest.mjs");
 const CHILD_VITEST_TIMEOUT_MS = 15_000;
 const CHILD_VITEST_KILL_GRACE_MS = 250;
 const PROCESS_TIMEOUT_EXIT_CODE = 124;
@@ -39,11 +39,16 @@ function childVitestEnv(): NodeJS.ProcessEnv {
  */
 function runVitest(workspace: string): Promise<{ exitCode: number; output: string }> {
 	return new Promise((resolve) => {
-		const proc = spawn(process.execPath, [VITEST_CLI, "run", "--root", workspace, "--reporter", "verbose"], {
-			cwd: workspace,
-			stdio: ["ignore", "pipe", "pipe"],
-			env: childVitestEnv(),
-		});
+		const vitestConfig = join(workspace, "vitest.config.ts");
+		const proc = spawn(
+			process.execPath,
+			[VITEST_CLI, "run", "--root", workspace, "--config", vitestConfig, "--reporter", "verbose"],
+			{
+				cwd: workspace,
+				stdio: ["ignore", "pipe", "pipe"],
+				env: childVitestEnv(),
+			},
+		);
 		let output = "";
 		let timedOut = false;
 		let settled = false;
@@ -101,6 +106,14 @@ export function testCheck(globPattern = "**/*.test.ts"): Checker {
 			const nm = join(workspace, "node_modules");
 			if (!existsSync(nm)) {
 				await symlink(MONOREPO_NODE_MODULES, nm, "dir").catch(() => {});
+			}
+			const tsconfig = join(workspace, "tsconfig.json");
+			if (!existsSync(tsconfig)) {
+				writeFileSync(tsconfig, buildEvalTsconfig(), "utf-8");
+			}
+			const vitestConfig = join(workspace, "vitest.config.ts");
+			if (!existsSync(vitestConfig)) {
+				writeFileSync(vitestConfig, buildEvalVitestConfig(), "utf-8");
 			}
 
 			const { exitCode, output } = await runVitest(workspace);

@@ -25,8 +25,9 @@ import { existsSync } from "node:fs";
 import { symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
+import { monorepoNodeModulesPath } from "./tooling-paths.js";
 
-const MONOREPO_NODE_MODULES = new URL("../../../../node_modules", import.meta.url).pathname;
+const MONOREPO_NODE_MODULES = monorepoNodeModulesPath();
 
 /**
  *

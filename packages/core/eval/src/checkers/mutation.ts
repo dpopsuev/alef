@@ -21,12 +21,11 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
+import { monorepoNodeModulesPath, monorepoPath } from "./tooling-paths.js";
 
-const VITEST = join(fileURLToPath(import.meta.url), "../../../../..", "node_modules/.bin/vitest");
-
-const MONOREPO_NODE_MODULES = join(fileURLToPath(import.meta.url), "../../../../node_modules");
+const VITEST = monorepoPath("node_modules", ".bin", "vitest");
+const MONOREPO_NODE_MODULES = monorepoNodeModulesPath();
 
 /**
  *

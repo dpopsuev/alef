@@ -15,33 +15,26 @@
 import { spawn } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
+import { buildEvalTsconfig, monorepoNodeModulesPath, monorepoPath } from "./tooling-paths.js";
 
-const TSC = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_modules/.bin/tsc");
-const MONOREPO_NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), "../../../../node_modules");
-
-const MINIMAL_TSCONFIG = JSON.stringify({
-	compilerOptions: {
-		strict: true,
-		noEmit: true,
-		target: "ESNext",
-		module: "NodeNext",
-		moduleResolution: "NodeNext",
-		skipLibCheck: true,
-		allowSyntheticDefaultImports: true,
-	},
-	include: ["**/*.ts"],
-	exclude: ["node_modules"],
-});
+const TSC = monorepoPath("node_modules", ".bin", "tsc");
+const MONOREPO_NODE_MODULES = monorepoNodeModulesPath();
+const EVAL_TSCONFIG_NAME = "tsconfig.alef-eval.json";
 
 /**
  *
  */
-function runTsc(workspace: string): Promise<{ exitCode: number; output: string }> {
+function runTsc(workspace: string, projectFile: string): Promise<{ exitCode: number; output: string }> {
 	return new Promise((resolve) => {
-		const proc = spawn(TSC, ["--project", "tsconfig.json"], {
+		let settled = false;
+		const settle = (exitCode: number, output: string): void => {
+			if (settled) return;
+			settled = true;
+			resolve({ exitCode, output });
+		};
+		const proc = spawn(TSC, ["--project", projectFile], {
 			cwd: workspace,
 			stdio: ["ignore", "pipe", "pipe"],
 		});
@@ -52,7 +45,13 @@ function runTsc(workspace: string): Promise<{ exitCode: number; output: string }
 		proc.stderr.on("data", (d: Buffer) => {
 			output += d.toString();
 		});
-		proc.on("close", (code) => resolve({ exitCode: code ?? 1, output }));
+		proc.on("error", (error) => {
+			output += `\n${error.name}: ${error.message}`;
+			settle(1, output);
+		});
+		proc.on("close", (code) => {
+			settle(code ?? 1, output);
+		});
 	});
 }
 
@@ -70,10 +69,22 @@ export function compileCheck(): Checker {
 			// Write minimal tsconfig if not present.
 			const tsconfig = join(workspace, "tsconfig.json");
 			if (!existsSync(tsconfig)) {
-				writeFileSync(tsconfig, MINIMAL_TSCONFIG, "utf-8");
+				writeFileSync(tsconfig, buildEvalTsconfig(), "utf-8");
 			}
+			const evalTsconfig = join(workspace, EVAL_TSCONFIG_NAME);
+			writeFileSync(
+				evalTsconfig,
+				JSON.stringify({
+					extends: "./tsconfig.json",
+					compilerOptions: {
+						types: ["node"],
+						skipLibCheck: true,
+					},
+				}),
+				"utf-8",
+			);
 
-			const { exitCode, output } = await runTsc(workspace);
+			const { exitCode, output } = await runTsc(workspace, EVAL_TSCONFIG_NAME);
 
 			if (exitCode === 0) {
 				return { pass: true, score: 1.0, errors: [] };

@@ -12,12 +12,12 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "../evaluation.js";
 import { getChangedFiles } from "../git-workspace.js";
+import { monorepoPath } from "./tooling-paths.js";
 
-const BIOME = resolve(join(fileURLToPath(import.meta.url), "../../../../.."), "node_modules/.bin/biome");
+const BIOME = monorepoPath("node_modules", ".bin", "biome");
 
 interface BiomeDiagnostic {
 	severity: "error" | "warning" | "information" | "hint";

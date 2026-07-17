@@ -24,6 +24,7 @@ import { createCodingAgentStack } from "../src/index.js";
 
 defineEvalSuite({
 	name: "coding agent evaluations",
+	blueprint: "coding",
 	evals: [
 		readOnlyEvals.planRefactoring,
 		readOnlyEvals.auditModule,

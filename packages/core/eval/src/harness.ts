@@ -25,12 +25,40 @@ import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalAdapters } from "./default-adapters.js";
 import { EvaluatorAdapter } from "./evaluator-adapter.js";
+import { collectHarnessCard, type CollectHarnessCardInput, type HarnessCard } from "./harness-card.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
 import { aggregateRunUsage, deriveturns } from "./metrics.js";
+import { getEvalModel } from "./model.js";
 import { globalSpanExporter } from "./otel-setup.js";
 import { TraceRecorder } from "./trace-recorder.js";
 
 const tracer = trace.getTracer("alef.eval", "0.0.1");
+
+/** Resolve model fields for HarnessCard without failing unit boots that lack credentials. */
+function resolveEvalModelForCard(): Pick<CollectHarnessCardInput, "model" | "provider" | "contextWindow"> {
+	try {
+		const model = getEvalModel();
+		return { model: model.id, provider: model.provider, contextWindow: model.contextWindow };
+	} catch {
+		return { model: process.env.ALEF_EVAL_MODEL ?? "(unknown)" };
+	}
+}
+
+/** Collect a HarnessCard from a booted Agent + harness options. */
+function collectHarnessCardFromAgent(agent: Agent, opts: HarnessOptions): HarnessCard {
+	const modelFields = resolveEvalModelForCard();
+	// eslint-disable-next-line no-magic-numbers
+	const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
+	return collectHarnessCard({
+		...modelFields,
+		blueprint: opts.blueprint,
+		adapters: agent.adapters.map((adapter) => adapter.name),
+		tools: agent.tools.map((tool) => tool.name),
+		scenarioTimeoutMs,
+		noiseSeeding: opts.noiseSeeding !== false,
+		overrides: opts.harnessCard,
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Bus payload capture
@@ -105,6 +133,10 @@ export interface HarnessOptions {
 	 * Use this to match the production agent assembly exactly.
 	 */
 	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<Agent>;
+	/** Blueprint / stack name for HarnessCard disclosure (e.g. coding). */
+	blueprint?: string;
+	/** Partial HarnessCard overrides (adapters/tools usually inferred from the Agent). */
+	harnessCard?: CollectHarnessCardInput["overrides"];
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +159,7 @@ export class AgentHandle {
 	private readonly _scenarioTimeoutMs: number;
 	private readonly _transcript: Array<Record<string, unknown>> = [];
 	private readonly _busEvents: BusEvent[] = [];
+	private readonly _harnessCard: HarnessCard;
 
 	private readonly _sendTimingsMs: number[] = [];
 
@@ -152,6 +185,7 @@ export class AgentHandle {
 		transcript: Array<Record<string, unknown>>;
 		busEvents: BusEvent[];
 		motorTimes: Map<string, number>;
+		harnessCard: HarnessCard;
 	}) {
 		this.path = params.path;
 		this._agent = params.agent;
@@ -166,7 +200,13 @@ export class AgentHandle {
 		this._scenarioTimeoutMs = params.scenarioTimeoutMs;
 		this._transcript = params.transcript;
 		this._busEvents = params.busEvents;
+		this._harnessCard = params.harnessCard;
 		void params.motorTimes; // captured by closure in boot(), not needed as a field
+	}
+
+	/** Harness disclosure collected at boot. */
+	get harnessCard(): HarnessCard {
+		return this._harnessCard;
 	}
 
 	get lastReply(): string {
@@ -306,6 +346,7 @@ export class AgentHandle {
 			spans,
 			durationMs: 0, // set by callers with real timing
 			avgSchemaFraction,
+			harnessCard: this._harnessCard,
 			...usage,
 		};
 	}
@@ -448,6 +489,7 @@ export class EvalHarness {
 		}
 
 		const controller = new AgentController(agent);
+		const harnessCard = collectHarnessCardFromAgent(agent, opts);
 
 		return new AgentHandle({
 			path: workspace,
@@ -464,6 +506,7 @@ export class EvalHarness {
 			transcript,
 			busEvents,
 			motorTimes,
+			harnessCard,
 		});
 	}
 

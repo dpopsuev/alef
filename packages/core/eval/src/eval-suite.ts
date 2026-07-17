@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "./evaluation.js";
 import type { EvaluationResult } from "./evaluation-runner.js";
 import { EvaluationRunner } from "./evaluation-runner.js";
+import { formatHarnessCard, formatHarnessCardLine } from "./harness-card.js";
 import { EvalHarness } from "./harness.js";
 import { codingUsageMetrics } from "./metrics.js";
 import { getEvalModel, SKIP_REAL_LLM } from "./model.js";
@@ -13,6 +14,8 @@ export interface EvalSuiteOptions {
 	name: string;
 	evals: Evaluation[];
 	agentFactory: (workspace: string, signal: AbortSignal) => Promise<Agent>;
+	/** Blueprint / stack name for HarnessCard disclosure (e.g. coding). */
+	blueprint?: string;
 	benchmarkPath?: string;
 	scoreboardPath?: string;
 	timeoutMs?: number;
@@ -42,13 +45,19 @@ function formatResultTable(results: EvaluationResult[]): void {
 	const total = results.length;
 	const meanScore = results.reduce((a, r) => a + r.score, 0) / total;
 	const model = results.find((r) => r.metrics.model)?.metrics.model ?? getEvalModel().id;
+	const card = results.find((r) => r.metrics.harnessCard)?.metrics.harnessCard;
 
 	// eslint-disable-next-line no-magic-numbers
 	const nameWidth = Math.max(...results.map((r) => r.metrics.scenario.length), 8);
 	const header = `${"Eval".padEnd(nameWidth)}  Score  Time     Turns  Tools  Tokens    Cost      tok/P`;
 	const divider = "─".repeat(header.length);
 
-	console.log(`\n╔═══ EVAL REPORT (model=${model} disclosure=${disclosure}) ═══╗`);
+	const banner =
+		card !== undefined
+			? `model=${model} ${formatHarnessCardLine(card)}`
+			: `model=${model} disclosure=${disclosure}`;
+	console.log(`\n╔═══ EVAL REPORT (${banner}) ═══╗`);
+	if (card !== undefined) console.log(formatHarnessCard(card));
 	console.log(header);
 	console.log(divider);
 	for (const r of results) {
@@ -102,6 +111,7 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 				const harness = new EvalHarness();
 				const runner = new EvaluationRunner(harness, {
 					agentFactory: opts.agentFactory,
+					...(opts.blueprint !== undefined && { blueprint: opts.blueprint }),
 					maxErrorRate: 0.5,
 				});
 				const result = await runner.run(evaluation);
@@ -121,6 +131,8 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 
 			if (opts.benchmarkPath && opts.scoreboardPath) {
 				const model = getEvalModel();
+				const harnessFingerprint = allResults.find((r) => r.metrics.harnessCard)?.metrics.harnessCard
+					?.fingerprint;
 				const record = buildRunRecord(
 					model.id,
 					model.provider,
@@ -135,6 +147,7 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 						kind: "coding" as const,
 						metrics: codingUsageMetrics(r.metrics),
 					})),
+					harnessFingerprint !== undefined ? { harnessFingerprint } : undefined,
 				);
 				await appendRunRecord(opts.benchmarkPath, record);
 				const history = await loadRunHistory(opts.benchmarkPath);

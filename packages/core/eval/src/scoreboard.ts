@@ -67,6 +67,8 @@ export interface RunRecord {
 	meanCostUsd?: number;
 	/** Dominant kind for this run (coding | plant | mixed). */
 	kind?: ConsumerKind | "mixed";
+	/** HarnessCard fingerprint for this run (Binding Constraint disclosure). */
+	harnessFingerprint?: string;
 	/** Per-evaluation results keyed by evaluation ID. */
 	evals: Record<string, EvalScore>;
 }
@@ -92,6 +94,7 @@ export function buildRunRecord(
 		kind?: ConsumerKind;
 		metrics?: Record<string, number | null>;
 	}>,
+	opts?: { harnessFingerprint?: string },
 ): RunRecord {
 	const commit = gitCommitSha();
 	const nPass = results.filter((r) => r.pass).length;
@@ -141,6 +144,7 @@ export function buildRunRecord(
 			meanCostUsd: costs.reduce((a, b) => a + b, 0) / costs.length,
 		}),
 		...(kind && { kind }),
+		...(opts?.harnessFingerprint !== undefined && { harnessFingerprint: opts.harnessFingerprint }),
 		evals,
 	};
 }
@@ -226,8 +230,8 @@ export function generateScoreboard(history: RunRecord[]): string {
 
 	// Run history table — most recent first
 	lines.push("## Run History", "");
-	lines.push("| Date | Commit | Model | Kind | Pass | Score | OAE | Latency | Cost |");
-	lines.push("|---|---|---|---|---|---|---|---|---|");
+	lines.push("| Date | Commit | Model | Kind | Harness | Pass | Score | OAE | Latency | Cost |");
+	lines.push("|---|---|---|---|---|---|---|---|---|---|");
 
 	for (const r of [...history].reverse()) {
 		// eslint-disable-next-line no-magic-numbers
@@ -239,13 +243,14 @@ export function generateScoreboard(history: RunRecord[]): string {
 		// eslint-disable-next-line no-magic-numbers
 		const oae = (r.meanOae * 100).toFixed(1);
 		const kind = r.kind ?? "coding";
+		const harness = r.harnessFingerprint ? `\`${r.harnessFingerprint}\`` : "—";
 		const latency =
 			r.meanDurationMs !== undefined ? `${Math.round(r.meanDurationMs)}ms` : "—";
 		const cost =
 			// eslint-disable-next-line no-magic-numbers
 			r.meanCostUsd !== undefined ? `$${r.meanCostUsd.toFixed(4)}` : "—";
 		lines.push(
-			`| ${date} | \`${r.commit}\` | ${r.model} | ${kind} | **${r.nPass}/${r.nTotal}** (${pct}%) | ${score}% | ${oae}% | ${latency} | ${cost} |`,
+			`| ${date} | \`${r.commit}\` | ${r.model} | ${kind} | ${harness} | **${r.nPass}/${r.nTotal}** (${pct}%) | ${score}% | ${oae}% | ${latency} | ${cost} |`,
 		);
 	}
 

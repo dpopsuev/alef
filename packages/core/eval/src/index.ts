@@ -57,6 +57,19 @@ export {
 	getChangedFiles,
 	initGitWorkspace,
 } from "./git-workspace.js";
+export type {
+	CollectHarnessCardInput,
+	HarnessCard,
+	HarnessCompactionStrategy,
+} from "./harness-card.js";
+export {
+	collectHarnessCard,
+	filterDisclosureAdapters,
+	formatHarnessCard,
+	formatHarnessCardLine,
+	harnessCardFingerprint,
+	resolveCompactionStrategy,
+} from "./harness-card.js";
 export type { AgentHandle, HarnessOptions, WorkspaceFile } from "./harness.js";
 export { assertAllToolsUsed, assertToolNotUsed, assertToolUsed, EvalHarness } from "./harness.js";
 export type { JudgePanelResult, JudgeResult, JudgeSpec } from "./judge-panel-runner.js";

@@ -4,6 +4,7 @@
  * Separated from harness.ts so EvalHarness stays focused on agent lifecycle.
  */
 
+import { formatHarnessCardLine } from "./harness-card.js";
 import type { RunMetrics } from "./metrics.js";
 
 /** Format RunMetrics into a human-readable summary string. */
@@ -41,6 +42,7 @@ export function formatReport(metrics: RunMetrics): string {
 		`  path: ${toolPath}`,
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];
+	if (metrics.harnessCard) lines.push(`  harness: ${formatHarnessCardLine(metrics.harnessCard)}`);
 	if (sendStr) lines.push(`  send timings: [${sendStr}]`);
 	if (totalRetries > 0) lines.push(`  retries: ${totalRetries}${retryReasons ? ` (${retryReasons})` : ""}`);
 	if (abortedTurns > 0) lines.push(`  aborted turns: ${abortedTurns}`);

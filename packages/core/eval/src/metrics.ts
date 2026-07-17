@@ -9,6 +9,7 @@ import {
 	averageTokPerProgress,
 	extractProgressSteps,
 } from "./consumer/progress.js";
+import type { HarnessCard } from "./harness-card.js";
 
 /**
  * One Command or Event message captured in real-time from the bus.
@@ -217,6 +218,8 @@ export interface RunMetrics {
 	progressSteps: number;
 	/** Mean tok/P from ProgressTelemetry steps; null when none. */
 	tokPerProgress: number | null;
+	/** Harness disclosure for this run (Binding Constraint / HARNESSCARD). */
+	harnessCard?: HarnessCard;
 }
 
 /** Aggregated usage + intensity fields derived from turns and bus events. */

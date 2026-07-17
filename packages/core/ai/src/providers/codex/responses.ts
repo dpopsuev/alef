@@ -5,7 +5,7 @@ import type {
 } from "openai/resources/responses/responses.js";
 
 import { getEnvApiKey } from "../../env-api-keys.js";
-import { clampThinkingLevel } from "../../models/llm.js";
+import { clampThinkingLevel } from "../../models/llm-core.js";
 import type {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,

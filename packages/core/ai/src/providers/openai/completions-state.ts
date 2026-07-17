@@ -1,5 +1,5 @@
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.js";
-import { calculateCost } from "../../models/llm.js";
+import { calculateCost } from "../../models/llm-core.js";
 import type { AssistantMessage, Model, StopReason } from "../../types.js";
 
 /**

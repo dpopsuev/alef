@@ -21,7 +21,7 @@ import {
 	ToolResultStatus,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { DocumentType } from "@smithy/types";
-import { calculateCost } from "../models/llm.js";
+import { calculateCost } from "../models/llm-core.js";
 import type {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,

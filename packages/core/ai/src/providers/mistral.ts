@@ -7,7 +7,7 @@ import type {
 	FunctionTool,
 } from "@mistralai/mistralai/models/components";
 import { getEnvApiKey } from "../env-api-keys.js";
-import { calculateCost, clampThinkingLevel } from "../models/llm.js";
+import { calculateCost, clampThinkingLevel } from "../models/llm-core.js";
 import type {
 	AssistantMessage,
 	Context,

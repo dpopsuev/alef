@@ -1,10 +1,11 @@
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { build } from "esbuild";
 
 const outputPath = join(tmpdir(), "pi-browser-smoke.js");
 const errorLogPath = join(tmpdir(), "pi-browser-smoke-errors.log");
+const browserModelsEntry = resolve("packages/core/ai/src/models/llm.browser.ts");
 
 try {
 	await build({
@@ -15,6 +16,11 @@ try {
 		logLevel: "silent",
 		outfile: outputPath,
 		external: ["@anthropic-ai/vertex-sdk"],
+		alias: {
+			// Root tsconfig paths force @dpopsuev/alef-ai/models → llm.ts (Node refresh).
+			// Browser smoke must use the Node-free entry instead.
+			"@dpopsuev/alef-ai/models": browserModelsEntry,
+		},
 	});
 	process.exit(0);
 } catch (error) {

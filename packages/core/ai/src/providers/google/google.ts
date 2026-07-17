@@ -6,7 +6,7 @@ import {
 	ThinkingLevel as SdkThinkingLevel,
 } from "@google/genai";
 import { getEnvApiKey } from "../../env-api-keys.js";
-import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
+import { calculateCost, clampThinkingLevel } from "../../models/llm-core.js";
 import type {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,

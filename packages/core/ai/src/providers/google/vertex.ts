@@ -7,7 +7,7 @@ import {
 	type ThinkingConfig,
 	ThinkingLevel,
 } from "@google/genai";
-import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
+import { calculateCost, clampThinkingLevel } from "../../models/llm-core.js";
 import type {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Api,

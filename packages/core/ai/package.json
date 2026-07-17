@@ -47,6 +47,7 @@
       "import": "./dist/providers/amazon-bedrock.js"
     },
     "./models": {
+      "browser": "./src/models/llm.browser.ts",
       "source": "./src/models/llm.ts",
       "import": "./src/models/llm.ts",
       "default": "./src/models/llm.ts"

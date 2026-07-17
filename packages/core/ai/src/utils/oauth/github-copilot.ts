@@ -2,7 +2,7 @@
  * GitHub Copilot OAuth flow
  */
 
-import { getModels } from "../../models/llm.js";
+import { getModels } from "../../models/llm-core.js";
 import type { Api, Model } from "../../types.js";
 import type { OAuthCredentials, OAuthLoginCallbacks, OAuthProviderInterface } from "./types.js";
 

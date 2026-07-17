@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.js";
 import type { CompletionUsage } from "openai/resources/completions.js";
 import { getEnvApiKey } from "../../env-api-keys.js";
-import { clampThinkingLevel } from "../../models/llm.js";
+import { clampThinkingLevel } from "../../models/llm-core.js";
 import type {
 	AssistantMessage,
 	CacheRetention,

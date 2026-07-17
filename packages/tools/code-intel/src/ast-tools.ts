@@ -43,9 +43,11 @@ export interface ASTExtractResult {
  */
 export class ASTTools {
 	private backend: TreeSitterBackend;
+	private cwd: string;
 
-	constructor() {
+	constructor(cwd: string = process.cwd()) {
 		this.backend = new TreeSitterBackend();
+		this.cwd = cwd;
 	}
 
 	/**
@@ -54,7 +56,7 @@ export class ASTTools {
 	 */
 	async match(opts: ASTMatchOptions): Promise<ASTMatchResult[]> {
 		const results: ASTMatchResult[] = [];
-		const searchPath = opts.path ?? process.cwd();
+		const searchPath = opts.path ?? this.cwd;
 		const maxResults = opts.maxResults ?? 100;
 
 		// Find TypeScript/JavaScript files

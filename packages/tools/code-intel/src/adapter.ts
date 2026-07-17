@@ -1,14 +1,9 @@
 /**
- * CodeIntelAdapter — LSP-based code intelligence for TypeScript/JavaScript.
+ * CodeIntelAdapter — LSP + tree-sitter graph code intelligence.
  *
- * Four LSP-powered tools for code navigation and analysis:
- *   code.symbols  — workspace-wide symbol search (functions, classes, interfaces, types)
- *   code.hover    — type information and documentation at a position
- *   code.callers  — find all call sites of a symbol (LSP + grep fallback)
- *   code.diagnose — get TypeScript compilation errors for a file
- *
- * Design: Pure code intelligence layer. Use fs.* tools for file operations.
- * This adapter focuses solely on LSP capabilities that fs cannot provide.
+ * LSP tools: code.symbols, code.hover, code.callers, code.diagnose, code.review
+ * AST tools: code.ast.match, code.ast.extract
+ * Graph tools: code.index, code.dependencies, code.references, code.impact
  */
 
 import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
@@ -19,8 +14,9 @@ import type { CodeIntelBackend, Diagnostic } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";
 import { ASTTools } from "./ast-tools.js";
 import { GraphBackend } from "./graph-backend.js";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { defaultGraphDbPath, WorkspaceIndexer } from "./indexer.js";
+import { dirname } from "node:path";
+import { toStoredPath, resolveWorkspacePath } from "./path-resolve.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -120,11 +116,22 @@ const AST_EXTRACT_TOOL = {
 	}),
 };
 
+const INDEX_TOOL = {
+	name: "code.index",
+	description:
+		"Build or refresh the workspace code graph (tree-sitter → SQLite). " +
+		"Indexes symbols, imports, calls, and references. Call before code.dependencies / code.references / code.impact, " +
+		"or after large edits. Incremental — only re-parses changed files.",
+	inputSchema: z.object({
+		path: z.string().optional().describe("Directory or file to index (default: workspace root)"),
+	}),
+};
+
 const DEPENDENCIES_TOOL = {
 	name: "code.dependencies",
 	description:
-		"Get module dependencies for a file. Returns import paths, resolved file locations, and external package flags. " +
-		"Use to understand module coupling and trace dependency chains.",
+		"Get module dependencies for a file from the code graph. Returns import paths, resolved file locations, and external package flags. " +
+		"Auto-indexes the workspace on first use. Prefer code.index after bulk edits.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("File path to analyze"),
 	}),
@@ -133,8 +140,8 @@ const DEPENDENCIES_TOOL = {
 const REFERENCES_TOOL = {
 	name: "code.references",
 	description:
-		"Find all references to a symbol across the workspace. Returns file, line, column, and context for each reference. " +
-		"More comprehensive than code.callers — includes reads, writes, type annotations, and imports.",
+		"Find all references to a symbol in the code graph. Returns file, line, column, and context for each reference. " +
+		"More comprehensive than code.callers for indexed files — includes reads, writes, type annotations, and imports.",
 	inputSchema: z.object({
 		symbol: z.string().min(1).describe("Symbol name to find references for"),
 		path: z.string().optional().describe("Restrict to symbol defined in this file"),
@@ -145,7 +152,7 @@ const REFERENCES_TOOL = {
 const IMPACT_TOOL = {
 	name: "code.impact",
 	description:
-		"Analyze blast radius for changing a file. Returns dependent files and affected symbols with caller counts. " +
+		"Analyze blast radius for changing a file using the code graph. Returns dependent files and affected symbols with caller counts. " +
 		"Use before refactoring to understand downstream impact.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("File path to analyze"),
@@ -195,6 +202,8 @@ export interface CodeIntelAdapterOptions extends BaseAdapterOptions {
 	 * Default: LocalCodeIntelBackend.
 	 */
 	backend?: CodeIntelBackend;
+	/** Override graph DB path (tests). Default: `<cwd>/.alef/code-intel/graph.db`. */
+	graphDbPath?: string;
 }
 
 /**
@@ -208,11 +217,13 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 			writableRoots: opts.writableRoots,
 		});
 
-	const astTools = new ASTTools();
-	
-	// Initialize graph backend for dependency/reference analysis
-	const graphDbPath = join(tmpdir(), `alef-code-intel-${process.pid}.db`);
+	const astTools = new ASTTools(opts.cwd);
+	const graphDbPath = opts.graphDbPath ?? defaultGraphDbPath(opts.cwd);
 	const graphBackend = new GraphBackend({ dbPath: graphDbPath });
+	const indexer = new WorkspaceIndexer({ cwd: opts.cwd, graph: graphBackend });
+
+	const storedPath = (path: string): string =>
+		toStoredPath(resolveWorkspacePath(path, opts.cwd), opts.cwd);
 
 	const base = defineAdapter(
 		"code-intel",
@@ -347,7 +358,10 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 					const { symbol, path, kind } = ctx.payload;
 					const result = await astTools.extract({ symbol, path, kind });
 					if (!result) {
-						return withDisplay({ symbol, found: false }, { text: `Symbol \`${symbol}\` not found in ${path}`, mimeType: "text/markdown" });
+						return withDisplay(
+							{ symbol, found: false },
+							{ text: `Symbol \`${symbol}\` not found in ${path}`, mimeType: "text/markdown" },
+						);
 					}
 					return withDisplay(
 						{ symbol: result.symbol, fullText: result.fullText },
@@ -358,25 +372,41 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 					);
 				}),
 
-				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
-				"code.dependencies": typedAction(DEPENDENCIES_TOOL, async (ctx) => {
+				"code.index": typedAction(INDEX_TOOL, async (ctx) => {
 					const { path } = ctx.payload;
-					if (!path) throw new Error("code.dependencies: path is required");
-					const deps = graphBackend.getDependencies(path);
+					const result = await indexer.ensureIndexed(path);
 					return withDisplay(
-						{ dependencies: deps, count: deps.length },
+						{ ...result, dbPath: graphDbPath },
 						{
-							text: `Found ${deps.length} dependenc${deps.length === 1 ? "y" : "ies"} in \`${path}\``,
+							text: `Indexed ${result.changed} changed file${result.changed === 1 ? "" : "s"} (${result.total} total in graph)`,
 							mimeType: "text/markdown",
 						},
 					);
 				}),
 
-				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
+				"code.dependencies": typedAction(DEPENDENCIES_TOOL, async (ctx) => {
+					const { path } = ctx.payload;
+					if (!path) throw new Error("code.dependencies: path is required");
+					const key = storedPath(path);
+					await indexer.ensureReady(dirname(resolveWorkspacePath(path, opts.cwd)));
+					const deps = graphBackend.getDependencies(key);
+					return withDisplay(
+						{ dependencies: deps, count: deps.length, path: key },
+						{
+							text: `Found ${deps.length} dependenc${deps.length === 1 ? "y" : "ies"} in \`${key}\``,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+
 				"code.references": typedAction(REFERENCES_TOOL, async (ctx) => {
 					const { symbol, path } = ctx.payload;
 					if (!symbol) throw new Error("code.references: symbol is required");
-					const refs = graphBackend.getReferences(symbol, path);
+					const key = path ? storedPath(path) : undefined;
+					await indexer.ensureReady(
+						path ? dirname(resolveWorkspacePath(path, opts.cwd)) : undefined,
+					);
+					const refs = graphBackend.getReferences(symbol, key);
 					return withDisplay(
 						{ references: refs, count: refs.length },
 						{
@@ -386,14 +416,16 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 					);
 				}),
 
-				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
 				"code.impact": typedAction(IMPACT_TOOL, async (ctx) => {
 					const { path } = ctx.payload;
 					if (!path) throw new Error("code.impact: path is required");
-					const impact = graphBackend.getImpact(path);
-					const summary = `Blast radius for \`${path}\`:\n- ${impact.dependents.length} dependent file${impact.dependents.length === 1 ? "" : "s"}\n- ${impact.affectedSymbols.length} symbol${impact.affectedSymbols.length === 1 ? "" : "s"} with callers`;
+					const key = storedPath(path);
+					// Dependents may live anywhere under the workspace — index cwd once.
+					await indexer.ensureReady();
+					const impact = graphBackend.getImpact(key);
+					const summary = `Blast radius for \`${key}\`:\n- ${impact.dependents.length} dependent file${impact.dependents.length === 1 ? "" : "s"}\n- ${impact.affectedSymbols.length} symbol${impact.affectedSymbols.length === 1 ? "" : "s"} with callers`;
 					return withDisplay(
-						{ ...impact, path },
+						{ ...impact, path: key },
 						{
 							text: summary,
 							mimeType: "text/markdown",
@@ -405,8 +437,9 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 		{
 			actions: opts.actions,
 			directives: CODE_INTEL_DIRECTIVES,
-			description: "LSP-based code intelligence: workspace symbols, type info, call hierarchy, diagnostics.",
-			labels: ["code", "lsp", "typescript", "intelligence", "experimental"],
+			description:
+				"Code intelligence: LSP symbols/hover/callers/diagnose plus tree-sitter graph (index, dependencies, references, impact).",
+			labels: ["code", "lsp", "typescript", "intelligence", "graph", "experimental"],
 			contributions: {
 				"event.weights": {
 					"code.write": 2.0,
@@ -433,13 +466,11 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 
 const CODE_INTEL_DIRECTIVES = [
 	`**code-intel tool guidance**
-- Use fs.read, fs.write, and fs.edit for all file operations. The code-intel adapter provides LSP-based enhancements only.
-- code.symbols searches for functions, classes, interfaces, and types across the entire workspace. Use this to find definitions without knowing the file location.
-- code.hover provides type information and JSDoc documentation at a specific position. Use this to understand complex TypeScript types.
-- code.callers finds all call sites of a named symbol. Use it before refactoring to understand the blast radius of changes.
-- code.diagnose checks for TypeScript compilation errors in a file. Use this after editing TS files to verify they compile correctly.
-- code.dependencies lists module imports and resolved file paths for a file. Use to trace dependency chains.
-- code.references finds all uses of a symbol (reads, writes, calls, type annotations). More comprehensive than code.callers.
-- code.impact analyzes the blast radius of changing a file — shows dependent files and symbols with caller counts.
-- All code-intel tools work best on TypeScript files. Some tools (hover, diagnose) are TypeScript-only.`,
+- Use fs.read, fs.write, and fs.edit for all file operations. code-intel provides LSP and a local code graph.
+- code.symbols / code.hover / code.callers / code.diagnose are LSP-backed (TypeScript).
+- code.index builds the tree-sitter → SQLite graph under .alef/code-intel/. Call it after bulk edits; graph tools auto-index on first use.
+- code.dependencies lists imports and resolved local files for a module.
+- code.references finds uses of a symbol in the graph (reads, writes, calls, type annotations).
+- code.impact shows dependent files and symbols with callers before a refactor.
+- code.ast.match / code.ast.extract do structural search without waiting on LSP.`,
 ];

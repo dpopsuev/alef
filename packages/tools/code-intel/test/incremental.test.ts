@@ -58,8 +58,8 @@ describe("Incremental Indexing", () => {
 			{ name: "foo", kind: "function", startLine: 1, endLine: 1, startColumn: 0 },
 		]);
 
-		// Modify file
-		writeFileSync(testFile, "export function bar() {}");
+		// Modify file (different size so coarse mtime clocks still detect change)
+		writeFileSync(testFile, "export function barChanged() { return 1; }\n");
 
 		// Should detect change
 		const changed = backend.detectChangedFiles([testFile]);

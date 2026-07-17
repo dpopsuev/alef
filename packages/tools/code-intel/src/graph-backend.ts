@@ -3,19 +3,37 @@
  */
 
 import Database from "better-sqlite3";
-import { readFileSync, statSync, readdirSync } from "node:fs";
-import { join, dirname, extname } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Symbol } from "./tree-sitter-backend.js";
 import { computeFileHash } from "./file-hash.js";
+import type { IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
+import { resolveImportPath, resolveWorkspacePath, toStoredPath } from "./path-resolve.js";
+import type { Symbol } from "./tree-sitter-backend.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Options for GraphBackend constructor.
+ *
  */
 export interface GraphBackendOptions {
 	dbPath: string;
+}
+
+/**
+ *
+ */
+export interface ReplaceFileIndexInput {
+	path: string;
+	absolutePath: string;
+	hash: string;
+	language: string;
+	symbols: Symbol[];
+	imports: IndexedImport[];
+	calls: IndexedCall[];
+	references: IndexedReference[];
+	lines: number;
+	sizeBytes: number;
 }
 
 /**
@@ -26,45 +44,179 @@ export class GraphBackend {
 
 	constructor(opts: GraphBackendOptions) {
 		this.db = new Database(opts.dbPath);
+		this.db.pragma("foreign_keys = ON");
 		this.initialize();
 	}
 
 	private initialize(): void {
-		// Load full schema from schema.sql file
-		// Creates tables: files, symbols, calls, dependencies, references, file_hashes, function_complexity, dataflow, metadata
 		const schemaPath = join(__dirname, "schema.sql");
 		const schema = readFileSync(schemaPath, "utf-8");
 		this.db.exec(schema);
 	}
 
+	/** Legacy helper used by incremental tests — symbols only. */
 	indexFile(filePath: string, hash: string, language: string, symbols: Symbol[]): void {
-		const insertFile = this.db.prepare(
-			"INSERT OR REPLACE INTO files (path, hash, language, last_indexed) VALUES (?, ?, ?, ?)"
-		);
-		const result = insertFile.run(filePath, hash, language, Date.now());
-		const fileId = Number(result.lastInsertRowid);
-
-		const insertSymbol = this.db.prepare(
-			"INSERT OR REPLACE INTO symbols (file_id, name, kind, start_line, end_line, start_column, exported, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-		);
-
-		for (const sym of symbols) {
-			insertSymbol.run(fileId, sym.name, sym.kind, sym.startLine, sym.endLine, sym.startColumn, 0, sym.text ?? null);
-		}
-
-		// Update file_hashes table for incremental change detection
+		let size = 0;
+		let mtime = Date.now();
 		try {
 			const stats = statSync(filePath);
-			const updateHash = this.db.prepare(
-				"INSERT OR REPLACE INTO file_hashes (file, hash, mtime, size) VALUES (?, ?, ?, ?)"
-			);
-			updateHash.run(filePath, hash, Math.floor(stats.mtimeMs), stats.size);
-		} catch (_err) {
-			// If we can't stat the file, skip hash update
+			size = stats.size;
+			mtime = Math.floor(stats.mtimeMs);
+		} catch {
+			/* optional */
 		}
+		this.replaceFileIndex({
+			path: filePath,
+			absolutePath: filePath,
+			hash,
+			language,
+			symbols,
+			imports: [],
+			calls: [],
+			references: [],
+			lines: 0,
+			sizeBytes: size,
+		});
+		this.db
+			.prepare("INSERT OR REPLACE INTO file_hashes (file, hash, mtime, size) VALUES (?, ?, ?, ?)")
+			.run(filePath, hash, mtime, size);
 	}
 
-	findSymbols(name: string): Array<{file: string; symbol: Symbol}> {
+	replaceFileIndex(input: ReplaceFileIndexInput): void {
+		const tx = this.db.transaction(() => {
+			this.db.prepare("DELETE FROM files WHERE path = ?").run(input.path);
+			const insertFile = this.db.prepare(
+				`INSERT INTO files (path, hash, language, last_indexed, lines, size_bytes)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+			);
+			const fileResult = insertFile.run(
+				input.path,
+				input.hash,
+				input.language,
+				Date.now(),
+				input.lines,
+				input.sizeBytes,
+			);
+			const fileId = Number(fileResult.lastInsertRowid);
+
+			const insertSymbol = this.db.prepare(
+				`INSERT INTO symbols (file_id, name, kind, start_line, end_line, start_column, exported, signature)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			);
+			const symbolIds = new Map<string, number>();
+			for (const sym of input.symbols) {
+				const result = insertSymbol.run(
+					fileId,
+					sym.name,
+					sym.kind,
+					sym.startLine,
+					sym.endLine,
+					sym.startColumn,
+					0,
+					sym.text ?? null,
+				);
+				symbolIds.set(sym.name, Number(result.lastInsertRowid));
+			}
+
+			const insertDep = this.db.prepare(
+				`INSERT OR REPLACE INTO dependencies
+				 (source_file_id, import_path, resolved_file_id, is_external, line, confidence, dynamic)
+				 VALUES (?, ?, ?, ?, ?, 1.0, ?)`,
+			);
+			const findFileId = this.db.prepare<[string], { id: number }>("SELECT id FROM files WHERE path = ?");
+			for (const dep of input.imports) {
+				let resolvedId: number | null = null;
+				if (dep.resolved) {
+					resolvedId = findFileId.get(dep.resolved)?.id ?? null;
+				}
+				insertDep.run(
+					fileId,
+					dep.importPath,
+					resolvedId,
+					dep.isExternal ? 1 : 0,
+					dep.line,
+					dep.dynamic ? 1 : 0,
+				);
+			}
+
+			const insertCall = this.db.prepare(
+				`INSERT OR IGNORE INTO "calls"
+				 (caller_id, callee_name, callee_file_id, callee_symbol_id, call_line, confidence, dynamic)
+				 VALUES (?, ?, NULL, ?, ?, 1.0, 0)`,
+			);
+			for (const call of input.calls) {
+				const callerId = symbolIds.get(call.callerName);
+				if (!callerId) continue;
+				const calleeId = symbolIds.get(call.calleeName) ?? null;
+				insertCall.run(callerId, call.calleeName, calleeId, call.line);
+			}
+
+			const insertRef = this.db.prepare(
+				`INSERT OR IGNORE INTO "references"
+				 (symbol_id, file_id, line, column, context, ref_type)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+			);
+			for (const ref of input.references) {
+				const symbolId = symbolIds.get(ref.symbolName);
+				if (!symbolId) continue;
+				insertRef.run(symbolId, fileId, ref.line, ref.column, ref.context, ref.refType);
+			}
+
+			let mtime = Date.now();
+			try {
+				mtime = Math.floor(statSync(input.absolutePath).mtimeMs);
+			} catch {
+				/* keep Date.now */
+			}
+			this.db
+				.prepare("INSERT OR REPLACE INTO file_hashes (file, hash, mtime, size) VALUES (?, ?, ?, ?)")
+				.run(input.absolutePath, input.hash, mtime, input.sizeBytes);
+			// Also key by stored relative path for scanWorkspace results that may differ
+			this.db
+				.prepare("INSERT OR REPLACE INTO file_hashes (file, hash, mtime, size) VALUES (?, ?, ?, ?)")
+				.run(input.path, input.hash, mtime, input.sizeBytes);
+		});
+		tx();
+	}
+
+	listIndexedFiles(): string[] {
+		const rows = this.db.prepare<[], { path: string }>("SELECT path FROM files ORDER BY path").all();
+		return rows.map((row) => row.path);
+	}
+
+	/**
+	 * After a batch index, resolve dependency edges that pointed at not-yet-indexed files.
+	 * Uses on-disk import resolution against cwd, then looks up the stored path.
+	 */
+	relinkDependencies(cwd: string): number {
+		type UnresolvedDep = { id: number; import_path: string; source_path: string };
+		const rows = this.db
+			.prepare<[], UnresolvedDep>(
+				`SELECT d.id, d.import_path, f.path as source_path
+				 FROM dependencies d
+				 JOIN files f ON f.id = d.source_file_id
+				 WHERE d.resolved_file_id IS NULL AND d.is_external = 0`,
+			)
+			.all();
+
+		const update = this.db.prepare("UPDATE dependencies SET resolved_file_id = ? WHERE id = ?");
+		const findFile = this.db.prepare<[string], { id: number }>("SELECT id FROM files WHERE path = ?");
+		let linked = 0;
+		for (const row of rows) {
+			const fromAbsolute = resolveWorkspacePath(row.source_path, cwd);
+			const resolved =
+				resolveImportPath(row.import_path, fromAbsolute, cwd) ??
+				toStoredPath(resolveWorkspacePath(row.import_path, cwd), cwd);
+			const hit = findFile.get(resolved);
+			if (hit) {
+				update.run(hit.id, row.id);
+				linked++;
+			}
+		}
+		return linked;
+	}
+
+	findSymbols(name: string): Array<{ file: string; symbol: Symbol }> {
 		type SymbolRow = {
 			file: string;
 			name: string;
@@ -93,7 +245,9 @@ export class GraphBackend {
 		}));
 	}
 
-	getDependencies(filePath: string): Array<{ import: string; resolved: string | null; isExternal: boolean; line: number }> {
+	getDependencies(
+		filePath: string,
+	): Array<{ import: string; resolved: string | null; isExternal: boolean; line: number }> {
 		type DepRow = { import_path: string; resolved: string | null; is_external: number; line: number };
 		const query = this.db.prepare<[string], DepRow>(`
 			SELECT d.import_path, f2.path as resolved, d.is_external, d.line
@@ -110,13 +264,16 @@ export class GraphBackend {
 		}));
 	}
 
-	getReferences(symbolName: string, filePath?: string): Array<{ file: string; line: number; column: number; context: string | null; type: string | null }> {
+	getReferences(
+		symbolName: string,
+		filePath?: string,
+	): Array<{ file: string; line: number; column: number; context: string | null; type: string | null }> {
 		type RefRow = { file: string; line: number; column: number; context: string | null; ref_type: string | null };
 
 		if (filePath) {
 			const query = this.db.prepare<[string, string], RefRow>(`
 				SELECT f.path as file, r.line, r.column, r.context, r.ref_type
-				FROM symbol_references r
+				FROM "references" r
 				JOIN symbols s ON r.symbol_id = s.id
 				JOIN files f ON r.file_id = f.id
 				JOIN files sf ON s.file_id = sf.id
@@ -134,7 +291,7 @@ export class GraphBackend {
 
 		const query = this.db.prepare<[string], RefRow>(`
 			SELECT f.path as file, r.line, r.column, r.context, r.ref_type
-			FROM symbol_references r
+			FROM "references" r
 			JOIN symbols s ON r.symbol_id = s.id
 			JOIN files f ON r.file_id = f.id
 			WHERE s.name = ?
@@ -149,7 +306,10 @@ export class GraphBackend {
 		}));
 	}
 
-	getImpact(filePath: string): { dependents: string[]; affectedSymbols: Array<{ symbol: string; kind: string; callers: number }> } {
+	getImpact(filePath: string): {
+		dependents: string[];
+		affectedSymbols: Array<{ symbol: string; kind: string; callers: number }>;
+	} {
 		type PathRow = { path: string };
 		type AffectedRow = { name: string; kind: string; caller_count: number };
 
@@ -166,7 +326,7 @@ export class GraphBackend {
 			SELECT s.name, s.kind, COUNT(c.id) as caller_count
 			FROM symbols s
 			JOIN files f ON s.file_id = f.id
-			LEFT JOIN calls c ON c.callee_symbol_id = s.id
+			LEFT JOIN "calls" c ON c.callee_symbol_id = s.id
 			WHERE f.path = ?
 			GROUP BY s.id, s.name, s.kind
 			HAVING caller_count > 0
@@ -181,79 +341,55 @@ export class GraphBackend {
 		return { dependents, affectedSymbols };
 	}
 
-	/**
-	 * Incrementally update the index by re-indexing only changed files.
-	 * 
-	 * @param workspaceRoot - Root directory to scan
-	 * @param indexCallback - Callback to index a single file (filePath => void)
-	 * @returns Object with changedCount and totalCount
-	 */
-	incrementalUpdate(workspaceRoot: string, indexCallback: (filePath: string) => void): { changedCount: number; totalCount: number } {
+	incrementalUpdate(
+		workspaceRoot: string,
+		indexCallback: (filePath: string) => void,
+	): { changedCount: number; totalCount: number } {
 		const changedFiles = this.scanWorkspace(workspaceRoot);
-		
 		for (const file of changedFiles) {
 			indexCallback(file);
 		}
-
 		return {
 			changedCount: changedFiles.length,
 			totalCount: this.findCodeFiles(workspaceRoot, [".ts", ".js", ".tsx", ".jsx", ".py"]).length,
 		};
 	}
 
-	/**
-	 * Scan workspace directory for code files and detect which have changed.
-	 * 
-	 * @param workspaceRoot - Root directory to scan
-	 * @param extensions - File extensions to include (default: .ts, .js, .tsx, .jsx, .py)
-	 * @returns List of changed file paths
-	 */
-	scanWorkspace(workspaceRoot: string, extensions: string[] = [".ts", ".js", ".tsx", ".jsx", ".py"]): string[] {
+	scanWorkspace(
+		workspaceRoot: string,
+		extensions: string[] = [".ts", ".js", ".tsx", ".jsx", ".py"],
+	): string[] {
 		const allFiles = this.findCodeFiles(workspaceRoot, extensions);
 		return this.detectChangedFiles(allFiles);
 	}
 
-	/**
-	 * Recursively find all code files in a directory.
-	 */
-	private findCodeFiles(dir: string, extensions: string[], ignore: string[] = ["node_modules", ".git", "dist", "build"]): string[] {
+	private findCodeFiles(
+		dir: string,
+		extensions: string[],
+		ignore: string[] = ["node_modules", ".git", "dist", "build", ".alef"],
+	): string[] {
 		const files: string[] = [];
-
 		try {
 			const entries = readdirSync(dir, { withFileTypes: true });
-
 			for (const entry of entries) {
 				const fullPath = join(dir, entry.name);
-
 				if (entry.isDirectory()) {
-					// Skip ignored directories
-					if (ignore.includes(entry.name)) {
-						continue;
-					}
-					// Recursively scan subdirectories
+					if (ignore.includes(entry.name)) continue;
 					files.push(...this.findCodeFiles(fullPath, extensions, ignore));
 				} else if (entry.isFile()) {
-					// Include files with matching extensions
 					const ext = extname(entry.name);
-					if (extensions.includes(ext)) {
-						files.push(fullPath);
-					}
+					if (extensions.includes(ext)) files.push(fullPath);
 				}
 			}
-		} catch (_err) {
-			// Directory doesn't exist or can't be read, skip
+		} catch {
+			/* skip unreadable */
 		}
-
 		return files;
 	}
 
 	/**
-	 * Detect changed files using three-tier change detection:
-	 * 1. Quick mtime check (cheapest)
-	 * 2. Size comparison if mtime differs
-	 * 3. Full hash if mtime and size differ
-	 * 
-	 * Returns list of files that have changed since last index.
+	 * Three-tier change detection: mtime → size → content hash.
+	 * When mtime matches but size differs (coarse FS clocks), treat as changed.
 	 */
 	detectChangedFiles(files: string[]): string[] {
 		const changed: string[] = [];
@@ -265,37 +401,27 @@ export class GraphBackend {
 				const stats = statSync(file);
 				const currentMtime = Math.floor(stats.mtimeMs);
 				const currentSize = stats.size;
-
 				const row = getHash.get(file);
 
 				if (!row) {
-					// File never indexed
 					changed.push(file);
 					continue;
 				}
 
-				// Tier 1: Quick mtime check
-				if (currentMtime === row.mtime) {
-					// File unchanged (mtime matches)
+				if (currentMtime === row.mtime && currentSize === row.size) {
 					continue;
 				}
 
-				// Tier 2: Size check (mtime differs, check size)
 				if (currentSize !== row.size) {
-					// Size changed, file definitely changed
 					changed.push(file);
 					continue;
 				}
 
-				// Tier 3: Full hash (mtime differs but size same, need hash)
 				const currentHash = computeFileHash(file);
 				if (currentHash !== row.hash) {
-					// Hash changed, file changed
 					changed.push(file);
 				}
-				// else: false positive mtime change (touch/metadata update), content unchanged
-			} catch (_err) {
-				// File doesn't exist or can't be read, treat as changed
+			} catch {
 				changed.push(file);
 			}
 		}

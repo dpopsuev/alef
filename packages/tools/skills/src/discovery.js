@@ -8,23 +8,20 @@
  *   3. $XDG_CONFIG_HOME/alef/skills    or  ~/.config/alef/skills
  *   4. ~/.agents/skills
  *   5. .agents/skills  (relative to cwd)
- *   6. .alef/skills    (relative to cwd)
- *   7. .claude/skills  (relative to cwd — cross-agent compat)
- *   8. Additional paths from adapter options
+ *   6. .claude/skills  (relative to cwd — cross-agent compat)
+ *   7. Additional paths from adapter options
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { projectSkillsDir, userSkillsDir, xdgConfigHome } from "@dpopsuev/alef-kernel/xdg";
 import { parse as parseYaml } from "yaml";
 const SKILL_FILENAME = "SKILL.md";
-function xdgConfig() {
-    return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-}
 export function standardSkillPaths(cwd) {
     const dirs = [];
     if (process.env.ALEF_SKILLS_DIR)
         dirs.push(process.env.ALEF_SKILLS_DIR);
-    dirs.push(join(xdgConfig(), "agents", "skills"), join(xdgConfig(), "alef", "skills"), join(homedir(), ".agents", "skills"), join(cwd, ".agents", "skills"), join(cwd, ".alef", "skills"), join(cwd, ".claude", "skills"));
+    dirs.push(join(xdgConfigHome(), "agents", "skills"), userSkillsDir(), join(homedir(), ".agents", "skills"), projectSkillsDir(cwd), join(cwd, ".claude", "skills"));
     return [...new Set(dirs)];
 }
 function parseSkillMd(filePath, content) {
@@ -42,7 +39,7 @@ function parseSkillMd(filePath, content) {
             description: fm.description,
             userInvocable: fm["user-invocable"] ?? false,
             disableModelInvocation: fm["disable-model-invocation"] ?? false,
-            instructions: (instructions ?? "").trim(),
+            instructions: instructions.trim(),
             path: filePath,
         };
     }
@@ -113,4 +110,3 @@ export function skillsToXml(skills) {
         .join("\n");
     return items ? `<skills>\n${items}\n</skills>` : "";
 }
-//# sourceMappingURL=discovery.js.map

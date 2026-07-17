@@ -83,9 +83,13 @@ $XDG_STATE_HOME/alef/           # Logs & state (~/.local/state/alef)
 
 $XDG_CACHE_HOME/alef/           # Cache (~/.cache/alef)
   ├── lsp/                      # TypeScript LSP cache
-  └── embeddings/               # Vector embedding cache
+  ├── embeddings/               # Vector embedding cache
+  └── code-intel/<cwd-hash>/    # Regenerable code graph
 
-<cwd>/.alef/                    # Project-local configuration
+$XDG_DATA_HOME/alef/forge/<cwd-hash>/  # Local PR sidecar store
+
+<cwd>/agent.yaml                # Optional workspace blueprint
+<cwd>/.agents/                  # Project-local agentskills.io layout
   ├── directives/               # Project-specific system prompts
   └── skills/                   # Project-specific skills
 ```

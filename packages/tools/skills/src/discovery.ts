@@ -8,14 +8,14 @@
  *   3. $XDG_CONFIG_HOME/alef/skills    or  ~/.config/alef/skills
  *   4. ~/.agents/skills
  *   5. .agents/skills  (relative to cwd)
- *   6. .alef/skills    (relative to cwd)
- *   7. .claude/skills  (relative to cwd — cross-agent compat)
- *   8. Additional paths from adapter options
+ *   6. .claude/skills  (relative to cwd — cross-agent compat)
+ *   7. Additional paths from adapter options
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { projectSkillsDir, userSkillsDir, xdgConfigHome } from "@dpopsuev/alef-kernel/xdg";
 import { parse as parseYaml } from "yaml";
 import type { Skill, SkillFrontmatter } from "./types.js";
 
@@ -24,22 +24,14 @@ const SKILL_FILENAME = "SKILL.md";
 /**
  *
  */
-function xdgConfig(): string {
-	return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-}
-
-/**
- *
- */
 export function standardSkillPaths(cwd: string): string[] {
 	const dirs: string[] = [];
 	if (process.env.ALEF_SKILLS_DIR) dirs.push(process.env.ALEF_SKILLS_DIR);
 	dirs.push(
-		join(xdgConfig(), "agents", "skills"),
-		join(xdgConfig(), "alef", "skills"),
+		join(xdgConfigHome(), "agents", "skills"),
+		userSkillsDir(),
 		join(homedir(), ".agents", "skills"),
-		join(cwd, ".agents", "skills"),
-		join(cwd, ".alef", "skills"),
+		projectSkillsDir(cwd),
 		join(cwd, ".claude", "skills"),
 	);
 	return [...new Set(dirs)];

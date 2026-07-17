@@ -50,8 +50,6 @@ out.html
 packages/coding-agent/binaries/
 todo.md
 plans/
-.alef/hf-sessions/
-.alef/hf-sessions-backup/
 collect.sh
 
 # Stale empty directories from package renames

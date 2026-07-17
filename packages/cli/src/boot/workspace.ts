@@ -1,12 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Directives } from "@dpopsuev/alef-agent/directives";
+import { projectDirectivesDir } from "@dpopsuev/alef-kernel/xdg";
 
 /** Keep workspace rules in the system prompt without eating the cold-start budget. */
 const AGENTS_MD_MAX_CHARS = 4_000;
 const WORKSPACE_DIRECTIVE_MAX_CHARS = 2_000;
 
-/** Load AGENTS.md and .alef/directives/*.md from the workspace into the directive set. */
+/** Load AGENTS.md and .agents/directives/*.md from the workspace into the directive set. */
 export async function loadWorkspace(directives: Directives, cwd: string): Promise<void> {
 	for (const name of ["AGENTS.md", "agents.md"]) {
 		try {
@@ -27,7 +28,7 @@ export async function loadWorkspace(directives: Directives, cwd: string): Promis
 		}
 	}
 
-	const dir = join(cwd, ".alef", "directives");
+	const dir = projectDirectivesDir(cwd);
 	let entries: string[];
 	try {
 		entries = await readdir(dir);

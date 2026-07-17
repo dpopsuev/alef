@@ -241,12 +241,19 @@ export const XDG_DATA_HOME = xdgDataHome;
 export const XDG_STATE_HOME = xdgStateHome;
 export const XDG_CACHE_HOME = xdgCacheHome;
 
-/**
- * @deprecated Project-local `.alef` is legacy. Prefer XDG helpers (forgeDir, codeIntelGraphDbPath, …).
- * Kept only for reading old project config paths during migration.
- */
-export function getProjectAlefDir(cwd: string): string {
-	return join(cwd, ".alef");
+/** Project-local agentskills.io directory (`<cwd>/.agents`). */
+export function projectAgentsDir(cwd: string): string {
+	return join(cwd, ".agents");
+}
+
+/** Project-local directive markdown files. */
+export function projectDirectivesDir(cwd: string): string {
+	return join(projectAgentsDir(cwd), "directives");
+}
+
+/** Project-local SKILL.md library. */
+export function projectSkillsDir(cwd: string): string {
+	return join(projectAgentsDir(cwd), "skills");
 }
 
 /**

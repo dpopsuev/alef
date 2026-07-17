@@ -8,9 +8,8 @@
  *   3. $XDG_CONFIG_HOME/alef/skills    or  ~/.config/alef/skills
  *   4. ~/.agents/skills
  *   5. .agents/skills  (relative to cwd)
- *   6. .alef/skills    (relative to cwd)
- *   7. .claude/skills  (relative to cwd — cross-agent compat)
- *   8. Additional paths from adapter options
+ *   6. .claude/skills  (relative to cwd — cross-agent compat)
+ *   7. Additional paths from adapter options
  */
 import type { Skill } from "./types.js";
 export declare function standardSkillPaths(cwd: string): string[];

@@ -129,10 +129,10 @@ describe("Directives.clone / merge / subset / without", { tags: ["unit"] }, () =
 // ---------------------------------------------------------------------------
 
 describe("loadWorkspace", { tags: ["unit"] }, () => {
-	it("loads .alef/directives/*.md files into the Directives", async () => {
+	it("loads .agents/directives/*.md files into the Directives", async () => {
 		const cwd = tmpCwd();
-		mkdirSync(join(cwd, ".alef", "directives"), { recursive: true });
-		writeFileSync(join(cwd, ".alef", "directives", "rules.md"), "Always write tests.");
+		mkdirSync(join(cwd, ".agents", "directives"), { recursive: true });
+		writeFileSync(join(cwd, ".agents", "directives", "rules.md"), "Always write tests.");
 
 		const d = createDefaultDirectives({ tools: [], cwd });
 		await loadWorkspace(d, cwd);
@@ -141,9 +141,9 @@ describe("loadWorkspace", { tags: ["unit"] }, () => {
 
 	it("only loads .md files, ignores others", async () => {
 		const cwd = tmpCwd();
-		mkdirSync(join(cwd, ".alef", "directives"), { recursive: true });
-		writeFileSync(join(cwd, ".alef", "directives", "rules.md"), "Valid rule.");
-		writeFileSync(join(cwd, ".alef", "directives", "ignore.txt"), "Not a directive.");
+		mkdirSync(join(cwd, ".agents", "directives"), { recursive: true });
+		writeFileSync(join(cwd, ".agents", "directives", "rules.md"), "Valid rule.");
+		writeFileSync(join(cwd, ".agents", "directives", "ignore.txt"), "Not a directive.");
 
 		const d = createDefaultDirectives({ tools: [], cwd });
 		await loadWorkspace(d, cwd);
@@ -151,7 +151,7 @@ describe("loadWorkspace", { tags: ["unit"] }, () => {
 		expect(d.build()).not.toContain("Not a directive.");
 	});
 
-	it("silently skips missing .alef/directives directory", async () => {
+	it("silently skips missing .agents/directives directory", async () => {
 		const cwd = tmpCwd();
 		const d = createDefaultDirectives({ tools: [], cwd });
 		await expect(loadWorkspace(d, cwd)).resolves.not.toThrow();

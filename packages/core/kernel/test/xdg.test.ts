@@ -73,4 +73,13 @@ describe("xdg migrateLegacyAlefHome", { tags: ["unit"] }, () => {
 		expect(forgeDir(cwd)).not.toContain(".alef");
 		expect(codeIntelGraphDbPath(cwd)).not.toContain(".alef");
 	});
+
+	it("places project config under .agents, not .alef", async () => {
+		const { projectAgentsDir, projectDirectivesDir, projectSkillsDir } = await import("../src/xdg.js");
+		const cwd = "/tmp/workspace-example";
+		expect(projectAgentsDir(cwd)).toBe(join(cwd, ".agents"));
+		expect(projectDirectivesDir(cwd)).toBe(join(cwd, ".agents", "directives"));
+		expect(projectSkillsDir(cwd)).toBe(join(cwd, ".agents", "skills"));
+		expect(projectAgentsDir(cwd)).not.toContain(".alef");
+	});
 });

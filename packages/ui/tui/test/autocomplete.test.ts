@@ -282,9 +282,9 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 
 		test("includes hidden paths but excludes .git", async () => {
 			setupFolder(baseDir, {
-				dirs: [".alef", ".github", ".git"],
+				dirs: [".agents", ".github", ".git"],
 				files: {
-					".alef/config.json": "{}",
+					".agents/config.json": "{}",
 					".github/workflows/ci.yml": "name: ci",
 					".git/config": "[core]",
 				},
@@ -295,7 +295,7 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value) ?? [];
-			assert.ok(values.includes("/.alef/"));
+			assert.ok(values.includes("/.agents/"));
 			assert.ok(values.includes("/.github/"));
 			assert.ok(!values.some((value) => value === "/.git" || value.startsWith("/.git/")));
 		});

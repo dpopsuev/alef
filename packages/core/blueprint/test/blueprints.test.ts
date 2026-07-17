@@ -328,11 +328,10 @@ describe("findAgentDefinitionPath", { tags: ["unit"] }, () => {
 		expect(findAgentDefinitionPath(dir)).toBe(join(dir, "agent.yml"));
 	});
 
-	it("finds .alef/agent.yaml", () => {
+	it("finds agent.yaml at workspace root", () => {
 		const dir = tmpDir();
-		mkdirSync(join(dir, ".alef"), { recursive: true });
-		writeFileSync(join(dir, ".alef", "agent.yaml"), "name: dotdir\n");
-		expect(findAgentDefinitionPath(dir)).toBe(join(dir, ".alef", "agent.yaml"));
+		writeFileSync(join(dir, "agent.yaml"), "name: rootdef\n");
+		expect(findAgentDefinitionPath(dir)).toBe(join(dir, "agent.yaml"));
 	});
 
 	it("prefers agent.yaml over agent.yml", () => {

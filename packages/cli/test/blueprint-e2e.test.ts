@@ -7,7 +7,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -170,10 +170,9 @@ describe("auto-discovery", { tags: ["e2e"] }, () => {
 		expect(tools).not.toContain("fs.write");
 	});
 
-	it("auto-discovers .alef/agent.yaml", async () => {
+	it("auto-discovers agent.yaml in cwd", async () => {
 		const dir = tmpDir();
-		mkdirSync(join(dir, ".alef"), { recursive: true });
-		writeFileSync(join(dir, ".alef", "agent.yaml"), ["name: dotdir", "adapters:", "  - name: shell"].join("\n"));
+		writeFileSync(join(dir, "agent.yaml"), ["name: rootdef", "adapters:", "  - name: shell"].join("\n"));
 
 		const result = await run(["--cwd", dir, "--list-tools"]);
 		expect(result.exitCode).toBe(0);

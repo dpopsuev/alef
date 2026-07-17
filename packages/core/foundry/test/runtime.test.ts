@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 function makeTmp(): string {
-	const dir = mkdtempSync(join(REPO_ROOT, ".alef-foundry-"));
+	const dir = mkdtempSync(join(REPO_ROOT, "alef-foundry-tmp-"));
 	tempDirs.push(dir);
 	return dir;
 }

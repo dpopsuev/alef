@@ -177,12 +177,13 @@ jq -r 'select(.msg == "tool:end") | "\(.name)\t\(.elapsedMs)ms\t\(if .ok then "�
 
 ## Project-Local Configuration
 
-In addition to XDG user directories, Alef supports project-local configuration:
+In addition to XDG user directories, Alef supports project-local configuration (never under `.alef`):
 
 ```
-<project-root>/.alef/
-├── directives/           # Project-specific system prompts
-└── skills/              # Project-specific skills
+<project-root>/agent.yaml       # Optional workspace blueprint
+<project-root>/.agents/
+├── directives/                 # Project-specific system prompts
+└── skills/                     # Project-specific skills (agentskills.io)
 ```
 
 Project-local skills override user skills when working in that directory.

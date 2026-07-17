@@ -638,12 +638,7 @@ export function loadAgentDefinition(path: string): CompiledAgentDefinition {
  *
  */
 export function findAgentDefinitionPath(cwd: string): string | undefined {
-	const candidates = [
-		resolve(cwd, "agent.yaml"),
-		resolve(cwd, "agent.yml"),
-		resolve(cwd, ".alef/agent.yaml"),
-		resolve(cwd, ".alef/agent.yml"),
-	];
+	const candidates = [resolve(cwd, "agent.yaml"), resolve(cwd, "agent.yml")];
 
 	return candidates.find((candidate) => existsSync(candidate));
 }

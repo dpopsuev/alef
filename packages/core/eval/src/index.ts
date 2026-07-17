@@ -41,6 +41,7 @@ export type {
 } from "./evaluation.js";
 export type { EvaluationResult, EvaluationRunnerOptions, PassAtK } from "./evaluation-runner.js";
 export { EvaluationRunner } from "./evaluation-runner.js";
+export * as foundryEvaluations from "./evaluations/foundry.js";
 export * as gitWorkflowEvaluations from "./evaluations/git-workflow.js";
 export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 // Evaluation suites

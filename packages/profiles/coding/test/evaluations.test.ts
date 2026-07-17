@@ -12,6 +12,7 @@
 import { resolve } from "node:path";
 
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
+import * as foundryEvals from "../../../core/eval/src/evaluations/foundry.js";
 import * as multiTurnEvals from "../../../core/eval/src/evaluations/multi-turn.js";
 import * as readOnlyEvals from "../../../core/eval/src/evaluations/read-only.js";
 import * as toolUseEvals from "../../../core/eval/src/evaluations/tool-use-regression.js";
@@ -28,6 +29,7 @@ defineEvalSuite({
 		readOnlyEvals.auditModule,
 		readOnlyEvals.blastRadius,
 		readOnlyEvals.contextWarming,
+		foundryEvals.createFoundryTextTool,
 		writeEvals.createHTTPServer,
 		writeEvals.addTypeExport,
 		writeEvals.fixFailingTest,

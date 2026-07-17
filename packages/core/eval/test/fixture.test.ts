@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { EvaluationRunner } from "../src/evaluation-runner.js";
+import * as foundry from "../src/evaluations/foundry.js";
 import * as write from "../src/evaluations/write.js";
 
 describe("Fixture tests — checker self-validation (no LLM)", { tags: ["unit"] }, () => {
@@ -25,6 +26,10 @@ describe("Fixture tests — checker self-validation (no LLM)", { tags: ["unit"] 
 
 	it("RefactorAsync checker passes on async implementation", async () => {
 		await expect(EvaluationRunner.fixtureCheck(write.refactorAsync)).resolves.not.toThrow();
+	});
+
+	it("Foundry_CreateTextTool checker passes on known-good implementation", async () => {
+		await expect(EvaluationRunner.fixtureCheck(foundry.createFoundryTextTool)).resolves.not.toThrow();
 	});
 });
 

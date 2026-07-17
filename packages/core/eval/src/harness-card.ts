@@ -3,6 +3,9 @@
  *
  * Binding Constraint / HARNESSCARD: scores without harness disclosure
  * misattribute gains to the model. This card travels with RunMetrics.
+ *
+ * ETCSOVG fields: Environment/Tools/Compaction via top-level; Execution +
+ * Governance nested for sandbox, roots, budgets, approvals, lifecycle intercepts.
  */
 
 import { createHash } from "node:crypto";
@@ -11,6 +14,33 @@ const HASH_HEX_LENGTH = 16;
 
 /** Compaction / context strategies Alef exposes today. */
 export type HarnessCompactionStrategy = "summarize" | "shake" | "attention" | "off" | string;
+
+/** Execution enclosure disclosure (sandbox, FS roots, budgets). */
+export interface HarnessExecution {
+	sandbox: boolean;
+	writableRoots: string[];
+	networkPolicy: "deny" | "allow" | "workspace";
+	scenarioTimeoutMs?: number;
+	maxSteps?: number;
+}
+
+/** Governance / lifecycle intercept disclosure. */
+export interface HarnessGovernance {
+	approvalMode: "none" | "dangerous" | "all";
+	sideEffectBoundary: string;
+	/** Binding-chain / reasoner intercept surfaces (Meng L). */
+	lifecycleIntercepts: string[];
+}
+
+/** Default lifecycle intercepts Alef always has on the eval path. */
+export const DEFAULT_LIFECYCLE_INTERCEPTS = [
+	"binding.chain",
+	"budget",
+	"stall",
+	"tool.wake",
+	"context.assemble",
+	"context.overflow-recovery",
+] as const;
 
 /** Structured harness disclosure (schemaVersion bumps on breaking field changes). */
 export interface HarnessCard {
@@ -31,10 +61,14 @@ export interface HarnessCard {
 	compactionStrategy: HarnessCompactionStrategy;
 	toolDisclosure: string;
 	attentionPinRecentTurns?: number;
+	/** @deprecated Prefer execution.writableRoots */
 	writableRoots?: string[];
+	/** @deprecated Prefer execution.sandbox */
 	sandbox?: boolean;
 	scenarioTimeoutMs?: number;
 	noiseSeeding?: boolean;
+	execution: HarnessExecution;
+	governance: HarnessGovernance;
 }
 
 /** Optional overrides / known values when collecting a card. */
@@ -52,6 +86,11 @@ export interface CollectHarnessCardInput {
 	sandbox?: boolean;
 	scenarioTimeoutMs?: number;
 	noiseSeeding?: boolean;
+	networkPolicy?: HarnessExecution["networkPolicy"];
+	maxSteps?: number;
+	approvalMode?: HarnessGovernance["approvalMode"];
+	sideEffectBoundary?: string;
+	lifecycleIntercepts?: readonly string[];
 	/** Merge last — overrides any computed field except schemaVersion/fingerprint/collectedAt. */
 	overrides?: Partial<Omit<HarnessCard, "schemaVersion" | "fingerprint" | "collectedAt">>;
 }
@@ -71,6 +110,26 @@ export function filterDisclosureAdapters(names: readonly string[]): string[] {
 	return [...new Set(names.filter((name) => !EVAL_ONLY_ADAPTERS.has(name)))].sort();
 }
 
+/** Build Execution enclosure fields from collector input. */
+function buildExecution(input: CollectHarnessCardInput, mergedRoots: string[], sandbox: boolean): HarnessExecution {
+	return {
+		sandbox,
+		writableRoots: mergedRoots,
+		networkPolicy: input.networkPolicy ?? "workspace",
+		...(input.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: input.scenarioTimeoutMs }),
+		...(input.maxSteps !== undefined && { maxSteps: input.maxSteps }),
+	};
+}
+
+/** Build Governance / lifecycle intercept fields from collector input. */
+function buildGovernance(input: CollectHarnessCardInput): HarnessGovernance {
+	return {
+		approvalMode: input.approvalMode ?? "none",
+		sideEffectBoundary: input.sideEffectBoundary ?? "writableRoots",
+		lifecycleIntercepts: [...(input.lifecycleIntercepts ?? DEFAULT_LIFECYCLE_INTERCEPTS)],
+	};
+}
+
 /** Stable fingerprint over disclosure fields (not collectedAt). */
 export function harnessCardFingerprint(
 	card: Omit<HarnessCard, "fingerprint" | "collectedAt" | "schemaVersion"> & { schemaVersion: 1 },
@@ -86,10 +145,12 @@ export function harnessCardFingerprint(
 		compactionStrategy: card.compactionStrategy,
 		toolDisclosure: card.toolDisclosure,
 		attentionPinRecentTurns: card.attentionPinRecentTurns ?? null,
-		writableRoots: card.writableRoots ?? [],
-		sandbox: card.sandbox ?? null,
-		scenarioTimeoutMs: card.scenarioTimeoutMs ?? null,
+		writableRoots: card.execution.writableRoots,
+		sandbox: card.execution.sandbox,
+		scenarioTimeoutMs: card.execution.scenarioTimeoutMs ?? card.scenarioTimeoutMs ?? null,
 		noiseSeeding: card.noiseSeeding ?? null,
+		execution: card.execution,
+		governance: card.governance,
 	};
 	return createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, HASH_HEX_LENGTH);
 }
@@ -102,6 +163,11 @@ export function collectHarnessCard(input: CollectHarnessCardInput = {}): Harness
 		input.attentionPinRecentTurns ??
 		(typeof pinParsed === "number" && Number.isFinite(pinParsed) ? pinParsed : undefined);
 
+	const sandbox = input.sandbox ?? true;
+	const writableRoots = [...(input.writableRoots ?? [])];
+	const execution = buildExecution(input, writableRoots, sandbox);
+	const governance = buildGovernance(input);
+
 	const base: Omit<HarnessCard, "fingerprint" | "collectedAt"> = {
 		schemaVersion: 1,
 		model: input.model ?? process.env.ALEF_EVAL_MODEL ?? "(unknown)",
@@ -113,10 +179,12 @@ export function collectHarnessCard(input: CollectHarnessCardInput = {}): Harness
 		compactionStrategy: input.compactionStrategy ?? resolveCompactionStrategy(),
 		toolDisclosure: input.toolDisclosure ?? process.env.ALEF_TOOL_DISCLOSURE ?? "full",
 		...(attentionPinRecentTurns !== undefined && { attentionPinRecentTurns }),
-		...(input.writableRoots !== undefined && { writableRoots: [...input.writableRoots] }),
-		...(input.sandbox !== undefined && { sandbox: input.sandbox }),
+		writableRoots: execution.writableRoots,
+		sandbox: execution.sandbox,
 		...(input.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: input.scenarioTimeoutMs }),
 		...(input.noiseSeeding !== undefined && { noiseSeeding: input.noiseSeeding }),
+		execution,
+		governance,
 	};
 
 	const merged = input.overrides
@@ -125,8 +193,29 @@ export function collectHarnessCard(input: CollectHarnessCardInput = {}): Harness
 				...input.overrides,
 				adapters: filterDisclosureAdapters(input.overrides.adapters ?? base.adapters),
 				tools: [...new Set(input.overrides.tools ?? base.tools)].sort(),
+				execution: {
+					...base.execution,
+					...input.overrides.execution,
+					writableRoots: [
+						...(input.overrides.execution?.writableRoots ??
+							input.overrides.writableRoots ??
+							base.execution.writableRoots),
+					],
+					sandbox: input.overrides.execution?.sandbox ?? input.overrides.sandbox ?? base.execution.sandbox,
+				},
+				governance: {
+					...base.governance,
+					...input.overrides.governance,
+					lifecycleIntercepts: [
+						...(input.overrides.governance?.lifecycleIntercepts ?? base.governance.lifecycleIntercepts),
+					],
+				},
 			}
 		: base;
+
+	// Keep legacy mirrors aligned with execution.
+	merged.writableRoots = merged.execution.writableRoots;
+	merged.sandbox = merged.execution.sandbox;
 
 	const fingerprint = harnessCardFingerprint(merged);
 	return {
@@ -144,6 +233,7 @@ export function formatHarnessCardLine(card: HarnessCard): string {
 		card.blueprint ? `blueprint=${card.blueprint}` : undefined,
 		`compaction=${card.compactionStrategy}`,
 		`disclosure=${card.toolDisclosure}`,
+		`sandbox=${card.execution.sandbox}`,
 		card.adapters.length > 0 ? `adapters=${card.adapters.length}` : undefined,
 	];
 	return parts.filter(Boolean).join(" ");
@@ -159,10 +249,18 @@ export function formatHarnessCard(card: HarnessCard): string {
 		`  toolDisclosure: ${card.toolDisclosure}`,
 		`  adapters: ${card.adapters.length > 0 ? card.adapters.join(", ") : "(none)"}`,
 		`  tools: ${card.tools.length > 0 ? card.tools.join(", ") : "(none)"}`,
+		`  execution: sandbox=${card.execution.sandbox} network=${card.execution.networkPolicy} roots=[${card.execution.writableRoots.join(", ")}]`,
 	];
-	if (card.writableRoots?.length) lines.push(`  writableRoots: ${card.writableRoots.join(", ")}`);
-	if (card.sandbox !== undefined) lines.push(`  sandbox: ${card.sandbox}`);
-	if (card.scenarioTimeoutMs !== undefined) lines.push(`  scenarioTimeoutMs: ${card.scenarioTimeoutMs}`);
+	if (card.execution.scenarioTimeoutMs !== undefined) {
+		lines.push(`           scenarioTimeoutMs=${card.execution.scenarioTimeoutMs}`);
+	}
+	if (card.execution.maxSteps !== undefined) {
+		lines.push(`           maxSteps=${card.execution.maxSteps}`);
+	}
+	lines.push(
+		`  governance: approvals=${card.governance.approvalMode} boundary=${card.governance.sideEffectBoundary}`,
+		`              intercepts=${card.governance.lifecycleIntercepts.join(", ")}`,
+	);
 	if (card.noiseSeeding !== undefined) lines.push(`  noiseSeeding: ${card.noiseSeeding}`);
 	lines.push(`  collectedAt: ${card.collectedAt}`);
 	return lines.join("\n");

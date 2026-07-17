@@ -72,6 +72,8 @@ describe("HarnessCard", { tags: ["unit"] }, () => {
 		expect(card.adapters).toEqual(["fs", "shell"]);
 		expect(card.tools).toEqual(["fs.read", "shell.exec"]);
 		expect(card.sandbox).toBe(true);
+		expect(card.execution.sandbox).toBe(true);
+		expect(card.governance.lifecycleIntercepts.length).toBeGreaterThan(0);
 		expect(card.fingerprint).toHaveLength(16);
 		expect(card.collectedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
@@ -90,6 +92,8 @@ describe("HarnessCard", { tags: ["unit"] }, () => {
 			sandbox: card.sandbox,
 			scenarioTimeoutMs: card.scenarioTimeoutMs,
 			noiseSeeding: card.noiseSeeding,
+			execution: card.execution,
+			governance: card.governance,
 		});
 		expect(card.fingerprint).toBe(expected);
 	});
@@ -106,8 +110,24 @@ describe("HarnessCard", { tags: ["unit"] }, () => {
 				tools: ["t"],
 				compactionStrategy: a.compactionStrategy,
 				toolDisclosure: a.toolDisclosure,
+				execution: a.execution,
+				governance: a.governance,
 			}),
 		);
+	});
+
+	it("defaults sandbox on with execution and governance disclosure", () => {
+		const card = collectHarnessCard({
+			model: "m",
+			writableRoots: ["/tmp/ws"],
+			scenarioTimeoutMs: 60_000,
+		});
+		expect(card.execution.sandbox).toBe(true);
+		expect(card.execution.writableRoots).toEqual(["/tmp/ws"]);
+		expect(card.execution.networkPolicy).toBe("workspace");
+		expect(card.execution.scenarioTimeoutMs).toBe(60_000);
+		expect(card.governance.approvalMode).toBe("none");
+		expect(card.governance.lifecycleIntercepts).toContain("binding.chain");
 	});
 
 	it("overrides win for disclosure fields", () => {
@@ -139,5 +159,8 @@ describe("HarnessCard", { tags: ["unit"] }, () => {
 		expect(multi).toContain(`fingerprint=${card.fingerprint}`);
 		expect(multi).toContain("adapters: fs");
 		expect(multi).toContain("tools: fs.read");
+		expect(multi).toContain("execution:");
+		expect(multi).toContain("governance:");
+		expect(line).toContain("sandbox=");
 	});
 });

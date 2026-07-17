@@ -15,8 +15,12 @@ import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
 /**
- *
+ * Default eval adapters are enclosed to the workspace (writableRoots = cwd).
+ * HarnessCard.execution.sandbox discloses this enclosure.
  */
 export function defaultEvalAdapters(workspace: string): Adapter[] {
-	return [createFsAdapter({ cwd: workspace }), createShellAdapter({ cwd: workspace })];
+	return [
+		createFsAdapter({ cwd: workspace, writableRoots: [workspace] }),
+		createShellAdapter({ cwd: workspace }),
+	];
 }

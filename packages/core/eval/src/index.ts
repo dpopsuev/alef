@@ -61,9 +61,12 @@ export type {
 	CollectHarnessCardInput,
 	HarnessCard,
 	HarnessCompactionStrategy,
+	HarnessExecution,
+	HarnessGovernance,
 } from "./harness-card.js";
 export {
 	collectHarnessCard,
+	DEFAULT_LIFECYCLE_INTERCEPTS,
 	filterDisclosureAdapters,
 	formatHarnessCard,
 	formatHarnessCardLine,
@@ -92,6 +95,14 @@ export { getEvalModel, SKIP_REAL_LLM } from "./model.js";
 export { formatPhaseReport, PhaseEvaluationRunner } from "./phase-runner.js";
 export { type PreflightConfig, type PreflightError, type PreflightReport, preflight } from "./preflight.js";
 export { formatReport, formatTranscript, serializeReport } from "./report.js";
+export type { TrajectoryMetrics } from "./trajectory-metrics.js";
+export {
+	computeTrajectoryMetrics,
+	DEFAULT_RECOVERY_WINDOW_K,
+	factorialCellKey,
+	formatTrajectoryMetricsLine,
+	rankingReversal,
+} from "./trajectory-metrics.js";
 export {
 	defaultUnitScorer,
 	type PortStub,

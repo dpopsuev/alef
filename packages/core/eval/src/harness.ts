@@ -27,6 +27,7 @@ import { defaultEvalAdapters } from "./default-adapters.js";
 import { EvaluatorAdapter } from "./evaluator-adapter.js";
 import { collectHarnessCard, type CollectHarnessCardInput, type HarnessCard } from "./harness-card.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
+import { computeTrajectoryMetrics } from "./trajectory-metrics.js";
 import { aggregateRunUsage, deriveturns } from "./metrics.js";
 import { getEvalModel } from "./model.js";
 import { globalSpanExporter } from "./otel-setup.js";
@@ -45,7 +46,7 @@ function resolveEvalModelForCard(): Pick<CollectHarnessCardInput, "model" | "pro
 }
 
 /** Collect a HarnessCard from a booted Agent + harness options. */
-function collectHarnessCardFromAgent(agent: Agent, opts: HarnessOptions): HarnessCard {
+function collectHarnessCardFromAgent(agent: Agent, opts: HarnessOptions, workspace: string): HarnessCard {
 	const modelFields = resolveEvalModelForCard();
 	// eslint-disable-next-line no-magic-numbers
 	const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
@@ -56,6 +57,10 @@ function collectHarnessCardFromAgent(agent: Agent, opts: HarnessOptions): Harnes
 		tools: agent.tools.map((tool) => tool.name),
 		scenarioTimeoutMs,
 		noiseSeeding: opts.noiseSeeding !== false,
+		sandbox: true,
+		writableRoots: [workspace],
+		networkPolicy: "workspace",
+		sideEffectBoundary: "writableRoots",
 		overrides: opts.harnessCard,
 	});
 }
@@ -323,6 +328,7 @@ export class AgentHandle {
 		const avgSchemaFraction =
 			schemaFractions.length > 0 ? schemaFractions.reduce((a, b) => a + b, 0) / schemaFractions.length : Number.NaN;
 		const usage = aggregateRunUsage(turns, this._busEvents);
+		const trajectory = computeTrajectoryMetrics(this._busEvents, turns);
 
 		return {
 			scenario: this._rootSpan.spanContext().traceId, // overwritten by callers
@@ -347,6 +353,7 @@ export class AgentHandle {
 			durationMs: 0, // set by callers with real timing
 			avgSchemaFraction,
 			harnessCard: this._harnessCard,
+			trajectory,
 			...usage,
 		};
 	}
@@ -489,7 +496,7 @@ export class EvalHarness {
 		}
 
 		const controller = new AgentController(agent);
-		const harnessCard = collectHarnessCardFromAgent(agent, opts);
+		const harnessCard = collectHarnessCardFromAgent(agent, opts, workspace);
 
 		return new AgentHandle({
 			path: workspace,

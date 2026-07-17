@@ -6,6 +6,7 @@
 
 import { formatHarnessCardLine } from "./harness-card.js";
 import type { RunMetrics } from "./metrics.js";
+import { formatTrajectoryMetricsLine } from "./trajectory-metrics.js";
 
 /** Format RunMetrics into a human-readable summary string. */
 export function formatReport(metrics: RunMetrics): string {
@@ -43,6 +44,7 @@ export function formatReport(metrics: RunMetrics): string {
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];
 	if (metrics.harnessCard) lines.push(`  harness: ${formatHarnessCardLine(metrics.harnessCard)}`);
+	if (metrics.trajectory) lines.push(`  trajectory: ${formatTrajectoryMetricsLine(metrics.trajectory)}`);
 	if (sendStr) lines.push(`  send timings: [${sendStr}]`);
 	if (totalRetries > 0) lines.push(`  retries: ${totalRetries}${retryReasons ? ` (${retryReasons})` : ""}`);
 	if (abortedTurns > 0) lines.push(`  aborted turns: ${abortedTurns}`);

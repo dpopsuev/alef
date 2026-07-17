@@ -55,6 +55,9 @@ importers:
       concurrently:
         specifier: ^9.2.1
         version: 9.2.3
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
       eslint:
         specifier: ^10.4.0
         version: 10.5.0(jiti@2.7.0)
@@ -100,6 +103,9 @@ importers:
       vitest:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(vite@8.1.0(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   packages/cli:
     dependencies:
@@ -124,6 +130,9 @@ importers:
       '@dpopsuev/alef-factory-agent':
         specifier: workspace:*
         version: link:../profiles/factory
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../core/kernel
@@ -465,6 +474,31 @@ importers:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/core/foundry:
+    dependencies:
+      '@dpopsuev/alef-blueprint':
+        specifier: workspace:*
+        version: link:../blueprint
+      '@dpopsuev/alef-kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../supervisor
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.2
+      shx:
+        specifier: ^0.4.0
+        version: 0.4.0
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/core/kernel:
     dependencies:
       '@opentelemetry/api':
@@ -536,6 +570,9 @@ importers:
 
   packages/core/storage:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -641,6 +678,9 @@ importers:
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -702,6 +742,9 @@ importers:
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -729,6 +772,9 @@ importers:
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -754,6 +800,9 @@ importers:
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -788,6 +837,9 @@ importers:
 
   packages/tools/code-intel:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -819,6 +871,9 @@ importers:
 
   packages/tools/discourse:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -869,6 +924,9 @@ importers:
 
   packages/tools/enclosure:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -900,6 +958,9 @@ importers:
       '@dpopsuev/alef-ai':
         specifier: workspace:*
         version: link:../../core/ai
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -925,6 +986,9 @@ importers:
 
   packages/tools/factory:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -953,6 +1017,9 @@ importers:
 
   packages/tools/fs:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1003,6 +1070,9 @@ importers:
 
   packages/tools/locus:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1025,6 +1095,9 @@ importers:
       '@ai-sdk/mcp':
         specifier: ^1.0.42
         version: 1.0.52(zod@4.4.3)
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1047,6 +1120,9 @@ importers:
 
   packages/tools/meta:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1075,6 +1151,9 @@ importers:
 
   packages/tools/nodesh:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1103,6 +1182,9 @@ importers:
 
   packages/tools/plan:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1119,6 +1201,9 @@ importers:
 
   packages/tools/scribe:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1141,6 +1226,9 @@ importers:
 
   packages/tools/shell:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1169,6 +1257,9 @@ importers:
 
   packages/tools/skills:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1197,6 +1288,9 @@ importers:
 
   packages/tools/web:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
@@ -1228,6 +1322,9 @@ importers:
 
   packages/tools/workflow:
     dependencies:
+      '@dpopsuev/alef-foundry':
+        specifier: workspace:*
+        version: link:../../core/foundry
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel

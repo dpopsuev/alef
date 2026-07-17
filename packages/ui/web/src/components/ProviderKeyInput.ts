@@ -1,6 +1,6 @@
-import type { Context } from "@dpopsuev/alef-ai/types";
 import { getModel } from "@dpopsuev/alef-ai/models";
 import { complete } from "@dpopsuev/alef-ai/stream";
+import type { Context } from "@dpopsuev/alef-ai/types";
 import { i18n } from "@mariozechner/mini-lit";
 import { Badge } from "@mariozechner/mini-lit/dist/Badge.js";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";

@@ -880,6 +880,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-storage':
+        specifier: workspace:*
+        version: link:../../core/storage
       '@dpopsuev/alef-supervisor':
         specifier: workspace:*
         version: link:../../core/supervisor

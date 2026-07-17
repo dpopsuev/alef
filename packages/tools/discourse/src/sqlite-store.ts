@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
+import type { DiscourseBackend } from "./backend.js";
 import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
 /**
@@ -38,10 +39,8 @@ function parseStringArray(value: string): string[] {
 	return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
 }
 
-/**
- *
- */
-export class SqliteDiscourseStore {
+/** Session-DB discourse store — primary Alef persistence adapter. */
+export class SqliteDiscourseStore implements DiscourseBackend {
 	private readonly client: Client;
 	private readonly sessionId: string;
 

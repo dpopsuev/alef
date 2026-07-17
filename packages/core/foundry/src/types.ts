@@ -18,6 +18,7 @@ export interface FoundryRuntimeOptions {
 	sessionDir?: MaterializerOptions["sessionDir"];
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	sessionId?: string;
 }
 
 /** Per-call overrides when starting registered services through Foundry. */
@@ -27,6 +28,7 @@ export interface FoundryStartOptions {
 	logger?: AdapterLogger;
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	sessionId?: string;
 }
 
 /** Per-call overrides when materializing a blueprint through Foundry. */
@@ -39,6 +41,7 @@ export interface FoundryMaterializeOptions {
 	sessionDir?: MaterializerOptions["sessionDir"];
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	sessionId?: string;
 }
 
 /** Minimal managed-service host surface exposed by Foundry. */

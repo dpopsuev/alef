@@ -1,3 +1,4 @@
+import type { Client } from "@libsql/client";
 import type { DisplayBlock } from "@dpopsuev/alef-session/context";
 import type { SessionNameSource, SessionStore } from "@dpopsuev/alef-session/storage";
 
@@ -108,4 +109,6 @@ export interface StorageFactory {
 	authStore(): AuthStore;
 	sessionPreview(): SessionPreviewProvider;
 	readonly sessions: SessionStoreFactory;
+	/** Session DB client for plugin stores (discourse, etc.). Absent in pure in-memory stubs. */
+	database?(): Client;
 }

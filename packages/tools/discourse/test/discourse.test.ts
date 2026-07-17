@@ -6,9 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDiscourseAdapter } from "../src/adapter.js";
 import { DiscourseStore } from "../src/store.js";
 
-adapterComplianceSuite(() =>
-	createDiscourseAdapter({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }),
-);
+adapterComplianceSuite(() => createDiscourseAdapter({}));
 
 // ---------------------------------------------------------------------------
 // DiscourseStore — unit tests (SUT: store, no I/O mocking — store IS I/O)
@@ -225,34 +223,24 @@ describe("DiscourseStore", () => {
 // Adapter — structural tests
 // ---------------------------------------------------------------------------
 describe("discourse structure", () => {
-	let sessionDir: string;
-
-	beforeEach(() => {
-		sessionDir = mkdtempSync(join(tmpdir(), "alef-forum-"));
-	});
-
-	afterEach(() => {
-		rmSync(sessionDir, { recursive: true, force: true });
-	});
-
 	it("creates adapter with correct name and tools", () => {
-		const adapter = createDiscourseAdapter({ sessionDir });
+		const adapter = createDiscourseAdapter({});
 		expect(adapter.name).toBe("discourse");
 		expect(adapter.tools.map((t) => t.name)).toEqual(["discourse.post", "discourse.read", "discourse.list"]);
 	});
 
-	it("declares file sources", () => {
-		const adapter = createDiscourseAdapter({ sessionDir });
-		expect(adapter.sources).toEqual([{ name: "discourse-files", kind: "file" }]);
+	it("declares session-store sources", () => {
+		const adapter = createDiscourseAdapter({});
+		expect(adapter.sources).toEqual([{ name: "session-store", kind: "process" }]);
 	});
 
 	it("has context.assemble contribution", () => {
-		const adapter = createDiscourseAdapter({ sessionDir });
+		const adapter = createDiscourseAdapter({});
 		expect(adapter.contributions?.["context.assemble"]).toBeDefined();
 	});
 
 	it("has directives", () => {
-		const adapter = createDiscourseAdapter({ sessionDir });
+		const adapter = createDiscourseAdapter({});
 		expect(adapter.directives).toBeDefined();
 		expect(adapter.directives!.length).toBeGreaterThan(0);
 	});

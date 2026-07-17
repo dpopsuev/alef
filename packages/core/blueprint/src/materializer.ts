@@ -53,6 +53,7 @@ export interface AdapterFactoryOptions {
 	sessionDir?: string;
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	sessionId?: string;
 	actions?: string[];
 	logger?: AdapterLogger;
 	/**
@@ -119,6 +120,7 @@ export interface MaterializerOptions {
 	sessionDir?: string;
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	sessionId?: string;
 	/**
 	 * Resolve adapters through a service supervisor instead of createAdapter().
 	 * When provided, the materializer passes the module's `service` export (opaque)
@@ -381,6 +383,7 @@ export async function materializeBlueprint(
 				sessionDir: opts.sessionDir,
 				actorAddress: opts.actorAddress,
 				discussion: opts.discussion,
+				sessionId: opts.sessionId ?? opts.discussion?.topicId,
 				actions: adapterDef.actions.length > 0 ? adapterDef.actions : undefined,
 				logger: opts.loggerFor?.(adapterDef.name),
 				writableRoots: opts.writableRoots,

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { DiscourseBackend } from "./scribe-backend.js";
+import type { DiscourseBackend } from "./backend.js";
 import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
 interface StoredPost {

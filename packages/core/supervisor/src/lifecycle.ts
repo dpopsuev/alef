@@ -41,6 +41,8 @@ export interface ServiceCreateOpts {
 	supervisor?: ServiceRegistry;
 	actorAddress?: string;
 	discussion?: DiscussionRef;
+	/** Active session id for stores that scope rows per session (e.g. discourse). */
+	sessionId?: string;
 }
 
 /**

@@ -247,6 +247,7 @@ const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir, {
 	resolveService: runtime.resolveService,
 	actorAddress: identity.agentActor.address,
+	sessionId: session.id,
 	discussion,
 });
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);

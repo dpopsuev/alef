@@ -3,23 +3,30 @@ import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
+import type { Client } from "@libsql/client";
 import { z } from "zod";
-import { scribeCallFromEnv } from "./http-scribe-call.js";
-import type { DiscourseBackend, ScribeArtifactCall } from "./scribe-backend.js";
-import { ScribeDiscourseBackend } from "./scribe-backend.js";
-import { DiscourseStore } from "./store.js";
+import type { DiscourseBackend } from "./backend.js";
+import { InMemoryDiscourseStore } from "./memory-store.js";
+import { maybeMirrorToScribe } from "./open-backend.js";
+import type { ScribeArtifactCall } from "./scribe-backend.js";
+import { SqliteDiscourseStore } from "./sqlite-store.js";
 import type { Post } from "./types.js";
 
 /**
  *
  */
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
-	sessionDir?: string;
+	/** Injected backend (preferred). */
+	backend?: DiscourseBackend;
+	/** Session DB client — used with sessionId when backend is omitted. */
+	client?: Client;
+	/** Session id for SqliteDiscourseStore. */
+	sessionId?: string;
 	actorAddress?: string;
 	ignoredThread?: { topic: string; thread: string };
-	/** When set, posts go to Scribe via message_add (JSONL is not SoR). */
+	/** When set (or SCRIBE_URL), wrap the store with a Scribe mirror. */
 	scribeCall?: ScribeArtifactCall;
-	/** Scope stamp for Scribe-backed containers (default: default). */
+	/** Scope stamp for Scribe mirror containers (default: default). */
 	scope?: string;
 }
 
@@ -95,14 +102,23 @@ async function findUnansweredQuestions(store: DiscourseBackend, actorAddress?: s
 }
 
 /**
- * Resolve backend storage implementation.
+ * Resolve backend — session store first; Scribe only as optional dual-write mirror.
+ * Schema for SqliteDiscourseStore must already be applied (see openDiscourseBackend).
  */
 function resolveBackend(opts: DiscourseAdapterOptions): DiscourseBackend {
-	const call = opts.scribeCall ?? scribeCallFromEnv();
-	if (call) {
-		return new ScribeDiscourseBackend(call, opts.scope ?? "default");
+	let store: DiscourseBackend;
+	if (opts.backend) {
+		store = opts.backend;
+	} else if (opts.client && opts.sessionId) {
+		store = new SqliteDiscourseStore(opts.client, opts.sessionId);
+	} else {
+		store = new InMemoryDiscourseStore();
 	}
-	return new DiscourseStore(opts.sessionDir ?? opts.cwd ?? process.cwd());
+	return maybeMirrorToScribe(store, {
+		scribeCall: opts.scribeCall,
+		scope: opts.scope,
+		logger: opts.logger,
+	});
 }
 
 /** Create the discourse adapter with forum tools and question-aware context injection. */
@@ -205,10 +221,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 				"Post with discourse.post({topic, thread, content}). Read others' posts with discourse.read({topic, thread}). List topics with discourse.list().",
 				"Forum posts auto-inject into context each turn - no polling needed.",
 				...(usingScribe
-					? ["Persistence is Scribe (message_add under knowledge.context). [[wikilinks]] in posts auto-link in the vault."]
-					: []),
+					? ["Session store and Scribe are dual-written (mirror); Scribe is vault SoT when loaded (message_add under knowledge.context)."]
+					: ["Discourse posts persist in the Alef session store."]),
 			],
-			sources: [{ name: usingScribe ? "scribe" : "discourse-files", kind: usingScribe ? "process" : "file" }],
+			sources: [{ name: usingScribe ? "session-store+scribe" : "session-store", kind: "process" }],
 			contributions: {
 				"context.assemble": contextStage,
 			},

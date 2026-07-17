@@ -107,6 +107,10 @@ export class SqliteStorageFactory implements StorageFactory {
 		return new SqliteAuthStore(this.client);
 	}
 
+	database(): Client {
+		return this.client;
+	}
+
 	close(): void {
 		this.client.close();
 	}

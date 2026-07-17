@@ -94,7 +94,7 @@ export async function loadAdapters(
 	cfg: AlefConfig,
 	log: Logger,
 	sessionDir?: string,
-	extra: Pick<MaterializerOptions, "resolveService" | "discussion"> & { actorAddress?: string } = {},
+	extra: Pick<MaterializerOptions, "resolveService" | "discussion" | "sessionId"> & { actorAddress?: string } = {},
 ): Promise<AdapterLoadResult> {
 	let blueprintPath: string | undefined;
 	let blueprintName: string | undefined;
@@ -178,6 +178,7 @@ export async function loadAdapters(
 			resolveService: extra.resolveService,
 			actorAddress: extra.actorAddress,
 			discussion: extra.discussion,
+			sessionId: extra.sessionId,
 		});
 
 		return {
@@ -202,6 +203,7 @@ export async function loadAdapters(
 			resolveService: extra.resolveService,
 			actorAddress: extra.actorAddress,
 			discussion: extra.discussion,
+			sessionId: extra.sessionId,
 		});
 		return {
 			adapters: materialized.adapters,
@@ -229,6 +231,7 @@ export async function loadAdapters(
 		resolveService: extra.resolveService,
 		actorAddress: extra.actorAddress,
 		discussion: extra.discussion,
+		sessionId: extra.sessionId,
 	});
 
 	return {

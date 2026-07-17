@@ -9,7 +9,7 @@
  *   5. Multi-UI: two observers subscribe to same Session, both receive events
  */
 
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
@@ -23,10 +23,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
-import { DiscourseStore } from "@dpopsuev/alef-tool-discourse";
+import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
 import { deriveDiscussionRef } from "../src/boot/discussion.js";
+import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
@@ -256,21 +257,23 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
-
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-
-		await supervisor.startAll({ cwd });
-		const sessionSvc = supervisor.get("session") as SessionService;
-		await sessionSvc.session.send?.("hello", 10_000);
-
+		const discourse = new InMemoryDiscourseStore();
 		const discussion = deriveDiscussionRef(store, cwd);
-		const path = join(cwd, "discourse", discussion.forumId, `${discussion.topicId}.jsonl`);
-		const entries = readFileSync(path, "utf-8")
-			.trim()
-			.split("\n")
-			.map((line) => JSON.parse(line) as { author: string; content: string });
+
+		const { session } = await createLocalSession(
+			opts.args,
+			opts.cfg,
+			opts.log,
+			opts.store,
+			opts.loaded,
+			opts.model,
+			opts.storage,
+			buildIdentityContext(store),
+			discourse,
+		);
+		await session.send?.("hello", 10_000);
+
+		const entries = discourse.readThread(discussion.forumId, discussion.topicId);
 		expect(entries).toHaveLength(2);
 		expect(entries[0]!.content).toBe("hello");
 		expect(entries[1]!.content).toBe("hello");
@@ -312,22 +315,26 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 		const discussion = deriveDiscussionRef(store, cwd);
-		const discourse = new DiscourseStore(cwd);
+		const discourse = new InMemoryDiscourseStore();
 
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-
-		await supervisor.startAll({ cwd });
-		const sessionSvc = supervisor.get("session") as SessionService;
-		const session = sessionSvc.session;
+		const { session, agentAddress } = await createLocalSession(
+			opts.args,
+			opts.cfg,
+			opts.log,
+			opts.store,
+			opts.loaded,
+			opts.model,
+			opts.storage,
+			buildIdentityContext(store),
+			discourse,
+		);
 
 		session.subscribeDiscussion?.(
 			{ forumId: discussion.forumId, topicId: "watch", topicTitle: "watch" },
 			{ mode: "mentions-only", leaseMs: 60_000 },
 		);
 
-		discourse.append(discussion.forumId, "watch", "@other", `hello ${sessionSvc.agentAddress}`);
+		discourse.append(discussion.forumId, "watch", "@other", `hello ${agentAddress}`);
 		discourse.append(discussion.forumId, "watch", "@other", "no mention here");
 
 		const watched = (await session.listDiscussionSubscriptions?.())?.find(

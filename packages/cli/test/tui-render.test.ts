@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
-import { DiscourseStore } from "@dpopsuev/alef-tool-discourse";
+import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { parseArgs } from "../src/boot/args.js";
 import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
 
@@ -302,6 +302,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		const args = { ...parseArgs([]), cwd, noTui: false };
 		const model = faux.getModel();
 
+		const discourse = new InMemoryDiscourseStore();
 		const { session } = await createLocalSession(
 			args,
 			{},
@@ -311,9 +312,9 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 			model,
 			STUB_STORAGE,
 			buildIdentityContext(store),
+			discourse,
 		);
 
-		const discourse = new DiscourseStore(cwd);
 		const forumId = session.getDiscussion?.()?.forumId ?? "forum";
 		discourse.append(forumId, "review", "@reviewer", "review loaded");
 

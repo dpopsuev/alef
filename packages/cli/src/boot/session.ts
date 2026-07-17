@@ -21,8 +21,9 @@ import { createTokenTelemetry } from "@dpopsuev/alef-session/token-telemetry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import {
 	type DiscourseBackend,
-	DiscourseStore,
-	ScribeDiscourseBackend,
+	InMemoryDiscourseStore,
+	maybeMirrorToScribe,
+	openDiscourseBackend,
 	scribeCallFromEnv,
 } from "@dpopsuev/alef-tool-discourse";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
@@ -185,6 +186,7 @@ export async function createLocalSession(
 	model: Model<Api>,
 	storage: StorageFactory,
 	identity: IdentityContext,
+	discourseBackendOverride?: DiscourseBackend,
 ): Promise<{
 	session: SessionHandle;
 	resolvedModelDisplay: string;
@@ -210,10 +212,19 @@ export async function createLocalSession(
 	process.env.ALEF_DISCUSSION_FORUM = discussion.active.forumId;
 	process.env.ALEF_DISCUSSION_TOPIC = discussion.active.topicId;
 	process.env.ALEF_DISCUSSION_HOME_TOPIC = discussion.home.topicId;
-	const discourseCall = scribeCallFromEnv();
-	const discourseBackend: DiscourseBackend = discourseCall
-		? new ScribeDiscourseBackend(discourseCall, "default")
-		: new DiscourseStore(args.cwd);
+	const discourseBackend: DiscourseBackend =
+		discourseBackendOverride ??
+		(storage.database
+			? await openDiscourseBackend({
+					client: storage.database(),
+					sessionId: store.id,
+					scribeCall: scribeCallFromEnv(),
+					logger: log,
+				})
+			: maybeMirrorToScribe(new InMemoryDiscourseStore(), {
+					scribeCall: scribeCallFromEnv(),
+					logger: log,
+				}));
 	const sessionState: SessionState = {
 		id: store.id,
 		modelId: model.id,

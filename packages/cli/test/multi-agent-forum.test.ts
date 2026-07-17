@@ -6,11 +6,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
-import { createDiscourseAdapter } from "@dpopsuev/alef-tool-discourse";
+import { createDiscourseAdapter, InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createPlanAdapter, PlanStore } from "@dpopsuev/alef-tool-plan";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -50,7 +50,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
 		const planAdapter = createPlanAdapter({ cwd: dir, plansRoot });
-		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
+		const boardAdapter = createDiscourseAdapter({ backend: new InMemoryDiscourseStore() });
 		unmounts.push(planAdapter.mount(bus.asBus()));
 		unmounts.push(boardAdapter.mount(bus.asBus()));
 
@@ -120,13 +120,13 @@ describe("multi-agent plan + board coordination", () => {
 		expect(closedPlan?.phase).toBe("closed");
 		expect(closedPlan?.toJSON().summary).toContain("Forum coordination worked");
 
-		const boardFile = readFileSync(join(dir, "discourse", "qa", "tool-dispatch.jsonl"), "utf-8");
-		expect(boardFile).toContain("@jade");
-		expect(boardFile).toContain("instanceof Error");
+		const jadePost = posts[0] as { author: string; content: string };
+		expect(jadePost.author).toBe("@jade");
+		expect(String(jadePost.content)).toContain("instanceof Error");
 	});
 
 	it("board context.assemble injects new posts into LLM context", async () => {
-		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
+		const boardAdapter = createDiscourseAdapter({ backend: new InMemoryDiscourseStore() });
 		unmounts.push(boardAdapter.mount(bus.asBus()));
 
 		await call("discourse.post", {

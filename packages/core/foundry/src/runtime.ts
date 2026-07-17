@@ -13,6 +13,7 @@ function toServiceCreateOpts(base: FoundryRuntimeOptions, overrides?: FoundrySta
 		logger: overrides?.logger ?? base.logger,
 		actorAddress: overrides?.actorAddress ?? base.actorAddress,
 		discussion: overrides?.discussion ?? base.discussion,
+		sessionId: overrides?.sessionId ?? base.sessionId,
 	};
 }
 
@@ -31,6 +32,7 @@ function toMaterializerOptions(
 		sessionDir: overrides?.sessionDir ?? base.sessionDir,
 		actorAddress: overrides?.actorAddress ?? base.actorAddress,
 		discussion: overrides?.discussion ?? base.discussion,
+		sessionId: overrides?.sessionId ?? base.sessionId ?? overrides?.discussion?.topicId ?? base.discussion?.topicId,
 		resolveService,
 	};
 }
@@ -46,6 +48,7 @@ export function createFoundryRuntime(options: FoundryRuntimeOptions): FoundryRun
 			logger: opts.logger ?? options.logger,
 			actorAddress: opts.actorAddress ?? options.actorAddress,
 			discussion: opts.discussion ?? options.discussion,
+			sessionId: opts.sessionId ?? options.sessionId ?? opts.discussion?.topicId ?? options.discussion?.topicId,
 		});
 		return managed.adapters;
 	};

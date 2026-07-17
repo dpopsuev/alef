@@ -46,6 +46,17 @@ describe("ShellAdapter", { tags: ["compliance"] }, () => {
 		f.dispose();
 	});
 
+	it("displays stdout as text/plain without markdown fence chrome", async () => {
+		const f = fixture();
+		const final = await f.callStreaming("shell.exec", { command: "echo hello" });
+		const display = final.payload._display as { text?: string; mimeType?: string } | undefined;
+		expect(display?.mimeType).toBe("text/plain");
+		expect(display?.text).toContain("hello");
+		expect(display?.text).not.toMatch(/^```/);
+		expect(display?.text).not.toContain("```");
+		f.dispose();
+	});
+
 	it("mirrors correlationId across all streaming events", async () => {
 		const f = fixture();
 		const correlationId = "corr-stream";

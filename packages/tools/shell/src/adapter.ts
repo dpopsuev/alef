@@ -257,7 +257,7 @@ function resolveShellExec(payload: ShellExecPayload, opts: ShellAdapterOptions):
 	return { command, resolvedCommand, timeoutMs };
 }
 
-/** Final markdown display block for shell.exec output. */
+/** Final plain-text display for shell.exec output (no markdown fence chrome). */
 function displayShellOutput(tr: {
 	content: string;
 	truncated: boolean;
@@ -265,6 +265,7 @@ function displayShellOutput(tr: {
 	totalBytes: number;
 }, exitCode: number): Record<string, unknown> {
 	const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
+	const body = truncNote ? `${tr.content}${truncNote}` : tr.content;
 	return withDisplay(
 		{
 			output: tr.content,
@@ -273,7 +274,7 @@ function displayShellOutput(tr: {
 			totalLines: tr.totalLines,
 			totalBytes: tr.totalBytes,
 		},
-		{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
+		{ text: body, mimeType: "text/plain" },
 	);
 }
 

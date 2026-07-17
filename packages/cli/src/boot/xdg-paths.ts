@@ -7,8 +7,7 @@
  *   $XDG_CONFIG_HOME/alef/          → User-specific configuration
  *   $XDG_DATA_HOME/alef/            → User-specific data (sessions, db, prototypes)
  *   $XDG_STATE_HOME/alef/           → Runtime state (daemon, last-session, debug.log)
- *   $XDG_CACHE_HOME/alef/           → Non-essential cache
- *   <cwd>/.alef/                    → Project-local configuration
+ *   $XDG_CACHE_HOME/alef/           → Non-essential cache (LSP, embeddings, code-intel graph)
  *
  * Historical ALL_CAPS exports are zero-arg functions (call `SESSIONS_DIR()`).
  */
@@ -24,6 +23,12 @@ export {
 	alefConfigDir,
 	alefDataDir,
 	alefStateDir,
+	CODE_INTEL_CACHE_DIR,
+	CODE_INTEL_GRAPH_DB_PATH,
+	CWD_HASH,
+	codeIntelCacheDir,
+	codeIntelGraphDbPath,
+	cwdHash,
 	DAEMON_PATH,
 	DATABASE_PATH,
 	DEBUG_LOG_PATH,
@@ -36,6 +41,8 @@ export {
 	embeddingsCacheDir,
 	ensureAlefDirectories,
 	ensureAlefHome,
+	FORGE_DIR,
+	forgeDir,
 	getProjectAlefDir,
 	LAST_SESSION_PATH,
 	LSP_CACHE_DIR,

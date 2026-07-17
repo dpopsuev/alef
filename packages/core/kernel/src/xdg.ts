@@ -3,13 +3,17 @@
  *
  * Spec: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
  *
- * Project-local `<cwd>/.alef/` (directives, skills) is unrelated — keep that layout.
+ * Runtime stores (sessions, plans, forge, code-intel graph, cache) live under XDG.
+ * Never write new state under `<cwd>/.alef/` or `~/.alef/`.
  * Path helpers read process.env at call time so XDG_* overrides work in tests.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+
+const CWD_HASH_LENGTH = 12;
 
 /**
  *
@@ -188,6 +192,26 @@ export function embeddingsCacheDir(): string {
 	return join(alefCacheDir(), "embeddings");
 }
 
+/** Stable short hash of an absolute cwd for per-workspace XDG subdirs. */
+export function cwdHash(cwd: string): string {
+	return createHash("sha1").update(cwd).digest("hex").slice(0, CWD_HASH_LENGTH);
+}
+
+/** $XDG_DATA_HOME/alef/forge/<cwd-hash> — local PR sidecar store. */
+export function forgeDir(cwd: string): string {
+	return join(alefDataDir(), "forge", cwdHash(cwd));
+}
+
+/** $XDG_CACHE_HOME/alef/code-intel/<cwd-hash> — regenerable code graph. */
+export function codeIntelCacheDir(cwd: string): string {
+	return join(alefCacheDir(), "code-intel", cwdHash(cwd));
+}
+
+/** Default SQLite path for the workspace code graph. */
+export function codeIntelGraphDbPath(cwd: string): string {
+	return join(codeIntelCacheDir(cwd), "graph.db");
+}
+
 /** Compat aliases — same as the camelCase helpers (call as `SESSIONS_DIR()`). */
 export const ALEF_CONFIG_DIR = alefConfigDir;
 export const ALEF_DATA_DIR = alefDataDir;
@@ -208,12 +232,19 @@ export const LAST_SESSION_PATH = lastSessionPath;
 export const DEBUG_LOG_PATH = debugLogPath;
 export const LSP_CACHE_DIR = lspCacheDir;
 export const EMBEDDINGS_CACHE_DIR = embeddingsCacheDir;
+export const FORGE_DIR = forgeDir;
+export const CODE_INTEL_CACHE_DIR = codeIntelCacheDir;
+export const CODE_INTEL_GRAPH_DB_PATH = codeIntelGraphDbPath;
+export const CWD_HASH = cwdHash;
 export const XDG_CONFIG_HOME = xdgConfigHome;
 export const XDG_DATA_HOME = xdgDataHome;
 export const XDG_STATE_HOME = xdgStateHome;
 export const XDG_CACHE_HOME = xdgCacheHome;
 
-/** Project-local .alef directory (cwd-relative config, not XDG). */
+/**
+ * @deprecated Project-local `.alef` is legacy. Prefer XDG helpers (forgeDir, codeIntelGraphDbPath, …).
+ * Kept only for reading old project config paths during migration.
+ */
 export function getProjectAlefDir(cwd: string): string {
 	return join(cwd, ".alef");
 }
@@ -306,6 +337,8 @@ export function ensureAlefDirectories(): void {
 		alefStateDir(),
 		lspCacheDir(),
 		embeddingsCacheDir(),
+		join(alefDataDir(), "forge"),
+		join(alefCacheDir(), "code-intel"),
 	]) {
 		mkdirSync(dir, { recursive: true });
 	}

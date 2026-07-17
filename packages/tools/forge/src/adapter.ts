@@ -12,7 +12,7 @@ import { domainEventsFromWebhook } from "./webhook.js";
  */
 export interface ForgeAdapterOptions {
 	cwd: string;
-	/** Override PR store root (tests). Default: `<cwd>/.alef/forge` */
+	/** Override PR store root (tests). Default: `$XDG_DATA_HOME/alef/forge/<cwd-hash>` */
 	forgeRoot?: string;
 	/** Default author for create/review/merge when not provided. */
 	author?: string;

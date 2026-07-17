@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { forgeDir } from "@dpopsuev/alef-kernel/xdg";
 
 /**
  *
@@ -159,8 +160,8 @@ export class PullStore {
 }
 
 /**
- * Default store root under the workspace: `.alef/forge/`.
+ * Default store root: `$XDG_DATA_HOME/alef/forge/<cwd-hash>/`.
  */
 export function forgeRootForCwd(cwd: string): string {
-	return join(cwd, ".alef", "forge");
+	return forgeDir(cwd);
 }

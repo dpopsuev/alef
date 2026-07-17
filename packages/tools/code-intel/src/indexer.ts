@@ -3,8 +3,9 @@
  */
 
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname } from "node:path";
 import type Parser from "tree-sitter";
+import { codeIntelGraphDbPath } from "@dpopsuev/alef-kernel/xdg";
 import { computeFileHash } from "./file-hash.js";
 import type { GraphBackend } from "./graph-backend.js";
 import type { IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
@@ -109,11 +110,11 @@ export class WorkspaceIndexer {
 	}
 }
 
-/** Default on-disk graph location under the workspace. */
+/** Default on-disk graph: `$XDG_CACHE_HOME/alef/code-intel/<cwd-hash>/graph.db`. */
 export function defaultGraphDbPath(cwd: string): string {
-	const dir = join(cwd, ".alef", "code-intel");
-	mkdirSync(dir, { recursive: true });
-	return join(dir, "graph.db");
+	const dbPath = codeIntelGraphDbPath(cwd);
+	mkdirSync(dirname(dbPath), { recursive: true });
+	return dbPath;
 }
 
 /** Extract import edges for the file's language. */

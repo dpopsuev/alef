@@ -202,7 +202,7 @@ export interface CodeIntelAdapterOptions extends BaseAdapterOptions {
 	 * Default: LocalCodeIntelBackend.
 	 */
 	backend?: CodeIntelBackend;
-	/** Override graph DB path (tests). Default: `<cwd>/.alef/code-intel/graph.db`. */
+	/** Override graph DB path (tests). Default: `$XDG_CACHE_HOME/alef/code-intel/<cwd-hash>/graph.db`. */
 	graphDbPath?: string;
 }
 
@@ -468,7 +468,7 @@ const CODE_INTEL_DIRECTIVES = [
 	`**code-intel tool guidance**
 - Use fs.read, fs.write, and fs.edit for all file operations. code-intel provides LSP and a local code graph.
 - code.symbols / code.hover / code.callers / code.diagnose are LSP-backed (TypeScript).
-- code.index builds the tree-sitter → SQLite graph under .alef/code-intel/. Call it after bulk edits; graph tools auto-index on first use.
+- code.index builds the tree-sitter → SQLite graph under $XDG_CACHE_HOME/alef/code-intel/. Call it after bulk edits; graph tools auto-index on first use.
 - code.dependencies lists imports and resolved local files for a module.
 - code.references finds uses of a symbol in the graph (reads, writes, calls, type annotations).
 - code.impact shows dependent files and symbols with callers before a refactor.

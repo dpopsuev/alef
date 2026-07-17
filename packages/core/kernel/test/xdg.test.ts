@@ -56,4 +56,21 @@ describe("xdg migrateLegacyAlefHome", { tags: ["unit"] }, () => {
 		const again = ensureAlefHome();
 		expect(again.moved).toEqual([]);
 	});
+
+	it("places forge and code-intel under XDG data/cache with cwd hash", async () => {
+		const root = mkdtempSync(join(tmpdir(), "alef-xdg-paths-"));
+		process.env.HOME = join(root, "home");
+		process.env.XDG_DATA_HOME = join(root, "data");
+		process.env.XDG_CACHE_HOME = join(root, "cache");
+		process.env.XDG_STATE_HOME = join(root, "state");
+		process.env.XDG_CONFIG_HOME = join(root, "config");
+
+		const { forgeDir, codeIntelGraphDbPath, cwdHash } = await import("../src/xdg.js");
+		const cwd = "/tmp/workspace-example";
+		const hash = cwdHash(cwd);
+		expect(forgeDir(cwd)).toBe(join(root, "data", "alef", "forge", hash));
+		expect(codeIntelGraphDbPath(cwd)).toBe(join(root, "cache", "alef", "code-intel", hash, "graph.db"));
+		expect(forgeDir(cwd)).not.toContain(".alef");
+		expect(codeIntelGraphDbPath(cwd)).not.toContain(".alef");
+	});
 });

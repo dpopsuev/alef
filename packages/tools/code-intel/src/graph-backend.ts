@@ -366,7 +366,7 @@ export class GraphBackend {
 	private findCodeFiles(
 		dir: string,
 		extensions: string[],
-		ignore: string[] = ["node_modules", ".git", "dist", "build", ".alef"],
+		ignore: string[] = ["node_modules", ".git", "dist", "build"],
 	): string[] {
 		const files: string[] = [];
 		try {

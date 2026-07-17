@@ -143,9 +143,3 @@ export class ScribeDiscourseMirror implements DiscourseBackend {
 		}
 	}
 }
-
-/** @deprecated Use ScribeDiscourseMirror. */
-export const ScribeDiscourseProjection = ScribeDiscourseMirror;
-
-/** @deprecated Use ScribeDiscourseMirror — kept as alias for existing imports. */
-export const ScribeDiscourseBackend = ScribeDiscourseMirror;

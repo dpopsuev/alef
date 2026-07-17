@@ -1,27 +1,15 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createDiscourseAdapter } from "../src/adapter.js";
-import { DiscourseStore } from "../src/store.js";
+import { InMemoryDiscourseStore } from "../src/memory-store.js";
 
 adapterComplianceSuite(() => createDiscourseAdapter({}));
 
-// ---------------------------------------------------------------------------
-// DiscourseStore — unit tests (SUT: store, no I/O mocking — store IS I/O)
-// ---------------------------------------------------------------------------
-describe("DiscourseStore", () => {
-	let sessionDir: string;
-	let store: DiscourseStore;
+describe("InMemoryDiscourseStore", () => {
+	let store: InMemoryDiscourseStore;
 
 	beforeEach(() => {
-		sessionDir = mkdtempSync(join(tmpdir(), "alef-forum-store-"));
-		store = new DiscourseStore(sessionDir);
-	});
-
-	afterEach(() => {
-		rmSync(sessionDir, { recursive: true, force: true });
+		store = new InMemoryDiscourseStore();
 	});
 
 	describe("append + readThread", () => {
@@ -71,25 +59,6 @@ describe("DiscourseStore", () => {
 			const post = store.append("t", "th", "me", "hello");
 			expect(post).toMatchObject({ topic: "t", thread: "th", author: "me", content: "hello" });
 			expect(post.id).toEqual(expect.any(String));
-		});
-
-		it("writes JSONL to disk", () => {
-			store.append("t", "th", "a", "msg");
-			const path = join(sessionDir, "discourse", "t", "th.jsonl");
-			const raw = readFileSync(path, "utf-8").trim();
-			const parsed = JSON.parse(raw);
-			expect(parsed.id).toEqual(expect.any(String));
-			expect(parsed.author).toBe("a");
-			expect(parsed.content).toBe("msg");
-			expect(parsed.timestamp).toBeGreaterThan(0);
-		});
-
-		it("does not store topic/thread in JSONL (derived from path)", () => {
-			store.append("t", "th", "a", "msg");
-			const path = join(sessionDir, "discourse", "t", "th.jsonl");
-			const parsed = JSON.parse(readFileSync(path, "utf-8").trim());
-			expect(parsed).not.toHaveProperty("topic");
-			expect(parsed).not.toHaveProperty("thread");
 		});
 	});
 
@@ -205,23 +174,8 @@ describe("DiscourseStore", () => {
 			}
 		});
 	});
-
-	describe("malformed data resilience", () => {
-		it("skips malformed JSONL lines", () => {
-			store.append("t", "th", "a", "good");
-			const path = join(sessionDir, "discourse", "t", "th.jsonl");
-			const existing = readFileSync(path, "utf-8");
-			writeFileSync(path, `${existing}not-json\n{"broken\n`);
-			const posts = store.readThread("t", "th");
-			expect(posts).toHaveLength(1);
-			expect(posts[0]!.content).toBe("good");
-		});
-	});
 });
 
-// ---------------------------------------------------------------------------
-// Adapter — structural tests
-// ---------------------------------------------------------------------------
 describe("discourse structure", () => {
 	it("creates adapter with correct name and tools", () => {
 		const adapter = createDiscourseAdapter({});

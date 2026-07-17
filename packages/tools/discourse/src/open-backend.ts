@@ -34,6 +34,3 @@ export function maybeMirrorToScribe(
 	if (!call) return store;
 	return new ScribeDiscourseMirror(store, call, opts?.scope ?? "default", opts?.logger);
 }
-
-/** @deprecated Use maybeMirrorToScribe. */
-export const maybeProjectToScribe = maybeMirrorToScribe;

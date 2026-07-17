@@ -13,10 +13,10 @@ export const MANUAL_COMPACT_KEEP_RECENT_TOKENS = 20_000;
 
 /** Parse `:compact [--strategy=summarize|shake] [instructions…]`. */
 export function parseCompactArgs(args: readonly string[]): {
-	strategy: Exclude<CompactionStrategy, "off">;
+	strategy: Exclude<CompactionStrategy, "off" | "attention">;
 	instructions?: string;
 } {
-	let strategy: Exclude<CompactionStrategy, "off"> = "summarize";
+	let strategy: Exclude<CompactionStrategy, "off" | "attention"> = "summarize";
 	const rest: string[] = [];
 	for (const arg of args) {
 		if (arg.startsWith("--strategy=")) {
@@ -40,7 +40,7 @@ export async function runManualCompact(opts: {
 	summarize: SummarizeFn;
 	instructions?: string;
 	keepRecentTokens?: number;
-	strategy?: Exclude<CompactionStrategy, "off">;
+	strategy?: Exclude<CompactionStrategy, "off" | "attention">;
 }): Promise<{ result: CompactionResult; notice: string }> {
 	const events = await opts.store.events();
 	let messages: unknown[] = [];

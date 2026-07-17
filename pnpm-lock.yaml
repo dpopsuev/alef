@@ -675,6 +675,9 @@ importers:
       '@dpopsuev/alef-blueprint':
         specifier: workspace:*
         version: link:../../core/blueprint
+      '@dpopsuev/alef-embedding':
+        specifier: workspace:*
+        version: link:../../core/embedding
       '@dpopsuev/alef-engine':
         specifier: workspace:*
         version: link:../../core/engine

@@ -2,6 +2,13 @@ import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/al
 import type { SessionStore, StorageRecord } from "../contracts/storage.js";
 import { hashRecord } from "../contracts/storage.js";
 import {
+	attendMessages,
+	extractAttentionQueries,
+	scoreTurnsByEmbedding,
+	type AttentionResult,
+	type AttentionTurn,
+} from "./attention.js";
+import {
 	applySessionMetadataRefresh,
 	parseMetadataFromSummary,
 	provisionalTitleFromMessages,
@@ -15,8 +22,11 @@ export type SummarizeFn = (
 	opts?: { instructions?: string; priorSummary?: string },
 ) => Promise<string> | string;
 
-/** Auto-compaction strategy: LLM/default summary, deterministic shake, or disabled. */
-export type CompactionStrategy = "summarize" | "shake" | "off";
+/** Auto-compaction strategy: LLM/default summary, deterministic shake, attention heap, or disabled. */
+export type CompactionStrategy = "summarize" | "shake" | "attention" | "off";
+
+/** Optional embedder for Attention similarity scoring. */
+export type AttentionEmbedFn = (text: string) => Promise<number[]>;
 
 /**
  *
@@ -48,9 +58,16 @@ export interface CompactionStageOptions {
 	strategy?: CompactionStrategy;
 	summarize?: SummarizeFn;
 	onCompact?: (result: CompactionResult) => void;
+	onAttention?: (result: AttentionResult) => void;
 	publishSignal?: (type: string, payload: Record<string, unknown>) => void;
 	getLastTokenCount?: () => number;
 	sessionStore?: () => SessionStore | undefined;
+	/** Embed text for Attention similarity. When omitted, Attention falls back to recency. */
+	embedAttentionQuery?: AttentionEmbedFn;
+	/** Override turn scoring for Attention (tests / custom heaps). */
+	scoreAttentionTurns?: (turns: readonly AttentionTurn[]) => Promise<ReadonlyMap<string, number>>;
+	/** Always keep the last N turns under Attention. Default 3. */
+	attentionPinRecentTurns?: number;
 	/** When set, next assemble forces compaction even below threshold. Cleared after read. */
 	pullForceCompact?: () => { instructions?: string; strategy?: CompactionStrategy } | undefined;
 }
@@ -489,8 +506,8 @@ export async function compactMessages(
 		estimatedBefore: number;
 		/** Manual / forced compact: summarize even when history fits keepRecentTokens. */
 		force?: boolean;
-		/** summarize (default) or shake — never off here (caller skips). */
-		strategy?: Exclude<CompactionStrategy, "off">;
+		/** summarize (default) or shake — never off/attention here (caller skips). */
+		strategy?: Exclude<CompactionStrategy, "off" | "attention">;
 	},
 ): Promise<{ messages: unknown[]; result: CompactionResult }> {
 	const messages = [...inputMessages];
@@ -602,9 +619,13 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			: Math.floor(contextWindow * threshold);
 	const summarizeFn: SummarizeFn = opts.summarize ?? defaultSummarize;
 	const onCompact = opts.onCompact;
+	const onAttention = opts.onAttention;
 	const publishSignal = opts.publishSignal;
 	const getLastTokenCount = opts.getLastTokenCount;
 	const pullForceCompact = opts.pullForceCompact;
+	const embedAttentionQuery = opts.embedAttentionQuery;
+	const scoreAttentionTurns = opts.scoreAttentionTurns;
+	const attentionPinRecentTurns = opts.attentionPinRecentTurns;
 
 	let lastSummary = "";
 
@@ -647,6 +668,52 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			return {};
 		}
 
+		// Attention: heap-select turns under budget; never write a summary compaction record.
+		if (!force && autoStrategy === "attention") {
+			beginCompacting(publishSignal);
+			let attendedMessages: unknown[];
+			let attentionResult: AttentionResult;
+			try {
+				const queries = extractAttentionQueries(input.messages);
+				({ messages: attendedMessages, result: attentionResult } = await attendMessages(input.messages, {
+					tokenLimit,
+					pinRecentTurns: attentionPinRecentTurns,
+					scoreTurns:
+						scoreAttentionTurns ??
+						(embedAttentionQuery
+							? async (turns) =>
+									scoreTurnsByEmbedding({
+										turns,
+										queryIn: queries.queryIn,
+										queryOut: queries.queryOut,
+										embed: embedAttentionQuery,
+									})
+							: undefined),
+				}));
+			} finally {
+				endCompacting(publishSignal);
+			}
+
+			if (
+				attentionResult.droppedTurnIds.length === 0 &&
+				attentionResult.estimatedAfter >= attentionResult.estimatedBefore
+			) {
+				if (lastSummary) return injectPriorSummary(input.messages, lastSummary);
+				return {};
+			}
+
+			onAttention?.(attentionResult);
+			publishSignal?.("context.attention", {
+				kept: attentionResult.keptTurnIds,
+				dropped: attentionResult.droppedTurnIds,
+				queryRoles: attentionResult.queryRoles,
+				topScores: attentionResult.topScores,
+				estimatedBefore: attentionResult.estimatedBefore,
+				estimatedAfter: attentionResult.estimatedAfter,
+			});
+			return { messages: attendedMessages };
+		}
+
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing
 		const nonSystem = input.messages.filter((m) => (m as RawMessage).role !== "system");
 		const useTokenCut = opts.keepRecentTokens !== undefined || opts.preserveRecentTurns === undefined;
@@ -661,8 +728,8 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 					estimateTokens(nonSystem.slice(-preserveRecent)) || keepRecentTokens,
 				);
 
-		// Manual force ignores auto "off" and defaults to summarize unless shake requested.
-		const runStrategy: Exclude<CompactionStrategy, "off"> =
+		// Manual force ignores auto "off"/"attention" and defaults to summarize unless shake requested.
+		const runStrategy: Exclude<CompactionStrategy, "off" | "attention"> =
 			force?.strategy === "shake" || (!force && autoStrategy === "shake") ? "shake" : "summarize";
 
 		beginCompacting(publishSignal);

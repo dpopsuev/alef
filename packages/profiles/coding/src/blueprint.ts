@@ -68,8 +68,16 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		summarize: createLlmSummarizer((input) => completeSimple(opts.model, input)),
 		compactionStrategy: (() => {
 			const raw = process.env.ALEF_COMPACTION_STRATEGY;
-			return raw === "shake" || raw === "off" || raw === "summarize" ? raw : "summarize";
+			return raw === "shake" || raw === "off" || raw === "summarize" || raw === "attention"
+				? raw
+				: "summarize";
 		})(),
+		embedAttentionQuery: async (text) => {
+			const { getEmbedder } = await import("@dpopsuev/alef-embedding");
+			const embedder = getEmbedder();
+			if (!embedder) return [];
+			return embedder.embed(text);
+		},
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		allowedBlueprints: blueprintRegistry.list(),
 		materializeAdapters: async (names) => {

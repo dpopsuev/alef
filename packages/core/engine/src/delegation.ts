@@ -57,7 +57,9 @@ export interface DelegationStackOptions {
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
 	/** Auto-compaction strategy for createCompactionStage. Default summarize. */
-	compactionStrategy?: "summarize" | "shake" | "off";
+	compactionStrategy?: "summarize" | "shake" | "attention" | "off";
+	/** Optional embedder for Attention similarity scoring. */
+	embedAttentionQuery?: (text: string) => Promise<number[]>;
 	adapters: DelegationAdapters;
 	allowedBlueprints?: readonly string[];
 	profileRoles?: Record<string, NonNullable<WorkContext["role"]>>;
@@ -148,6 +150,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			contextWindow,
 			strategy: opts.compactionStrategy ?? "summarize",
 			summarize: opts.summarize,
+			embedAttentionQuery: opts.embedAttentionQuery,
 			sessionStore: opts.sessionStore ? () => opts.sessionStore : undefined,
 			publishSignal: (type: string, payload: Record<string, unknown>) => signalPublish?.(type, payload),
 			getLastTokenCount: () => lastTotalTokens,

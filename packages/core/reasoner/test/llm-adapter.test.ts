@@ -195,12 +195,19 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 import { payloadToText } from "../src/tool-dispatch.js";
 
 describe("payloadToText", { tags: ["unit"] }, () => {
-	it("returns errorMessage when isError is true", () => {
-		expect(payloadToText({}, true, "adapter failure")).toBe("adapter failure");
+	it("returns structured tool_error observation when isError is true", () => {
+		const text = payloadToText({}, true, "adapter failure", "fs.read");
+		const parsed = JSON.parse(text) as { type: string; errorType: string; message: string; tool: string };
+		expect(parsed.type).toBe("tool_error");
+		expect(parsed.message).toBe("adapter failure");
+		expect(parsed.tool).toBe("fs.read");
+		expect(parsed.errorType).toBe("runtime");
 	});
 
-	it("falls back to JSON when isError is true and no errorMessage", () => {
-		expect(payloadToText({ toolCallId: "x" }, true, undefined)).toContain("toolCallId");
+	it("falls back to payload JSON when isError is true and no errorMessage", () => {
+		const text = payloadToText({ toolCallId: "x" }, true, undefined);
+		expect(text).toContain("tool_error");
+		expect(text).toContain("toolCallId");
 	});
 
 	it("returns content string when present", () => {

@@ -14,7 +14,7 @@ export async function appendToolResults(
 	sessionId: string | undefined,
 ): Promise<void> {
 	for (const [toolCall, result] of toolCalls.map((tc, i) => [tc, results[i]!] as const)) {
-		const textContent = payloadToText(result.payload, result.isError, result.errorMessage);
+		const textContent = payloadToText(result.payload, result.isError, result.errorMessage, toolCall.name);
 		
 		// Check if content should be offloaded
 		let finalText = textContent;

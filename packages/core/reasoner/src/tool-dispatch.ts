@@ -3,10 +3,23 @@ import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
+import { classifyToolError, formatToolErrorObservation } from "./tool-error-observation.js";
 
 /** Best-effort text extraction for tool-result display pills. */
-export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
-	if (isError) return errorMessage ?? JSON.stringify(payload);
+export function payloadToText(
+	payload: Record<string, unknown>,
+	isError: boolean,
+	errorMessage?: string,
+	toolName?: string,
+): string {
+	if (isError) {
+		const message = errorMessage ?? (typeof payload.errorMessage === "string" ? payload.errorMessage : undefined);
+		const observation = classifyToolError(message ?? JSON.stringify(payload), {
+			tool: toolName ?? (typeof payload.tool === "string" ? payload.tool : undefined),
+			payload,
+		});
+		return formatToolErrorObservation(observation);
+	}
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
 	if (typeof llm.content === "string") return llm.content;
 	if (typeof llm.text === "string") return llm.text;
@@ -522,7 +535,7 @@ export async function dispatchTools(
 						});
 					}
 					const displayBlock = extractDisplay(r.payload);
-					const resultText = payloadToText(r.payload, r.isError, r.errorMessage);
+					const resultText = payloadToText(r.payload, r.isError, r.errorMessage, tc.name);
 					const estimatedTokens = Math.ceil(resultText.length / CHARS_PER_TOKEN);
 					signal.publish({
 						type: "llm.tool-end",

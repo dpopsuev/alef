@@ -188,6 +188,18 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 }
 
 /**
+ *
+ */
+export interface TurnsToMessagesOptions {
+	/**
+	 * Ignore conversationHistory checkpoints at/before this timestamp.
+	 * Used after context.compaction so a pre-compact llm.checkpoint cannot
+	 * reinflate the full pre-summary history on the next assemble.
+	 */
+	afterTimestamp?: number;
+}
+
+/**
  * Project selected turns into a Message array for the Reasoner.
  *
  * Three paths, tried in order:
@@ -206,14 +218,16 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
  *    plain-text turns from llm.response events (ScriptedReasoner path or
  *    first turn before any checkpoint has been written).
  */
-export function turnsToMessages(turns: Turn[]): AssembledMessage[] {
+export function turnsToMessages(turns: Turn[], opts?: TurnsToMessagesOptions): AssembledMessage[] {
 	const now = Date.now();
+	const afterTimestamp = opts?.afterTimestamp;
 
 	let baseHistory: AssembledMessage[] | undefined;
 	let baseFoundAt = -1;
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
 		for (let j = turns[i]!.events.length - 1; j >= 0; j--) {
 			const e = turns[i]!.events[j]!;
+			if (afterTimestamp !== undefined && e.timestamp <= afterTimestamp) continue;
 			const isDialogMessage = e.bus === "command" && e.type === "llm.response";
 			const isCheckpoint = e.type === "llm.checkpoint"; // internal bus, written by onCheckpoint
 			if (!isDialogMessage && !isCheckpoint) continue;

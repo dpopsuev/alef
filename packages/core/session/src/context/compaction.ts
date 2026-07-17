@@ -46,7 +46,7 @@ export interface CompactionResult {
  */
 export interface CompactionStageOptions {
 	contextWindow?: number;
-	/** Tokens reserved below the window before compaction triggers. Default 16384. */
+	/** Tokens reserved below the window before compaction triggers. Default 48000. */
 	reserveTokens?: number;
 	/** Approx token budget for kept recent tail. Default 20000. */
 	keepRecentTokens?: number;
@@ -76,7 +76,8 @@ const CHARS_PER_TOKEN = 4;
 const SUMMARY_LINE_MAX_LENGTH = 120;
 const SHAKE_TOOL_RESULT_MAX = 400;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
-const DEFAULT_RESERVE_TOKENS = 16_384;
+/** Headroom for system prompt + tool schemas + plan/discourse injections. */
+const DEFAULT_RESERVE_TOKENS = 48_000;
 const DEFAULT_KEEP_RECENT_TOKENS = 20_000;
 const DEFAULT_COMPACTION_THRESHOLD = 0.9;
 const DEFAULT_PRESERVE_RECENT = 4;
@@ -641,7 +642,11 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 				const title = provisionalTitleFromMessages(input.messages);
 				if (title) {
 					await applySessionMetadataRefresh(store, { reason: "first_message", title });
-					publishSignal?.("session.metadata.refresh", { reason: "first_message", title });
+					publishSignal?.("session.metadata.refresh", {
+						reason: "first_message",
+						title: store.name(),
+						tags: store.tags(),
+					});
 				}
 			}
 		}
@@ -775,8 +780,8 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			});
 			publishSignal?.("session.metadata.refresh", {
 				reason: "compact",
-				title: meta.title,
-				tags: meta.tags,
+				title: store.name(),
+				tags: store.tags(),
 			});
 		}
 		onCompact?.(result);

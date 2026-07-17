@@ -352,34 +352,33 @@ export class Markdown implements Component {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dispatch table guarantees token.type === "code"
 			const codeToken = token as Tokens.Code;
 			const rawCode = codeToken.raw.trimEnd();
-			const startsFencedBlock = rawCode.startsWith("```") || rawCode.startsWith("~~~");
-			const fenceMarker = rawCode.slice(0, 3);
-			const fenceClosed = startsFencedBlock && rawCode.endsWith(fenceMarker);
-			if (startsFencedBlock && !fenceClosed) {
-				for (const line of codeToken.raw.split("\n")) {
-					lines.push(this.applyDefaultStyle(line));
-				}
-				return;
-			}
 			const indent = this.theme.codeBlockIndent ?? "  ";
-			// Terminal chrome — never paint markdown fence markers (```).
-			const openLabel = codeToken.lang?.trim() ? `┌ ${codeToken.lang.trim()}` : "┌";
+			// Terminal chrome — never paint markdown fence markers (``` / ~~~),
+			// including incomplete streaming fences (raw starts with fence, no close).
+			const langFromRaw = /^(`{3,}|~{3,})(\w+)/.exec(rawCode)?.[2];
+			const lang = codeToken.lang?.trim() ?? langFromRaw;
+			const bodyText = (() => {
+				const text = codeToken.text.length > 0 ? codeToken.text : rawCode;
+				return text
+					.split("\n")
+					.filter((line) => !/^\s*(`{3,}|~{3,})/.test(line))
+					.join("\n");
+			})();
+			const openLabel = lang ? `┌ ${lang}` : "┌";
 			lines.push(this.theme.codeBlockBorder(openLabel));
 			if (this.theme.highlightCode) {
-				const highlightedLines = this.theme.highlightCode(codeToken.text, codeToken.lang);
+				const highlightedLines = this.theme.highlightCode(bodyText, lang);
 				for (const hlLine of highlightedLines) {
 					lines.push(`${indent}${hlLine}`);
 				}
 			} else {
-				// Split code by newlines and style each line
-				const codeLines = codeToken.text.split("\n");
-				for (const codeLine of codeLines) {
+				for (const codeLine of bodyText.split("\n")) {
 					lines.push(`${indent}${this.theme.codeBlock(codeLine)}`);
 				}
 			}
 			lines.push(this.theme.codeBlockBorder("└"));
 			if (nextTokenType && nextTokenType !== "space") {
-				lines.push(""); // Add spacing after code blocks (unless space token follows)
+				lines.push("");
 			}
 		};
 
@@ -580,9 +579,7 @@ export class Markdown implements Component {
 			result += applyTextWithNewlines(html.raw);
 		};
 
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const renderInlineDefault = (tk: Token): void => {
-			// Handle any other inline token types as plain text
 			if ("text" in tk && typeof tk.text === "string") {
 				result += applyTextWithNewlines(tk.text);
 			}
@@ -601,8 +598,8 @@ export class Markdown implements Component {
 		};
 
 		for (const token of tokens) {
-			const renderer = inlineRenderers[token.type];
-			renderer!(token);
+			const renderer = inlineRenderers[token.type] ?? renderInlineDefault;
+			renderer(token);
 		}
 
 		while (stylePrefix && result.endsWith(stylePrefix)) {

@@ -487,6 +487,7 @@ tui, picker, compaction
 	it("does not overwrite a user-owned session name on compact", async () => {
 		const meta = metaStore();
 		await meta.store.setName("Manual title", { source: "user" });
+		const publishSignal = vi.fn();
 
 		const stage = createCompactionStage({
 			contextWindow: 10_000,
@@ -494,6 +495,7 @@ tui, picker, compaction
 			keepRecentTokens: 200,
 			sessionStore: () => meta.store,
 			getLastTokenCount: () => 0,
+			publishSignal,
 			summarize: () => `## Goal
 Auto title from summary
 
@@ -516,6 +518,10 @@ auto-tag
 		expect(meta.name).toBe("Manual title");
 		expect(meta.nameSource).toBe("user");
 		expect(meta.tags).toEqual(["auto-tag"]);
+		expect(publishSignal).toHaveBeenCalledWith(
+			"session.metadata.refresh",
+			expect.objectContaining({ reason: "compact", title: "Manual title", tags: ["auto-tag"] }),
+		);
 	});
 
 	it("preserves system message and does not inject XML tool-format reminder after compaction", async () => {

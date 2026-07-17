@@ -100,7 +100,11 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 			timestamp: Date.now(),
 		});
 
-		const projected = turnsToMessages(selected);
+		// Skip pre-compact conversationHistory checkpoints — they reinflate the
+		// full pre-summary prompt and defeat overflow recovery (session 1348df13).
+		const projected = turnsToMessages(selected, {
+			afterTimestamp: compaction?.timestamp,
+		});
 		const summary =
 			compaction && typeof compaction.payload.summary === "string" ? compaction.payload.summary : undefined;
 

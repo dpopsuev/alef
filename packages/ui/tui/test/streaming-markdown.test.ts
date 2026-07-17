@@ -4,6 +4,24 @@ import { Markdown } from "../src/components/markdown.js";
 import { defaultMarkdownTheme } from "./test-themes.js";
 
 describe("streaming markdown rendering", { tags: ["unit"] }, () => {
+	it("does not throw on unknown inline token types", () => {
+		const md = new Markdown("hello world", 0, 0, defaultMarkdownTheme);
+		const lines = md.render(80);
+		expect(lines.join("\n")).toContain("hello");
+
+		// Simulate marked producing an inline token type we do not map (escape/image/etc).
+		const privateRender = md as unknown as {
+			renderInlineTokens: (tokens: Array<{ type: string; text?: string; raw?: string }>) => string;
+		};
+		const rendered = privateRender.renderInlineTokens([
+			{ type: "text", text: "a " },
+			{ type: "escape", text: "*" },
+			{ type: "text", text: " b" },
+		]);
+		expect(rendered).toContain("a ");
+		expect(rendered).toContain("b");
+	});
+
 	it("handles incomplete code block gracefully", () => {
 		const md = new Markdown("", 0, 0, defaultMarkdownTheme);
 
@@ -23,6 +41,7 @@ describe("streaming markdown rendering", { tags: ["unit"] }, () => {
 			.filter(Boolean)
 			.join("\n");
 		expect(text).toContain("const x = 1");
+		expect(text).not.toContain("```");
 	});
 
 	it("handles incomplete bold gracefully", () => {

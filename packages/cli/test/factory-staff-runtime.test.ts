@@ -39,7 +39,7 @@ async function call(bus: InProcessBus, type: string, payload: Record<string, unk
 }
 
 describe("factory staffed runtime profiles", { tags: ["unit"] }, () => {
-	it("registers gensec and 2sec as agent.run profiles with staffed metadata", async () => {
+	it("registers line roles and legacy gensec/2sec as agent.run profiles", async () => {
 		const prompts: string[] = [];
 		const domainAdapter = defineAdapter("dummy", {}, { description: "dummy", directives: ["test only"] });
 		const stack = await createFactoryAgentStack({
@@ -60,6 +60,34 @@ describe("factory staffed runtime profiles", { tags: ["unit"] }, () => {
 		const bus = new InProcessBus();
 		const unmount = agentAdapter!.mount(bus.asBus());
 		try {
+			const coordinator = await call(bus, "agent.run", { text: "coordinate", profile: "coordinator" });
+			expect(agentRunPayload(coordinator).run.work?.role).toEqual({
+				category: "line",
+				roleId: "coordinator",
+				blueprintId: "alef-factory-agent",
+			});
+
+			const director = await call(bus, "agent.run", { text: "own plan", profile: "director" });
+			expect(agentRunPayload(director).run.work?.role).toEqual({
+				category: "line",
+				roleId: "director",
+				blueprintId: "alef-factory-agent",
+			});
+
+			const supervisor = await call(bus, "agent.run", { text: "watch line", profile: "supervisor" });
+			expect(agentRunPayload(supervisor).run.work?.role).toEqual({
+				category: "line",
+				roleId: "supervisor",
+				blueprintId: "alef-factory-agent",
+			});
+
+			const coder = await call(bus, "agent.run", { text: "implement", profile: "worker.coder" });
+			expect(agentRunPayload(coder).run.work?.role).toEqual({
+				category: "worker",
+				roleId: "coder",
+				blueprintId: "alef-coding-agent",
+			});
+
 			const gensec = await call(bus, "agent.run", { text: "coordinate", profile: "gensec" });
 			expect(agentRunPayload(gensec).run.work?.role).toEqual({
 				category: "staff",
@@ -73,8 +101,13 @@ describe("factory staffed runtime profiles", { tags: ["unit"] }, () => {
 				roleId: "2sec",
 				blueprintId: "2sec",
 			});
-			expect(prompts[0]).toContain("You are GenSec");
-			expect(prompts[1]).toContain("You are 2Sec");
+
+			expect(prompts.some((prompt) => prompt.includes("You are the Coordinator"))).toBe(true);
+			expect(prompts.some((prompt) => prompt.includes("You are the Director"))).toBe(true);
+			expect(prompts.some((prompt) => prompt.includes("You are the Supervisor"))).toBe(true);
+			expect(prompts.some((prompt) => prompt.includes("Worker (coder)"))).toBe(true);
+			expect(prompts.some((prompt) => prompt.includes("You are GenSec"))).toBe(true);
+			expect(prompts.some((prompt) => prompt.includes("You are 2Sec"))).toBe(true);
 		} finally {
 			unmount();
 		}

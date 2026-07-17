@@ -304,6 +304,12 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(tree).not.toContain("├──");
 	});
 
+	it("rejects duplicate step labels", () => {
+		const plan = new PlanGraph("p1", "a", "b", "c", null);
+		plan.addStep("define the base interfaces");
+		expect(() => plan.addStep("define the base interfaces")).toThrow(/duplicate step label/);
+	});
+
 	it("renderSummary includes step labels from sticky tree", () => {
 		const plan = new PlanGraph("p1", "a", "b", "c", null);
 		const a = plan.addStep("define the base interfaces");
@@ -325,6 +331,54 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(loaded).not.toBeNull();
 		expect(loaded!.phase).toBe("working");
 		expect(loaded!.getStep("create-the-index-page")?.status).toBe("active");
+	});
+
+	describe("plan custody", () => {
+		it("handoff transfers owner and token and persists across load", () => {
+			const dir = makeTmp();
+			const path = join(dir, "custody.json");
+			const plan = new PlanGraph("p1", "a", "b", "c", path);
+			const { token } = plan.handoff("@director", { from: "@root", note: "run factory" });
+			expect(plan.custody()?.owner).toBe("@director");
+			expect(plan.custody()?.token).toBe(token);
+			expect(plan.renderTree()).toContain("custody @director");
+
+			const loaded = PlanGraph.load(path);
+			expect(loaded?.custody()?.owner).toBe("@director");
+			expect(loaded?.custody()?.from).toBe("@root");
+			expect(loaded?.custody()?.note).toBe("run factory");
+		});
+
+		it("expired lease clears custody and allows reclaim", async () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			plan.handoff("@director", { leaseMs: 1 });
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			expect(plan.custody()).toBeNull();
+			const next = plan.handoff("@expert-lead");
+			expect(next.custody.owner).toBe("@expert-lead");
+		});
+
+		it("revokeCustody requires token unless rootAuthority", () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const { token } = plan.handoff("@director");
+			expect(plan.revokeCustody({ token: "wrong" })).toBe(false);
+			expect(plan.custody()?.owner).toBe("@director");
+			expect(plan.revokeCustody({ token })).toBe(true);
+			expect(plan.custody()).toBeNull();
+
+			plan.handoff("@director");
+			expect(plan.revokeCustody({ rootAuthority: true })).toBe(true);
+			expect(plan.custody()).toBeNull();
+		});
+
+		it("step claims remain independent of plan custody", () => {
+			const plan = new PlanGraph("p1", "a", "b", "c", null);
+			const step = plan.addStep("write the api reference docs");
+			plan.handoff("@director");
+			const claim = plan.claimStep(step.id, "@expert");
+			expect(claim?.step.claim?.owner).toBe("@expert");
+			expect(plan.custody()?.owner).toBe("@director");
+		});
 	});
 
 	it("step with inspector stores inspector definition", () => {

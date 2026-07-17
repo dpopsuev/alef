@@ -84,4 +84,49 @@ describe("plan adapter multi-plan", { tags: ["unit"] }, () => {
 		expect(show.payload.active).toBe(false);
 		h.dispose();
 	});
+
+	it("plan.handoff and plan.custody transfer and show custody", async () => {
+		const cwd = makeCwd();
+		const h = harness(cwd);
+		await h.ready();
+
+		await h.send("plan.open", { current: "a", desired: "ship factory handoff", verify: "custody set" });
+		const handed = await h.send("plan.handoff", {
+			to: "@director",
+			from: "@coordinator",
+			note: "take the line",
+		});
+		expect(handed.isError).toBe(false);
+		expect(handed.payload.custody).toEqual(
+			expect.objectContaining({ owner: "@director", from: "@coordinator", note: "take the line" }),
+		);
+		expect(typeof handed.payload.token).toBe("string");
+
+		const shown = await h.send("plan.custody", {});
+		expect(shown.isError).toBe(false);
+		expect(shown.payload.custody).toEqual(expect.objectContaining({ owner: "@director" }));
+		const display = shown.payload._display as { text?: string } | undefined;
+		expect(String(display?.text ?? "")).toContain("@director");
+		h.dispose();
+	});
+
+	it("plan.ready lists unclaimed ready steps after plan.steps", async () => {
+		const cwd = makeCwd();
+		const h = harness(cwd);
+		await h.ready();
+
+		await h.send("plan.open", { current: "a", desired: "ship change", verify: "pr merged" });
+		const steps = await h.send("plan.steps", {
+			steps: [{ label: "Implement factory roles" }],
+		});
+		expect(steps.isError).toBe(false);
+		const ready = await h.send("plan.ready", {});
+		expect(ready.isError).toBe(false);
+		expect(ready.payload.ready).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ label: "Implement factory roles", roleHint: "worker.coder" }),
+			]),
+		);
+		h.dispose();
+	});
 });

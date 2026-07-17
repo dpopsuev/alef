@@ -104,6 +104,34 @@ const PLAN_CLOSE = {
 	}),
 };
 
+const PLAN_HANDOFF = {
+	name: "plan.handoff",
+	description: "Transfer plan custody to another actor (Coordinator/Director). Independent of step claims.",
+	inputSchema: z.object({
+		to: z.string().min(1).describe("Actor address receiving custody (e.g. @director)"),
+		planId: z.string().optional().describe("Plan id (defaults to focused)"),
+		from: z.string().optional().describe("Actor transferring custody"),
+		note: z.string().optional().describe("Handoff note"),
+		leaseMs: z.number().optional().describe("Optional custody lease in ms"),
+	}),
+};
+
+const PLAN_CUSTODY = {
+	name: "plan.custody",
+	description: "Show current plan custody (owner, lease, note).",
+	inputSchema: z.object({
+		planId: z.string().optional().describe("Plan id (defaults to focused)"),
+	}),
+};
+
+const PLAN_READY = {
+	name: "plan.ready",
+	description: "List ready Plan steps on the work queue (Competing Consumers may claim).",
+	inputSchema: z.object({
+		planId: z.string().optional().describe("Plan id (defaults to focused)"),
+	}),
+};
+
 /** Options for the plan adapter — workspace-scoped multi-plan shelf. */
 export interface PlanAdapterOptions extends BaseAdapterOptions {
 	/** Workspace cwd (plans keyed by this). */
@@ -128,6 +156,35 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	 */
 	function emit(type: string, payload: Record<string, unknown>): void {
 		mountedBus?.notification.publish({ type, payload, correlationId: "" });
+	}
+
+	/** Publish step.ready domain events for the work queue (EDA choreography). */
+	function emitReadyQueue(plan: PlanGraph): void {
+		const ready = plan.allReady();
+		for (const step of ready) {
+			emit("step.ready", {
+				planId: plan.id,
+				stepId: step.id,
+				label: step.label,
+				roleHint: roleHintFromLabel(step.label),
+			});
+		}
+		if (ready.length > 0) {
+			emit("work.enqueued", {
+				planId: plan.id,
+				count: ready.length,
+				stepIds: ready.map((step) => step.id),
+			});
+		}
+	}
+
+	/** Map step labels to worker role profile hints for the work queue. */
+	function roleHintFromLabel(label: string): string {
+		const lower = label.toLowerCase();
+		if (lower.includes("review")) return "worker.reviewer";
+		if (lower.includes("quality") || lower.includes("verify") || lower.includes("test")) return "worker.quality";
+		if (lower.includes("implement") || lower.includes("code") || lower.includes("fix")) return "worker.coder";
+		return "worker.coder";
 	}
 
 	/**
@@ -162,6 +219,17 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	 */
 	function clearCache(): void {
 		cached = null;
+	}
+
+	/** Resolve focused plan or load by id. */
+	function resolvePlan(planId?: string): PlanGraph | null {
+		if (planId) {
+			const loaded = store.load(planId);
+			if (loaded && cached?.id === loaded.id) return cached;
+			if (loaded) cached = loaded;
+			return loaded;
+		}
+		return focused();
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -260,8 +328,9 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		);
 		store.sync(plan);
 		emit("plan.tree", { tree: plan.renderTree() });
+		emitReadyQueue(plan);
 		return withDisplay(
-			{ added: created.length, ids: created.map((s) => s.id) },
+			{ added: created.length, ids: created.map((s) => s.id), ready: plan.allReady().map((s) => s.id) },
 			{ text: `Added ${created.length} step(s): ${created.map((s) => s.id).join(", ")}`, mimeType: "text/plain" },
 		);
 	}
@@ -292,6 +361,13 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				}
 				store.sync(plan);
 				emit("plan.tree", { tree: plan.renderTree() });
+				emit("step.claimed", {
+					planId: plan.id,
+					stepId,
+					owner,
+					token: claim.token,
+					leaseExpiresAt: claim.step.claim?.leaseExpiresAt,
+				});
 				postToDiscourse(plan.id, plan.id, {
 					type: "step:claimed",
 					stepId,
@@ -328,6 +404,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				}
 				store.sync(plan);
 				emit("plan.tree", { tree: plan.renderTree() });
+				emitReadyQueue(plan);
 				postToDiscourse(plan.id, plan.id, { type: "step:released", stepId });
 				return withDisplay(
 					{ stepId, status: step.status, claim: null },
@@ -377,6 +454,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					postToDiscourse(plan.id, plan.id, { type: "step:completed", stepId, result: step.result, progress: s });
 					const next = plan.nextReady();
 					emit("plan.tree", { tree: plan.renderTree() });
+					emitReadyQueue(plan);
 					if (!next) emit("plan.intent", { text: "" });
 					return withDisplay(
 						{ stepId, status: "done", gateResults, progress: s, next: next?.id ?? null, inspector: step.inspector ?? null },
@@ -456,6 +534,108 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
 	}
 
+	/** Transfer plan custody to another actor. */
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async function handleHandoff(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_HANDOFF.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = resolvePlan(ctx.payload.planId);
+		if (!plan) {
+			return withDisplay(
+				{ error: "no plan" },
+				{ text: "No active plan. Use plan.open first or pass planId.", mimeType: "text/plain" },
+			);
+		}
+		const from = ctx.payload.from ?? opts.actorAddress;
+		const { custody, token } = plan.handoff(ctx.payload.to, {
+			from,
+			note: ctx.payload.note,
+			leaseMs: ctx.payload.leaseMs,
+		});
+		emit("plan.handed-off", {
+			planId: plan.id,
+			to: custody.owner,
+			from: custody.from,
+			token,
+			note: custody.note,
+			leaseExpiresAt: custody.leaseExpiresAt,
+		});
+		postToDiscourse(plan.id, plan.id, {
+			type: "plan:handoff",
+			to: custody.owner,
+			from: custody.from,
+			note: custody.note,
+		});
+		emit("plan.tree", { tree: plan.renderTree() });
+		const lease =
+			custody.leaseExpiresAt === undefined ? "no lease" : `lease until ${new Date(custody.leaseExpiresAt).toISOString()}`;
+		return withDisplay(
+			{ planId: plan.id, custody, token },
+			{
+				text: `Plan ${plan.id} handed off to ${custody.owner}${from ? ` (from ${from})` : ""}.\nToken: ${token}\n${lease}`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	/** Show current plan custody. */
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async function handleCustody(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_CUSTODY.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = resolvePlan(ctx.payload.planId);
+		if (!plan) {
+			return withDisplay(
+				{ error: "no plan" },
+				{ text: "No active plan. Use plan.open first or pass planId.", mimeType: "text/plain" },
+			);
+		}
+		const custody = plan.custody();
+		if (!custody) {
+			return withDisplay(
+				{ planId: plan.id, custody: null },
+				{ text: `Plan ${plan.id}: no custody (Coordinator holds shelf).`, mimeType: "text/plain" },
+			);
+		}
+		const lease =
+			custody.leaseExpiresAt === undefined ? "no lease" : `lease until ${new Date(custody.leaseExpiresAt).toISOString()}`;
+		return withDisplay(
+			{ planId: plan.id, custody },
+			{
+				text: `Plan ${plan.id} custody: ${custody.owner}${custody.from ? ` (from ${custody.from})` : ""}\n${lease}${custody.note ? `\nNote: ${custody.note}` : ""}`,
+				mimeType: "text/plain",
+			},
+		);
+	}
+
+	/** List ready steps for Competing Consumers. */
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async function handleReady(
+		ctx: CommandHandlerCtx<z.infer<typeof PLAN_READY.inputSchema>>,
+	): Promise<Record<string, unknown>> {
+		const plan = resolvePlan(ctx.payload.planId);
+		if (!plan) {
+			return withDisplay(
+				{ error: "no plan" },
+				{ text: "No active plan. Use plan.open first or pass planId.", mimeType: "text/plain" },
+			);
+		}
+		const ready = plan.allReady().map((step) => ({
+			stepId: step.id,
+			label: step.label,
+			roleHint: roleHintFromLabel(step.label),
+		}));
+		emitReadyQueue(plan);
+		const lines =
+			ready.length === 0
+				? ["(no ready steps)"]
+				: ready.map((step) => `${step.stepId}  [${step.roleHint}]  ${step.label}`);
+		return withDisplay(
+			{ planId: plan.id, ready },
+			{ text: `Ready queue (${ready.length}):\n${lines.join("\n")}`, mimeType: "text/plain" },
+		);
+	}
+
 	return defineAdapter(
 		"plan",
 		{
@@ -469,13 +649,17 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				"plan.amend": typedAction(PLAN_AMEND, handleAmend),
 				"plan.show": typedAction(PLAN_SHOW, handleShow),
 				"plan.close": typedAction(PLAN_CLOSE, handleClose),
+				"plan.handoff": typedAction(PLAN_HANDOFF, handleHandoff),
+				"plan.custody": typedAction(PLAN_CUSTODY, handleCustody),
+				"plan.ready": typedAction(PLAN_READY, handleReady),
 			},
 		},
 		{
 			description: "Plan — workspace multi-plan shelf: focus one, backlog others, verify each step.",
 			labels: ["plan", "reasoning"],
 			directives: [
-				"For 3+ step or ambiguous work: plan.open (current/desired/verify) then plan.steps; advance start→done; plan.close. Skip for single lookups. Use plan.list/focus to switch.",
+				"For 3+ step or ambiguous work: plan.open (current/desired/verify) then plan.steps; advance claim→start→done; plan.close. Skip for single lookups. Use plan.list/focus to switch.",
+				"Use plan.handoff for Coordinator↔Director custody. Workers use plan.ready + plan.advance claim (Competing Consumers). Domain events step.ready wake the line — do not poll.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
 			onMount: (bus: Bus) => {

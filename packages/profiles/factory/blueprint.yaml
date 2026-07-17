@@ -1,9 +1,9 @@
 name: alef-factory-agent
 version: 1.0.0
 description: >
-  Factory architect — designs multi-agent production lines.
-  Does not code directly. Spawns domain-expert agents for execution.
-  Plans, coordinates, observes, and closes.
+  Coordinator for the Alef→Alef local factory line.
+  Opens Plans, hands off custody, wakes Director/Supervisor/Workers via agent.run.
+  Does not code directly — Workers use the coding SBOM.
 
   workflow/wire is assembly (injected by the stack factory), not an SBOM adapter.
 
@@ -14,6 +14,8 @@ adapters:
     package: "@dpopsuev/alef-tool-factory"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
+  - name: forge
+    package: "@dpopsuev/alef-tool-forge"
   - name: discourse
     package: "@dpopsuev/alef-tool-discourse"
   - name: skills

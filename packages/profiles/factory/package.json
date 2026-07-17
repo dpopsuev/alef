@@ -17,7 +17,9 @@
     "blueprint": "blueprint.yaml"
   },
   "dependencies": {
+    "@dpopsuev/alef-coding-agent": "workspace:*",
     "@dpopsuev/alef-tool-agent": "workspace:*",
+    "@dpopsuev/alef-tool-forge": "workspace:*",
     "@dpopsuev/alef-tool-skills": "workspace:*",
     "@dpopsuev/alef-tool-workflow": "workspace:*",
     "@dpopsuev/alef-blueprint": "workspace:*",

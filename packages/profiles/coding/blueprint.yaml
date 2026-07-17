@@ -19,6 +19,8 @@ adapters:
       - "rm\\s+-rf\\s+/"
   - name: web
     package: "@dpopsuev/alef-tool-web"
+  - name: code-intel
+    package: "@dpopsuev/alef-tool-code-intel"
   - name: agent
     package: "@dpopsuev/alef-tool-agent"
   - name: skills
@@ -27,6 +29,10 @@ adapters:
     package: "@dpopsuev/alef-tool-factory"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
+  - name: forge
+    package: "@dpopsuev/alef-tool-forge"
+  - name: git
+    package: "@dpopsuev/alef-tool-git"
   - name: discourse
     package: "@dpopsuev/alef-tool-discourse"
 

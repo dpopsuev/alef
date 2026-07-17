@@ -38,6 +38,16 @@ export interface StepClaim {
 	note?: string;
 }
 
+/** Plan-level custody (Parchment Claim-shaped) — independent of step claims. */
+export interface PlanCustody {
+	owner: string;
+	from?: string;
+	handedAt: number;
+	token: string;
+	leaseExpiresAt?: number;
+	note?: string;
+}
+
 /** A single step in the plan DAG with gates and optional inspector. */
 export interface Step {
 	id: string;
@@ -64,6 +74,7 @@ export interface PlanData {
 	desired: string;
 	verify: string;
 	steps: Step[];
+	custody?: PlanCustody;
 	summary?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -163,6 +174,10 @@ export class PlanGraph {
 		const words = label.trim().split(/\s+/);
 		if (words.length < MIN_LABEL_WORDS) throw new Error(`Step label too short (${words.length} words, min ${MIN_LABEL_WORDS}): "${label}"`);
 		if (words.length > MAX_LABEL_WORDS) throw new Error(`Step label too long (${words.length} words, max ${MAX_LABEL_WORDS}): "${label}"`);
+		const normalizedLabel = label.trim().toLowerCase();
+		if (this.data.steps.some((step) => step.label.trim().toLowerCase() === normalizedLabel)) {
+			throw new Error(`duplicate step label: "${label}"`);
+		}
 		for (const dep of dependsOn) {
 			if (!this.stepIndex.has(dep)) throw new Error(`dependency step ${dep} not found`);
 		}
@@ -370,6 +385,53 @@ export class PlanGraph {
 		}
 	}
 
+	private clearExpiredCustody(): void {
+		const custody = this.data.custody;
+		if (!custody?.leaseExpiresAt) return;
+		if (custody.leaseExpiresAt <= Date.now()) {
+			delete this.data.custody;
+			this.touch();
+		}
+	}
+
+	/** Transfer plan custody to `to`. Returns new custody + token. */
+	handoff(
+		to: string,
+		opts: { from?: string; note?: string; leaseMs?: number; token?: string } = {},
+	): { custody: PlanCustody; token: string } {
+		const token = opts.token ?? `custody-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+		const custody: PlanCustody = {
+			owner: to,
+			from: opts.from,
+			handedAt: Date.now(),
+			token,
+			leaseExpiresAt: opts.leaseMs ? Date.now() + opts.leaseMs : undefined,
+			note: opts.note,
+		};
+		this.data.custody = custody;
+		this.touch();
+		return { custody, token };
+	}
+
+	/** Current custody, or null if none / lease expired. */
+	custody(): PlanCustody | null {
+		this.clearExpiredCustody();
+		return this.data.custody ?? null;
+	}
+
+	/**
+	 * Clear custody. Requires matching token unless `rootAuthority` is true.
+	 * Returns true when custody was cleared.
+	 */
+	revokeCustody(opts: { token?: string; rootAuthority?: boolean } = {}): boolean {
+		this.clearExpiredCustody();
+		if (!this.data.custody) return false;
+		if (!opts.rootAuthority && opts.token !== this.data.custody.token) return false;
+		delete this.data.custody;
+		this.touch();
+		return true;
+	}
+
 	private isReady(step: Step): boolean {
 		this.clearExpiredClaim(step);
 		if (step.status !== "pending") return false;
@@ -420,17 +482,47 @@ export class PlanGraph {
 		}
 	}
 
+	/** Collapse legacy duplicate labels (prefer active > failed > done > pending). */
+	private stepsForDisplay(): Step[] {
+		const rank: Record<StepStatus, number> = {
+			active: 4,
+			failed: 3,
+			done: 2,
+			pending: 1,
+			dropped: 0,
+		};
+		const byLabel = new Map<string, Step>();
+		const order: string[] = [];
+		for (const step of this.data.steps) {
+			const key = step.label.trim().toLowerCase();
+			const existing = byLabel.get(key);
+			if (!existing) {
+				byLabel.set(key, step);
+				order.push(key);
+				continue;
+			}
+			if (rank[step.status] > rank[existing.status]) byLabel.set(key, step);
+		}
+		return order.map((key) => byLabel.get(key)!);
+	}
+
 	/** Sticky TUI strip: header counts + status rows (Alef geometric glyphs, not checkmarks). */
 	renderTree(): string {
-		const s = this.stats();
-		const working = s.active > 0 ? s.active : s.pending > 0 ? 1 : 0;
+		const displaySteps = this.stepsForDisplay();
+		const done = displaySteps.filter((step) => step.status === "done").length;
+		const active = displaySteps.filter((step) => step.status === "active").length;
+		const pending = displaySteps.filter((step) => step.status === "pending").length;
+		const working = active > 0 ? active : pending > 0 ? 1 : 0;
+		this.clearExpiredCustody();
+		const custodyOwner = this.data.custody?.owner;
+		const custodyLine = custodyOwner ? ` · custody ${custodyOwner}` : "";
 		const header =
-			s.total === 0
-				? "Plan · no steps yet"
-				: `Plan · working on ${working} · ${s.done}/${s.total} done`;
+			displaySteps.length === 0
+				? `Plan · no steps yet${custodyLine}`
+				: `Plan · working on ${working} · ${done}/${displaySteps.length} done${custodyLine}`;
 		const lines: string[] = [header];
 
-		for (const step of this.data.steps) {
+		for (const step of displaySteps) {
 			const marker = PlanGraph.glyph(step.status);
 			const focus = step.status === "active" ? "  ◄" : "";
 			const claim =

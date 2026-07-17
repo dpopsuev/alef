@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
 import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
-import { resolveBootstrapBlueprintPath, type BootstrapBlueprintId } from "@dpopsuev/alef-blueprint/bootstrap";
+import { resolveBootstrapBlueprintPath } from "@dpopsuev/alef-blueprint/bootstrap";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
@@ -17,23 +17,11 @@ import {
 	provisionalTitleFromText,
 } from "@dpopsuev/alef-session/metadata";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import { loadFactoryLineRoles, STAFF_BOOTSTRAP_ROLES } from "./roles.js";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
 const require = createRequire(import.meta.url);
-
-const STAFF_ROLE_PROFILES = [
-	{
-		profile: "gensec",
-		blueprintId: "gensec" as BootstrapBlueprintId,
-		role: { category: "staff", roleId: "gensec", blueprintId: "gensec" },
-	},
-	{
-		profile: "2sec",
-		blueprintId: "2sec" as BootstrapBlueprintId,
-		role: { category: "staff", roleId: "2sec", blueprintId: "2sec" },
-	},
-] as const;
 
 /** Narrow adapters that support dynamic strategy registration. */
 function isStrategyRegistrar(
@@ -47,9 +35,14 @@ function loadFactoryBlueprint() {
 	return loadAgentDefinition(require.resolve("@dpopsuev/alef-factory-agent/blueprint"));
 }
 
-/** Read-only explore slice — fs+web when present on the domain set. */
+/** Load the coding profile SBOM for Worker strategies. */
+function loadCodingBlueprint() {
+	return loadAgentDefinition(require.resolve("@dpopsuev/alef-coding-agent/blueprint"));
+}
+
+/** Read-only explore slice — fs+web+code-intel when present on the domain set. */
 function exploreSliceFrom(domain: readonly Adapter[]): Adapter[] {
-	return domain.filter((a) => a.name === "fs" || a.name === "web");
+	return domain.filter((a) => a.name === "fs" || a.name === "web" || a.name === "code-intel");
 }
 
 /** Policy A: retitle from plan.desired; merge prior tags with a theme tag. */
@@ -67,6 +60,7 @@ async function refreshMetadataOnPlanOpened(store: SessionStore | undefined, desi
 
 /**
  * Factory stack — adapters come solely from factory blueprint.yaml (+ loadAdapters overlay).
+ * Registers Coordinator/Director/Supervisor/Worker.* strategies plus legacy GenSec/2Sec.
  */
 export async function createFactoryAgentStack(opts: BlueprintStackOptions): Promise<BlueprintStack> {
 	if (!opts.subagentFactory) {
@@ -75,9 +69,13 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 
 	const foundry = createFoundryRuntime({ cwd: opts.cwd });
 	const definition = loadFactoryBlueprint();
-	const staffRoleDefinitions = STAFF_ROLE_PROFILES.map((entry) => ({
+	const lineRoles = loadFactoryLineRoles();
+	const staffRoleDefinitions = STAFF_BOOTSTRAP_ROLES.map((entry) => ({
 		...entry,
+		kind: "staff" as const,
+		codingTools: false,
 		definition: loadAgentDefinition(resolveBootstrapBlueprintPath(entry.blueprintId)),
+		systemPrompt: undefined as string | undefined,
 	}));
 
 	const domainAdapters =
@@ -87,6 +85,30 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 
 	const exploreAdapters = exploreSliceFrom(domainAdapters);
 	const generalAdapters = domainAdapters;
+
+	let codingAdapters: Adapter[] = generalAdapters;
+	const needsCoding = lineRoles.some((role) => role.codingTools);
+	if (needsCoding && !(opts.domainAdapters && opts.domainAdapters.length > 0)) {
+		try {
+			codingAdapters = (await foundry.materializeBlueprint(loadCodingBlueprint())).adapters;
+		} catch {
+			codingAdapters = generalAdapters;
+		}
+	}
+
+	const profileRoles: Record<string, { category: string; roleId: string; blueprintId: string }> = {};
+	const profilePrompts: Record<string, string> = {};
+
+	for (const role of lineRoles) {
+		profileRoles[role.profile] = role.role;
+		profilePrompts[role.profile] = role.systemPrompt;
+	}
+	for (const entry of staffRoleDefinitions) {
+		profileRoles[entry.profile] = entry.role;
+		if (typeof entry.definition.systemPrompt === "string" && entry.definition.systemPrompt.length > 0) {
+			profilePrompts[entry.profile] = entry.definition.systemPrompt;
+		}
+	}
 
 	const { adapters, contextAssembly, exploreAdapters: explore, generalAdapters: general } = await buildDelegationStack({
 		cwd: opts.cwd,
@@ -101,13 +123,8 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		excludeNames: ["workflow"],
 		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		allowedBlueprints: blueprintRegistry.list(),
-		profileRoles: Object.fromEntries(staffRoleDefinitions.map((entry) => [entry.profile, entry.role])),
-		profilePrompts: staffRoleDefinitions.reduce<Record<string, string>>((profiles, entry) => {
-			if (typeof entry.definition.systemPrompt === "string" && entry.definition.systemPrompt.length > 0) {
-				profiles[entry.profile] = entry.definition.systemPrompt;
-			}
-			return profiles;
-		}, {}),
+		profileRoles,
+		profilePrompts,
 		materializeAdapters: async (names) => {
 			const { adapters: materializedAdapters } = await foundry.materializeBlueprint(
 				{
@@ -122,8 +139,15 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 
 	const agentAdapter = adapters.find((adapter) => adapter.name === "agent");
 	if (agentAdapter && isStrategyRegistrar(agentAdapter)) {
-		for (const role of staffRoleDefinitions) {
-			agentAdapter.registerStrategy(role.profile, new InProcessStrategy(general, opts.subagentFactory, role.definition.systemPrompt));
+		for (const role of lineRoles) {
+			const toolset = role.codingTools ? codingAdapters : general;
+			agentAdapter.registerStrategy(role.profile, new InProcessStrategy(toolset, opts.subagentFactory, role.systemPrompt));
+		}
+		for (const entry of staffRoleDefinitions) {
+			agentAdapter.registerStrategy(
+				entry.profile,
+				new InProcessStrategy(general, opts.subagentFactory, entry.definition.systemPrompt),
+			);
 		}
 	}
 

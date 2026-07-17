@@ -29,7 +29,13 @@ function getTheme() {
 	};
 }
 
-import { renderDiffDisplay, truncateToolOutput } from "../../src/views/index.js";
+import {
+	DiffBlock,
+	formatDiffHeader,
+	makeToolOutputComponent,
+	renderDiffDisplay,
+	truncateToolOutput,
+} from "../../src/views/index.js";
 
 // ---------------------------------------------------------------------------
 // 1. renderDiffDisplay output format
@@ -48,10 +54,12 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 		" ...",
 	].join("\n");
 
-	it("header line (index 0) contains the file path", () => {
+	it("header line is Edited path with +/- line counts", () => {
 		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
-		expect(stripVTControlCharacters(lines[0]!)).toBe("edit packages/runner/test/smoke-tui.test.ts");
+		expect(stripVTControlCharacters(lines[0]!)).toBe(
+			"Edited packages/runner/test/smoke-tui.test.ts +1 -1",
+		);
 	});
 
 	it("removed line (-) is colored red (ansi16=31)", () => {
@@ -89,13 +97,38 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 		expect(lines[1]).toBe("");
 	});
 
-	it("plain text content is unchanged (strip ANSI)", () => {
+	it("plain text content preserves body lines (strip ANSI)", () => {
 		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const plain = stripVTControlCharacters(rendered);
-		// All original lines should be present verbatim in the plain output.
-		for (const line of DIFF.split("\n")) {
+		for (const line of DIFF.split("\n").slice(1)) {
 			expect(plain).toContain(line);
 		}
+		expect(plain).toContain("Edited packages/runner/test/smoke-tui.test.ts");
+	});
+});
+
+describe("formatDiffHeader / DiffBlock", { tags: ["unit"] }, () => {
+	it("formatDiffHeader counts add and remove lines", () => {
+		expect(formatDiffHeader("edit ui.ts", ["+1 a", "+2 b", "-3 c"])).toBe("Edited ui.ts +2 -1");
+	});
+
+	it("DiffBlock paints soft backgrounds on +/- lines", () => {
+		const diff = ["edit ui.ts", "", "-1 old", "+1 new", " 2 ctx"].join("\n");
+		const block = new DiffBlock(diff, getTheme(), 0);
+		const lines = block.render(40);
+		const rem = lines.find((l) => stripVTControlCharacters(l).includes("old"));
+		const add = lines.find((l) => stripVTControlCharacters(l).includes("new"));
+		expect(rem).toBeDefined();
+		expect(add).toBeDefined();
+		// Background: truecolor/256 (`48;…`) or ansi16 (`4xm`)
+		expect(rem).toMatch(/\x1b\[(?:4[0-9]m|48;)/);
+		expect(add).toMatch(/\x1b\[(?:4[0-9]m|48;)/);
+		expect(stripVTControlCharacters(lines[0]!).trimEnd()).toBe("Edited ui.ts +1 -1");
+	});
+
+	it("makeToolOutputComponent routes text/x-diff to DiffBlock", () => {
+		const component = makeToolOutputComponent("edit a.ts\n+1 x", "text/x-diff", getTheme());
+		expect(component).toBeInstanceOf(DiffBlock);
 	});
 });
 
@@ -117,6 +150,7 @@ describe("diff display routing (displayKind = text/x-diff)", { tags: ["unit"] },
 		const rendered = renderDiffDisplay(diff, getTheme());
 		expect(rendered).toMatch(/\x1b\[32m/); // green for +
 		expect(rendered).toMatch(/\x1b\[31m/); // red for -
+		expect(stripVTControlCharacters(rendered.split("\n")[0]!)).toBe("Edited some/file.ts +1 -1");
 	});
 });
 

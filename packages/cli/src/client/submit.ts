@@ -14,6 +14,35 @@ import type { TokenFooterHandle, TuiWriter } from "./state.js";
  */
 const SEND_TIMEOUT_MS = 3_600_000;
 
+/** Messages submitted while idle+compacting — flushed after compact ends. */
+const compactionPark: string[] = [];
+
+/** Park a user message that arrived during idle compaction. */
+export function parkCompactionMessage(text: string): void {
+	compactionPark.push(text);
+}
+
+/** Current idle-compaction park depth (for pending-queue UI). */
+export function compactionParkLength(): number {
+	return compactionPark.length;
+}
+
+/**
+ * Deliver messages parked during idle compaction.
+ * Call when context.compacting transitions to active=false.
+ */
+export function flushCompactionPark(session: Pick<Session, "receive" | "send">): string[] {
+	const pending = compactionPark.splice(0, compactionPark.length);
+	for (const text of pending) {
+		if (typeof session.receive === "function") {
+			session.receive(text, { delivery: "followUp" });
+		} else if (typeof session.send === "function") {
+			void session.send(text);
+		}
+	}
+	return pending;
+}
+
 /** Dependencies and callbacks for the editor's onSubmit handler. */
 export interface SubmitConfig {
 	actorRoutes: InteractiveOptions["actorRoutes"];
@@ -227,8 +256,24 @@ async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
 	clearEditor();
 	addHistoryEntry(text);
 
-	// Mid-turn or mid-compact: fire-and-forget into the reasoner queue. Scrollback waits until drain.
-	if (isTurnActive?.() || isCompacting()) {
+	const turnActive = Boolean(isTurnActive?.());
+	const compacting = isCompacting();
+
+	// Idle + compacting: do not call receive (reasoner would pump a racing turn and drop).
+	// Park locally; flushCompactionPark runs when context.compacting active=false.
+	if (compacting && !turnActive) {
+		parkCompactionMessage(message);
+		dispatch({
+			type: "message-queued",
+			queueLength: compactionParkLength(),
+			text: message,
+			mode: "followUp",
+		});
+		return;
+	}
+
+	// Mid-turn (including overflow compact): enqueue via reasoner; it emits message-queued.
+	if (turnActive) {
 		if (session.receive) {
 			session.receive(message, { delivery: delivery ?? "steer" });
 		} else if (executor) {

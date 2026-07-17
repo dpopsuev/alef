@@ -5,6 +5,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
 import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
+import { flushCompactionPark } from "./submit.js";
 
 /** TUI input events — dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
 export type TuiInputEvent =
@@ -87,13 +88,11 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 
 	promptConsole.removeInFlightCall(callId);
 
-	const remainingAfter = state.activeCalls.size - 1;
-	const showOutput = remainingAfter === 0;
-
-	// Prepend validation errors to display output
+	// Each tool-end paints its own display — parallel batches must not drop
+	// earlier results (only the last call used to show output).
 	const validationErrs = state.validationErrors.get(callId) ?? [];
-	let enhancedDisplay = showOutput && display?.trim() ? display : null;
-	if (validationErrs.length > 0 && showOutput) {
+	let enhancedDisplay = display?.trim() ? display : null;
+	if (validationErrs.length > 0) {
 		const errSection = validationErrs.join("\n");
 		enhancedDisplay = enhancedDisplay ? `${errSection}\n\n${enhancedDisplay}` : errSection;
 	}
@@ -105,7 +104,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		elapsedMs,
 		ok,
 		enhancedDisplay,
-		showOutput && display?.trim() ? (displayKind ?? null) : null,
+		display?.trim() ? (displayKind ?? null) : null,
 	);
 
 	const innerReply = state.innerReplies.get(callId);
@@ -132,7 +131,9 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	innerReplies.delete(callId);
 
 	const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
-	if (batchDone) {
+	// Per-tool elapsedMs is already on each completed block; batch timing is
+	// only useful when several tools finished together.
+	if (batchDone && state.batchCallCount > 1) {
 		writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
 	}
 
@@ -164,6 +165,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		exitCodes,
 		innerReplies,
 		batchStartedAt: batchDone ? null : state.batchStartedAt,
+		batchCallCount: batchDone ? 0 : state.batchCallCount,
 		focusedCallId: batchDone ? null : (nextFocus ?? null),
 	};
 }
@@ -191,6 +193,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 		...state,
 		activeCalls: new Map(),
 		batchStartedAt: null,
+		batchCallCount: 0,
 		pendingFooterShown: false,
 		abortCurrentTurn: undefined,
 	};
@@ -221,8 +224,30 @@ export function dispatchTuiEvent(
 			handler(event.payload, {
 				setIntent: (text) => promptConsole.setIntent(text),
 				setStatus: (text, clearAfterTurns) => promptConsole.setStatus(text, clearAfterTurns),
+				setNotice: (text, clearAfterTurns) => promptConsole.setNotice(text, clearAfterTurns),
 				setWidgetAbove: (text) => promptConsole.setWidgetAbove(text),
+				setTopicLabel: (text) => promptConsole.setTopicLabel(text),
 			});
+		}
+		if (
+			event.signalType === "session.metadata.refresh" &&
+			typeof event.payload.title === "string" &&
+			event.payload.title.trim()
+		) {
+			const title = event.payload.title.trim();
+			if (title !== session.getDiscussion?.()?.topicTitle) {
+				session.setDiscussion?.({ topicTitle: title });
+			}
+		}
+		if (event.signalType === "context.compacting" && event.payload.active === false) {
+			const flushed = flushCompactionPark(session);
+			for (const text of flushed) {
+				// Pending panel already holds them; promote to scrollback on flush.
+				writer.addUserMessage(text);
+			}
+			if (flushed.length > 0) {
+				promptConsole.syncPendingQueue({ queueLength: 0 });
+			}
 		}
 		if (event.signalType === "context.compacted" && typeof event.payload.estimatedAfter === "number") {
 			return { ...state, contextFillTokens: event.payload.estimatedAfter };
@@ -333,10 +358,12 @@ export function dispatchTuiEvent(
 		if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
 		const activeCalls = new Map(state.activeCalls);
 		activeCalls.set(callId, { name, keyArg, args, children: new Map(), depth: 0 });
+		const startingBatch = state.batchStartedAt === null;
 		return {
 			...state,
 			activeCalls,
 			batchStartedAt: state.batchStartedAt ?? Date.now(),
+			batchCallCount: startingBatch ? 1 : state.batchCallCount + 1,
 			pendingFooterShown: true,
 		};
 	}

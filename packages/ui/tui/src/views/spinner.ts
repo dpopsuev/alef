@@ -2,22 +2,8 @@ import chalk from "chalk";
 import type { ColorToken } from "../ansi.js";
 import { color, colorDepth } from "../ansi.js";
 
-const SCRIPT_RANGES: readonly { start: number; count: number }[] = [
-	{ start: 0x3041, count: 83 }, // Japanese Hiragana
-	{ start: 0xac00, count: 40 }, // Korean Hangul
-	{ start: 0x0410, count: 32 }, // Russian Cyrillic
-	{ start: 0x0905, count: 48 }, // Hindi Devanagari
-	{ start: 0x0391, count: 24 }, // Greek
-	{ start: 0x05d0, count: 27 }, // Hebrew
-	{ start: 0x4e00, count: 50 }, // Chinese CJK
-	{ start: 0x0e01, count: 44 }, // Thai
-	{ start: 0x0621, count: 28 }, // Arabic
-	{ start: 0x0041, count: 26 }, // Latin
-];
-
-const SCRIPTS: readonly string[][] = SCRIPT_RANGES.map((r) =>
-	Array.from({ length: r.count }, (_, i) => String.fromCodePoint(r.start + i)),
-);
+/** Stable braille spinners — no script-letter pools (Hebrew/CJK) in chrome. */
+const BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
 let counter = 0;
 const indexMap = new Map<string, number>();
@@ -88,10 +74,9 @@ function hueToAnsi256(hue: number): number {
  */
 export function spinnerFrame(id: string, elapsedMs: number): string {
 	const idx = indexFor(id);
-	const chars = SCRIPTS[idx % SCRIPTS.length]!;
-	const frameIdx = Math.floor(elapsedMs / 200) % chars.length;
+	const frameIdx = (Math.floor(elapsedMs / 80) + idx) % BRAILLE_FRAMES.length;
 	const hue = ((idx * 137) % 360) + ((elapsedMs / 50) % 360);
-	return chalk.ansi256(hueToAnsi256(hue))(chars[frameIdx]!);
+	return chalk.ansi256(hueToAnsi256(hue))(BRAILLE_FRAMES[frameIdx]!);
 }
 
 /**

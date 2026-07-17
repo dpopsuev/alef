@@ -25,12 +25,18 @@ class EditorWrapper implements Component {
 
 	constructor(private readonly inner: Editor) {}
 
+	/** Lower delimiter left — INSERT / NORMAL. */
 	setModeLabel(label: string): void {
-		this.bottomBorder.setLabel(label);
+		this.bottomBorder.setLeftLabel(label);
+	}
+
+	/** Lower delimiter right — compacting / compacted notices. */
+	setNoticeLabel(label: string): void {
+		this.bottomBorder.setRightLabel(label);
 	}
 
 	setTopicLabel(label: string): void {
-		this.topBorder.setLabel(label);
+		this.topBorder.setRightLabel(label);
 	}
 
 	render(width: number): string[] {
@@ -48,7 +54,8 @@ class EditorWrapper implements Component {
 
 import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef-tui/views";
 
-const SPINNER_FRAME_COUNT = 12;
+/** Braille frames for the thinking line — never greeter script-letter pools. */
+const THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
 const TOAST_DURATION_MS = 3000;
@@ -57,8 +64,42 @@ const MIN_WIDGET_LINES = 3;
 
 import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
-import { buildPool, randomCodePoint } from "./greeter.js";
 import { type ColorToken, color, glyph, selectListThemeFromTokens, statusGlyph, type ThemeTokens } from "./theme.js";
+
+/** Prefer header + active plan block + following rows when the sticky widget is height-capped. */
+export function prioritizeWidgetLines(lines: readonly string[], maxLines: number): string[] {
+	if (lines.length <= maxLines) return [...lines];
+	const header = lines[0] ?? "";
+	const body = lines.slice(1);
+	const activeIdx = body.findIndex((line) => line.includes("◄") || /^\s*●/.test(line));
+
+	let block: string[] = [];
+	let rest: string[] = body;
+	if (activeIdx >= 0) {
+		let end = activeIdx + 1;
+		while (
+			end < body.length &&
+			(/^\s{4,}/.test(body[end]!) || body[end]!.includes("gate ·") || body[end]!.includes("inspect ·"))
+		) {
+			end++;
+		}
+		block = body.slice(activeIdx, end);
+		rest = [...body.slice(0, activeIdx), ...body.slice(end)];
+	}
+
+	const selected: string[] = [...block];
+	for (const line of rest) {
+		if (selected.length >= maxLines - 2) break;
+		selected.push(line);
+	}
+	const omitted = body.length - selected.length;
+	const result = [header, ...selected];
+	if (omitted > 0) {
+		while (result.length >= maxLines) result.pop();
+		result.push(`  … ${omitted} more`);
+	}
+	return result.slice(0, maxLines);
+}
 
 /** Manages the input-zone UI: editor, spinner, in-flight tool cards, and status widgets. */
 export class PromptConsole {
@@ -66,7 +107,6 @@ export class PromptConsole {
 
 	private readonly statusText: Text;
 	private editorWrapper!: EditorWrapper;
-	private readonly frames: string[];
 	private frameIdx = 0;
 	private thinkingStart = 0;
 	private thinkingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -75,10 +115,8 @@ export class PromptConsole {
 	private readonly t: ThemeTokens;
 
 	private readonly pendingFooter: DynamicText;
-	private pendingFooterStyle: (s: string) => string = (s) => s;
-	private pendingFooterActive = false;
 
-	private statusClearAfterTurns: number | null = null;
+	private noticeClearAfterTurns: number | null = null;
 
 	private readonly inFlightQueue = new Container();
 	private readonly inFlightCalls = new Map<
@@ -117,10 +155,6 @@ export class PromptConsole {
 		this.tui = tui;
 		this.t = t;
 
-		const spinnerPool = buildPool();
-		const spinnerBlock = spinnerPool[0]!;
-		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () => randomCodePoint(spinnerBlock));
-
 		this.statusText = new Text("", 0, 0);
 		this.pendingQueue = new PendingQueuePanel({
 			theme: {
@@ -140,10 +174,8 @@ export class PromptConsole {
 		this.chunkDetail = new Text("", 2, 0);
 		this.inspectorHint = new Text("", 0, 0);
 
-		this.pendingFooter = new DynamicText((w) => {
-			if (!this.pendingFooterActive) return "";
-			return new SeparatorLine({ style: this.pendingFooterStyle }).render(w)[0]!;
-		});
+		// Sticky anchor only — never paint a bare mid-run delimiter (Scribe: hide-full-width-delimiter…).
+		this.pendingFooter = new DynamicText(() => "");
 	}
 
 	mount(): void {
@@ -187,13 +219,11 @@ export class PromptConsole {
 		this.thinkingStart = Date.now();
 		this.frameIdx = 0;
 		const tick = (): void => {
-			this.frameIdx = (this.frameIdx + 1) % this.frames.length;
+			this.frameIdx = (this.frameIdx + 1) % THINKING_FRAMES.length;
 			const elapsedMs = Date.now() - this.thinkingStart;
 			const elapsedS = fmtMs(elapsedMs);
-			const frame = this.frames[this.frameIdx] ?? glyph("state:active");
+			const frame = THINKING_FRAMES[this.frameIdx] ?? glyph("state:active");
 			const level = this.pressure.level();
-			// Hue cycles through the full 360° spectrum over time;
-			// pressure multiplies the rotation rate so busy turns spin faster.
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
 			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
 			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}${intent}`);
@@ -224,21 +254,29 @@ export class PromptConsole {
 		}
 	}
 
-	setStatus(text: string, clearAfterTurns?: number): void {
+	/** Lower-delimiter left: INSERT / NORMAL (never used for compaction notices). */
+	setStatus(text: string, _clearAfterTurns?: number): void {
 		this.editorWrapper.setModeLabel(text);
+	}
+
+	/** Lower-delimiter right: compacting / compacted. Does not move the mode label. */
+	setNotice(text: string, clearAfterTurns?: number): void {
+		this.editorWrapper.setNoticeLabel(text);
 		if (clearAfterTurns !== undefined && clearAfterTurns > 0) {
-			this.statusClearAfterTurns = clearAfterTurns;
+			this.noticeClearAfterTurns = clearAfterTurns;
+		} else if (!text) {
+			this.noticeClearAfterTurns = null;
 		} else {
-			this.statusClearAfterTurns = null;
+			this.noticeClearAfterTurns = null;
 		}
 	}
 
 	onTurnComplete(): void {
-		if (this.statusClearAfterTurns !== null) {
-			this.statusClearAfterTurns -= 1;
-			if (this.statusClearAfterTurns <= 0) {
-				this.editorWrapper.setModeLabel("");
-				this.statusClearAfterTurns = null;
+		if (this.noticeClearAfterTurns !== null) {
+			this.noticeClearAfterTurns -= 1;
+			if (this.noticeClearAfterTurns <= 0) {
+				this.editorWrapper.setNoticeLabel("");
+				this.noticeClearAfterTurns = null;
 			}
 		}
 	}
@@ -264,9 +302,7 @@ export class PromptConsole {
 			return;
 		}
 		const maxLines = Math.max(MIN_WIDGET_LINES, Math.floor(this.tui.terminal.rows * MAX_WIDGET_HEIGHT_FRACTION));
-		const lines = text.split("\n");
-		const truncated =
-			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
+		const truncated = prioritizeWidgetLines(text.split("\n"), maxLines);
 		const activeGlyph = statusGlyph("active");
 		const doneGlyph = statusGlyph("done");
 		const pendingGlyph = statusGlyph("pending");
@@ -378,16 +414,11 @@ export class PromptConsole {
 		}
 	}
 
-	showPendingFooter(fg: ColorToken): void {
-		this.pendingFooterActive = true;
-		this.pendingFooterStyle = (s) => color(s, fg);
-		this.tui.requestRender();
+	showPendingFooter(_fg: ColorToken): void {
+		// Sticky anchor stays mounted; never paint a mid-run full-width delimiter.
 	}
 
-	hidePendingFooter(): void {
-		this.pendingFooterActive = false;
-		this.tui.requestRender();
-	}
+	hidePendingFooter(): void {}
 
 	setFocusedCall(callId: string | null): void {
 		this.focusedId = callId;

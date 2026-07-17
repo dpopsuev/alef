@@ -109,26 +109,34 @@ function registerContributions(
 		const before = Number(payload.estimatedBefore ?? 0);
 		const after = Number(payload.estimatedAfter ?? 0);
 		const saved = before - after;
-		ui.setStatus(
+		ui.setNotice(
 			`compacted ${Number(payload.compactedTurns ?? 0)} turns, recovered ~${Math.round(saved / 1000)}k tokens`,
 			2,
 		);
 	});
 	uiSignalHandlerKeys.add("context.compacting");
 	uiSignalHandlers.set("context.compacting", (payload, ui) => {
-		if (payload.active) ui.setStatus("Compacting context...");
+		// Only show while active. Do not clear on false — context.compacted owns the
+		// completion notice (clearing here would wipe "compacted N turns…" immediately).
+		if (payload.active) ui.setNotice("Compacting context...");
 	});
 	uiSignalHandlerKeys.add("context.overflow-recovery");
 	uiSignalHandlers.set("context.overflow-recovery", (payload, ui) => {
 		if (payload.willRetry) {
-			ui.setStatus("Context overflow detected, auto-compacting...");
+			ui.setNotice("Context overflow detected, auto-compacting...");
 			return;
 		}
-		ui.setStatus(
+		ui.setNotice(
 			typeof payload.errorMessage === "string" && payload.errorMessage
 				? payload.errorMessage
 				: "Context overflow recovery failed",
 		);
+	});
+	uiSignalHandlerKeys.add("session.metadata.refresh");
+	uiSignalHandlers.set("session.metadata.refresh", (payload, ui) => {
+		if (typeof payload.title === "string" && payload.title.trim()) {
+			ui.setTopicLabel(payload.title.trim());
+		}
 	});
 }
 
@@ -236,7 +244,8 @@ export async function createLocalSession(
 
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
-	const currentModel = model;
+	/** Mutable — SessionHandle.setModel updates this so the LLM adapter sees switches. */
+	let currentModel = model;
 
 	// Resolve the blueprint name from the registry, falling back to loaded.blueprintName
 	// When no explicit blueprint is provided, we use the default blueprint's registered name
@@ -322,16 +331,24 @@ export async function createLocalSession(
 	agent.load(createTokenTelemetry(store.id));
 	agent.load(createResourceMeter());
 
+	const handleSlot: { current?: SessionHandle } = {};
 	const sessionAdapter: Session = {
 		state: sessionState,
-		getModel: () => model.id,
-		setModel: () => {},
-		getThinking: () => "",
-		setThinking: () => {},
+		getModel: () => handleSlot.current?.getModel() ?? currentModel.id,
+		setModel: (id: string) => {
+			handleSlot.current?.setModel(id);
+		},
+		getThinking: () => handleSlot.current?.getThinking() ?? "",
+		setThinking: (level: string) => {
+			handleSlot.current?.setThinking(level);
+		},
 		setTurnController: (c: AbortController | undefined) => {
 			llmController = c;
+			handleSlot.current?.setTurnController(c);
 		},
-		dispose: () => {},
+		dispose: () => {
+			void handleSlot.current?.dispose();
+		},
 		receive: (content, opts?) => {
 			const text =
 				typeof content === "string"
@@ -340,6 +357,10 @@ export async function createLocalSession(
 							.filter((part): part is { type: "text"; text: string } => part.type === "text")
 							.map((part) => part.text)
 							.join("");
+			if (handleSlot.current) {
+				handleSlot.current.receive(text, opts);
+				return;
+			}
 			controller.receive(text, "user", undefined, opts?.delivery);
 		},
 		subscribe: (obs: (event: AgentEvent) => void) => {
@@ -420,7 +441,11 @@ export async function createLocalSession(
 		discourseBackend,
 		humanAddress: humanActor.address,
 		agentAddress: agentActor.address,
+		onModelChange: (next) => {
+			currentModel = next;
+		},
 	});
+	handleSlot.current = handle;
 	if (llmController) handle.setTurnController(llmController);
 
 	const resolvedModelDisplay =

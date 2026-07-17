@@ -1,13 +1,17 @@
+import type { ColorToken } from "../ansi.js";
 import type { Component } from "../component.js";
 import { Markdown } from "../components/markdown.js";
-import { Text } from "../components/text.js";
 import type { ThemeTokens } from "../theme-types.js";
+import { applyBackgroundToLine, visibleWidth, wrapTextWithAnsi } from "../utils.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { spinnerFrame } from "./spinner.js";
-import { bold, color, dim, glyph } from "./theme.js";
+import { bg, bold, color, dim, glyph } from "./theme.js";
 import { pickKeyArg } from "@dpopsuev/alef-kernel/payload";
+
+const DIFF_ADD_BG: ColorToken = { truecolor: "#0d2818", ansi256: 22, ansi16: 42 };
+const DIFF_REM_BG: ColorToken = { truecolor: "#2a1215", ansi256: 52, ansi16: 41 };
 
 /**
  *
@@ -77,33 +81,75 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 	return pickKeyArg(args);
 }
 
+const LONG_ARG_CHARS = 80;
+
+/** Summarize a string arg for the tool header line (never inline multi-line bodies). */
+function formatArgValue(value: unknown): string {
+	if (typeof value === "string") {
+		if (value.includes("\n") || value.length > LONG_ARG_CHARS) {
+			const lines = value.split("\n").length;
+			return `<${lines} lines, ${value.length} chars>`;
+		}
+		return `'${value}'`;
+	}
+	if (typeof value === "number" || typeof value === "boolean") return String(value);
+	if (value === null || value === undefined) return String(value);
+	if (Array.isArray(value)) return `[${value.length} items]`;
+	return "{…}";
+}
+
 /**
  * Format tool arguments in command-style syntax for namespace.command(param: value) display.
  * Example: (path: 'file.ts', limit: 10)
+ * Large / multi-line strings (e.g. fs.write content) are summarized, not inlined.
  */
 export function formatToolArgs(args: Record<string, unknown>): string {
 	const entries = Object.entries(args);
 	if (entries.length === 0) return "";
-	
-	const formatted = entries
-		.map(([key, value]) => {
-			let valueStr: string;
-			if (typeof value === "string") {
-				valueStr = `'${value}'`;
-			} else if (typeof value === "number" || typeof value === "boolean") {
-				valueStr = String(value);
-			} else if (value === null || value === undefined) {
-				valueStr = String(value);
-			} else if (Array.isArray(value)) {
-				valueStr = `[${value.length} items]`;
-			} else {
-				valueStr = "{…}";
-			}
-			return `${key}: ${valueStr}`;
-		})
-		.join(", ");
-	
+	const formatted = entries.map(([key, value]) => `${key}: ${formatArgValue(value)}`).join(", ");
 	return `(${formatted})`;
+}
+
+const FENCE_LINE = /^\s*(`{3,}|~{3,})/;
+
+/** Strip markdown fence marker lines so terminal chrome never paints ``` / ~~~. */
+export function stripMarkdownFenceLines(text: string): string {
+	const lines = text.split("\n");
+	let start = 0;
+	let end = lines.length;
+	while (start < end && FENCE_LINE.test(lines[start]!)) start++;
+	while (end > start && FENCE_LINE.test(lines[end - 1]!)) end--;
+	const body = lines.slice(start, end).filter((line) => !FENCE_LINE.test(line));
+	return body.join("\n");
+}
+
+/** Prefer path/lang header + body for large string args (fs.write content, etc.). */
+export function largeTextArgPreview(
+	args: Record<string, unknown>,
+): { header: string; body: string; lang?: string } | null {
+	const path = typeof args.path === "string" ? args.path : undefined;
+	const contentKey = (["content", "text", "body", "data"] as const).find(
+		(key) => typeof args[key] === "string" && String(args[key]).includes("\n"),
+	);
+	if (!contentKey) return null;
+	const body = String(args[contentKey]);
+	const ext = path?.includes(".") ? path.split(".").pop()?.toLowerCase() : undefined;
+	const lang =
+		ext === "ts" || ext === "tsx"
+			? "typescript"
+			: ext === "js" || ext === "jsx"
+				? "javascript"
+				: ext === "py"
+					? "python"
+					: ext === "sql"
+						? "sql"
+						: ext === "md"
+							? "markdown"
+							: ext === "json"
+								? "json"
+								: ext;
+	const header = path ? `${path}${lang ? ` · ${lang}` : ""}` : `${contentKey}${lang ? ` · ${lang}` : ""}`;
+	return { header, body, ...(lang ? { lang } : {}) };
 }
 
 /**
@@ -118,20 +164,114 @@ export function truncateToolOutput(text: string): string {
 	return out;
 }
 
+/** Turn `edit path` + body into Cursor-style `Edited path +N -M`. */
+export function formatDiffHeader(firstLine: string, bodyLines: readonly string[]): string {
+	const path = firstLine.replace(/^edit\s+/i, "").trim() || firstLine;
+	let added = 0;
+	let removed = 0;
+	for (const line of bodyLines) {
+		if (line.startsWith("+")) added++;
+		else if (line.startsWith("-")) removed++;
+	}
+	const stats = [
+		added > 0 ? `+${added}` : null,
+		removed > 0 ? `-${removed}` : null,
+	]
+		.filter((part): part is string => part !== null)
+		.join(" ");
+	return stats ? `Edited ${path} ${stats}` : `Edited ${path}`;
+}
+
+type DiffLineKind = "header" | "add" | "rem" | "ctx" | "blank";
+
+/** Classify a unified-diff source line for coloring / background. */
+function classifyDiffLine(line: string, index: number): DiffLineKind {
+	if (index === 0) return "header";
+	if (line === "") return "blank";
+	if (line.startsWith("+")) return "add";
+	if (line.startsWith("-")) return "rem";
+	return "ctx";
+}
+
 /**
- *
+ * Color a unified-diff line (fg). Used by DiffBlock and string-level tests.
+ * Header becomes Edited path +N -M when the first line is `edit …`.
  */
 export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
-	const lines = diffText.split("\n");
+	const raw = diffText.split("\n");
+	if (raw.length === 0) return "";
+	const header = formatDiffHeader(raw[0] ?? "", raw.slice(1));
+	const lines = [header, ...raw.slice(1)];
 	return lines
 		.map((line, i) => {
-			if (i === 0) return bold(line);
-			if (line === "") return line;
-			if (line.startsWith("+")) return color(line, t.okFg);
-			if (line.startsWith("-")) return color(line, t.errFg);
+			const kind = classifyDiffLine(line, i);
+			if (kind === "header") return bold(line);
+			if (kind === "blank") return line;
+			if (kind === "add") return color(line, t.okFg);
+			if (kind === "rem") return color(line, t.errFg);
 			return dim(line);
 		})
 		.join("\n");
+}
+
+/**
+ * Width-aware diff card: soft full-width add/remove backgrounds + Edited header.
+ */
+export class DiffBlock implements Component {
+	private cachedWidth?: number;
+	private cachedLines?: string[];
+
+	constructor(
+		private readonly diffText: string,
+		private readonly t: ThemeTokens,
+		private readonly paddingX: number = INDENT.TOOL_OUTPUT,
+	) {}
+
+	invalidate(): void {
+		this.cachedWidth = undefined;
+		this.cachedLines = undefined;
+	}
+
+	render(width: number): string[] {
+		if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
+
+		const raw = this.diffText.split("\n");
+		const header = formatDiffHeader(raw[0] ?? "", raw.slice(1));
+		const source = [header, ...raw.slice(1)];
+		const contentWidth = Math.max(1, width - this.paddingX);
+		const pad = " ".repeat(this.paddingX);
+		const out: string[] = [];
+
+		for (let i = 0; i < source.length; i++) {
+			const line = source[i] ?? "";
+			const kind = classifyDiffLine(line, i);
+			const fg =
+				kind === "header"
+					? bold(line)
+					: kind === "add"
+						? color(line, this.t.okFg)
+						: kind === "rem"
+							? color(line, this.t.errFg)
+							: kind === "blank"
+								? ""
+								: dim(line);
+			const wrapped = wrapTextWithAnsi(fg, contentWidth);
+			const bgToken = kind === "add" ? DIFF_ADD_BG : kind === "rem" ? DIFF_REM_BG : null;
+			for (const segment of wrapped.length > 0 ? wrapped : [""]) {
+				const withPad = pad + segment;
+				if (bgToken) {
+					out.push(applyBackgroundToLine(withPad, width, (text) => bg(text, bgToken)));
+				} else {
+					const visibleLen = visibleWidth(withPad);
+					out.push(withPad + " ".repeat(Math.max(0, width - visibleLen)));
+				}
+			}
+		}
+
+		this.cachedWidth = width;
+		this.cachedLines = out;
+		return out;
+	}
 }
 
 /**
@@ -142,10 +282,10 @@ export function makeToolOutputComponent(
 	snippet: string,
 	displayKind: string | undefined,
 	t: ThemeTokens,
-): Text | Markdown {
-	const sanitized = sanitizeForDisplay(snippet);
+): Markdown | DiffBlock {
+	const sanitized = stripMarkdownFenceLines(sanitizeForDisplay(snippet));
 	if (displayKind === "text/x-diff") {
-		return new Text(renderDiffDisplay(sanitized, t), INDENT.TOOL_OUTPUT, 0);
+		return new DiffBlock(sanitized, t, INDENT.TOOL_OUTPUT);
 	}
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t));
 }

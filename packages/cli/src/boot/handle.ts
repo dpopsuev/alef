@@ -47,6 +47,8 @@ export interface SessionHandleComponents {
 	discourseBackend: DiscourseBackend;
 	humanAddress: string;
 	agentAddress: string;
+	/** Keep the LLM adapter's getModel() in sync when the session model changes. */
+	onModelChange?: (model: Model<Api>) => void;
 }
 
 /** Thin runtime state wrapper that delegates send/receive/subscribe to the assembled agent. */
@@ -63,6 +65,7 @@ export class SessionHandle implements Session {
 	private readonly _discourseBackend: DiscourseBackend;
 	private readonly _humanAddress: string;
 	private readonly _agentAddress: string;
+	private readonly _onModelChange?: (model: Model<Api>) => void;
 
 	private readonly _agent: Agent;
 	private readonly _directives: Directives;
@@ -85,6 +88,7 @@ export class SessionHandle implements Session {
 		discourseBackend,
 		humanAddress,
 		agentAddress,
+		onModelChange,
 	}: SessionHandleComponents) {
 		this.state = state;
 		this._currentModel = model;
@@ -100,10 +104,16 @@ export class SessionHandle implements Session {
 		this._discourseBackend = discourseBackend;
 		this._humanAddress = humanAddress;
 		this._agentAddress = agentAddress;
+		this._onModelChange = onModelChange;
 	}
 
 	getModel(): string {
 		return this._currentModel.id;
+	}
+
+	/** Full model object for adapters that need contextWindow / provider after a switch. */
+	getModelObject(): Model<Api> {
+		return this._currentModel;
 	}
 
 	setModel(id: string): void {
@@ -113,6 +123,7 @@ export class SessionHandle implements Session {
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
 		else this._thinkingState.level ??= "medium";
+		this._onModelChange?.(this._currentModel);
 		this._notifyStateChanged();
 	}
 
@@ -152,10 +163,13 @@ export class SessionHandle implements Session {
 
 	setDiscussion(next: Partial<DiscussionRef>): void {
 		const active = { ...this._discussionState.active, ...next };
+		const home = this._sameDiscussion(this._discussionState.home, active)
+			? { ...this._discussionState.home, ...next }
+			: this._discussionState.home;
 		const subscriptions = this._upsertSubscription(this._discussionState.subscriptions, active, {
 			mode: "participate",
 		});
-		this._setDiscussionState({ ...this._discussionState, active, subscriptions });
+		this._setDiscussionState({ ...this._discussionState, home, active, subscriptions });
 	}
 
 	subscribeDiscussion(

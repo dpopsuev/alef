@@ -53,6 +53,8 @@ export interface TuiState {
 	activeCalls: Map<string, ActiveCall>;
 	/** null means no tool batch is in progress. */
 	batchStartedAt: number | null;
+	/** Tools started in the current batch (for multi-tool batch timing). */
+	batchCallCount: number;
 	turnStartedAt: number;
 	pendingFooterShown: boolean;
 	sessionTokensTotal: number;
@@ -85,6 +87,7 @@ export function initialTuiState(): TuiState {
 	return {
 		activeCalls: new Map(),
 		batchStartedAt: null,
+		batchCallCount: 0,
 		turnStartedAt: 0,
 		pendingFooterShown: false,
 		sessionTokensTotal: 0,
@@ -167,6 +170,7 @@ export interface TuiPromptConsole {
 	setIntent(text: string): void;
 	setTopicLabel(text: string): void;
 	setStatus(text: string, clearAfterTurns?: number): void;
+	setNotice(text: string, clearAfterTurns?: number): void;
 	setWidgetAbove(text: string): void;
 	onTurnComplete(): void;
 	readonly isThinking: boolean;
@@ -201,5 +205,5 @@ export interface TuiUi {
 	promptConsole: TuiPromptConsole;
 	tui: Pick<TUI, "requestRender">;
 	t: ThemeTokens;
-	session: Pick<Session, "state" | "cancelToolCall">;
+	session: Pick<Session, "state" | "cancelToolCall" | "receive" | "send" | "getDiscussion" | "setDiscussion">;
 }

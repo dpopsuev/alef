@@ -8,8 +8,13 @@ export interface AdapterTheme {
 /** Mutable TUI surface slots that signal handlers can write into. */
 export interface UiSignalSurface {
 	setIntent(text: string): void;
+	/** Lower-delimiter left — INSERT / NORMAL. */
 	setStatus(text: string, clearAfterTurns?: number): void;
+	/** Lower-delimiter right — compacting / compacted notices. */
+	setNotice(text: string, clearAfterTurns?: number): void;
 	setWidgetAbove(text: string): void;
+	/** Upper delimiter right — active topic / session title. */
+	setTopicLabel(text: string): void;
 }
 
 /** Callback that updates TUI surface slots in response to a bus event payload. */

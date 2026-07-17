@@ -36,6 +36,7 @@ function noopUi() {
 			setIntent: () => {},
 			setTopicLabel: () => {},
 			setStatus: () => {},
+			setNotice: () => {},
 			onTurnComplete: () => {},
 			isThinking: false,
 			setWidgetAbove: () => {},

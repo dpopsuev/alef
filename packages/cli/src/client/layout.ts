@@ -21,7 +21,7 @@ import { boldColor, color, type ThemeTokens } from "./theme.js";
  *   INPUT
  *     upper delimiter — ─────────────────────────── (plain rule)
  *     input box       — Editor: vi-modal text, multiline, autocomplete
- *     lower delimiter — ─ NORMAL ─────────────────── (mode label embedded)
+ *     lower delimiter — ─ NORMAL ────── compacted … ─ (mode left, notices right)
  *     hints/app       — Vim hints, :command grid, or InputApplication
  *
  *   FOOTER

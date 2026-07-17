@@ -17,45 +17,66 @@ export interface SeparatorLineOptions {
 	weight?: SeparatorWeight;
 	label?: string;
 	style?: (s: string) => string;
+	/** @deprecated Prefer setLeftLabel / setRightLabel. Single-label align when only one side is set. */
 	labelAlign?: "left" | "right";
 }
 
 /**
- *
+ * Full-width rule with optional left and right embedded labels.
+ * Lower delimiter: mode (INSERT/NORMAL) left, notices (compacting) right.
  */
 export class SeparatorLine implements Component {
 	private weight: SeparatorWeight;
-	private label: string;
+	private leftLabel: string;
+	private rightLabel: string;
 	private style: (s: string) => string;
 	private labelAlign: "left" | "right";
 
 	constructor(opts: SeparatorLineOptions = {}) {
 		this.weight = opts.weight ?? "thin";
-		this.label = opts.label ?? "";
+		this.leftLabel = opts.labelAlign === "right" ? "" : (opts.label ?? "");
+		this.rightLabel = opts.labelAlign === "right" ? (opts.label ?? "") : "";
 		this.style = opts.style ?? ((s) => s);
 		this.labelAlign = opts.labelAlign ?? "left";
 	}
 
+	/** @deprecated Use setLeftLabel — kept for callers that set a single left label. */
 	setLabel(label: string): void {
-		this.label = label;
+		if (this.labelAlign === "right") this.rightLabel = label;
+		else this.leftLabel = label;
+	}
+
+	setLeftLabel(label: string): void {
+		this.leftLabel = label;
+	}
+
+	setRightLabel(label: string): void {
+		this.rightLabel = label;
 	}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
 		const char = WEIGHT_CHARS[this.weight];
-		const fullLine = char.repeat(width);
-		if (!this.label) return [this.style(fullLine)];
-		const text = ` ${this.label} `;
-		const labelWidth = visibleWidth(text);
-		
-		if (this.labelAlign === "right") {
-			const prefixLen = Math.max(0, width - labelWidth);
-			return [this.style(char.repeat(prefixLen)) + text];
+		const left = this.leftLabel ? ` ${this.leftLabel} ` : "";
+		const right = this.rightLabel ? ` ${this.rightLabel} ` : "";
+		const leftW = visibleWidth(left);
+		const rightW = visibleWidth(right);
+
+		if (!left && !right) return [this.style(char.repeat(width))];
+
+		if (!left && right) {
+			const prefixLen = Math.max(0, width - rightW);
+			return [this.style(char.repeat(prefixLen)) + right];
 		}
-		
-		const prefixLen = 1;
-		const suffixLen = Math.max(0, width - prefixLen - labelWidth);
-		return [this.style(char.repeat(prefixLen)) + text + this.style(char.repeat(suffixLen))];
+
+		if (left && !right) {
+			const prefixLen = 1;
+			const suffixLen = Math.max(0, width - prefixLen - leftW);
+			return [this.style(char.repeat(prefixLen)) + left + this.style(char.repeat(suffixLen))];
+		}
+
+		const fill = Math.max(0, width - 1 - leftW - rightW);
+		return [this.style(char.repeat(1)) + left + this.style(char.repeat(fill)) + right];
 	}
 }

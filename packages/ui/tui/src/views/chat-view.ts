@@ -1,4 +1,5 @@
 import type { Component } from "../component.js";
+import { Markdown } from "../components/markdown.js";
 import { Pad } from "../components/pad.js";
 import { Spacer } from "../components/spacer.js";
 import { Text } from "../components/text.js";
@@ -6,8 +7,14 @@ import type { ThemeTokens } from "../theme-types.js";
 import type { Container } from "../tui.js";
 import { fmtMs } from "./ansi-utils.js";
 import { INDENT, SPACING } from "./layout-constants.js";
+import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { bold, color, glyph } from "./theme.js";
-import { formatToolArgs } from "./tool-view.js";
+import {
+	formatToolArgs,
+	largeTextArgPreview,
+	stripMarkdownFenceLines,
+	truncateToolOutput,
+} from "./tool-view.js";
 
 /**
  *
@@ -73,9 +80,18 @@ export function appendCompletedToolBlock(
 	// Fall back to keyArg when args is empty (e.g., session history replay)
 	const argsStr = Object.keys(args).length > 0 ? formatToolArgs(args) : (keyArg ? ` ${keyArg}` : "");
 	const indent = " ".repeat(INDENT.TOOL_LINE);
-	const commandStr = ok ? name + argsStr : bold(name + argsStr);  // Bold command on error
+	const commandStr = ok ? name + argsStr : bold(name + argsStr);
 	const label = `${indent}${color(g, gFg)} ${color(commandStr, ok ? t.primaryFg : t.errFg)}  ${color(elapsed, t.mutedFg)}`;
 	add(new Text(label, 0, 0));
+	const preview = largeTextArgPreview(args);
+	if (preview) {
+		const pad = new Pad(INDENT.BLOCK, 0);
+		pad.addChild(new Text(color(preview.header, t.mutedFg), 0, 0));
+		const body = truncateToolOutput(stripMarkdownFenceLines(preview.body));
+		const md = preview.lang ? `\`\`\`${preview.lang}\n${body}\n\`\`\`` : body;
+		pad.addChild(new Markdown(md, INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t)));
+		add(pad);
+	}
 	if (outputComponent) {
 		const pad = new Pad(INDENT.BLOCK, 0);
 		pad.addChild(outputComponent);

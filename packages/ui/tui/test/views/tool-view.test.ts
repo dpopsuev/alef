@@ -8,8 +8,10 @@ import {
 	formatTokenUsage,
 	formatToolArgs,
 	keyArgFromPayload,
+	largeTextArgPreview,
 	renderDiffDisplay,
 	renderToolLine,
+	stripMarkdownFenceLines,
 	truncateToolOutput,
 } from "../../src/views/index.js";
 
@@ -78,10 +80,10 @@ describe("renderToolLine", { tags: ["unit"] }, () => {
 });
 
 describe("renderDiffDisplay", { tags: ["unit"] }, () => {
-	it("header line contains the file path", () => {
+	it("header line is Edited path with +/- stats", () => {
 		const diff = "edit src/foo.ts\n+1 new\n-1 old";
 		const out = renderDiffDisplay(diff, getTheme());
-		expect(stripVTControlCharacters(out.split("\n")[0]!)).toBe("edit src/foo.ts");
+		expect(stripVTControlCharacters(out.split("\n")[0]!)).toBe("Edited src/foo.ts +1 -1");
 	});
 
 	it("added lines are green", () => {
@@ -108,6 +110,33 @@ describe("formatToolArgs", { tags: ["unit"] }, () => {
 
 	it("summarizes arrays and objects", () => {
 		expect(formatToolArgs({ files: ["a", "b"], meta: { a: 1 } })).toBe("(files: [2 items], meta: {…})");
+	});
+
+	it("summarizes multi-line content instead of inlining", () => {
+		const content = "line1\nline2\nline3";
+		expect(formatToolArgs({ path: "schema.sql", content })).toBe(
+			"(path: 'schema.sql', content: <3 lines, 17 chars>)",
+		);
+	});
+});
+
+describe("stripMarkdownFenceLines", { tags: ["unit"] }, () => {
+	it("removes outer fence marker lines", () => {
+		const out = stripMarkdownFenceLines("```\nhello\n```");
+		expect(out).toBe("hello");
+		expect(out).not.toContain("```");
+	});
+});
+
+describe("largeTextArgPreview", { tags: ["unit"] }, () => {
+	it("extracts path and sql body for fs.write-style args", () => {
+		const preview = largeTextArgPreview({
+			path: "/tmp/schema.sql",
+			content: "CREATE TABLE t (\n  id INT\n);",
+		});
+		expect(preview?.lang).toBe("sql");
+		expect(preview?.header).toContain("schema.sql");
+		expect(preview?.body).toContain("CREATE TABLE");
 	});
 });
 

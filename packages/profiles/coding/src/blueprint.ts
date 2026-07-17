@@ -18,9 +18,9 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
-/** Read-only explore slice — same SBOM as coding YAML, fs+web only. */
+/** Read-only explore slice — fs+web+code-intel (no shell/write orchestration). */
 function exploreSliceFrom(domain: readonly Adapter[]): Adapter[] {
-	return domain.filter((a) => a.name === "fs" || a.name === "web");
+	return domain.filter((a) => a.name === "fs" || a.name === "web" || a.name === "code-intel");
 }
 
 /** Policy A: retitle from plan.desired; merge prior tags with a theme tag. */

@@ -17,6 +17,10 @@ import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import type { CodeIntelBackend, Diagnostic } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";
+import { ASTTools } from "./ast-tools.js";
+import { GraphBackend } from "./graph-backend.js";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -91,6 +95,63 @@ export const ANNOTATION_SCHEMA = z.object({
 	tags: z.array(z.string()).optional(),
 });
 
+const AST_MATCH_TOOL = {
+	name: "code.ast.match",
+	description:
+		"Search for symbols by pattern using AST-based matching. Supports wildcards (*) and filters by symbol kind. " +
+		"Returns structured matches with file location and confidence scores. Use for finding functions, classes, or types by name pattern.",
+	inputSchema: z.object({
+		pattern: z.string().min(1).describe("Symbol name pattern (supports * wildcard, e.g. 'calc*')"),
+		path: z.string().optional().describe("File or directory to search (default: workspace)"),
+		kind: z.string().optional().describe("Filter by symbol kind: function, class, interface, type, const, variable"),
+		maxResults: z.number().optional().describe("Maximum results to return (default: 100)"),
+	}),
+};
+
+const AST_EXTRACT_TOOL = {
+	name: "code.ast.extract",
+	description:
+		"Extract full definition of a symbol from a file including its AST structure. " +
+		"Returns the complete function/class/interface body with source text. Use to get implementation details without reading entire files.",
+	inputSchema: z.object({
+		symbol: z.string().min(1).describe("Symbol name to extract"),
+		path: z.string().min(1).describe("File path containing the symbol"),
+		kind: z.string().optional().describe("Symbol kind filter: function, class, interface, type"),
+	}),
+};
+
+const DEPENDENCIES_TOOL = {
+	name: "code.dependencies",
+	description:
+		"Get module dependencies for a file. Returns import paths, resolved file locations, and external package flags. " +
+		"Use to understand module coupling and trace dependency chains.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("File path to analyze"),
+	}),
+};
+
+const REFERENCES_TOOL = {
+	name: "code.references",
+	description:
+		"Find all references to a symbol across the workspace. Returns file, line, column, and context for each reference. " +
+		"More comprehensive than code.callers — includes reads, writes, type annotations, and imports.",
+	inputSchema: z.object({
+		symbol: z.string().min(1).describe("Symbol name to find references for"),
+		path: z.string().optional().describe("Restrict to symbol defined in this file"),
+		maxResults: z.number().optional().describe("Maximum results to return (default: 500)"),
+	}),
+};
+
+const IMPACT_TOOL = {
+	name: "code.impact",
+	description:
+		"Analyze blast radius for changing a file. Returns dependent files and affected symbols with caller counts. " +
+		"Use before refactoring to understand downstream impact.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("File path to analyze"),
+	}),
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -146,6 +207,12 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 			cwd: opts.cwd,
 			writableRoots: opts.writableRoots,
 		});
+
+	const astTools = new ASTTools();
+	
+	// Initialize graph backend for dependency/reference analysis
+	const graphDbPath = join(tmpdir(), `alef-code-intel-${process.pid}.db`);
+	const graphBackend = new GraphBackend({ dbPath: graphDbPath });
 
 	const base = defineAdapter(
 		"code-intel",
@@ -263,6 +330,76 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 						},
 					);
 				}),
+
+				"code.ast.match": typedAction(AST_MATCH_TOOL, async (ctx) => {
+					const { pattern, path, kind, maxResults } = ctx.payload;
+					const results = await astTools.match({ pattern, path, kind, maxResults });
+					return withDisplay(
+						{ results, count: results.length },
+						{
+							text: `Found ${results.length} match${results.length === 1 ? "" : "es"} for pattern \`${pattern}\``,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+
+				"code.ast.extract": typedAction(AST_EXTRACT_TOOL, async (ctx) => {
+					const { symbol, path, kind } = ctx.payload;
+					const result = await astTools.extract({ symbol, path, kind });
+					if (!result) {
+						return withDisplay({ symbol, found: false }, { text: `Symbol \`${symbol}\` not found in ${path}`, mimeType: "text/markdown" });
+					}
+					return withDisplay(
+						{ symbol: result.symbol, fullText: result.fullText },
+						{
+							text: `Extracted \`${symbol}\` (${result.symbol.kind}) from ${path}`,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+
+				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
+				"code.dependencies": typedAction(DEPENDENCIES_TOOL, async (ctx) => {
+					const { path } = ctx.payload;
+					if (!path) throw new Error("code.dependencies: path is required");
+					const deps = graphBackend.getDependencies(path);
+					return withDisplay(
+						{ dependencies: deps, count: deps.length },
+						{
+							text: `Found ${deps.length} dependenc${deps.length === 1 ? "y" : "ies"} in \`${path}\``,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+
+				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
+				"code.references": typedAction(REFERENCES_TOOL, async (ctx) => {
+					const { symbol, path } = ctx.payload;
+					if (!symbol) throw new Error("code.references: symbol is required");
+					const refs = graphBackend.getReferences(symbol, path);
+					return withDisplay(
+						{ references: refs, count: refs.length },
+						{
+							text: `Found ${refs.length} reference${refs.length === 1 ? "" : "s"} to \`${symbol}\``,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+
+				// eslint-disable-next-line @typescript-eslint/require-await -- sync graph query; typedAction requires Promise
+				"code.impact": typedAction(IMPACT_TOOL, async (ctx) => {
+					const { path } = ctx.payload;
+					if (!path) throw new Error("code.impact: path is required");
+					const impact = graphBackend.getImpact(path);
+					const summary = `Blast radius for \`${path}\`:\n- ${impact.dependents.length} dependent file${impact.dependents.length === 1 ? "" : "s"}\n- ${impact.affectedSymbols.length} symbol${impact.affectedSymbols.length === 1 ? "" : "s"} with callers`;
+					return withDisplay(
+						{ ...impact, path },
+						{
+							text: summary,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
 			},
 		},
 		{
@@ -282,7 +419,12 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 			},
 			ready: backend instanceof LocalCodeIntelBackend ? () => backend.warmUp() : undefined,
 			// eslint-disable-next-line @typescript-eslint/no-misused-promises -- async cleanup is intentional
-			onUnmount: backend instanceof LocalCodeIntelBackend ? () => backend.stopLsp() : undefined,
+			onUnmount: async () => {
+				if (backend instanceof LocalCodeIntelBackend) {
+					await backend.stopLsp();
+				}
+				graphBackend.close();
+			},
 		},
 	);
 
@@ -296,5 +438,8 @@ const CODE_INTEL_DIRECTIVES = [
 - code.hover provides type information and JSDoc documentation at a specific position. Use this to understand complex TypeScript types.
 - code.callers finds all call sites of a named symbol. Use it before refactoring to understand the blast radius of changes.
 - code.diagnose checks for TypeScript compilation errors in a file. Use this after editing TS files to verify they compile correctly.
+- code.dependencies lists module imports and resolved file paths for a file. Use to trace dependency chains.
+- code.references finds all uses of a symbol (reads, writes, calls, type annotations). More comprehensive than code.callers.
+- code.impact analyzes the blast radius of changing a file — shows dependent files and symbols with caller counts.
 - All code-intel tools work best on TypeScript files. Some tools (hover, diagnose) are TypeScript-only.`,
 ];

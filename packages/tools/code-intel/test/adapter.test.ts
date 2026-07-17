@@ -11,13 +11,24 @@ adapterComplianceSuite(() =>
 );
 
 describe("CodeIntelAdapter — tool surface", () => {
-	it("exposes five tools by default", () => {
+	it("exposes ten tools by default", () => {
 		const adapter = createCodeIntelAdapter({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 		});
 		const names = adapter.tools.map((t) => t.name).sort();
-		expect(names).toEqual(["code.callers", "code.diagnose", "code.hover", "code.review", "code.symbols"]);
+		expect(names).toEqual([
+			"code.ast.extract",
+			"code.ast.match",
+			"code.callers",
+			"code.dependencies",
+			"code.diagnose",
+			"code.hover",
+			"code.impact",
+			"code.references",
+			"code.review",
+			"code.symbols",
+		]);
 	});
 
 	it("ablation: actions allowlist restricts tools", () => {

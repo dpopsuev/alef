@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-tool-code-intel",
   "version": "0.0.2",
-  "description": "Code Intelligence adapter \u2014 unified fs + symbol intelligence with block caching",
+  "description": "Code Intelligence adapter — unified fs + symbol intelligence with block caching",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -28,6 +28,12 @@
     "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
+    "better-sqlite3": "^12.11.1",
+    "glob": "^13.0.6",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-python": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2",
     "typescript-language-server": "^5.2.0",
     "zod": "^4.4.3"
   },
@@ -50,6 +56,7 @@
   },
   "devDependencies": {
     "@dpopsuev/alef-testkit": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.3.0",
     "shx": "^0.4.0",
     "typescript": "^5.9.3",

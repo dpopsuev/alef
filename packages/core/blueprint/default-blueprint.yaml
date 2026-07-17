@@ -18,6 +18,8 @@ adapters:
       - "rm\\s+-rf\\s+/"
   - name: web
     package: "@dpopsuev/alef-tool-web"
+  - name: code-intel
+    package: "@dpopsuev/alef-tool-code-intel"
   - name: agent
     package: "@dpopsuev/alef-tool-agent"
   - name: skills

@@ -59,8 +59,6 @@ const THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧",
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
 const TOAST_DURATION_MS = 3000;
-const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
-const MIN_WIDGET_LINES = 3;
 
 import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
@@ -294,37 +292,22 @@ export class PromptConsole {
 	}
 
 	setWidgetAbove(text: string): void {
+		if (!this.widgetAboveText) {
+			if (!text) return;
+			this.widgetAboveText = new Text("", 0, 0);
+			this.widgetSlotAbove.addChild(this.widgetAboveText);
+		}
 		if (!text) {
-			if (this.widgetAboveText) {
-				this.widgetSlotAbove.removeChild(this.widgetAboveText);
-				this.widgetAboveText = null;
-			}
+			this.widgetSlotAbove.removeChild(this.widgetAboveText);
+			this.widgetAboveText = null;
 			return;
 		}
-		const maxLines = Math.max(MIN_WIDGET_LINES, Math.floor(this.tui.terminal.rows * MAX_WIDGET_HEIGHT_FRACTION));
-		const truncated = prioritizeWidgetLines(text.split("\n"), maxLines);
-		const activeGlyph = statusGlyph("active");
-		const doneGlyph = statusGlyph("done");
-		const pendingGlyph = statusGlyph("pending");
-		const errorGlyph = statusGlyph("error");
-		const currentGlyph = glyph("state:current");
-		const colored = truncated.map((line) => {
-			if (line.includes(activeGlyph) || line.includes(currentGlyph) || line.includes("◄")) {
-				return color(line, this.t.accentFg);
-			}
-			if (line.includes(errorGlyph)) return color(line, this.t.errFg);
-			if (line.includes(doneGlyph)) return color(line, this.t.mutedFg);
-			if (line.includes(pendingGlyph)) return color(line, this.t.secondaryFg);
-			if (line.startsWith("Plan ·")) return color(line, this.t.mutedFg);
-			return line;
-		});
-		const display = colored.join("\n");
-		if (!this.widgetAboveText) {
-			this.widgetAboveText = new Text(display, 0, 0);
-			this.widgetSlotAbove.addChild(this.widgetAboveText);
-		} else {
-			this.widgetAboveText.setText(display);
-		}
+		// Prefer a single status line; multi-line sticky trees are collapsed to the header.
+		const firstLine = text.split("\n").find((line) => line.trim()) ?? text;
+		const display = firstLine.startsWith("Plan ·")
+			? color(firstLine, this.t.mutedFg)
+			: color(firstLine, this.t.secondaryFg);
+		this.widgetAboveText.setText(display);
 	}
 
 	get isThinking(): boolean {

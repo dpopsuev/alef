@@ -4,6 +4,7 @@ import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { displayActorName } from "./actor-label.js";
+import { createTuiChrome } from "./chrome.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { renderSplash } from "./greeter.js";
 import { InputPanel } from "./panel.js";
@@ -25,7 +26,7 @@ import { boldColor, color, type ThemeTokens } from "./theme.js";
  *     hints/app       — Vim hints, :command grid, or InputApplication
  *
  *   FOOTER
- *     dashboard       — cwd (branch) │ session │ model │ tokens │ ctx battery bar
+ *     hints           — path · model · key tips (:status / :tokens for density)
  */
 
 /** The three top-level zones of the TUI: output, input, and footer. */
@@ -33,9 +34,10 @@ export interface TuiLayout {
 	output: OutputPanel;
 	input: InputPanel;
 	footer: FooterPanel;
+	chrome: ReturnType<typeof createTuiChrome>;
 }
 
-/** Compose the output panel, input panel, and dashboard footer into a ready TUI layout. */
+/** Compose the output panel, input panel, and hint footer into a ready TUI layout. */
 export async function buildLayout(
 	tui: TUI,
 	t: ThemeTokens,
@@ -73,7 +75,13 @@ export async function buildLayout(
 		atProvider: opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : undefined,
 	});
 
+	const chrome = createTuiChrome({
+		footer: dashboard,
+		console: input.promptConsole,
+		applications: input.applications,
+	});
+
 	tui.addChild(dashboard);
 
-	return { output, input, footer: dashboard };
+	return { output, input, footer: dashboard, chrome };
 }

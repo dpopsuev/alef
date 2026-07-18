@@ -16,6 +16,7 @@ import {
 	exit,
 	restart,
 	session,
+	status,
 	tokens,
 	update,
 } from "./lifecycle-cmds.js";
@@ -58,6 +59,7 @@ registry
 	.register(restart)
 	.register(update)
 	.register(tokens)
+	.register(status)
 	.register(detach)
 	.register(clear, "clear")
 	.register(compact)

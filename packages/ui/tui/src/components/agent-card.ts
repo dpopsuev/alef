@@ -81,13 +81,12 @@ export class AgentCard implements Component {
 		const wrap = this._dimmed ? t.muted : (x: string) => x;
 
 		const row1 = truncateToWidth(this.renderIdentityRow(s, t, wrap), width, "…");
-
-		if (this._dimmed) return [row1];
-
-		const row2 = this.renderChunkRow(s, t, width);
-		const row3 = this.renderBudgetRow(s, t, wrap);
+		// Collapsed by default — Tab focus reveals chunk/budget/children.
+		if (!this._focused) return [row1];
 
 		const lines = [row1];
+		const row2 = this.renderChunkRow(s, t, width);
+		const row3 = this.renderBudgetRow(s, t, wrap);
 		if (row2) lines.push(row2);
 		if (row3) lines.push(truncateToWidth(row3, width, "…"));
 
@@ -108,20 +107,18 @@ export class AgentCard implements Component {
 		const modelShort = s.modelId?.split("/").pop()?.split(" ")[0];
 		if (modelShort) parts.push(this._focused ? t.secondary(modelShort) : t.muted(modelShort));
 		parts.push(this._focused ? t.secondary(fmtMs(s.elapsedMs)) : t.muted(fmtMs(s.elapsedMs)));
+		if (!this._focused && s.children.length > 0) {
+			parts.push(t.muted(`· ${s.children.length} tool${s.children.length === 1 ? "" : "s"}`));
+		}
 		return wrap(parts.join("  "));
 	}
 
 	private renderChunkRow(s: AgentCardState, t: AgentCardTheme, width: number): string {
-		if (this._focused) return "";
+		if (!this._focused || !s.lastChunk) return "";
 
 		const pad = "     ";
 		const maxW = Math.max(10, width - 6);
-
-		if (s.lastChunk) {
-			return `${pad}${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
-		}
-
-		return "";
+		return `${pad}${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
 	}
 
 	private renderBudgetRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {

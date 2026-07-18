@@ -97,7 +97,7 @@ export const plan: Command = {
 					ctx.tui.requestRender();
 					return;
 				}
-				ctx.writer.addNotice(focused.renderSummary());
+				ctx.writer.addNotice(`${focused.renderStatusLine()}\n\n${focused.renderTree()}`);
 				ctx.tui.requestRender();
 				return;
 			}

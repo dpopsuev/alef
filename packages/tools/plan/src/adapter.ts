@@ -158,6 +158,15 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		mountedBus?.notification.publish({ type, payload, correlationId: "" });
 	}
 
+	/** Sticky chrome gets a one-line status; full tree stays available for :plan. */
+	function emitPlanChrome(plan: PlanGraph | null): void {
+		if (!plan) {
+			emit("plan.tree", { tree: "", status: "" });
+			return;
+		}
+		emit("plan.tree", { tree: plan.renderTree(), status: plan.renderStatusLine() });
+	}
+
 	/** Publish step.ready domain events for the work queue (EDA choreography). */
 	function emitReadyQueue(plan: PlanGraph): void {
 		const ready = plan.allReady();
@@ -252,7 +261,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			intent: ctx.payload.desired,
 			dimensions: [{ domain: "plan", key: "verify", target: ctx.payload.verify, priority: 1 }],
 		});
-		emit("plan.tree", { tree: plan.renderTree() });
+		emitPlanChrome(plan);
 		postToDiscourse(plan.id, plan.id, {
 			type: "plan:opened",
 			current: ctx.payload.current,
@@ -290,7 +299,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		try {
 			const plan = store.focus(ctx.payload.id);
 			cached = plan;
-			emit("plan.tree", { tree: plan.renderTree() });
+			emitPlanChrome(plan);
 			emit("plan.intent", { text: plan.nextReady()?.label ?? plan.desired });
 			return withDisplay(
 				{ id: plan.id, phase: plan.phase, desired: plan.desired },
@@ -310,7 +319,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	async function handleBacklog(ctx: CommandHandlerCtx<z.infer<typeof PLAN_BACKLOG.inputSchema>>): Promise<Record<string, unknown>> {
 		store.backlog(ctx.payload.id);
 		clearCache();
-		emit("plan.tree", { tree: "" });
+		emitPlanChrome(null);
 		emit("plan.intent", { text: "" });
 		return withDisplay({ backlogged: true }, { text: "Plan backlogged. No focused plan.", mimeType: "text/plain" });
 	}
@@ -327,7 +336,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			plan.addStep(s.label, s.dependsOn ?? [], s.gates ?? [], s.inspector),
 		);
 		store.sync(plan);
-		emit("plan.tree", { tree: plan.renderTree() });
+		emitPlanChrome(plan);
 		emitReadyQueue(plan);
 		return withDisplay(
 			{ added: created.length, ids: created.map((s) => s.id), ready: plan.allReady().map((s) => s.id) },
@@ -360,7 +369,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					return withDisplay({ error: "cannot claim" }, { text: `Cannot claim ${stepId}`, mimeType: "text/plain" });
 				}
 				store.sync(plan);
-				emit("plan.tree", { tree: plan.renderTree() });
+				emitPlanChrome(plan);
 				emit("step.claimed", {
 					planId: plan.id,
 					stepId,
@@ -403,7 +412,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					);
 				}
 				store.sync(plan);
-				emit("plan.tree", { tree: plan.renderTree() });
+				emitPlanChrome(plan);
 				emitReadyQueue(plan);
 				postToDiscourse(plan.id, plan.id, { type: "step:released", stepId });
 				return withDisplay(
@@ -423,7 +432,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					owner: step.claim?.owner,
 				});
 				emit("plan.intent", { text: step.label });
-				emit("plan.tree", { tree: plan.renderTree() });
+				emitPlanChrome(plan);
 				const next = plan.nextReady();
 				return withDisplay(
 					{ stepId, status: "active", claim: step.claim ?? null, next: next?.id ?? null },
@@ -453,7 +462,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 					});
 					postToDiscourse(plan.id, plan.id, { type: "step:completed", stepId, result: step.result, progress: s });
 					const next = plan.nextReady();
-					emit("plan.tree", { tree: plan.renderTree() });
+					emitPlanChrome(plan);
 					emitReadyQueue(plan);
 					if (!next) emit("plan.intent", { text: "" });
 					return withDisplay(
@@ -475,14 +484,14 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				store.sync(plan);
 				emit("step.failed", { planId: plan.id, stepId, reason: result });
 				postToDiscourse(plan.id, plan.id, { type: "step:failed", stepId, reason: result ?? "failed" });
-				emit("plan.tree", { tree: plan.renderTree() });
+				emitPlanChrome(plan);
 				return withDisplay({ stepId, status: "failed" }, { text: `Failed: ${step.label} — ${result ?? "no reason"}`, mimeType: "text/plain" });
 			}
 			case "drop": {
 				const step = plan.dropStep(stepId, token);
 				if (!step) return withDisplay({ error: "cannot drop" }, { text: `Cannot drop ${stepId}`, mimeType: "text/plain" });
 				store.sync(plan);
-				emit("plan.tree", { tree: plan.renderTree() });
+				emitPlanChrome(plan);
 				return withDisplay({ stepId, status: "dropped" }, { text: `Dropped: ${step.label}`, mimeType: "text/plain" });
 			}
 			default:
@@ -529,7 +538,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		emit("plan.closed", { planId, summary: ctx.payload.summary });
 		postToDiscourse(planId, planId, { type: "plan:closed", summary: ctx.payload.summary, stats: plan.stats() });
 		emit("plan.intent", { text: "" });
-		emit("plan.tree", { tree: "" });
+		emitPlanChrome(null);
 		const summary = plan.renderSummary();
 		return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
 	}
@@ -566,7 +575,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 			from: custody.from,
 			note: custody.note,
 		});
-		emit("plan.tree", { tree: plan.renderTree() });
+		emitPlanChrome(plan);
 		const lease =
 			custody.leaseExpiresAt === undefined ? "no lease" : `lease until ${new Date(custody.leaseExpiresAt).toISOString()}`;
 		return withDisplay(
@@ -682,7 +691,13 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 							ui.setIntent(typeof payload.text === "string" ? payload.text : "");
 						},
 						"plan.tree": (payload, ui) => {
-							ui.setWidgetAbove(typeof payload.tree === "string" ? payload.tree : "");
+							const status =
+								typeof payload.status === "string"
+									? payload.status
+									: typeof payload.tree === "string" && payload.tree
+										? payload.tree.split("\n")[0] ?? ""
+										: "";
+							ui.setWidgetAbove(status);
 						},
 					},
 				},

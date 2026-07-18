@@ -506,7 +506,22 @@ export class PlanGraph {
 		return order.map((key) => byLabel.get(key)!);
 	}
 
-	/** Sticky TUI strip: header counts + status rows (Alef geometric glyphs, not checkmarks). */
+	/** One-line sticky status for the TUI (full tree via :plan / renderTree). */
+	renderStatusLine(): string {
+		const displaySteps = this.stepsForDisplay();
+		const done = displaySteps.filter((step) => step.status === "done").length;
+		const active = displaySteps.find((step) => step.status === "active");
+		const pending = displaySteps.filter((step) => step.status === "pending").length;
+		this.clearExpiredCustody();
+		const custodyOwner = this.data.custody?.owner;
+		const custody = custodyOwner ? ` · custody ${custodyOwner}` : "";
+		if (displaySteps.length === 0) return `Plan · no steps yet${custody} · :plan`;
+		const next = active ?? displaySteps.find((step) => step.status === "pending");
+		const stepBit = next ? ` · ${next.label}` : pending > 0 ? ` · ${pending} pending` : "";
+		return `Plan · ${done}/${displaySteps.length} done${stepBit}${custody} · :plan`;
+	}
+
+	/** Full plan tree for :plan detail (Alef geometric glyphs, not checkmarks). */
 	renderTree(): string {
 		const displaySteps = this.stepsForDisplay();
 		const done = displaySteps.filter((step) => step.status === "done").length;

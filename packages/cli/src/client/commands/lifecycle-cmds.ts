@@ -295,6 +295,42 @@ export const tokens: Command = {
 	},
 };
 
+/** Dense session chrome formerly painted in the footer dashboard. */
+export const status: Command = {
+	name: "status",
+	description: "Show session status (model, tokens, context) — detail view",
+	run(ctx: TuiHandlerContext) {
+		const lines = [
+			"Session status:",
+			`  Model:     ${ctx.session.state.modelId}`,
+			`  Thinking:  ${typeof ctx.session.getThinking === "function" ? ctx.session.getThinking() : "(n/a)"}`,
+			`  Session:   ${ctx.session.state.id}`,
+			`  Cwd:       ${ctx.opts?.cwd ?? "(unknown)"}`,
+		];
+		const stats = ctx.sessionTokens;
+		if (stats) {
+			lines.push("");
+			lines.push(
+				`  Tokens:    ↑${stats.input.toLocaleString()} ↓${stats.output.toLocaleString()} (total ${stats.total.toLocaleString()})`,
+			);
+			if (stats.costUsd > 0) lines.push(`  Cost:      $${stats.costUsd.toFixed(4)}`);
+			if (stats.contextWindow > 0) {
+				const fillPct = ((stats.contextFill / stats.contextWindow) * 100).toFixed(1);
+				lines.push(
+					`  Context:   ${stats.contextFill.toLocaleString()} / ${stats.contextWindow.toLocaleString()} (${fillPct}%)`,
+				);
+			}
+		} else {
+			lines.push("");
+			lines.push("  Tokens:    (unavailable — try :tokens after a turn)");
+		}
+		lines.push("");
+		lines.push("Hints: :tokens · :plan · Tab inspect agents · :help");
+		ctx.writer.addNotice(lines.join("\n"));
+		ctx.tui.requestRender();
+	},
+};
+
 /** Build the :help command against a live command list. */
 export function createHelpCommand(listCommands: () => ReadonlyArray<Command>): Command {
 	return {

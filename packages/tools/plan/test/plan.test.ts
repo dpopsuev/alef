@@ -292,6 +292,17 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(summary).toContain("create-the-index-page");
 	});
 
+	it("renderStatusLine is a single sticky line", () => {
+		const plan = new PlanGraph("p1", "here", "there", "tests pass", null);
+		plan.addStep("define the base interfaces");
+		plan.addStep("write the api docs");
+		const line = plan.renderStatusLine();
+		expect(line.split("\n")).toHaveLength(1);
+		expect(line).toContain("Plan ·");
+		expect(line).toContain(":plan");
+		expect(line).toContain("0/2");
+	});
+
 	it("renderTree shows header counts and step labels", () => {
 		const plan = new PlanGraph("p1", "a", "b", "c", null);
 		const a = plan.addStep("define the base interfaces");

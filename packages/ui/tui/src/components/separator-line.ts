@@ -1,7 +1,7 @@
 import type { Component } from "../component.js";
 import { SEPARATOR } from "../design/chars.js";
 import type { SeparatorWeight } from "../design/typography.js";
-import { visibleWidth } from "../utils.js";
+import { truncateToWidth, visibleWidth } from "../utils.js";
 
 const WEIGHT_CHARS: Record<SeparatorWeight, string> = {
 	thick: SEPARATOR.thick,
@@ -24,6 +24,7 @@ export interface SeparatorLineOptions {
 /**
  * Full-width rule with optional left and right embedded labels.
  * Lower delimiter: mode (INSERT/NORMAL) left, notices (compacting) right.
+ * Upper delimiter: topic title right — always keeps a corner dash on each end.
  */
 export class SeparatorLine implements Component {
 	private weight: SeparatorWeight;
@@ -57,26 +58,55 @@ export class SeparatorLine implements Component {
 	invalidate(): void {}
 
 	render(width: number): string[] {
+		if (width <= 0) return [""];
 		const char = WEIGHT_CHARS[this.weight];
-		const left = this.leftLabel ? ` ${this.leftLabel} ` : "";
-		const right = this.rightLabel ? ` ${this.rightLabel} ` : "";
-		const leftW = visibleWidth(left);
-		const rightW = visibleWidth(right);
+		const pad = (label: string): string => (label ? ` ${label} ` : "");
+
+		let left = pad(this.leftLabel);
+		let right = pad(this.rightLabel);
+		let leftW = visibleWidth(left);
+		let rightW = visibleWidth(right);
 
 		if (!left && !right) return [this.style(char.repeat(width))];
 
+		// Always reserve one rule cell on each used corner so labels never flush the edge.
 		if (!left && right) {
-			const prefixLen = Math.max(0, width - rightW);
-			return [this.style(char.repeat(prefixLen)) + right];
+			if (width < 2) return [this.style(char.repeat(width))];
+			right = this.fitPaddedLabel(this.rightLabel, width - 2);
+			rightW = visibleWidth(right);
+			const prefixLen = width - rightW - 1;
+			return [this.style(char.repeat(prefixLen)) + right + this.style(char.repeat(1))];
 		}
 
 		if (left && !right) {
-			const prefixLen = 1;
-			const suffixLen = Math.max(0, width - prefixLen - leftW);
-			return [this.style(char.repeat(prefixLen)) + left + this.style(char.repeat(suffixLen))];
+			if (width < 2) return [this.style(char.repeat(width))];
+			left = this.fitPaddedLabel(this.leftLabel, width - 2);
+			leftW = visibleWidth(left);
+			const suffixLen = width - 1 - leftW;
+			return [this.style(char.repeat(1)) + left + this.style(char.repeat(suffixLen))];
 		}
 
-		const fill = Math.max(0, width - 1 - leftW - rightW);
-		return [this.style(char.repeat(1)) + left + this.style(char.repeat(fill)) + right];
+		const corners = 2;
+		const budget = Math.max(0, width - corners);
+		if (leftW + rightW > budget) {
+			const leftBudget = Math.min(leftW, Math.max(0, Math.floor(budget / 2)));
+			const rightBudget = Math.max(0, budget - leftBudget);
+			left = this.fitPaddedLabel(this.leftLabel, leftBudget);
+			right = this.fitPaddedLabel(this.rightLabel, rightBudget);
+			leftW = visibleWidth(left);
+			rightW = visibleWidth(right);
+		}
+		const fill = Math.max(0, width - 1 - leftW - rightW - 1);
+		return [
+			this.style(char.repeat(1)) + left + this.style(char.repeat(fill)) + right + this.style(char.repeat(1)),
+		];
+	}
+
+	private fitPaddedLabel(label: string, maxPaddedWidth: number): string {
+		if (!label || maxPaddedWidth <= 0) return "";
+		if (maxPaddedWidth < 3) return truncateToWidth(label, maxPaddedWidth, "…");
+		const innerMax = maxPaddedWidth - 2;
+		const inner = truncateToWidth(label, innerMax, "…");
+		return inner ? ` ${inner} ` : "";
 	}
 }

@@ -2264,6 +2264,39 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			assert.strictEqual(editor.isShowingAutocomplete(), false);
 		});
 
+		it("renders autocomplete below the lower delimiter", async () => {
+			const editor = new Editor(createTestTUI(), defaultEditorTheme);
+			editor.setAutocompleteProvider({
+				getSuggestions: async (lines, _cursorLine, cursorCol) => {
+					const prefix = (lines[0] || "").slice(0, cursorCol);
+					if (!prefix.startsWith(":")) return null;
+					return {
+						items: [
+							{ value: ":q", label: "q", description: "Quit" },
+							{ value: ":help", label: "help", description: "Show help" },
+						],
+						prefix,
+					};
+				},
+				applyCompletion,
+			});
+
+			editor.handleInput(":");
+			await flushAutocomplete();
+			const lines = editor.render(80).map((line) => stripVTControlCharacters(line));
+			const contentIdx = lines.findIndex((line) => line.includes(":"));
+			const quitIdx = lines.findIndex((line) => line.includes("Quit"));
+			const borderIndexes = lines
+				.map((line, index) => (/^─+$/.test(line) ? index : -1))
+				.filter((index) => index >= 0);
+			assert.ok(contentIdx >= 0);
+			assert.ok(quitIdx > contentIdx);
+			assert.equal(borderIndexes.length, 2);
+			const lowerBorderIdx = borderIndexes[1]!;
+			assert.ok(quitIdx > lowerBorderIdx);
+			assert.equal(editor.autocompleteLineCount(), lines.length - 1 - lowerBorderIdx);
+		});
+
 		it("applies exact typed slash-argument value on Enter even when first item is highlighted", async () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 

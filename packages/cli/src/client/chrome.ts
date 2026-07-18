@@ -52,7 +52,7 @@ export function createTuiChrome(opts: TuiChromeOptions): TuiChrome {
 			flushWidgets();
 		},
 		setHint(text) {
-			opts.footer.setHint(text);
+			// Coaching / whichkey / Tab live as dim typewriter ghosts in the input.
 			opts.console.setHint(text);
 		},
 		registerColonApp(name, factory) {

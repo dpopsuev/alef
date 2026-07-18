@@ -39,6 +39,7 @@ export {
 	type ToolCallInfo,
 } from "./components/approval-dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
+export { IdleGhostHint, type IdleGhostHintOptions } from "./components/idle-ghost-hint.js";
 export { Envelope, type EnvelopeOptions } from "./components/envelope.js";
 export { FlowEdge, type FlowEdgeOptions } from "./components/flow-edge.js";
 export { FlowJunction, type FlowJunctionOptions } from "./components/flow-junction.js";

@@ -69,15 +69,16 @@ type CompactPhase = "idle" | "compacting" | "draining" | "celebrate";
 export type FooterPanel = DashboardFooter;
 
 /**
- * Footer chrome: path · context bar (primary) · model · hints.
+ * Footer chrome: path · compact context spark · model · blueprint.
  * Compaction: blink (attention) then drain (peak-end relief). Respects ALEF_REDUCED_MOTION.
+ * Coaching hints (: for commands) live in the empty input, not here.
  */
 export class DashboardFooter implements Component {
 	private readonly opts: DashboardFooterOptions;
 	private readonly branch: string | undefined;
 	private unsub: (() => void) | undefined;
 	private readonly statuses = new Map<string, string>();
-	private hint = ": for commands · Tab inspect agents";
+	private hint = "";
 	private readonly reducedMotion =
 		process.env.ALEF_REDUCED_MOTION === "1" || process.env.NO_MOTION === "1";
 
@@ -185,7 +186,7 @@ export class DashboardFooter implements Component {
 		if (this.opts.updateAvailable) {
 			rightParts.push(warnStyle(`↑ ${this.opts.updateAvailable.version}`));
 		}
-		rightParts.push(dimStyle(this.hint));
+		if (this.hint) rightParts.push(dimStyle(this.hint));
 		const right = rightParts.join(dimStyle(" · "));
 
 		const sep = dimStyle("  ");
@@ -236,7 +237,8 @@ export class DashboardFooter implements Component {
 
 		const used = this.phase === "idle" ? this.opts.store.get().contextUsed : this.displayUsed;
 		const fill = contextWindow > 0 ? Math.min(used / contextWindow, 1) : 0;
-		const barWidth = Math.min(Math.max(Math.floor(width * 0.22), 10), 28);
+		// Compact fill — counts carry the precision; bar is a glanceable spark only.
+		const barWidth = Math.min(Math.max(Math.floor(width * 0.06), 4), 8);
 		const pb = new ProgressBar({ value: used, max: contextWindow });
 		const bar = pb.format(barWidth);
 		const colorFn =

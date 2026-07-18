@@ -19,14 +19,14 @@ import { boldColor, color, type ThemeTokens } from "./theme.js";
  *     forums          — AgentForum: discourse channel switching
  *
  *   INPUT
- *     upper delimiter — ─────────────────────────── (plain rule)
+ *     upper delimiter — plain rule; topic title on the right once named
  *     input box       — Editor: vi-modal text, multiline, autocomplete
  *     lower delimiter — ─ NORMAL ────── compacted … ─ (mode left, notices right)
- *     hints/app       — Vim hints, :command grid, or InputApplication
+ *     hints/app       — editor :command SelectList (below lower delimiter), or InputApplication
  *
  *   FOOTER
- *     context bar     — primary context fill (blink on compact, drain on recover)
- *     hints           — path · model · key tips (:status / :tokens for density)
+ *     context bar     — compact context spark (blink on compact, drain on recover)
+ *     meta            — path · model · blueprint (coaching hints live in the empty input)
  */
 
 /** The three top-level zones of the TUI: output, input, and footer. */
@@ -53,8 +53,8 @@ export async function buildLayout(
 		requestRender: () => tui.requestRender(),
 		style: (s) => boldColor(s, t.accentFg),
 		dimStyle: (s) => color(s, t.mutedFg),
-		warnStyle: (s) => color(s, { ansi16: 93 }),
-		errorStyle: (s) => color(s, { ansi16: 91 }),
+		warnStyle: (s) => color(s, t.warnFg),
+		errorStyle: (s) => color(s, t.errFg),
 		buildInfo: BUILD_INFO,
 	});
 

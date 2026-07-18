@@ -9,6 +9,7 @@ import { UndoStack } from "../undo-stack.js";
 import { bufferToBase64, readClipboardImage } from "../utils/clipboard-image.js";
 import { processImage, getProcessingOptions, type ProcessedImage } from "../utils/image-processing.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, truncateToWidth, visibleWidth } from "../utils.js";
+import { IdleGhostHint } from "./idle-ghost-hint.js";
 import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list.js";
 
 const baseSegmenter = getSegmenter();
@@ -208,6 +209,8 @@ interface LayoutLine {
 export interface EditorTheme {
 	borderColor: (str: string) => string;
 	selectList: SelectListTheme;
+	/** Dim style for idle ghost hints inside the empty input. */
+	ghostHint?: (str: string) => string;
 }
 
 /**
@@ -218,6 +221,8 @@ export interface EditorOptions {
 	autocompleteMaxVisible?: number;
 	/** Image processing quality: 'general' (1568px), 'spatial' (2576px), or 'cost-optimized' (1024px). Default: 'general' */
 	processingQuality?: 'general' | 'spatial' | 'cost-optimized';
+	/** Disable empty-input idle ghost hints (tests). */
+	idleGhostHints?: boolean;
 }
 
 const SLASH_COMMAND_SELECT_LIST_LAYOUT: SelectListLayoutOptions = {
@@ -270,6 +275,8 @@ export class Editor implements Component, Focusable {
 	private autocompleteRequestTask: Promise<void> = Promise.resolve();
 	private autocompleteStartToken: number = 0;
 	private autocompleteRequestId: number = 0;
+	/** Trailing autocomplete lines from the last render (below the lower border). */
+	private renderedAutocompleteLines = 0;
 
 	// Paste tracking for large pastes
 	private pastes: Map<number, string> = new Map();
@@ -311,6 +318,8 @@ export class Editor implements Component, Focusable {
 	public onChange?: (text: string) => void;
 	public disableSubmit: boolean = false;
 
+	private readonly ghostHint: IdleGhostHint | undefined;
+
 	private readonly editorKeyActions: ReadonlyArray<[keyof Keybindings, () => void]> = [
 		["tui.editor.deleteToLineEnd", () => this.deleteToEndOfLine()],
 		["tui.editor.deleteToLineStart", () => this.deleteToStartOfLine()],
@@ -344,6 +353,31 @@ export class Editor implements Component, Focusable {
 		const maxVisible = options.autocompleteMaxVisible ?? 5;
 		this.autocompleteMaxVisible = Number.isFinite(maxVisible) ? Math.max(3, Math.min(20, Math.floor(maxVisible))) : 5;
 		this.processingQuality = options.processingQuality ?? 'general';
+		if (options.idleGhostHints !== false) {
+			this.ghostHint = new IdleGhostHint({
+				style: theme.ghostHint ?? ((s) => `\x1b[2m${s}\x1b[22m`),
+				requestRender: () => this.tui.requestRender(),
+				isEmpty: () => this.isEditorEmpty(),
+			});
+		}
+	}
+
+	/** Start the empty-input idle detector (call after the editor is mounted). */
+	armIdleHints(): void {
+		this.ghostHint?.arm();
+	}
+
+	/** Dim typewriter hint inside the empty input (whichkey / Tab / coaching). */
+	showGhostHint(text: string): void {
+		this.ghostHint?.show(text);
+	}
+
+	clearGhostHint(): void {
+		this.ghostHint?.clearHint();
+	}
+
+	disposeIdleHints(): void {
+		this.ghostHint?.dispose();
 	}
 
 	/** Set of currently valid paste IDs, for marker-aware segmentation. */
@@ -540,10 +574,11 @@ export class Editor implements Component, Focusable {
 					displayText = before + marker + cursor + restAfter;
 					// lineVisibleWidth stays the same - we're replacing, not adding
 				} else {
-					// Cursor is at the end - add highlighted space
+					// Cursor is at the end - add highlighted space, then idle ghost hint.
 					const cursor = "\x1b[7m \x1b[0m";
-					displayText = before + marker + cursor;
-					lineVisibleWidth = lineVisibleWidth + 1;
+					const ghost = this.ghostHint?.overlay() ?? "";
+					displayText = before + marker + cursor + ghost;
+					lineVisibleWidth = lineVisibleWidth + 1 + visibleWidth(ghost);
 					// If cursor overflows content width into the padding, flag it
 					if (lineVisibleWidth > contentWidth && paddingX > 0) {
 						cursorInPadding = true;
@@ -569,9 +604,11 @@ export class Editor implements Component, Focusable {
 			result.push(horizontal.repeat(width));
 		}
 
-		// Add autocomplete list if active
+		// Autocomplete below the lower delimiter (command hints under INSERT chrome).
+		this.renderedAutocompleteLines = 0;
 		if (this.autocompleteState && this.autocompleteList) {
 			const autocompleteResult = this.autocompleteList.render(contentWidth);
+			this.renderedAutocompleteLines = autocompleteResult.length;
 			for (const line of autocompleteResult) {
 				const lineWidth = visibleWidth(line);
 				const linePadding = " ".repeat(Math.max(0, contentWidth - lineWidth));
@@ -584,6 +621,7 @@ export class Editor implements Component, Focusable {
 
 	handleInput(data: string): void {
 		const kb = getKeybindings();
+		this.ghostHint?.onActivity();
 
 		// Handle character jump mode (awaiting next character to jump to)
 		if (this.jumpMode !== null) {
@@ -963,6 +1001,7 @@ export class Editor implements Component, Focusable {
 			this.pushUndoSnapshot();
 		}
 		this.setTextInternal(normalized);
+		this.ghostHint?.onActivity();
 	}
 
 	/**
@@ -2306,6 +2345,11 @@ export class Editor implements Component, Focusable {
 
 	public isShowingAutocomplete(): boolean {
 		return this.autocompleteState !== null;
+	}
+
+	/** Autocomplete lines appended after the lower border on the last render. */
+	public autocompleteLineCount(): number {
+		return this.renderedAutocompleteLines;
 	}
 
 	private updateAutocomplete(): void {

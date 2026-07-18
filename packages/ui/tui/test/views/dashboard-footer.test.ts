@@ -46,13 +46,23 @@ describe("DashboardFooter context bar", { tags: ["unit"] }, () => {
 		else process.env.ALEF_REDUCED_MOTION = prevMotion;
 	});
 
-	it("renders context bar as the primary fill signal", () => {
+	it("renders a compact context spark as the fill signal", () => {
 		const { footer } = makeFooter({ contextUsed: 50_000, contextWindow: 200_000 });
 		const line = stripAnsi(footer.render(120)[0]!);
 		expect(line).toContain("ctx");
 		expect(line).toMatch(/[█░]/);
 		expect(line).toContain("50k/200k");
 		expect(line).toContain("test-model");
+		const bar = line.match(/[█░]+/)?.[0] ?? "";
+		expect(bar.length).toBeLessThanOrEqual(8);
+		expect(bar.length).toBeGreaterThanOrEqual(4);
+	});
+
+	it("does not paint colon coaching on the footer — that lives in the empty input", () => {
+		const { footer } = makeFooter();
+		const line = stripAnsi(footer.render(140)[0]!);
+		expect(line).not.toContain(": for commands");
+		expect(line).not.toMatch(/Tab/i);
 	});
 
 	it("blinks while compacting", () => {

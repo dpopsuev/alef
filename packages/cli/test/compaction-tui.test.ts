@@ -37,6 +37,7 @@ function getTheme() {
 		secondaryFg: W,
 		mutedFg: W,
 		accentFg: W,
+		brightFg: W,
 		okFg: { ansi16: 32 },
 		warnFg: { ansi16: 33 },
 		errFg: { ansi16: 31 },
@@ -72,6 +73,36 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 		expect(bottom.startsWith("─ INSERT ")).toBe(true);
 		expect(bottom).toContain("compacted 356 turns");
 		expect(bottom.indexOf("INSERT")).toBeLessThan(bottom.indexOf("compacted"));
+	});
+
+	it("upper topic title keeps corner dashes and uses accentFg", () => {
+		const width = 48;
+		const children: { render(w: number): string[] }[] = [];
+		const fakeTui = {
+			addChild: (c: { render(w: number): string[] }) => children.push(c),
+			removeChild: () => {},
+			requestRender: () => {},
+			addInputListener: () => {},
+			setFocus: () => {},
+			setStickyFrom: () => {},
+			terminal: { rows: 40, cols: width },
+		} as unknown as TUI;
+
+		const theme = { ...getTheme(), accentFg: { ansi16: 95 } };
+		const zone = new PromptConsole(fakeTui, theme, "test-model");
+		zone.mount();
+		zone.setTopicLabel("review-session");
+
+		const wrapper = children.find((child) =>
+			child.render(width).some((line) => stripAnsi(line).includes("review-session")),
+		);
+		if (!wrapper) throw new Error("EditorWrapper not found");
+		const top = wrapper.render(width)[0]!;
+		const plain = stripAnsi(top);
+		expect(plain.startsWith("─")).toBe(true);
+		expect(plain.endsWith("─")).toBe(true);
+		expect(plain).toContain(" review-session ");
+		expect(top).toContain("\x1b[95m");
 	});
 
 	it("clears the right-side notice after clearAfterTurns without wiping mode", () => {

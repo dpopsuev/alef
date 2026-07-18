@@ -15,9 +15,6 @@ import {
 } from "@dpopsuev/alef-tui";
 export type { Component };
 
-import { registry } from "./commands/commands.js";
-import { CommandHintGrid } from "./hints.js";
-
 /** Wraps the Editor component with top and bottom separator borders. */
 class EditorWrapper implements Component {
 	private readonly topBorder = new SeparatorLine({ labelAlign: "right" });
@@ -43,7 +40,11 @@ class EditorWrapper implements Component {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
 		lines[0] = this.topBorder.render(width)[0]!;
-		lines[lines.length - 1] = this.bottomBorder.render(width)[0]!;
+		// Autocomplete trails below the lower delimiter — stamp INSERT on that rule, not the last hint line.
+		const bottomIndex = lines.length - 1 - this.inner.autocompleteLineCount();
+		if (bottomIndex >= 1) {
+			lines[bottomIndex] = this.bottomBorder.render(width)[0]!;
+		}
 		return lines;
 	}
 
@@ -137,7 +138,6 @@ export class PromptConsole {
 	private readonly inspectorHint: Text;
 	private focusedId: string | null = null;
 	private hintBar!: Text;
-	private commandGrid!: CommandHintGrid;
 	private intentText = "";
 	private readonly backgroundTaskPanel = new Text("", 0, 0);
 	private readonly backgroundTasks = new Map<
@@ -162,10 +162,10 @@ export class PromptConsole {
 			maxVisible: 5,
 		});
 
-		const selectListTheme = selectListThemeFromTokens(t, "bold");
 		const editorTheme: EditorTheme = {
 			borderColor: (s) => color(s, t.mutedFg),
-			selectList: selectListTheme,
+			selectList: selectListThemeFromTokens(t, "accent"),
+			ghostHint: (s) => color(s, t.mutedFg),
 		};
 		this.editor = new Editor(tui, editorTheme);
 
@@ -188,21 +188,11 @@ export class PromptConsole {
 		this.tui.addChild(this.pendingQueue);
 		this.editorWrapper = new EditorWrapper(this.editor);
 		this.tui.addChild(this.editorWrapper);
-
-		this.editor.onChange = (text) => {
-			this.updateCommandHints(text);
-			this.tui.requestRender();
-		};
-
-		this.commandGrid = new CommandHintGrid({
-			commands: registry.list().map((c) => ({ name: c.name, description: c.description })),
-			style: (s) => color(s, this.t.mutedFg),
-		});
-		this.tui.addChild(this.commandGrid);
 		this.tui.addChild(this.widgetSlotBelow);
 
 		this.hintBar = new Text("", 0, 0);
 		this.tui.addChild(this.hintBar);
+		this.editor.armIdleHints();
 	}
 
 	pulse(): void {
@@ -230,8 +220,8 @@ export class PromptConsole {
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};
 		this.thinkingTimer = setTimeout(tick, pressureToInterval(0));
-		this.commandGrid.hide();
-		this.hintBar.setText(this.inFlightCalls.size > 0 ? color("Tab to inspect subagents", this.t.mutedFg) : "");
+		if (this.inFlightCalls.size > 0) this.editor.showGhostHint("Tab to inspect subagents");
+		else this.editor.clearGhostHint();
 	}
 
 	stopThinking(): void {
@@ -239,17 +229,8 @@ export class PromptConsole {
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
 		this.hintBar.setText("");
+		this.editor.clearGhostHint();
 		this.intentText = "";
-	}
-
-	updateCommandHints(editorText: string): void {
-		if (editorText.startsWith(":")) {
-			const query = editorText.slice(1).trim();
-			this.commandGrid.setFilter(query);
-			this.commandGrid.show();
-		} else {
-			this.commandGrid.hide();
-		}
 	}
 
 	/** Lower-delimiter left: INSERT / NORMAL (never used for compaction notices). */
@@ -280,7 +261,10 @@ export class PromptConsole {
 	}
 
 	setHint(text: string): void {
-		this.hintBar.setText(text);
+		const plain = text.replace(/\x1b\[[0-9;]*m/g, "").trim();
+		this.hintBar.setText("");
+		if (plain) this.editor.showGhostHint(plain);
+		else this.editor.clearGhostHint();
 	}
 
 	setIntent(text: string): void {
@@ -288,7 +272,8 @@ export class PromptConsole {
 	}
 
 	setTopicLabel(text: string): void {
-		this.editorWrapper.setTopicLabel(text);
+		const title = text.trim();
+		this.editorWrapper.setTopicLabel(title ? color(title, this.t.accentFg) : "");
 	}
 
 	setWidgetAbove(text: string): void {
@@ -367,7 +352,7 @@ export class PromptConsole {
 		this.inFlightCalls.set(callId, entry);
 		this.inFlightQueue.addChild(card);
 		if (this.inFlightCalls.size === 1 && this.isThinking) {
-			this.hintBar.setText(color("Tab to inspect subagents", this.t.mutedFg));
+			this.editor.showGhostHint("Tab to inspect subagents");
 		}
 		this.tui.requestRender();
 	}
@@ -392,6 +377,9 @@ export class PromptConsole {
 			this.inFlightQueue.removeChild(entry.card);
 			this.inFlightCalls.delete(callId);
 			this.chunkAccumulators.delete(callId);
+			if (this.inFlightCalls.size === 0 && this.isThinking) {
+				this.editor.clearGhostHint();
+			}
 			this.refreshCards();
 			this.tui.requestRender();
 		}

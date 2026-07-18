@@ -59,6 +59,8 @@ export class PreviewSelectList implements Component {
 	private lastVisiblePreviewHeight = 6;
 	private pinPreviewToEnd: boolean;
 	private shouldPinToEnd = false;
+	private previewDirty = true;
+	private lastRefreshedPreviewWidth = 0;
 	private onPreviewNeedMore?: (item: SelectItem) => void;
 	private onReadingChange?: (reading: boolean) => void;
 	private readingMaxVisible: number;
@@ -79,13 +81,18 @@ export class PreviewSelectList implements Component {
 			this.shouldPinToEnd = this.pinPreviewToEnd;
 			this._previewScrollOffset = 0;
 			if (this.reading && item.value === "__new__") this.setReading(false);
-			this.refreshPreview(this.lastPreviewWidth);
+			this.invalidatePreview();
 		};
 
 		if (opts.items.length > 0) {
 			this._selectedItem = opts.items[0];
 			this.shouldPinToEnd = this.pinPreviewToEnd;
 		}
+	}
+
+	/** Mark preview lines stale (async load completed, external content change). */
+	invalidatePreview(): void {
+		this.previewDirty = true;
 	}
 
 	get mode(): PickerMode {
@@ -123,7 +130,7 @@ export class PreviewSelectList implements Component {
 		}
 		this._previewScrollOffset = 0;
 		if (this.reading) this.setReading(false);
-		this.refreshPreview(this.lastPreviewWidth);
+		this.invalidatePreview();
 	}
 
 	/** Leave read-only reading mode. Returns true if it was active. */
@@ -190,6 +197,7 @@ export class PreviewSelectList implements Component {
 		this.list.invalidate();
 		this.currentPreview = [];
 		this._previewScrollOffset = 0;
+		this.invalidatePreview();
 	}
 
 	render(width: number): string[] {
@@ -206,9 +214,7 @@ export class PreviewSelectList implements Component {
 		const previewWidth = Math.max(10, width - listWidth - borderWidth - 1);
 		this.lastPreviewWidth = previewWidth;
 
-		if (this._selectedItem !== undefined) {
-			this.refreshPreview(Math.max(1, previewWidth - 1));
-		}
+		this.ensurePreview(Math.max(1, previewWidth - 1));
 
 		const leftLines = this.list.render(listWidth);
 		const visiblePreviewHeight = Math.max(leftLines.length, 6);
@@ -299,7 +305,7 @@ export class PreviewSelectList implements Component {
 	private renderReading(width: number): string[] {
 		const previewWidth = Math.max(1, width);
 		this.lastPreviewWidth = previewWidth;
-		this.refreshPreview(previewWidth);
+		this.ensurePreview(previewWidth);
 
 		const visiblePreviewHeight = this.readingMaxVisible;
 		this.lastVisiblePreviewHeight = visiblePreviewHeight;
@@ -332,6 +338,20 @@ export class PreviewSelectList implements Component {
 	private requestMoreHistory(): void {
 		if (!this._selectedItem || !this.onPreviewNeedMore) return;
 		this.onPreviewNeedMore(this._selectedItem);
+	}
+
+	/** Rebuild preview lines only when selection/width/content invalidation requires it. */
+	private ensurePreview(previewWidth: number): void {
+		if (this._selectedItem === undefined) {
+			this.currentPreview = [];
+			this.previewDirty = false;
+			this.lastRefreshedPreviewWidth = previewWidth;
+			return;
+		}
+		if (!this.previewDirty && previewWidth === this.lastRefreshedPreviewWidth) return;
+		this.refreshPreview(previewWidth);
+		this.previewDirty = false;
+		this.lastRefreshedPreviewWidth = previewWidth;
 	}
 
 	private refreshPreview(previewWidth: number): void {

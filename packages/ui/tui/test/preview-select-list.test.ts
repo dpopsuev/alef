@@ -69,6 +69,7 @@ describe("PreviewSelectList history scroll", { tags: ["unit"] }, () => {
 
 		// prepend older history
 		lines = [...Array.from({ length: 5 }, (_, i) => `old ${i}`), ...lines];
+		list.invalidatePreview();
 		list.render(100);
 
 		expect(list.previewScrollOffset).toBe(midOffset + 5);
@@ -117,5 +118,35 @@ describe("PreviewSelectList history scroll", { tags: ["unit"] }, () => {
 		});
 		list.handleInput("z");
 		expect(list.isReading).toBe(false);
+	});
+
+	it("selection + render invokes previewFn once (not on every paint)", () => {
+		const previewFn = vi.fn(() => ["preview"]);
+		const list = new PreviewSelectList({
+			items: [
+				{ value: "a", label: "A" },
+				{ value: "b", label: "B" },
+			],
+			maxVisible: 8,
+			theme,
+			previewFn,
+		});
+
+		list.render(100);
+		expect(previewFn).toHaveBeenCalledTimes(1);
+
+		list.render(100);
+		expect(previewFn).toHaveBeenCalledTimes(1);
+
+		list.handleInput("j");
+		list.render(100);
+		expect(previewFn).toHaveBeenCalledTimes(2);
+
+		list.render(100);
+		expect(previewFn).toHaveBeenCalledTimes(2);
+
+		list.invalidatePreview();
+		list.render(100);
+		expect(previewFn).toHaveBeenCalledTimes(3);
 	});
 });

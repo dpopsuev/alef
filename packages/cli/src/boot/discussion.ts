@@ -29,12 +29,12 @@ export function deriveDiscussionForumId(cwd: string): string {
 	return `${base}-${shortHash(cwd)}`;
 }
 
-/** Default topic title: user title when present, otherwise the workspace basename. */
-export function deriveDiscussionTopicTitle(store: SessionStore, cwd: string): string {
-	const storedName = store.name()?.trim();
-	if (storedName) return storedName;
-	const workspaceName = basename(cwd);
-	return workspaceName === "" ? "conversation" : workspaceName;
+/**
+ * Topic title for the upper delimiter — only a user-picked session name.
+ * Empty on fresh boot until first-message naming (session.metadata.refresh).
+ */
+export function deriveDiscussionTopicTitle(store: SessionStore, _cwd?: string): string {
+	return store.name()?.trim() ?? "";
 }
 
 /** Root discussion coordinates for the current session. */

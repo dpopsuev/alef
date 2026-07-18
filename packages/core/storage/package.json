@@ -18,7 +18,8 @@
     "./sqlite/daemon": "./src/sqlite/daemon.ts",
     "./sqlite/migrations": "./src/sqlite/migrations.ts",
     "./sqlite/span-exporter": "./src/sqlite/span-exporter.ts",
-    "./service": "./src/service.ts"
+    "./service": "./src/service.ts",
+    "./testing/synthetic-sessions": "./test/helpers/synthetic-sessions.ts"
   },
   "files": [
     "dist"

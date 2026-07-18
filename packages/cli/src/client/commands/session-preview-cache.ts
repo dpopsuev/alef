@@ -76,3 +76,30 @@ export function previewPaneLines(
 	if (entry?.loading) return "loading";
 	return "start-load";
 }
+
+/** Stable key for memoizing rendered preview lines. */
+export function previewEntryFingerprint(entry: PreviewCacheEntry | undefined): string {
+	if (!entry) return "none";
+	return [entry.turns, entry.loading ? 1 : 0, entry.exhausted ? 1 : 0, entry.blocks.length, entry.error ?? ""].join(
+		":",
+	);
+}
+
+/** Memoize expensive block→line rendering across paint cycles. */
+export class PreviewLinesMemo {
+	private key = "";
+	private lines: string[] | undefined;
+
+	getOrCompute(sessionId: string, width: number, fingerprint: string, compute: () => string[]): string[] {
+		const next = `${sessionId}\0${width}\0${fingerprint}`;
+		if (this.lines && this.key === next) return this.lines;
+		this.key = next;
+		this.lines = compute();
+		return this.lines;
+	}
+
+	clear(): void {
+		this.key = "";
+		this.lines = undefined;
+	}
+}

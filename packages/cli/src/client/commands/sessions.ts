@@ -8,15 +8,13 @@ import { renderDisplayBlocksToLines } from "@dpopsuev/alef-tui/views";
 import { getTheme } from "../theme.js";
 import { runPicker } from "./picker.js";
 import {
-	type PreviewCacheEntry,
+	PreviewLinesMemo,
+	previewEntryFingerprint,
 	previewPaneLines,
-	SESSION_PREVIEW_TURNS_INITIAL,
 	SESSION_PREVIEW_TURNS_MAX,
 	SESSION_PREVIEW_TURNS_STEP,
-	settlePreviewFailure,
-	settlePreviewSuccess,
-	shouldLoadPreview,
 } from "./session-preview-cache.js";
+import { SessionPreviewLoader } from "./session-preview-loader.js";
 
 const SESSION_PICKER_MAX_VISIBLE = 12;
 
@@ -85,32 +83,15 @@ export async function pickSession(
 	let entries = scope === "current" ? currentEntries : (allEntries ?? []);
 	let items = toItems(entries, scope);
 
-	const previewCache = new Map<string, PreviewCacheEntry>();
 	let requestRender: (() => void) | undefined;
-
-	const loadPreview = (sessionId: string, turns: number): void => {
-		if (!preview) return;
-		const existing = previewCache.get(sessionId);
-		if (!shouldLoadPreview(existing, turns)) return;
-
-		previewCache.set(sessionId, {
-			turns,
-			blocks: existing?.blocks ?? [],
-			exhausted: existing?.exhausted ?? false,
-			loading: true,
-		});
-
-		void preview.getSessionPreview(sessionId, turns).then(
-			(blocks) => {
-				previewCache.set(sessionId, settlePreviewSuccess(previewCache.get(sessionId), turns, blocks));
-				requestRender?.();
-			},
-			(error: unknown) => {
-				previewCache.set(sessionId, settlePreviewFailure(previewCache.get(sessionId), turns, error));
-				requestRender?.();
-			},
-		);
-	};
+	const linesMemo = new PreviewLinesMemo();
+	const loader = preview
+		? new SessionPreviewLoader({
+				preview,
+				itemValues: () => items.map((item) => item.value),
+				onFocusedUpdate: () => requestRender?.(),
+			})
+		: undefined;
 
 	const result = await runPicker({
 		title: "Sessions",
@@ -127,33 +108,37 @@ export async function pickSession(
 			if (scope === "current") currentEntries = entries;
 			else allEntries = entries;
 			items = toItems(entries, scope);
-			previewCache.clear();
+			loader?.clear();
+			linesMemo.clear();
 			return items;
 		},
 		onPreviewNeedMore: (item) => {
-			if (item.value === "__new__" || !preview) return;
-			const cached = previewCache.get(item.value);
+			if (item.value === "__new__" || !loader) return;
+			const cached = loader.cache.get(item.value);
 			if (!cached || cached.loading || cached.exhausted) return;
 			const nextTurns = Math.min(cached.turns + SESSION_PREVIEW_TURNS_STEP, SESSION_PREVIEW_TURNS_MAX);
 			if (nextTurns <= cached.turns) return;
-			loadPreview(item.value, nextTurns);
+			loader.loadNow(item.value, nextTurns);
 		},
 		previewFn: (item, previewWidth, render) => {
 			requestRender = render;
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
-			if (!preview) return ["  (preview unavailable)"];
+			if (!loader || !preview) return ["  (preview unavailable)"];
 
-			const pane = previewPaneLines(previewCache.get(item.value), (blocks) =>
-				renderDisplayBlocksToLines(blocks, previewWidth, getTheme()),
+			loader.focus(item.value);
+			const entry = loader.cache.get(item.value);
+			const pane = previewPaneLines(entry, (blocks) =>
+				linesMemo.getOrCompute(item.value, previewWidth, previewEntryFingerprint(entry), () =>
+					renderDisplayBlocksToLines(blocks, previewWidth, getTheme()),
+				),
 			);
-			if (pane === "start-load") {
-				loadPreview(item.value, SESSION_PREVIEW_TURNS_INITIAL);
-				return ["  Loading..."];
-			}
+			if (pane === "start-load") return ["  …"];
 			if (pane === "loading") return ["  Loading..."];
 			return pane;
 		},
 	});
+
+	loader?.dispose();
 
 	if (!result) process.exit(0);
 	if (result.value === "__new__") return undefined;

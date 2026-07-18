@@ -93,6 +93,7 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 
 		const searchInput = opts.allowFilter ? new Input() : undefined;
 
+		const previewListRef: { current: PreviewSelectList | null } = { current: null };
 		const previewList = new PreviewSelectList({
 			items: opts.items,
 			maxVisible: opts.maxVisible ?? PICKER_MAX_VISIBLE,
@@ -100,7 +101,7 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 			listWidthFraction: opts.listWidthFraction,
 			pinPreviewToEnd: true,
 			onModeChange: (mode) => {
-				if (previewList.isReading) return;
+				if (previewListRef.current?.isReading) return;
 				modeLabel.setText(
 					color(mode === "insert" ? insertHint : normalHint, mode === "insert" ? t.accentFg : t.mutedFg),
 				);
@@ -108,9 +109,14 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 			onReadingChange: (reading) => {
 				modeLabel.setText(color(reading ? readingHint : normalHint, reading ? t.accentFg : t.mutedFg));
 			},
-			previewFn: (item, previewWidth) => opts.previewFn(item, previewWidth, () => tui.requestRender()),
+			previewFn: (item, previewWidth) =>
+				opts.previewFn(item, previewWidth, () => {
+					previewListRef.current?.invalidatePreview();
+					tui.requestRender();
+				}),
 			onPreviewNeedMore: opts.onPreviewNeedMore,
 		});
+		previewListRef.current = previewList;
 
 		const refreshStatus = () => {
 			statusLabel.setText(color(opts.statusLine?.() ?? "", t.mutedFg));

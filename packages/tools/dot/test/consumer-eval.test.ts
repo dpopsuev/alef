@@ -2,10 +2,6 @@
  * Productized Dot consumer harness — scripted regression + live-LLM share
  * createDotConsumerEval / runConsumerSuite (baseline API in @dpopsuev/alef-eval).
  */
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import {
 	createDotConsumerEval,
@@ -15,7 +11,6 @@ import {
 import { buildConsumerRunRecord, generateScoreboard } from "@dpopsuev/alef-eval/scoreboard";
 import { BlueprintHarness, createHeadlessSession, haveHeadlessLlm, step } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDotAdapter } from "../src/adapter.js";
 import { spawnDotGameProcess, type SpawnedDotGame } from "../src/client.js";
 import {
 	DOT_DESIRED_STATE,
@@ -24,6 +19,7 @@ import {
 	runEpisode,
 } from "../src/episode.js";
 import { DotWorld } from "../src/world.js";
+import { DOT_BLUEPRINT_PATH, DOT_PACKAGE_DIR, materializeDotAdapters } from "./load-dot-blueprint.js";
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, value));
@@ -65,24 +61,9 @@ describe("dot consumer eval — scripted", { tags: ["unit"] }, () => {
 		game = await spawnDotGameProcess({ seed, radius: 5, force });
 		process.env.DOT_GAME_URL = game.baseUrl;
 
-		const adapterPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
-		const cwd = mkdtempSync(join(tmpdir(), "dot-consumer-"));
-		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(
-			blueprintPath,
-			[
-				"name: dot-circle-agent",
-				"systemPrompt: |",
-				"  Keep the dot inside the circle.",
-				"  Use dot.observe and dot.move toward the origin (±2).",
-				"adapters:",
-				`  - path: ${adapterPath}`,
-			].join("\n"),
-		);
-
-		const harness = await BlueprintHarness.fromBlueprint(blueprintPath, {
+		const harness = await BlueprintHarness.fromBlueprint(DOT_BLUEPRINT_PATH, {
 			materialize: materializeBlueprint,
-			cwd,
+			cwd: DOT_PACKAGE_DIR,
 			script: [
 				...moves.map((move) => step.toolCall("dot.move", move, "correcting")),
 				step.reply("kept the dot in the circle"),
@@ -145,7 +126,8 @@ describe.skipIf(!haveHeadlessLlm())("dot consumer eval — live", { tags: ["real
 		game = await spawnDotGameProcess({ seed, radius: 5, force: 2.0 });
 		process.env.DOT_GAME_URL = game.baseUrl;
 
-		const session = await createHeadlessSession([createDotAdapter({ baseUrl: game.baseUrl })], {
+		const adapters = await materializeDotAdapters();
+		const session = await createHeadlessSession(adapters, {
 			systemPrompt: DOT_SYSTEM_PROMPT,
 			timeoutMs: 90_000,
 			desiredState: {

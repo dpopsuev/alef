@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
+import type { CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(__dirname, "../../..");
@@ -25,6 +26,23 @@ function findBlueprintYamls(): Array<{ name: string; path: string }> {
 	return results;
 }
 
+/** Package missing / unresolvable — must fail the suite (do not swallow). */
+function isResolveFailure(message: string): boolean {
+	return (
+		message.includes("Cannot find package") ||
+		message.includes("ERR_MODULE_NOT_FOUND") ||
+		message.includes("Cannot find module") ||
+		/Failed to load adapter '[^']+': Cannot find/.test(message)
+	);
+}
+
+function soloAdapterDefinition(
+	definition: CompiledAgentDefinition,
+	adapter: CompiledAgentDefinition["adapters"][number],
+): CompiledAgentDefinition {
+	return { ...definition, adapters: [adapter] };
+}
+
 describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 	const blueprints = findBlueprintYamls();
 
@@ -46,19 +64,54 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 				expect(definition.name).toBeTruthy();
 			});
 
-			it("materializes — all adapter packages resolve", async () => {
+			it("materializes every SBOM adapter (resolve + createAdapter)", async () => {
 				const definition = loadAgentDefinition(bp.path);
+				let result: Awaited<ReturnType<typeof materializeBlueprint>>;
 				try {
-					const result = await materializeBlueprint(definition, {
-						cwd: REPO_ROOT,
-					});
-					expect(result.adapters.length).toBeGreaterThan(0);
+					result = await materializeBlueprint(definition, { cwd: REPO_ROOT });
 				} catch (err) {
-					if (err instanceof Error && err.message.includes("Failed to load adapter")) {
-						// Adapter requires runtime config (e.g. workflow definition) — package resolves but create() fails
-						return;
-					}
-					throw err;
+					const message = err instanceof Error ? err.message : String(err);
+					expect(isResolveFailure(message), message).toBe(false);
+					throw new Error(`Blueprint ${bp.name} failed to materialize (not a resolve miss): ${message}`, {
+						cause: err,
+					});
+				}
+				expect(result.adapters).toHaveLength(definition.adapters.length);
+				const actual = result.adapters.map((adapter) => adapter.name).sort();
+				const declared = definition.adapters
+					.map((adapter) => adapter.name)
+					.filter((name) => name !== "_external")
+					.sort();
+				for (const name of declared) {
+					expect(actual).toContain(name);
+				}
+				for (const name of actual) {
+					expect(name).toBeTruthy();
+					expect(name).not.toBe("_external");
+				}
+			});
+
+			describe("per-adapter materialize", () => {
+				const definition = loadAgentDefinition(bp.path);
+				for (const adapter of definition.adapters) {
+					const label = adapter.path ? `${adapter.name} (${adapter.path})` : adapter.name;
+					it(`materializes ${label}`, async () => {
+						const solo = soloAdapterDefinition(definition, adapter);
+						try {
+							const result = await materializeBlueprint(solo, { cwd: REPO_ROOT });
+							expect(result.adapters).toHaveLength(1);
+							const runtimeName = result.adapters[0]!.name;
+							expect(runtimeName).toBeTruthy();
+							expect(runtimeName).not.toBe("_external");
+							if (adapter.name !== "_external") {
+								expect(runtimeName).toBe(adapter.name);
+							}
+						} catch (err) {
+							const message = err instanceof Error ? err.message : String(err);
+							expect(isResolveFailure(message), message).toBe(false);
+							throw err;
+						}
+					});
 				}
 			});
 

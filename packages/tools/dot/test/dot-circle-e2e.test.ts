@@ -1,7 +1,3 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import { adapterComplianceSuite, BlueprintHarness, step } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,6 +7,7 @@ import { createDotGameClient, spawnDotGameProcess, type SpawnedDotGame } from ".
 import { startDotGameServer, type DotGameServer } from "../src/game-server.js";
 import { DotWorld } from "../src/world.js";
 import { DOT_GOAL, runEpisode } from "../src/episode.js";
+import { DOT_BLUEPRINT_PATH, DOT_PACKAGE_DIR } from "./load-dot-blueprint.js";
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, value));
@@ -31,8 +28,21 @@ function precomputeMoves(seed: number, horizon: number, force: number): Array<{ 
 	return moves;
 }
 
-process.env.DOT_GAME_URL ??= "http://127.0.0.1:9";
 adapterComplianceSuite(() => createAdapter({ cwd: "/tmp" }));
+
+describe("dot createAdapter mount", { tags: ["unit"] }, () => {
+	it("materializes without DOT_GAME_URL (lazy bind)", async () => {
+		const prev = process.env.DOT_GAME_URL;
+		delete process.env.DOT_GAME_URL;
+		try {
+			const adapter = createAdapter({ cwd: "/tmp" });
+			expect(adapter.name).toBe("dot");
+		} finally {
+			if (prev === undefined) delete process.env.DOT_GAME_URL;
+			else process.env.DOT_GAME_URL = prev;
+		}
+	});
+});
 
 describe("dot plant (no Alef)", { tags: ["unit"] }, () => {
 	it("open-loop death — zero control + drift reaches game_over", () => {
@@ -103,24 +113,9 @@ describe("dot-circle E2E — blueprint + spawned game", { tags: ["unit"] }, () =
 		game = await spawnDotGameProcess({ seed, radius: 5, force });
 		process.env.DOT_GAME_URL = game.baseUrl;
 
-		const adapterPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
-		const cwd = mkdtempSync(join(tmpdir(), "dot-e2e-"));
-		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(
-			blueprintPath,
-			[
-				"name: dot-circle-agent",
-				"systemPrompt: |",
-				"  Keep the dot inside the circle.",
-				"  Use dot.observe and dot.move toward the origin (±2).",
-				"adapters:",
-				`  - path: ${adapterPath}`,
-			].join("\n"),
-		);
-
-		const harness = await BlueprintHarness.fromBlueprint(blueprintPath, {
+		const harness = await BlueprintHarness.fromBlueprint(DOT_BLUEPRINT_PATH, {
 			materialize: materializeBlueprint,
-			cwd,
+			cwd: DOT_PACKAGE_DIR,
 			script: [
 				...moves.map((move) => step.toolCall("dot.move", move, "correcting")),
 				step.reply("kept the dot in the circle"),

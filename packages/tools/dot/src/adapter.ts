@@ -32,9 +32,9 @@ const RESET_TOOL = {
 	}),
 };
 
-/** Options for createDotAdapter. */
+/** Options for the dot adapter (optional — materializer mounts without them). */
 export interface DotAdapterOptions {
-	readonly baseUrl: string;
+	readonly baseUrl?: string;
 	readonly client?: DotGameClient;
 }
 
@@ -56,11 +56,32 @@ function displayText(snap: DotSnapshot): string {
 	return `dot (${snap.x.toFixed(2)},${snap.y.toFixed(2)}) dist=${snap.dist.toFixed(2)} ${snap.status}`;
 }
 
-/** Alef tool façade over the remote Dot game server. */
-export function createDotAdapter(opts: DotAdapterOptions): Adapter {
-	const client = opts.client ?? createDotGameClient(opts.baseUrl);
+/** Resolve game URL from opts or DOT_GAME_URL (fail on first use, not mount). */
+function resolveBaseUrl(opts: DotAdapterOptions): string {
+	const baseUrl = opts.baseUrl ?? process.env.DOT_GAME_URL;
+	if (!baseUrl || baseUrl.trim().length === 0) {
+		throw new Error(
+			"dot: set DOT_GAME_URL to the game server base URL before calling tools (e.g. http://127.0.0.1:PORT)",
+		);
+	}
+	return baseUrl;
+}
+
+/**
+ * Dot adapter — mounts without a game URL; client binds on first tool call
+ * from opts.baseUrl, opts.client, or DOT_GAME_URL.
+ */
+export function createAdapter(opts: DotAdapterOptions & { cwd?: string } = {}): Adapter {
+	let client: DotGameClient | undefined = opts.client;
 	let mountedBus: Bus | null = null;
 	let lastStatus: string | undefined;
+
+	/** Lazy HTTP client — binds after mount when DOT_GAME_URL (or opts) is available. */
+	function getClient(): DotGameClient {
+		if (client) return client;
+		client = createDotGameClient(resolveBaseUrl(opts));
+		return client;
+	}
 
 	/** Publish started/ended notifications when status changes. */
 	function emitLifecycle(snap: DotSnapshot): void {
@@ -87,18 +108,18 @@ export function createDotAdapter(opts: DotAdapterOptions): Adapter {
 		{
 			command: {
 				"dot.observe": typedAction(OBSERVE_TOOL, async () => {
-					const snap = await client.observe();
+					const snap = await getClient().observe();
 					emitLifecycle(snap);
 					return withDisplay(snapshotFields(snap), { text: displayText(snap), mimeType: "text/plain" });
 				}),
 				"dot.move": typedAction(MOVE_TOOL, async (ctx) => {
-					const snap = await client.move(ctx.payload.dx, ctx.payload.dy);
+					const snap = await getClient().move(ctx.payload.dx, ctx.payload.dy);
 					emitLifecycle(snap);
 					return withDisplay(snapshotFields(snap), { text: displayText(snap), mimeType: "text/plain" });
 				}),
 				"world.reset": typedAction(RESET_TOOL, async (ctx) => {
 					lastStatus = undefined;
-					const snap = await client.reset(ctx.payload.seed);
+					const snap = await getClient().reset(ctx.payload.seed);
 					emitLifecycle(snap);
 					return withDisplay(snapshotFields(snap), { text: displayText(snap), mimeType: "text/plain" });
 				}),
@@ -120,15 +141,4 @@ export function createDotAdapter(opts: DotAdapterOptions): Adapter {
 			},
 		},
 	);
-}
-
-/**
- * Materializer entry — base URL from DOT_GAME_URL (public config).
- */
-export function createAdapter(_opts: { cwd: string }): Adapter {
-	const baseUrl = process.env.DOT_GAME_URL;
-	if (!baseUrl || baseUrl.trim().length === 0) {
-		throw new Error("createAdapter(dot): set DOT_GAME_URL to the game server base URL (e.g. http://127.0.0.1:PORT)");
-	}
-	return createDotAdapter({ baseUrl });
 }

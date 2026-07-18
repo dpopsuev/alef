@@ -2,13 +2,13 @@
  * Real-LLM episode — Alef agent keeps the remote dot inside the circle.
  *
  * Gate: ALEF_TEST_LLM=1 + credentials (haveHeadlessLlm).
- * Plant: spawned game process. Agent: createHeadlessSession + createDotAdapter.
+ * Plant: spawned game process. Agent: materializeBlueprint → createHeadlessSession.
  */
 import { createHeadlessSession, haveHeadlessLlm } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDotAdapter } from "../src/adapter.js";
 import { spawnDotGameProcess, type SpawnedDotGame } from "../src/client.js";
 import { DOT_DESIRED_STATE, DOT_GOAL, DOT_SYSTEM_PROMPT, runEpisode } from "../src/episode.js";
+import { materializeDotAdapters } from "./load-dot-blueprint.js";
 
 describe.skipIf(!haveHeadlessLlm())("dot-circle — real LLM episode", { tags: ["real-llm"] }, () => {
 	let game: SpawnedDotGame | undefined;
@@ -28,8 +28,8 @@ describe.skipIf(!haveHeadlessLlm())("dot-circle — real LLM episode", { tags: [
 		game = await spawnDotGameProcess({ seed, radius: 5, force: 2.0 });
 		process.env.DOT_GAME_URL = game.baseUrl;
 
-		const adapter = createDotAdapter({ baseUrl: game.baseUrl });
-		const session = await createHeadlessSession([adapter], {
+		const adapters = await materializeDotAdapters();
+		const session = await createHeadlessSession(adapters, {
 			systemPrompt: DOT_SYSTEM_PROMPT,
 			timeoutMs: 90_000,
 			desiredState: {

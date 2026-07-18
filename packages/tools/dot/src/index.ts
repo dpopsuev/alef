@@ -1,5 +1,5 @@
 export type { DotAdapterOptions } from "./adapter.js";
-export { createAdapter, createDotAdapter } from "./adapter.js";
+export { createAdapter } from "./adapter.js";
 export type { DotGameClient, SpawnedDotGame } from "./client.js";
 export { createDotGameClient, spawnDotGameProcess } from "./client.js";
 export {

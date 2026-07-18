@@ -46,7 +46,7 @@ const WHICHKEY_HINT =
 import { registry } from "./commands/commands.js";
 
 const allCommandNames = registry
-	.list()
+	.listCompletions()
 	.map((c) => `:${c.name}`)
 	.sort();
 

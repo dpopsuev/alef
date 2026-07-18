@@ -4,7 +4,6 @@ import {
 	CombinedAutocompleteProvider,
 	type Component,
 	type Editor,
-	type SlashCommand,
 	type TUI,
 } from "@dpopsuev/alef-tui";
 import { HistoryAutocompleteProvider } from "./commands/autocomplete.js";
@@ -41,10 +40,7 @@ export class InputPanel {
 	}
 
 	private wireAutocomplete(cwd: string, atProvider?: AutocompleteProvider): void {
-		const commands: SlashCommand[] = registry.list().map((c) => ({
-			name: c.name,
-			description: c.description,
-		}));
+		const commands = registry.toSlashCommands();
 
 		let fdPath: string | null = null;
 		try {

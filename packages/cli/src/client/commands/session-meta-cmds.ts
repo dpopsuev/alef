@@ -35,7 +35,15 @@ export const rename: Command = {
 /** List / add / remove / set / clear session tags (user-owned; freezes LLM tags). */
 export const tag: Command = {
 	name: "tag",
-	description: "Manage session tags [:tag | add|rm|set|clear …]",
+	description: "Manage session tags",
+	argumentHint: "add | rm | set | clear",
+	arguments: [
+		{ value: "add", description: "Add tags" },
+		{ value: "rm", description: "Remove tags" },
+		{ value: "remove", description: "Alias for rm" },
+		{ value: "set", description: "Replace all tags" },
+		{ value: "clear", description: "Clear all tags" },
+	],
 	run(ctx: TuiHandlerContext, args: string[]) {
 		attempt(ctx, async () => {
 			const store = ctx.store;

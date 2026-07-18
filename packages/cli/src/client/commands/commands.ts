@@ -52,7 +52,10 @@ export { attempt, CommandRegistry } from "./types.js";
 /** Single source of truth for all TUI commands — tab-completion and help derive from this. */
 export const registry = new CommandRegistry();
 
-const help = createHelpCommand(() => registry.list());
+const help = createHelpCommand(
+	() => registry.list(),
+	(name) => registry.aliasesOf(name),
+);
 
 registry
 	.register(exit, "quit", "exit")

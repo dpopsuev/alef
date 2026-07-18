@@ -32,7 +32,16 @@ function formatList(store: PlanStore): string {
 /** Workspace plan shelf commands for the human. */
 export const plan: Command = {
 	name: "plan",
-	description: "Plans — :plan | list | focus <id> | backlog | close <summary>",
+	description: "Workspace plans",
+	argumentHint: "list | focus | backlog | close",
+	arguments: [
+		{ value: "list", description: "List all plans" },
+		{ value: "ls", description: "Alias for list" },
+		{ value: "show", description: "Show focused plan tree" },
+		{ value: "focus", description: "Focus a plan by id" },
+		{ value: "backlog", description: "Unfocus / send to backlog" },
+		{ value: "close", description: "Close the focused plan" },
+	],
 	run(ctx: TuiHandlerContext, args: string[]) {
 		// eslint-disable-next-line @typescript-eslint/require-await
 		attempt(ctx, async () => {

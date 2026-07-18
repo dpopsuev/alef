@@ -325,21 +325,28 @@ export const status: Command = {
 			lines.push("  Tokens:    (unavailable — try :tokens after a turn)");
 		}
 		lines.push("");
-		lines.push("Hints: :tokens · :plan · Tab inspect agents · :help");
+		lines.push("Hints: :tokens · :plan · :help · Tab inspect (while tools active)");
 		ctx.writer.addNotice(lines.join("\n"));
 		ctx.tui.requestRender();
 	},
 };
 
-/** Build the :help command against a live command list. */
-export function createHelpCommand(listCommands: () => ReadonlyArray<Command>): Command {
+/** Build the :help command against a live command list (optional aliases). */
+export function createHelpCommand(
+	listCommands: () => ReadonlyArray<Command>,
+	aliasesOf: (name: string) => readonly string[] = () => [],
+): Command {
 	return {
 		name: "help",
 		description: "Show help",
 		run(ctx: LifecycleCmdCtx) {
 			const COMMAND_NAME_COL_WIDTH = 22;
 			const lines = [...listCommands()]
-				.map((c) => `  :${c.name.padEnd(COMMAND_NAME_COL_WIDTH)} ${c.description}`)
+				.map((c) => {
+					const aliases = aliasesOf(c.name);
+					const names = aliases.length > 0 ? `${c.name}, ${aliases.join(", ")}` : c.name;
+					return `  :${names.padEnd(COMMAND_NAME_COL_WIDTH)} ${c.description}`;
+				})
 				.join("\n");
 			ctx.writer.addNotice(`Commands:\n${lines}`);
 			ctx.tui.requestRender();

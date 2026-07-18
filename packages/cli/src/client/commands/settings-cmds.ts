@@ -4,7 +4,7 @@ import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dp
 import { getConfig } from "../../boot/config.js";
 import { color, getProviderColor, setThemeByName } from "../theme.js";
 import { buildPickerTheme, openConfigPicker, openEnumPicker, openPicker } from "./overlay-picker.js";
-import type { Command, SettingsCmdCtx } from "./types.js";
+import { type Command, completeCommandArguments, type SettingsCmdCtx } from "./types.js";
 
 const PICKER_MAX_VISIBLE = 12;
 const SETTINGS_MAX_VISIBLE = 10;
@@ -89,7 +89,7 @@ function openModelPicker(ctx: SettingsCmdCtx): void {
 			id: "model",
 			label: "Model",
 			currentValue: ctx.session.getModel(),
-			description: "LLM model for this session. Enter to browse.",
+			description: "LLM model (persists across restarts). Enter to browse.",
 			submenu: (currentValue, done) => buildModelSubmenu(currentValue, done, ctx),
 		},
 		{
@@ -140,7 +140,13 @@ function openModelPicker(ctx: SettingsCmdCtx): void {
 
 export const theme: Command = {
 	name: "theme",
-	description: "Switch theme — :theme or :theme <name>",
+	description: "Switch theme",
+	argumentHint: "<name>",
+	getArgumentCompletions: (prefix) =>
+		completeCommandArguments(
+			THEMES.map((value) => ({ value, description: "Theme" })),
+			prefix,
+		),
 	run(ctx: SettingsCmdCtx, args: string[]) {
 		const name = args[0]?.toLowerCase();
 		if (name) {
@@ -188,7 +194,13 @@ export const model: Command = {
 
 export const think: Command = {
 	name: "think",
-	description: "Set thinking level — :think or :think <level>",
+	description: "Set thinking level",
+	argumentHint: "off | minimal | low | medium | high | xhigh",
+	getArgumentCompletions: (prefix) =>
+		completeCommandArguments(
+			THINKING_LEVELS.map((value) => ({ value, description: "Thinking level" })),
+			prefix,
+		),
 	run(ctx: SettingsCmdCtx, args: string[]) {
 		const [level] = args;
 		if (level) {

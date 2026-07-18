@@ -56,20 +56,69 @@ export type SettingsCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "d
 /** Sticky note commands. */
 export type NotesCmdCtx = Pick<TuiHandlerContext, "writer" | "tui" | "store" | "opts">;
 
+/** One argument / subcommand row for `:command ` autocomplete. */
+export interface CommandArgument {
+	value: string;
+	description: string;
+}
+
+/** Item shape accepted by CombinedAutocompleteProvider argument completions. */
+export interface CommandArgumentCompletion {
+	value: string;
+	label: string;
+	description?: string;
+}
+
 /** A named, dispatchable TUI command with a description and run handler. */
 export interface Command {
 	name: string;
 	description: string;
+	/** Dimmed hint beside the command name while typing `:name` (before space). */
+	argumentHint?: string;
+	/** Static verb/arg rows after `:name `. */
+	arguments?: ReadonlyArray<CommandArgument>;
+	/** Dynamic argument completions; wins over `arguments` when set. */
+	getArgumentCompletions?(
+		argumentPrefix: string,
+	): CommandArgumentCompletion[] | null | Promise<CommandArgumentCompletion[] | null>;
 	run(ctx: TuiHandlerContext, args: string[]): void | Promise<void>;
+}
+
+/** One completable name for a registered command (canonical or alias). */
+export interface CommandCompletion {
+	name: string;
+	description: string;
+	/** True when this completion is an alias of Command.name. */
+	alias: boolean;
+	argumentHint?: string;
+}
+
+/** Filter static command arguments for the first token after `:name `. */
+export function completeCommandArguments(
+	args: ReadonlyArray<CommandArgument>,
+	argumentPrefix: string,
+): CommandArgumentCompletion[] | null {
+	if (argumentPrefix.includes(" ")) return null;
+	const token = argumentPrefix.toLowerCase();
+	const filtered = args.filter((arg) => arg.value.toLowerCase().startsWith(token));
+	if (filtered.length === 0) return null;
+	return filtered.map((arg) => ({
+		value: arg.value,
+		label: arg.value,
+		description: arg.description,
+	}));
 }
 
 /** Registry of TUI commands keyed by name and optional aliases. */
 export class CommandRegistry {
 	private readonly _commands = new Map<string, Command>();
+	private readonly _aliases = new Map<string, readonly string[]>();
 
 	register(cmd: Command, ...aliases: string[]): this {
 		this._commands.set(cmd.name, cmd);
-		for (const alias of aliases) this._commands.set(alias, cmd);
+		const unique = [...new Set(aliases.filter((alias) => alias && alias !== cmd.name))];
+		this._aliases.set(cmd.name, unique);
+		for (const alias of unique) this._commands.set(alias, cmd);
 		return this;
 	}
 
@@ -77,8 +126,60 @@ export class CommandRegistry {
 		return this._commands.get(name);
 	}
 
+	/** Unique commands (canonical names only). */
 	list(): ReadonlyArray<Command> {
 		return [...new Set(this._commands.values())];
+	}
+
+	/** Canonical name plus every alias — for :autocomplete and which-key. */
+	listCompletions(): ReadonlyArray<CommandCompletion> {
+		const out: CommandCompletion[] = [];
+		for (const cmd of this.list()) {
+			out.push({
+				name: cmd.name,
+				description: cmd.description,
+				alias: false,
+				...(cmd.argumentHint ? { argumentHint: cmd.argumentHint } : {}),
+			});
+			for (const alias of this._aliases.get(cmd.name) ?? []) {
+				out.push({
+					name: alias,
+					description: cmd.description,
+					alias: true,
+					...(cmd.argumentHint ? { argumentHint: cmd.argumentHint } : {}),
+				});
+			}
+		}
+		return out;
+	}
+
+	/** SlashCommand rows for the editor autocomplete provider. */
+	toSlashCommands(): Array<{
+		name: string;
+		description: string;
+		argumentHint?: string;
+		getArgumentCompletions?: (
+			argumentPrefix: string,
+		) => CommandArgumentCompletion[] | null | Promise<CommandArgumentCompletion[] | null>;
+	}> {
+		return this.listCompletions().map((completion) => {
+			const cmd = this.find(completion.name)!;
+			const getArgumentCompletions =
+				cmd.getArgumentCompletions ??
+				(cmd.arguments ? (prefix: string) => completeCommandArguments(cmd.arguments!, prefix) : undefined);
+			return {
+				name: completion.name,
+				description: completion.description,
+				...(cmd.argumentHint ? { argumentHint: cmd.argumentHint } : {}),
+				...(getArgumentCompletions ? { getArgumentCompletions } : {}),
+			};
+		});
+	}
+
+	aliasesOf(name: string): readonly string[] {
+		const cmd = this.find(name);
+		if (!cmd) return [];
+		return this._aliases.get(cmd.name) ?? [];
 	}
 }
 

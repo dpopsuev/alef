@@ -20,6 +20,7 @@
   "dependencies": {
     "@dpopsuev/alef-tool-agent": "workspace:*",
     "@dpopsuev/alef-tool-code-intel": "workspace:*",
+    "@dpopsuev/alef-tool-discourse": "workspace:*",
     "@dpopsuev/alef-tool-factory": "workspace:*",
     "@dpopsuev/alef-tool-forge": "workspace:*",
     "@dpopsuev/alef-tool-fs": "workspace:*",

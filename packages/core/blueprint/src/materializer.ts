@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { type Bus, type EventInput, extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
@@ -44,7 +44,59 @@ import type { CompiledAgentDefinition } from "./types.js";
  * Both use the same naming convention — no registry needed.
  */
 function resolveAdapterPackage(name: string): string {
+	if (name.startsWith("@") || name.startsWith("file:")) return name;
 	return `@dpopsuev/alef-tool-${name}`;
+}
+
+/** Walk up from materializer to the monorepo root (pnpm-workspace.yaml). */
+function findMonorepoRoot(startDir: string): string | undefined {
+	let dir = startDir;
+	for (;;) {
+		if (existsSync(join(dir, "pnpm-workspace.yaml"))) return dir;
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+/**
+ * pnpm may link a tool under cli/coding node_modules but not into alef-blueprint's
+ * resolve graph. Fall back to the workspace source entry when present.
+ */
+function resolveMonorepoToolEntry(pkg: string): string | undefined {
+	const match = /^@dpopsuev\/alef-tool-(.+)$/.exec(pkg);
+	if (!match?.[1]) return undefined;
+	const root = findMonorepoRoot(dirname(fileURLToPath(import.meta.url)));
+	if (!root) return undefined;
+	const entry = join(root, "packages", "tools", match[1], "src", "index.ts");
+	return existsSync(entry) ? entry : undefined;
+}
+
+/** Dynamic-import a tool package; fall back to monorepo source when pnpm isolation hides it. */
+async function importAdapterPackage(pkg: string): Promise<Record<string, unknown>> {
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic import
+		const rawMod = await import(pkg);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import module shape
+		return rawMod as Record<string, unknown>;
+	} catch (npmError) {
+		const localRequire = createRequire(import.meta.url);
+		try {
+			const resolved = localRequire.resolve(pkg);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic import
+			const rawMod = await import(pathToFileURL(resolved).href);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import module shape
+			return rawMod as Record<string, unknown>;
+		} catch {
+			const monorepoEntry = resolveMonorepoToolEntry(pkg);
+			if (monorepoEntry) {
+				const jitiMod = await getJiti().import(monorepoEntry);
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- jiti module shape
+				return jitiMod as Record<string, unknown>;
+			}
+			throw npmError;
+		}
+	}
 }
 
 /** Common options passed to every adapter factory. */
@@ -308,10 +360,7 @@ async function loadAdapterModule(
 		return { createAdapter: factory, service: resolveServiceExport(mod) };
 	}
 	const pkg = resolveAdapterPackage(adapterDef.name);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-	const rawMod = await import(pkg);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown module shape
-	const mod = rawMod as unknown as Record<string, unknown>;
+	const mod = await importAdapterPackage(pkg);
 	const factory = resolveFactory(mod);
 	if (!factory) {
 		throw new Error(

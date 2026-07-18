@@ -160,9 +160,15 @@ importers:
       '@dpopsuev/alef-tool-factory':
         specifier: workspace:*
         version: link:../tools/factory
+      '@dpopsuev/alef-tool-forge':
+        specifier: workspace:*
+        version: link:../tools/forge
       '@dpopsuev/alef-tool-fs':
         specifier: workspace:*
         version: link:../tools/fs
+      '@dpopsuev/alef-tool-git':
+        specifier: workspace:*
+        version: link:../tools/git
       '@dpopsuev/alef-tool-meta':
         specifier: workspace:*
         version: link:../tools/meta
@@ -175,6 +181,9 @@ importers:
       '@dpopsuev/alef-tool-shell':
         specifier: workspace:*
         version: link:../tools/shell
+      '@dpopsuev/alef-tool-skills':
+        specifier: workspace:*
+        version: link:../tools/skills
       '@dpopsuev/alef-tool-web':
         specifier: workspace:*
         version: link:../tools/web
@@ -699,6 +708,9 @@ importers:
       '@dpopsuev/alef-tool-code-intel':
         specifier: workspace:*
         version: link:../../tools/code-intel
+      '@dpopsuev/alef-tool-discourse':
+        specifier: workspace:*
+        version: link:../../tools/discourse
       '@dpopsuev/alef-tool-factory':
         specifier: workspace:*
         version: link:../../tools/factory

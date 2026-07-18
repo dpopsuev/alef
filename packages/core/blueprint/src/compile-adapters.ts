@@ -6,6 +6,7 @@
  * materializer's concern (it is the composition root that ships the adapters).
  */
 
+import { resolve } from "node:path";
 import type { AgentDefinitionAdapterInput, AgentRole, CompiledAgentAdapterDefinition } from "./types.js";
 
 /**
@@ -41,7 +42,7 @@ export function compileAgentAdapterDefinitions(
 
 		let resolvedPath: string | undefined;
 		if (input.path) {
-			resolvedPath = baseDir && !input.path.startsWith("/") ? `${baseDir}/${input.path}` : input.path;
+			resolvedPath = baseDir && !input.path.startsWith("/") ? resolve(baseDir, input.path) : input.path;
 		}
 
 		return {

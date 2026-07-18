@@ -499,7 +499,7 @@ export function compileAgentDefinition(
 	const sourcePath = options.sourcePath ? resolve(options.sourcePath) : undefined;
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
 	const adapterInput = input.adapters;
-	const adapters = compileAgentAdapterDefinitions(adapterInput);
+	const adapters = compileAgentAdapterDefinitions(adapterInput, "root", baseDir);
 	const toolNames = normalizeStringArray(input.capabilities?.tools);
 	const hasOrchestrationAdapter = adapters.some(
 		(adapter) => adapter.name === "orchestration" || adapter.name === "agent",

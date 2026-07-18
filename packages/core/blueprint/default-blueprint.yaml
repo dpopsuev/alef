@@ -28,6 +28,10 @@ adapters:
     package: "@dpopsuev/alef-tool-factory"
   - name: plan
     package: "@dpopsuev/alef-tool-plan"
+  - name: forge
+    package: "@dpopsuev/alef-tool-forge"
+  - name: git
+    package: "@dpopsuev/alef-tool-git"
   - name: discourse
     package: "@dpopsuev/alef-tool-discourse"
 

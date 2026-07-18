@@ -34,9 +34,11 @@ install: install-deps ## Install alef globally (no build step — runs from sour
 
 .PHONY: run
 run: ## Run alef from source (interactive TUI)
+	@node scripts/check-native.mjs
 	npx tsx packages/cli/src/entrypoint.ts
 
 run-serve: ## Run alef in HTTP/SSE serve mode on a random port
+	@node scripts/check-native.mjs
 	npx tsx packages/cli/src/entrypoint.ts --serve 0
 
 
@@ -70,10 +72,12 @@ test: ## Run tests in all workspaces that define a test script
 
 .PHONY: alef
 alef: ## Run Alef from source
+	@node scripts/check-native.mjs
 	npx tsx packages/cli/src/entrypoint.ts
 
 .PHONY: debug
 debug: ## Run Alef in debug mode
+	@node scripts/check-native.mjs
 	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 npx tsx packages/cli/src/entrypoint.ts
 
 .PHONY: adapter

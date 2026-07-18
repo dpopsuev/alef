@@ -8,7 +8,8 @@
 		"dev": "concurrently --names \"ai,agent,blueprint,runtime,coding-agent,web-ui,tui\" --prefix-colors \"cyan,yellow,blue,white,red,green,magenta\" \"cd packages/llm && npm run dev\" \"cd packages/agent && npm run dev\" \"cd packages/blueprint && npm run dev\" \"cd packages/runtime && npm run dev\" \"cd packages/coding-agent && npm run dev\" \"cd packages/web-ui && npm run dev\" \"cd packages/tui && npm run dev\"",
 		"dev:tsc": "concurrently --names \"ai,web-ui\" --prefix-colors \"cyan,green\" \"cd packages/llm && npm run dev:tsc\" \"cd packages/web-ui && npm run dev:tsc\"",
 		"check": "npm run check:fast && npm run check:test && npm run check:blueprints && npm run check:browser-smoke",
-		"check:fast": "biome check --write --error-on-warnings . && tsc --noEmit && node scripts/check-boot.mjs && npm run check:lint && npm run check:adapters",
+		"check:fast": "biome check --write --error-on-warnings . && tsc --noEmit && node scripts/check-boot.mjs && node scripts/check-native.mjs && npm run check:lint && npm run check:adapters",
+		"check:native": "node scripts/check-native.mjs",
 		"check:blueprints": "node scripts/check-blueprint-resolve.mjs",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
 		"check:adapters": "npx tsx scripts/lint-adapters.ts --fail",
@@ -71,7 +72,7 @@
 		"yaml": "^2.9.0"
 	},
 	"engines": {
-		"node": ">=20.0.0"
+		"node": "^22.0.0"
 	},
 	"version": "0.0.1",
 	"dependencies": {

@@ -237,6 +237,8 @@ Established domain abbreviations are canonical, not shortcuts — keep: `llm`, `
 
 ## Language and Toolchain
 
-TypeScript + Node.js + Vitest. Never introduce Python or Bash scripts where TypeScript tests exist. Match the existing stack.
+TypeScript + **Node.js 22** (see `.nvmrc`; CI and `engines` are `^22`) + Vitest. Never introduce Python or Bash scripts where TypeScript tests exist. Match the existing stack.
+
+Before `pnpm install` / `check:fast` / `make debug`, use Node 22 — not Cursor’s bundled Node 24. Native addons (`better-sqlite3`) are ABI-specific; mismatch fails `scripts/check-native.mjs`. Rebuild with: `PATH="/usr/bin:$PATH" pnpm rebuild better-sqlite3`.
 
 Before designing, search for prior art. Name the pattern before writing code.

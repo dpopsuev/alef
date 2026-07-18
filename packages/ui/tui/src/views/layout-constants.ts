@@ -6,11 +6,14 @@
  */
 
 export const INDENT = {
-	/** Left padding inside pill boxes (user/agent blocks). */
+	/**
+	 * Shared content column for user/agent body, tool call lines, and tool output.
+	 * Speakers stay flush left; everything under them starts here.
+	 */
 	BLOCK: 2,
-	/** Indent for tool call lines (✓ fs.read package.json 9ms). */
-	TOOL_LINE: 1,
-	/** Indent for tool output snippets (beneath tool call lines). */
+	/** Tool call lines (■ fs.read …) — same column as prose. */
+	TOOL_LINE: 2,
+	/** Tool output / diff body — same column as prose (do not stack on Pad(BLOCK)). */
 	TOOL_OUTPUT: 2,
 	/** Section headers (thinking, tools) - flush left within block. */
 	SECTION: 0,

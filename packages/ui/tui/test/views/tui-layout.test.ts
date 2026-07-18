@@ -10,12 +10,9 @@ describe("Layout Constants", { tags: ["unit"] }, () => {
 		expect(INDENT.BLOCK).toBe(2);
 	});
 
-	it("defines tool line indent", () => {
-		expect(INDENT.TOOL_LINE).toBe(1);
-	});
-
-	it("defines tool output indent", () => {
-		expect(INDENT.TOOL_OUTPUT).toBe(2);
+	it("keeps tool line and tool output on the shared content column", () => {
+		expect(INDENT.TOOL_LINE).toBe(INDENT.BLOCK);
+		expect(INDENT.TOOL_OUTPUT).toBe(INDENT.BLOCK);
 	});
 
 	it("defines spacing between blocks", () => {

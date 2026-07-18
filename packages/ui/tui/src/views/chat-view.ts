@@ -26,9 +26,10 @@ export function appendUserMsg(
 	label = process.env.ALEF_YOU_LABEL ?? "@you",
 ): void {
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
+	// Identity color on the speaker label only — body stays default FG (same as AgentBlock).
 	chat.addChild(new Text(bold(color(` ${label}`, t.userFg)), 0, 0));
 	const pad = new Pad(INDENT.BLOCK, 0);
-	pad.addChild(new Text(color(text, t.userFg), 0, 0));
+	pad.addChild(new Text(text, 0, 0));
 	chat.addChild(pad);
 }
 
@@ -36,7 +37,8 @@ export function appendUserMsg(
  *
  */
 export function appendBatchTiming(chat: Container, ms: number, t: ThemeTokens): void {
-	chat.addChild(new Text(color(`  ${glyph("state:batch")} · ${fmtMs(ms)}`, t.mutedFg), 0, 0));
+	const indent = " ".repeat(INDENT.BLOCK);
+	chat.addChild(new Text(color(`${indent}${glyph("state:batch")} · ${fmtMs(ms)}`, t.mutedFg), 0, 0));
 }
 
 /**
@@ -85,17 +87,14 @@ export function appendCompletedToolBlock(
 	add(new Text(label, 0, 0));
 	const preview = largeTextArgPreview(args);
 	if (preview) {
-		const pad = new Pad(INDENT.BLOCK, 0);
-		pad.addChild(new Text(color(preview.header, t.mutedFg), 0, 0));
+		add(new Text(color(preview.header, t.mutedFg), INDENT.TOOL_OUTPUT, 0));
 		const body = truncateToolOutput(stripMarkdownFenceLines(preview.body));
 		const md = preview.lang ? `\`\`\`${preview.lang}\n${body}\n\`\`\`` : body;
-		pad.addChild(new Markdown(md, INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t)));
-		add(pad);
+		add(new Markdown(md, INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t)));
 	}
 	if (outputComponent) {
-		const pad = new Pad(INDENT.BLOCK, 0);
-		pad.addChild(outputComponent);
-		add(pad);
+		// Output components already carry TOOL_OUTPUT padding — do not wrap in Pad(BLOCK).
+		add(outputComponent);
 	}
 }
 

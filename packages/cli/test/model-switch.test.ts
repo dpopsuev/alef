@@ -3,9 +3,23 @@
  * Frozen `const currentModel = model` left the reasoner on the boot model
  * (e.g. Sonnet 200k) after `:model` / setModel to Opus 1M.
  */
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionHandle } from "../src/boot/handle.js";
+
+const previousState = process.env.XDG_STATE_HOME;
+
+beforeEach(() => {
+	process.env.XDG_STATE_HOME = mkdtempSync(join(tmpdir(), "alef-model-switch-"));
+});
+
+afterEach(() => {
+	if (previousState === undefined) delete process.env.XDG_STATE_HOME;
+	else process.env.XDG_STATE_HOME = previousState;
+});
 
 function stubModel(id: string, contextWindow: number): Model<Api> {
 	return {

@@ -171,6 +171,11 @@ export function lastSessionPath(): string {
 	return join(alefStateDir(), "last-session.json");
 }
 
+/** $XDG_STATE_HOME/alef/last-model — last :model pick (survives process restart). */
+export function lastModelPath(): string {
+	return join(alefStateDir(), "last-model");
+}
+
 /**
  *
  */
@@ -229,6 +234,7 @@ export const DATABASE_PATH = databasePath;
 export const TELEMETRY_DIR = telemetryDir;
 export const DAEMON_PATH = daemonPath;
 export const LAST_SESSION_PATH = lastSessionPath;
+export const LAST_MODEL_PATH = lastModelPath;
 export const DEBUG_LOG_PATH = debugLogPath;
 export const LSP_CACHE_DIR = lspCacheDir;
 export const EMBEDDINGS_CACHE_DIR = embeddingsCacheDir;

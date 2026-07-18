@@ -1,6 +1,7 @@
 import { findEnvKeys, getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
+import { readLastModel } from "./last-model.js";
 
 /**
  *
@@ -329,14 +330,16 @@ export function resolveEnvModel(opts: ResolveEnvModelOptions = {}): Model<Api> {
 }
 
 /**
- *
+ * Boot model priority:
+ * CLI --model → blueprint → last :model pick → config.yaml → ALEF_MODEL → autodetect.
  */
 export function resolveStartupModel(
 	args: ModelResolutionInput,
 	blueprintModelId: string | undefined,
 	cfg: ModelConfig,
 ): Model<Api> {
-	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model ?? process.env.ALEF_MODEL;
+	const resolvedId =
+		args.modelId ?? blueprintModelId ?? readLastModel() ?? cfg.model ?? process.env.ALEF_MODEL;
 	return resolveEnvModel({
 		modelId: resolvedId,
 		onMissing: "exit",

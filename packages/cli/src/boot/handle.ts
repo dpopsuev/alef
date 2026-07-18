@@ -12,6 +12,7 @@
  */
 
 import type { Directives } from "@dpopsuev/alef-agent/directives";
+import { rememberLastModel } from "@dpopsuev/alef-agent/model";
 import { completeSimple } from "@dpopsuev/alef-ai/stream";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
@@ -123,6 +124,7 @@ export class SessionHandle implements Session {
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
 		else this._thinkingState.level ??= "medium";
+		rememberLastModel(this._currentModel.id);
 		this._onModelChange?.(this._currentModel);
 		this._notifyStateChanged();
 	}

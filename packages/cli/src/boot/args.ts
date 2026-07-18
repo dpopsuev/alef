@@ -19,7 +19,7 @@ export interface Args {
 	prompt: string;
 	/** Working directory for FsAdapter and ShellAdapter. */
 	cwd: string;
-	/** Model ID override. Falls back to blueprint model, then ALEF_MODEL env var, then default. */
+	/** Explicit --model override. Env ALEF_MODEL is applied later in resolveStartupModel. */
 	modelId: string | undefined;
 	/**
 	 * JSON mode: emit structured JSONL events to stdout instead of plain text.
@@ -224,7 +224,7 @@ function defaultArgs(): Args {
 		print: false,
 		prompt: "",
 		cwd: process.cwd(),
-		modelId: process.env.ALEF_MODEL,
+		modelId: undefined,
 		json: false,
 		blueprint: undefined,
 		listTools: false,

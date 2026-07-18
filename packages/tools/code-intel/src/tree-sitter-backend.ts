@@ -15,9 +15,11 @@ import Parser from "tree-sitter";
 import { readFileSync } from "node:fs";
 
 /**
- * Supported languages with their tree-sitter parsers.
+ * Language identifier -- any string recognized by the registry.
+ * Built-in: "typescript", "javascript", "python".
+ * Extensible via TreeSitterBackend.registerLanguage().
  */
-export type SupportedLanguage = "typescript" | "python" | "javascript";
+export type SupportedLanguage = string;
 
 /**
  * Symbol extracted from AST.
@@ -46,9 +48,10 @@ export interface ASTNode {
 
 /**
  * Language configuration for tree-sitter parser.
+ * Use TreeSitterBackend.registerLanguage() to add new entries at runtime.
  */
-interface LanguageConfig {
-	name: SupportedLanguage;
+export interface LanguageConfig {
+	name: string;
 	extensions: string[];
 	loadParser: () => Promise<Parser.Language>;
 }
@@ -60,9 +63,10 @@ function asLanguage(value: unknown): Parser.Language {
 }
 
 /**
- * Registry of supported languages.
+ * Mutable registry of supported languages. New grammars can be added
+ * via TreeSitterBackend.registerLanguage() without code changes.
  */
-const LANGUAGE_CONFIGS: LanguageConfig[] = [
+const languageRegistry: LanguageConfig[] = [
 	{
 		name: "typescript",
 		extensions: [".ts", ".tsx"],
@@ -75,16 +79,16 @@ const LANGUAGE_CONFIGS: LanguageConfig[] = [
 		name: "javascript",
 		extensions: [".js", ".jsx", ".mjs", ".cjs"],
 		loadParser: async () => {
-			const mod = await import("tree-sitter-javascript");
-			return asLanguage(mod.language);
+			const mod: Record<string, unknown> = await import("tree-sitter-javascript");
+			return asLanguage(mod.default ?? mod);
 		},
 	},
 	{
 		name: "python",
 		extensions: [".py"],
 		loadParser: async () => {
-			const mod = await import("tree-sitter-python");
-			return asLanguage(mod.language);
+			const mod: Record<string, unknown> = await import("tree-sitter-python");
+			return asLanguage(mod.default ?? mod);
 		},
 	},
 ];
@@ -97,13 +101,30 @@ export class TreeSitterBackend {
 	private languages = new Map<SupportedLanguage, Parser.Language>();
 
 	/**
+	 * Register a new language at runtime. Replaces any existing entry with the same name.
+	 */
+	static registerLanguage(config: LanguageConfig): void {
+		const idx = languageRegistry.findIndex((c) => c.name === config.name);
+		if (idx >= 0) {
+			languageRegistry[idx] = config;
+		} else {
+			languageRegistry.push(config);
+		}
+	}
+
+	/** Return a snapshot of the registered language configs. */
+	static get registeredLanguages(): readonly LanguageConfig[] {
+		return languageRegistry;
+	}
+
+	/**
 	 * Get or create parser for a language.
 	 */
 	private async getParser(language: SupportedLanguage): Promise<Parser> {
 		let parser = this.parsers.get(language);
 		if (parser) return parser;
 
-		const config = LANGUAGE_CONFIGS.find((c) => c.name === language);
+		const config = languageRegistry.find((c) => c.name === language);
 		if (!config) {
 			throw new Error(`Unsupported language: ${language}`);
 		}
@@ -125,7 +146,7 @@ export class TreeSitterBackend {
 	 * Detect language from file extension.
 	 */
 	detectLanguage(filePath: string): SupportedLanguage | null {
-		for (const config of LANGUAGE_CONFIGS) {
+		for (const config of languageRegistry) {
 			for (const ext of config.extensions) {
 				if (filePath.endsWith(ext)) {
 					return config.name;

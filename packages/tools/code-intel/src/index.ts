@@ -20,3 +20,4 @@ export { StubCodeIntelBackend } from "./stub-backend.js";
 export { GraphBackend, type GraphBackendOptions } from "./graph-backend.js";
 export { WorkspaceIndexer, defaultGraphDbPath, type IndexerOptions } from "./indexer.js";
 export { service } from "./service.js";
+export { TreeSitterBackend, type SupportedLanguage, type LanguageConfig } from "./tree-sitter-backend.js";

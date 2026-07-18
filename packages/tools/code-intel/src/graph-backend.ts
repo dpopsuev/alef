@@ -7,7 +7,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeFileHash } from "./file-hash.js";
-import type { IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
+import type { ComplexityMetrics, DataflowEdge, IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
 import { resolveImportPath, resolveWorkspacePath, toStoredPath } from "./path-resolve.js";
 import type { Symbol } from "./tree-sitter-backend.js";
 
@@ -32,6 +32,8 @@ export interface ReplaceFileIndexInput {
 	imports: IndexedImport[];
 	calls: IndexedCall[];
 	references: IndexedReference[];
+	complexity: ComplexityMetrics[];
+	dataflow: DataflowEdge[];
 	lines: number;
 	sizeBytes: number;
 }
@@ -74,6 +76,8 @@ export class GraphBackend {
 			imports: [],
 			calls: [],
 			references: [],
+			complexity: [],
+			dataflow: [],
 			lines: 0,
 			sizeBytes: size,
 		});
@@ -160,6 +164,33 @@ export class GraphBackend {
 				const symbolId = symbolIds.get(ref.symbolName);
 				if (!symbolId) continue;
 				insertRef.run(symbolId, fileId, ref.line, ref.column, ref.context, ref.refType);
+			}
+
+			if (input.complexity.length > 0) {
+				const insertComplexity = this.db.prepare(
+					`INSERT OR REPLACE INTO function_complexity
+					 (symbol_id, cyclomatic, cognitive, parameters, lines_of_code, max_nesting)
+					 VALUES (?, ?, ?, ?, ?, ?)`,
+				);
+				for (const cm of input.complexity) {
+					const symbolId = symbolIds.get(cm.symbolName);
+					if (!symbolId) continue;
+					insertComplexity.run(symbolId, cm.cyclomatic, cm.cognitive, cm.parameters, cm.linesOfCode, cm.maxNesting);
+				}
+			}
+
+			if (input.dataflow.length > 0) {
+				const insertDataflow = this.db.prepare(
+					`INSERT OR IGNORE INTO dataflow
+					 (from_symbol_id, to_symbol_id, flow_type, variable_name, line, confidence)
+					 VALUES (?, ?, ?, ?, ?, 1.0)`,
+				);
+				for (const df of input.dataflow) {
+					const fromId = symbolIds.get(df.fromSymbol);
+					const toId = symbolIds.get(df.toSymbol);
+					if (!fromId || !toId) continue;
+					insertDataflow.run(fromId, toId, df.flowType, df.variableName, df.line);
+				}
 			}
 
 			let mtime = Date.now();

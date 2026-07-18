@@ -8,7 +8,7 @@ import type Parser from "tree-sitter";
 import { codeIntelGraphDbPath } from "@dpopsuev/alef-kernel/xdg";
 import { computeFileHash } from "./file-hash.js";
 import type { GraphBackend } from "./graph-backend.js";
-import type { IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
+import type { ComplexityMetrics, DataflowEdge, IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
 import { resolveImportPath, resolveWorkspacePath, toStoredPath } from "./path-resolve.js";
 import {
 	TreeSitterBackend,
@@ -74,6 +74,8 @@ export class WorkspaceIndexer {
 		const imports = extractImports(tree, source, language, absolute, this.cwd);
 		const calls = extractCalls(tree, source, language, symbols);
 		const references = extractReferences(tree, source, language, symbols);
+		const complexity = extractComplexity(tree, source, language, symbols);
+		const dataflow = extractDataflow(tree, language, symbols);
 
 		const hash = computeFileHash(absolute);
 		const storedPath = toStoredPath(absolute, this.cwd);
@@ -86,6 +88,8 @@ export class WorkspaceIndexer {
 			imports,
 			calls,
 			references,
+			complexity,
+			dataflow,
 			lines: source.split("\n").length,
 			sizeBytes: Buffer.byteLength(source, "utf-8"),
 		});
@@ -222,16 +226,20 @@ function extractPythonImports(tree: Parser.Tree, _source: string): IndexedImport
 	return imports;
 }
 
-/** Collect call_expression edges keyed by enclosing symbol name. */
+/** Collect call edges keyed by enclosing symbol name. */
 function extractCalls(
 	tree: Parser.Tree,
 	_source: string,
 	language: SupportedLanguage,
 	symbols: Symbol[],
 ): IndexedCall[] {
-	if (language === "python") return [];
 	const calls: IndexedCall[] = [];
 	const cursor = tree.walk();
+
+	const isPython = language === "python";
+	const callType = isPython ? "call" : "call_expression";
+	const memberType = isPython ? "attribute" : "member_expression";
+	const memberField = isPython ? "attribute" : "property";
 
 	const enclosingSymbol = (line: number): string => {
 		let best: Symbol | undefined;
@@ -245,12 +253,12 @@ function extractCalls(
 
 	const visit = (): void => {
 		const node = cursor.currentNode;
-		if (cursor.nodeType === "call_expression") {
+		if (cursor.nodeType === callType) {
 			const fn = node.childForFieldName("function");
 			if (fn) {
 				const calleeName =
-					fn.type === "member_expression"
-						? (fn.childForFieldName("property")?.text ?? fn.text)
+					fn.type === memberType
+						? (fn.childForFieldName(memberField)?.text ?? fn.text)
 						: fn.text;
 				const line = node.startPosition.row + 1;
 				calls.push({
@@ -279,13 +287,27 @@ function extractReferences(
 	language: SupportedLanguage,
 	symbols: Symbol[],
 ): IndexedReference[] {
-	if (language === "python") return [];
 	const names = new Set(symbols.map((symbol) => symbol.name));
 	if (names.size === 0) return [];
 
+	const isPython = language === "python";
 	const references: IndexedReference[] = [];
 	const cursor = tree.walk();
 	const lines = source.split("\n");
+
+	const classifyRef = (node: Parser.SyntaxNode): IndexedReference["refType"] => {
+		const parentType = node.parent?.type ?? "";
+		if (isPython) {
+			if (parentType === "call" || node.parent?.parent?.type === "call") return "call";
+			if (parentType === "import_from_statement" || parentType === "import_statement") return "import";
+			if (parentType === "type") return "type_annotation";
+		} else {
+			if (parentType === "call_expression" || node.parent?.parent?.type === "call_expression") return "call";
+			if (parentType === "import_specifier" || parentType === "import_clause") return "import";
+			if (parentType === "type_annotation" || parentType === "type_identifier") return "type_annotation";
+		}
+		return "read";
+	};
 
 	const visit = (): void => {
 		const node = cursor.currentNode;
@@ -293,21 +315,12 @@ function extractReferences(
 			const line = node.startPosition.row + 1;
 			const column = node.startPosition.column;
 			const context = (lines[line - 1] ?? "").trim().slice(0, 120);
-			const parentType = node.parent?.type ?? "";
-			let refType: IndexedReference["refType"] = "read";
-			if (parentType === "call_expression" || node.parent?.parent?.type === "call_expression") {
-				refType = "call";
-			} else if (parentType === "import_specifier" || parentType === "import_clause") {
-				refType = "import";
-			} else if (parentType === "type_annotation" || parentType === "type_identifier") {
-				refType = "type_annotation";
-			}
 			references.push({
 				symbolName: node.text,
 				line,
 				column,
 				context,
-				refType,
+				refType: classifyRef(node),
 			});
 		}
 		if (cursor.gotoFirstChild()) {
@@ -320,6 +333,219 @@ function extractReferences(
 
 	visit();
 	return references;
+}
+
+/** Compute complexity metrics for function/method symbols. */
+function extractComplexity(
+	tree: Parser.Tree,
+	source: string,
+	language: SupportedLanguage,
+	symbols: Symbol[],
+): ComplexityMetrics[] {
+	const isPython = language === "python";
+	const funcKinds = new Set(["function", "method"]);
+	const funcSymbols = symbols.filter((s) => funcKinds.has(s.kind));
+	if (funcSymbols.length === 0) return [];
+
+	const branchTypes = isPython
+		? new Set(["if_statement", "elif_clause", "for_statement", "while_statement", "except_clause", "with_statement", "and_operator", "or_operator", "conditional_expression"])
+		: new Set(["if_statement", "for_statement", "for_in_statement", "while_statement", "catch_clause", "switch_case", "ternary_expression", "binary_expression"]);
+	const logicalOps = new Set(["&&", "||", "??", "and", "or"]);
+	const nestingTypes = isPython
+		? new Set(["if_statement", "for_statement", "while_statement", "with_statement", "try_statement"])
+		: new Set(["if_statement", "for_statement", "for_in_statement", "while_statement", "try_statement", "switch_statement"]);
+
+	const funcNodeType = isPython ? "function_definition" : null;
+	const results: ComplexityMetrics[] = [];
+
+	for (const sym of funcSymbols) {
+		let cyclomatic = 1;
+		let cognitive = 0;
+		let maxNesting = 0;
+		const bodyLines = sym.endLine - sym.startLine + 1;
+
+		const paramCount = countParameters(tree, sym, isPython, funcNodeType);
+
+		const cursor = tree.walk();
+		const countBranches = (depth: number): void => {
+			const node = cursor.currentNode;
+			const row = node.startPosition.row + 1;
+			if (row < sym.startLine || row > sym.endLine) {
+				return;
+			}
+
+			const type = cursor.nodeType;
+			if (branchTypes.has(type)) {
+				if (type === "binary_expression") {
+					const op = node.childForFieldName("operator")?.text;
+					if (op && logicalOps.has(op)) {
+						cyclomatic++;
+						cognitive += depth;
+					}
+				} else {
+					cyclomatic++;
+					cognitive += depth;
+				}
+			}
+			if (nestingTypes.has(type)) {
+				if (depth > maxNesting) maxNesting = depth;
+			}
+
+			if (cursor.gotoFirstChild()) {
+				const nextDepth = nestingTypes.has(type) ? depth + 1 : depth;
+				do {
+					countBranches(nextDepth);
+				} while (cursor.gotoNextSibling());
+				cursor.gotoParent();
+			}
+		};
+
+		countBranches(0);
+
+		results.push({
+			symbolName: sym.name,
+			cyclomatic,
+			cognitive,
+			parameters: paramCount,
+			linesOfCode: bodyLines,
+			maxNesting,
+		});
+	}
+
+	return results;
+}
+
+/** Extract dataflow edges: parameter passing and return value flows for JS/TS. */
+function extractDataflow(
+	tree: Parser.Tree,
+	language: SupportedLanguage,
+	symbols: Symbol[],
+): DataflowEdge[] {
+	if (language === "python") return [];
+	const symbolNames = new Set(symbols.map((s) => s.name));
+	const funcKinds = new Set(["function", "method"]);
+	const funcSymbols = symbols.filter((s) => funcKinds.has(s.kind));
+	if (funcSymbols.length === 0) return [];
+
+	const edges: DataflowEdge[] = [];
+	const cursor = tree.walk();
+
+	const enclosingFunc = (line: number): Symbol | undefined => {
+		let best: Symbol | undefined;
+		for (const s of funcSymbols) {
+			if (line >= s.startLine && line <= s.endLine) {
+				if (!best || s.startLine >= best.startLine) best = s;
+			}
+		}
+		return best;
+	};
+
+	const visit = (): void => {
+		const node = cursor.currentNode;
+		const type = cursor.nodeType;
+
+		if (type === "call_expression") {
+			const fn = node.childForFieldName("function");
+			const args = node.childForFieldName("arguments");
+			const calleeName = fn?.type === "member_expression"
+				? fn.childForFieldName("property")?.text
+				: fn?.text;
+			if (calleeName && args && symbolNames.has(calleeName)) {
+				const callLine = node.startPosition.row + 1;
+				const caller = enclosingFunc(callLine);
+				if (caller && caller.name !== calleeName) {
+					for (let i = 0; i < args.namedChildCount; i++) {
+						const arg = args.namedChild(i);
+						if (!arg || arg.type === "comment") continue;
+						const varName = arg.type === "identifier" ? arg.text : null;
+						edges.push({
+							fromSymbol: caller.name,
+							toSymbol: calleeName,
+							flowType: "parameter",
+							variableName: varName,
+							line: callLine,
+						});
+					}
+				}
+			}
+		}
+
+		if (type === "return_statement") {
+			const retValue = node.namedChildren[0];
+			if (retValue?.type === "call_expression") {
+				const fn = retValue.childForFieldName("function");
+				if (fn && symbolNames.has(fn.text)) {
+					const line = node.startPosition.row + 1;
+					const caller = enclosingFunc(line);
+					if (caller) {
+						edges.push({
+							fromSymbol: fn.text,
+							toSymbol: caller.name,
+							flowType: "return",
+							variableName: null,
+							line,
+						});
+					}
+				}
+			}
+		}
+
+		if (cursor.gotoFirstChild()) {
+			do {
+				visit();
+			} while (cursor.gotoNextSibling());
+			cursor.gotoParent();
+		}
+	};
+
+	visit();
+	return edges;
+}
+
+/** Count parameters for a function symbol. */
+function countParameters(
+	tree: Parser.Tree,
+	sym: Symbol,
+	isPython: boolean,
+	funcNodeType: string | null,
+): number {
+	const cursor = tree.walk();
+	const find = (): number => {
+		const node = cursor.currentNode;
+		const row = node.startPosition.row + 1;
+		const isFuncNode = funcNodeType
+			? cursor.nodeType === funcNodeType
+			: cursor.nodeType === "function_declaration" ||
+				cursor.nodeType === "method_definition" ||
+				cursor.nodeType === "arrow_function";
+
+		if (isFuncNode && row === sym.startLine) {
+			const params = node.childForFieldName("parameters");
+			if (params) {
+				let count = 0;
+				for (let i = 0; i < params.namedChildCount; i++) {
+					const child = params.namedChild(i);
+					if (!child) continue;
+					if (isPython && child.type === "identifier" && child.text === "self") continue;
+					count++;
+				}
+				return count;
+			}
+			return 0;
+		}
+
+		if (cursor.gotoFirstChild()) {
+			do {
+				const result = find();
+				if (result >= 0) return result;
+			} while (cursor.gotoNextSibling());
+			cursor.gotoParent();
+		}
+		return -1;
+	};
+
+	const result = find();
+	return result >= 0 ? result : 0;
 }
 
 /** Strip surrounding quotes from a string literal node text. */

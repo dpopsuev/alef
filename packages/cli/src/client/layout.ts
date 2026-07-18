@@ -1,4 +1,3 @@
-import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
@@ -44,7 +43,6 @@ export async function buildLayout(
 	t: ThemeTokens,
 	opts: InteractiveOptions,
 	tuiStore: TuiStateStore,
-	store?: SessionStore,
 ): Promise<TuiLayout> {
 	const { BUILD_INFO } = await import("../boot/build-info.js");
 	const dashboard = new DashboardFooter({
@@ -66,7 +64,6 @@ export async function buildLayout(
 	const humanLabel = displayActorName(opts.humanAddress, "you");
 	const agentLabel = displayActorName(opts.agentAddress, "alef");
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
-	if (store) await output.loadHistory(store, tui, opts.cwd);
 
 	const input = new InputPanel({
 		tui,

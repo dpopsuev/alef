@@ -5,7 +5,7 @@ import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { ProcessTerminal, type SelectItem, SelectList, setTraceSink, type Terminal, TUI } from "@dpopsuev/alef-tui";
-import { type ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
+import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
@@ -122,14 +122,19 @@ export async function runTuiMode(
 		compacted: false,
 		costUsd: 0,
 	});
-	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore, store);
+	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
 	let discussionReloadSeq = 0;
+	let historyAbort: AbortController | undefined;
 	let activeDiscussionKey = opts.discussion ? `${opts.discussion.forumId}/${opts.discussion.topicId}` : "";
+	const DISCUSSION_PAINT_CHUNK = 8;
+
 	const loadDiscussion = async (topicId?: string): Promise<void> => {
 		if (!session.readDiscussionTopic) return;
+		historyAbort?.abort();
 		const reloadSeq = ++discussionReloadSeq;
+		footer.setStatus("history", "loading…");
 		const messages = await session.readDiscussionTopic(topicId);
 		const tools: RuntimeToolHistoryEntry[] = [];
 		const activeDiscussion = session.getDiscussion?.();
@@ -167,9 +172,17 @@ export async function runTuiMode(
 					},
 		);
 		writer.clearAll();
-		for (const entry of entries) entry.render();
+		tui.requestRender();
+		for (let offset = 0; offset < entries.length; offset += DISCUSSION_PAINT_CHUNK) {
+			if (reloadSeq !== discussionReloadSeq) return;
+			const slice = entries.slice(offset, offset + DISCUSSION_PAINT_CHUNK);
+			for (const entry of slice) entry.render();
+			tui.requestRender();
+			await yieldToEventLoop();
+		}
+		if (reloadSeq === discussionReloadSeq) footer.setStatus("history", undefined);
 	};
-	await loadDiscussion();
+
 	promptConsole.setTopicLabel(opts.discussion?.topicTitle ?? "");
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
@@ -289,6 +302,16 @@ export async function runTuiMode(
 	promptConsole.setStatus(color(bold("INSERT"), t.accentFg));
 	tui.requestRender();
 	traceEvent("tui:start");
+	// History/discussion paint after start so resume never blocks scroll or input.
+	if (session.readDiscussionTopic) {
+		void loadDiscussion();
+	} else if (store) {
+		historyAbort = new AbortController();
+		footer.setStatus("history", "loading…");
+		void output
+			.loadHistory(store, tui, opts.cwd, historyAbort.signal)
+			.finally(() => footer.setStatus("history", undefined));
+	}
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
 	checkForUpdate()
 		.then((n) => {

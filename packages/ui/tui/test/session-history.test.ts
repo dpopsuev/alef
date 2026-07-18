@@ -9,7 +9,7 @@ function fakeWriter() {
 	const writer = {
 		addNotice: (text: string) => {
 			calls.push(`notice:${text}`);
-			children.push({ kind: "notice" });
+			children.push({ kind: "notice", text });
 		},
 		addUserMessage: (text: string) => {
 			calls.push(`user:${text}`);
@@ -27,6 +27,10 @@ function fakeWriter() {
 			children,
 			insertAt: (index: number, child: unknown) => {
 				children.splice(index, 0, child);
+			},
+			removeChild: (child: unknown) => {
+				const index = children.indexOf(child);
+				if (index >= 0) children.splice(index, 1);
 			},
 		},
 	};
@@ -147,5 +151,82 @@ describe("prependSessionHistory", { tags: ["unit"] }, () => {
 
 		expect(calls).toContain("user:Spawn a single subagent");
 		expect(calls).toContain("assistant:Spawned child-1");
+	});
+
+	it("paints history in yielded chunks and drops the loading marker", async () => {
+		const { writer, calls, children } = fakeWriter();
+		const chunkSpy = vi.fn();
+		const store = storeWith([
+			{
+				bus: "event",
+				type: "llm.input",
+				correlationId: "c1",
+				payload: { text: "q1" },
+				timestamp: 1,
+			},
+			{
+				bus: "command",
+				type: "llm.response",
+				correlationId: "c1",
+				payload: { text: "a1" },
+				timestamp: 2,
+			},
+			{
+				bus: "event",
+				type: "llm.input",
+				correlationId: "c2",
+				payload: { text: "q2" },
+				timestamp: 3,
+			},
+			{
+				bus: "command",
+				type: "llm.response",
+				correlationId: "c2",
+				payload: { text: "a2" },
+				timestamp: 4,
+			},
+		]);
+
+		await prependSessionHistory(store, writer, { maxTurns: 5, chunkSize: 1, onChunk: chunkSpy });
+
+		expect(calls.some((c) => c.includes("Loading session"))).toBe(true);
+		expect(calls.some((c) => c.startsWith("notice:Resumed"))).toBe(true);
+		expect(children.some((child) => (child as { text?: string }).text === "Loading session…")).toBe(false);
+		expect(chunkSpy.mock.calls.length).toBeGreaterThan(2);
+		expect(calls).toContain("user:q1");
+		expect(calls).toContain("user:q2");
+	});
+
+	it("aborts before painting when signal is aborted during fetch", async () => {
+		const { writer, calls } = fakeWriter();
+		const controller = new AbortController();
+		const store = storeWith([
+			{
+				bus: "event",
+				type: "llm.input",
+				correlationId: "c1",
+				payload: { text: "should not paint" },
+				timestamp: 1,
+			},
+			{
+				bus: "command",
+				type: "llm.response",
+				correlationId: "c1",
+				payload: { text: "nope" },
+				timestamp: 2,
+			},
+		]);
+		const slowStore = {
+			...store,
+			async events() {
+				controller.abort();
+				return store.events();
+			},
+		};
+
+		await prependSessionHistory(slowStore, writer, { maxTurns: 5, signal: controller.signal });
+
+		expect(calls).not.toContain("user:should not paint");
+		expect(calls.some((c) => c.startsWith("notice:Resumed"))).toBe(false);
 	});
 });

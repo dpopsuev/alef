@@ -30,8 +30,6 @@ export type TuiEvent = AgentEvent | TuiInputEvent;
 // Constants
 // ---------------------------------------------------------------------------
 
-const CONTEXT_WARNING_THRESHOLD = 0.75;
-const CONTEXT_CRITICAL_THRESHOLD = 0.9;
 const TASK_CHUNK_TAIL_LIMIT = 20;
 
 // ---------------------------------------------------------------------------
@@ -420,17 +418,7 @@ export function dispatchTuiEvent(
 				formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
 			);
 		}
-		const contextWindow = session.state.contextWindow;
-		if (contextWindow && totalTokens > 0) {
-			const fill = totalTokens / contextWindow;
-			if (fill > CONTEXT_CRITICAL_THRESHOLD) {
-				writer.addNotice(
-					`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens) — start a new session soon`,
-				);
-			} else if (fill > CONTEXT_WARNING_THRESHOLD) {
-				writer.addNotice(`context ${Math.round(fill * 100)}% full`);
-			}
-		}
+		// Context pressure is shown on the footer context bar (warn/error colors), not scrollback.
 		return {
 			...state,
 			sessionTokensTotal,

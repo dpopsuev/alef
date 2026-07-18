@@ -26,6 +26,7 @@ import { boldColor, color, type ThemeTokens } from "./theme.js";
  *     hints/app       — Vim hints, :command grid, or InputApplication
  *
  *   FOOTER
+ *     context bar     — primary context fill (blink on compact, drain on recover)
  *     hints           — path · model · key tips (:status / :tokens for density)
  */
 

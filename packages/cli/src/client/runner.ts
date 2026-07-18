@@ -178,8 +178,18 @@ export async function runTuiMode(
 	const dispatch = (event: TuiEvent): void => {
 		if (event.type === "state-changed") liveContextWindow = event.contextWindow;
 		const prev = tuiState;
+		const prevContextUsed = tuiStore.get().contextUsed;
 		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
+		if (event.type === "adapter-signal") {
+			if (event.signalType === "context.compacting") {
+				footer.setCompacting(event.payload.active === true);
+			} else if (event.signalType === "context.compacted") {
+				const before = Number(event.payload.estimatedBefore ?? prevContextUsed);
+				const after = Number(event.payload.estimatedAfter ?? tuiState.contextFillTokens);
+				footer.playDrain(before, after);
+			}
+		}
 		tuiStore.update({
 			modelId: session.getModel(),
 			inputTokens: tuiState.sessionInputTokens,

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	BUILT_IN_THEMES,
 	bold,
+	buildTerminalTheme,
 	color,
 	colorDepth,
 	dim,
@@ -107,18 +108,17 @@ describe("built-in themes", { tags: ["unit"] }, () => {
 	it("each theme has all required token keys", () => {
 		const required: Array<keyof ThemeTokens> = [
 			"userFg",
+			"userBg",
 			"agentFg",
+			"agentBg",
 			"primaryFg",
 			"secondaryFg",
-			"okFg",
-			"errFg",
-			"accentFg",
 			"mutedFg",
+			"accentFg",
+			"brightFg",
 			"okFg",
 			"warnFg",
 			"errFg",
-			"mutedFg",
-			"mutedFg",
 		];
 		for (const [name, theme] of Object.entries(BUILT_IN_THEMES)) {
 			for (const key of required) {
@@ -147,6 +147,27 @@ describe("akko palette", { tags: ["unit"] }, () => {
 	it("has truecolor values", () => {
 		expect(BUILT_IN_THEMES.akko!.accentFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
 		expect(BUILT_IN_THEMES.akko!.warnFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
+	});
+});
+
+describe("buildTerminalTheme role wiring", { tags: ["unit"] }, () => {
+	it("maps OSC slots onto accent/primary/bright (no hard-coded blue primary)", () => {
+		const t = buildTerminalTheme({
+			12: "#0000ff",
+			13: "#ff00aa",
+			15: "#ffffff",
+			8: "#808080",
+			9: "#ff0000",
+			10: "#00ff00",
+			11: "#ffff00",
+		});
+		expect(t.accentFg.truecolor).toBe("#ff00aa");
+		expect(t.userFg.truecolor).toBe("#ff00aa");
+		expect(t.primaryFg.truecolor).toBe("#0000ff");
+		expect(t.brightFg.truecolor).toBe("#ffffff");
+		expect(t.okFg.truecolor).toBe("#00ff00");
+		expect(t.warnFg.truecolor).toBe("#ffff00");
+		expect(t.errFg.truecolor).toBe("#ff0000");
 	});
 });
 

@@ -22,7 +22,7 @@ export {
 } from "@dpopsuev/alef-tui";
 
 import type { ColorToken, SelectListTheme, ThemeTokens } from "@dpopsuev/alef-tui";
-import { bold, color, colorDepth, FG_RESET, fgCode, hexToRgb, nerdFontsAvailable } from "@dpopsuev/alef-tui";
+import { color, colorDepth, FG_RESET, fgCode, hexToRgb, nerdFontsAvailable } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 
 const ANSI_FG_START = 30;
@@ -62,30 +62,24 @@ export function boldColor(text: string, token: ColorToken): string {
 }
 
 /**
- * SelectList theme variants used across overlay/session/history/editor pickers.
- * - accent: accent-colored selection (settings overlays)
- * - bold: bold selection (editor autocomplete)
- * - accent-bold-text: accent prefix + plain bold label (session picker)
- * - accent-bold-color: accent prefix + bold+accent label (history picker)
+ * SelectList theme variants — shared chrome for :commands, session, blueprint, overlays.
+ * Selected = accentFg (brand focus); unselected = muted; selected description = brightFg.
+ * Variants only change weight (bold), never which role paints the selection.
  */
 export type SelectListThemeVariant = "accent" | "bold" | "accent-bold-text" | "accent-bold-color";
 
 /** Build a SelectListTheme from TUI tokens. */
 export function selectListThemeFromTokens(t: ThemeTokens, variant: SelectListThemeVariant = "accent"): SelectListTheme {
 	const muted = (s: string) => color(s, t.mutedFg);
-	const selectedPrefix = variant === "bold" ? (s: string) => bold(s) : (s: string) => color(s, t.accentFg);
-	const selectedText =
-		variant === "bold"
-			? (s: string) => bold(s)
-			: variant === "accent-bold-text"
-				? (s: string) => bold(s)
-				: variant === "accent-bold-color"
-					? (s: string) => boldColor(s, t.accentFg)
-					: (s: string) => color(s, t.accentFg);
+	const bright = (s: string) => color(s, t.brightFg);
+	const useBold = variant === "bold" || variant === "accent-bold-text" || variant === "accent-bold-color";
+	const selected = useBold ? (s: string) => boldColor(s, t.accentFg) : (s: string) => color(s, t.accentFg);
 	return {
-		selectedPrefix,
-		selectedText,
+		selectedPrefix: selected,
+		selectedText: selected,
+		unselectedText: muted,
 		description: muted,
+		selectedDescription: bright,
 		scrollInfo: muted,
 		noMatch: muted,
 	};
@@ -96,10 +90,11 @@ const TERMINAL: ThemeTokens = {
 	userBg: { ansi16: 45 }, // magenta bg — 16-color only (dark terminals)
 	agentBg: { ansi16: 40 }, // dark green bg — visible but subtle on dark terminals
 	agentFg: { ansi16: 96 }, // bright cyan
-	primaryFg: { ansi16: 34 },
+	primaryFg: { ansi16: 94 }, // bright blue — structural emphasis
 	secondaryFg: { ansi16: 36 },
 	mutedFg: { ansi16: 90 },
-	accentFg: { ansi16: 95 }, // bright magenta
+	accentFg: { ansi16: 95 }, // bright magenta — brand / interactive
+	brightFg: { ansi16: 97 }, // bright white — selected-row secondary text
 	okFg: { ansi16: 32 }, // green
 	warnFg: { ansi16: 33 }, // yellow
 	errFg: { ansi16: 31 }, // red
@@ -110,10 +105,11 @@ const AKKO: ThemeTokens = {
 	userBg: { truecolor: "#2a1a22", ansi256: 52, ansi16: 45 }, // very dark rose
 	agentBg: { truecolor: "#0e1a22", ansi256: 17, ansi16: 40 }, // very dark blue-gray
 	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
-	primaryFg: { ansi16: 34 },
+	primaryFg: { truecolor: "#6b9ecf", ansi256: 74, ansi16: 94 },
 	secondaryFg: { ansi16: 90 },
 	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#c55778", ansi256: 168, ansi16: 35 },
+	brightFg: { truecolor: "#f0f0f0", ansi256: 255, ansi16: 97 },
 	okFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
 	warnFg: { truecolor: "#d09e48", ansi256: 178, ansi16: 33 },
 	errFg: { truecolor: "#f04060", ansi256: 204, ansi16: 91 },
@@ -124,10 +120,11 @@ const MONO: ThemeTokens = {
 	userBg: { truecolor: "#1a1a1a", ansi256: 235, ansi16: 40 }, // near-black
 	agentBg: { truecolor: "#111111", ansi256: 233, ansi16: 40 }, // slightly lighter near-black
 	agentFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
-	primaryFg: { ansi16: 34 },
+	primaryFg: { truecolor: "#dddddd", ansi256: 253, ansi16: 37 },
 	secondaryFg: { ansi16: 90 },
 	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
+	brightFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
 	okFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
 	warnFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
 	errFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
@@ -138,10 +135,11 @@ const MATRIX: ThemeTokens = {
 	userBg: { truecolor: "#001a00", ansi256: 22, ansi16: 42 }, // very dark green
 	agentBg: { truecolor: "#001400", ansi256: 22, ansi16: 42 }, // slightly different green-black
 	agentFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
-	primaryFg: { ansi16: 34 },
+	primaryFg: { truecolor: "#00cc33", ansi256: 40, ansi16: 32 },
 	secondaryFg: { ansi16: 90 },
 	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
+	brightFg: { truecolor: "#e0ffe0", ansi256: 194, ansi16: 97 },
 	okFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
 	warnFg: { truecolor: "#ffff00", ansi256: 226, ansi16: 93 },
 	errFg: { truecolor: "#ff0000", ansi256: 196, ansi16: 91 },
@@ -235,16 +233,16 @@ export function spinnerFrames(count = DEFAULT_SPINNER_FRAMES): string[] {
  * palette colors from OSC 4 queries.
  *
  * Slot → semantic role mapping:
- *   13 bright magenta → userFg / accentFg
- *    5 dark magenta   → userBg  (as fg code; bg() applies the +10 offset)
+ *   13 bright magenta → userFg / accentFg (brand + interactive)
+ *    5 dark magenta   → userBg
  *   14 bright cyan    → agentFg
  *    6 dark cyan      → agentBg
- *   12 bright blue    → primaryFg
+ *   12 bright blue    → primaryFg (structural emphasis)
+ *   15 bright white   → brightFg (selected-row secondary text)
  *    8 bright black   → mutedFg / secondaryFg
  *   10 bright green   → okFg
  *    9 bright red     → errFg
  *   11 bright yellow  → warnFg
- *    7 light gray     → mutedFg
  *
  * When a slot's truecolor is known, it is stored alongside the ansi16 fallback
  * so fgCode() / bg() can use it on truecolor-capable terminals.
@@ -265,18 +263,19 @@ export function buildTerminalTheme(palette: Record<number, string>): ThemeTokens
 		userBg: bgTok(5, 45), // dark magenta bg
 		agentBg: bgTok(6, 40), // dark cyan bg
 		agentFg: tok(14, 96), // bright cyan
-		primaryFg: { ansi16: 34 },
-		secondaryFg: { ansi16: 90 },
-		mutedFg: { ansi16: 90 },
-		accentFg: tok(13, 95), // same as userFg
-		okFg: tok(10, 32), // bright green
-		warnFg: tok(11, 33), // bright yellow
-		errFg: tok(9, 31), // bright red
+		primaryFg: tok(12, 94), // bright blue
+		secondaryFg: tok(8, 90),
+		mutedFg: tok(8, 90),
+		accentFg: tok(13, 95), // brand — same slot as userFg
+		brightFg: tok(15, 97),
+		okFg: tok(10, 92), // bright green
+		warnFg: tok(11, 93), // bright yellow
+		errFg: tok(9, 91), // bright red
 	};
 }
 
 /** Palette slots queried at startup to build the terminal theme. */
-export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const;
+export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 
 /** Activate a built-in theme by name, falling back to terminal if unknown. */
 export function setThemeByName(name: string): void {

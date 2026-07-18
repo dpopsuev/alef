@@ -113,4 +113,25 @@ describe("SelectList", { tags: ["unit"] }, () => {
 		assert.ok(rendered[0]!.includes("…"));
 		assert.equal(visibleIndexOf(rendered[0]!, "first"), visibleIndexOf(rendered[1]!, "second"));
 	});
+
+	it("styles selected command, selected description, and unselected rows separately", () => {
+		const items = [
+			{ value: "q", label: "q", description: "Quit" },
+			{ value: "help", label: "help", description: "Show help" },
+		];
+		const list = new SelectList(items, 5, {
+			selectedPrefix: (text) => text,
+			selectedText: (text) => `[S]${text}[/S]`,
+			unselectedText: (text) => `[U]${text}[/U]`,
+			description: (text) => `[D]${text}[/D]`,
+			selectedDescription: (text) => `[W]${text}[/W]`,
+			scrollInfo: (text) => text,
+			noMatch: (text) => text,
+		});
+		const rendered = list.render(80);
+		assert.ok(rendered[0]!.includes("[S]→ q[/S]"));
+		assert.ok(rendered[0]!.includes("[W]") && rendered[0]!.includes("Quit"));
+		assert.ok(rendered[1]!.includes("[U]") && rendered[1]!.includes("help"));
+		assert.ok(rendered[1]!.includes("[D]") && rendered[1]!.includes("Show help"));
+	});
 });

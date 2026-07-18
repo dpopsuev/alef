@@ -31,7 +31,7 @@ import type { SessionService } from "./boot/session-service.js";
 import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { pickSession } from "./client/commands/sessions.js";
-import { loadTheme, queryPalette } from "./client/theme.js";
+import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "./client/theme.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";
 import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
@@ -282,7 +282,7 @@ runtime.registerApplicationServices({
 // Theme
 const [isDark, terminalPalette] = await Promise.all([
 	isTermDark().then((r: boolean | null | undefined) => r ?? true),
-	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)),
+	queryPalette([...TERMINAL_PALETTE_SLOTS]),
 ]);
 loadTheme(
 	loaded.blueprintPath ? new URL("..", `file://${loaded.blueprintPath}`).pathname : undefined,

@@ -27,6 +27,7 @@ function getTheme() {
 		secondaryFg: C,
 		mutedFg: C,
 		accentFg: C,
+		brightFg: C,
 		okFg: C,
 		warnFg: C,
 		errFg: C,

@@ -28,7 +28,11 @@ export interface SelectItem {
 export interface SelectListTheme {
 	selectedPrefix: (text: string) => string;
 	selectedText: (text: string) => string;
+	/** Unselected primary label — defaults to plain text. */
+	unselectedText?: (text: string) => string;
 	description: (text: string) => string;
+	/** Selected-row description — defaults to selectedText (legacy whole-line accent). */
+	selectedDescription?: (text: string) => string;
 	scrollInfo: (text: string) => string;
 	noMatch: (text: string) => string;
 }
@@ -65,6 +69,7 @@ export class SelectList implements Component {
 	private layout: SelectListLayoutOptions;
 	private searchBuffer = "";
 	private searchable = false;
+	private primaryColumnWidthCache: number | undefined;
 
 	public onSelect?: (item: SelectItem) => void;
 	public onCancel?: () => void;
@@ -92,10 +97,12 @@ export class SelectList implements Component {
 				)
 			: this.items;
 		this.selectedIndex = 0;
+		this.primaryColumnWidthCache = undefined;
 	}
 
 	setItems(items: SelectItem[]): void {
 		this.items = items;
+		this.primaryColumnWidthCache = undefined;
 		this.setFilter(this.searchBuffer);
 		this.notifySelectionChange();
 	}
@@ -202,6 +209,9 @@ export class SelectList implements Component {
 		const prefix = isSelected ? "→ " : "  ";
 		const prefixWidth = visibleWidth(prefix);
 
+		const unselected = this.theme.unselectedText ?? ((text: string) => text);
+		const selectedDesc = this.theme.selectedDescription ?? this.theme.selectedText;
+
 		if (descriptionSingleLine && width > 40) {
 			const effectivePrimaryColumnWidth = Math.max(1, Math.min(primaryColumnWidth, width - prefixWidth - 4));
 			const maxPrimaryWidth = Math.max(1, effectivePrimaryColumnWidth - PRIMARY_COLUMN_GAP);
@@ -214,11 +224,11 @@ export class SelectList implements Component {
 			if (remainingWidth > MIN_DESCRIPTION_WIDTH) {
 				const truncatedDesc = truncateToWidth(descriptionSingleLine, remainingWidth, "");
 				if (isSelected) {
-					return this.theme.selectedText(`${prefix}${truncatedValue}${spacing}${truncatedDesc}`);
+					return (
+						this.theme.selectedText(`${prefix}${truncatedValue}`) + selectedDesc(`${spacing}${truncatedDesc}`)
+					);
 				}
-
-				const descText = this.theme.description(spacing + truncatedDesc);
-				return prefix + truncatedValue + descText;
+				return unselected(`${prefix}${truncatedValue}`) + this.theme.description(`${spacing}${truncatedDesc}`);
 			}
 		}
 
@@ -228,16 +238,18 @@ export class SelectList implements Component {
 			return this.theme.selectedText(`${prefix}${truncatedValue}`);
 		}
 
-		return prefix + truncatedValue;
+		return unselected(`${prefix}${truncatedValue}`);
 	}
 
 	private getPrimaryColumnWidth(): number {
+		if (this.primaryColumnWidthCache !== undefined) return this.primaryColumnWidthCache;
 		const { min, max } = this.getPrimaryColumnBounds();
 		const widestPrimary = this.filteredItems.reduce((widest, item) => {
 			return Math.max(widest, visibleWidth(this.getDisplayValue(item)) + PRIMARY_COLUMN_GAP);
 		}, 0);
 
-		return clamp(widestPrimary, min, max);
+		this.primaryColumnWidthCache = clamp(widestPrimary, min, max);
+		return this.primaryColumnWidthCache;
 	}
 
 	private getPrimaryColumnBounds(): { min: number; max: number } {

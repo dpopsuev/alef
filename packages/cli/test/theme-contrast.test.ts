@@ -52,8 +52,8 @@ function hexOf(token: { truecolor?: string } | undefined): string | null {
 type TokenKey = keyof ThemeTokens;
 
 const BODY_PAIRS: Array<[TokenKey, TokenKey, string]> = [
-	["userFg", "userBg", "user message text"],
-	["agentFg", "agentBg", "agent reply text"],
+	["userFg", "userBg", "user speaker label"],
+	["agentFg", "agentBg", "agent speaker label"],
 	["primaryFg", "agentBg", "primary on agent bg"],
 	["okFg", "agentBg", "ok glyph on agent bg"],
 	["errFg", "agentBg", "error glyph on agent bg"],

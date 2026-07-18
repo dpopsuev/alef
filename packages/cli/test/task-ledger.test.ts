@@ -53,6 +53,7 @@ function noopUi() {
 			secondaryFg: { ansi16: 36 },
 			mutedFg: { ansi16: 90 },
 			accentFg: { ansi16: 95 },
+			brightFg: { ansi16: 95 },
 			okFg: { ansi16: 32 },
 			warnFg: { ansi16: 33 },
 			errFg: { ansi16: 31 },

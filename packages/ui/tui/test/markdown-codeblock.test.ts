@@ -15,9 +15,18 @@ import { makeMarkdownTheme } from "../src/views/markdown-themes.js";
 
 const c = (n: number) => ({ ansi16: n });
 const STUB_THEME_TOKENS = {
-	primaryFg: c(37), secondaryFg: c(36), accentFg: c(33), mutedFg: c(90),
-	userFg: c(32), agentFg: c(35), warnFg: c(33), errorFg: c(31), successFg: c(32),
-	userBg: c(0), agentBg: c(0), okFg: c(32), errFg: c(31),
+	primaryFg: c(37),
+	secondaryFg: c(36),
+	accentFg: c(33),
+	brightFg: c(97),
+	mutedFg: c(90),
+	userFg: c(32),
+	agentFg: c(35),
+	warnFg: c(33),
+	userBg: c(0),
+	agentBg: c(0),
+	okFg: c(32),
+	errFg: c(31),
 };
 
 describe("Markdown code block rendering", { tags: ["unit"] }, () => {

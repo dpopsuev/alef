@@ -17,8 +17,8 @@ export class SessionListDialog extends DialogBase {
 	private deletedSessions = new Set<string>();
 	private closedViaSelection = false;
 
-	protected modalWidth = "min(600px, 90vw)";
-	protected modalHeight = "min(700px, 90vh)";
+	protected override modalWidth = "min(600px, 90vw)";
+	protected override modalHeight = "min(700px, 90vh)";
 
 	static async open(onSelect: (sessionId: string) => void, onDelete?: (sessionId: string) => void) {
 		const dialog = new SessionListDialog();

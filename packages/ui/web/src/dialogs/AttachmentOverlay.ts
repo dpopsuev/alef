@@ -547,8 +547,8 @@ export class AttachmentOverlay extends LitElement {
 				});
 			} else {
 				// Single sheet
-				const sheetName = workbook.SheetNames[0];
-				wrapper.appendChild(this.renderExcelSheet(workbook.Sheets[sheetName], sheetName));
+				const sheetName = workbook.SheetNames[0]!;
+				wrapper.appendChild(this.renderExcelSheet(workbook.Sheets[sheetName]!, sheetName));
 			}
 		} catch (error: any) {
 			console.error("Error rendering Excel:", error);

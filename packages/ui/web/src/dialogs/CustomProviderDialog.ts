@@ -24,8 +24,8 @@ export class CustomProviderDialog extends DialogBase {
 	@state() private testError = "";
 	@state() private discoveredModels: Model<any>[] = [];
 
-	protected modalWidth = "min(800px, 90vw)";
-	protected modalHeight = "min(700px, 90vh)";
+	protected override modalWidth = "min(800px, 90vw)";
+	protected override modalHeight = "min(700px, 90vh)";
 
 	static async open(
 		provider: CustomProvider | undefined,

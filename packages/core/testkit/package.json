@@ -38,7 +38,7 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run",
     "prepublishOnly": "npm run clean && npm run build"
@@ -62,17 +62,18 @@
   },
   "dependencies": {
     "@dpopsuev/alef-agent": "workspace:*",
-    "@dpopsuev/alef-blueprint": "workspace:*",
-    "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
-    "@dpopsuev/alef-reasoner": "workspace:*",
+    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "@dpopsuev/alef-storage": "workspace:*",
     "vite-tsconfig-paths": "*"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "node-pty": "^1.1.0",
     "shx": "^0.4.0",
     "typescript": "^5.9.2",
     "vitest": "^4.1.6"

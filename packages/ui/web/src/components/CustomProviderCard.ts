@@ -13,7 +13,7 @@ export class CustomProviderCard extends LitElement {
 	@property() onEdit?: (provider: CustomProvider) => void;
 	@property() onDelete?: (provider: CustomProvider) => void;
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this;
 	}
 
@@ -49,7 +49,7 @@ export class CustomProviderCard extends LitElement {
 		`;
 	}
 
-	render(): TemplateResult {
+	override render(): TemplateResult {
 		return html`
 			<div class="border border-border rounded-lg p-4 space-y-2">
 				<div class="flex items-center justify-between">

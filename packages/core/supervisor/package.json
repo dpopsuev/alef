@@ -13,7 +13,7 @@
   "files": ["dist"],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "prepublishOnly": "npm run clean && npm run build"
   },

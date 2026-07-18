@@ -53,7 +53,7 @@ export class ImageArtifact extends ArtifactElement {
 		// If content is a data URL, extract the base64 part
 		if (this._content.startsWith("data:")) {
 			const base64Match = this._content.match(/base64,(.+)/);
-			if (base64Match) {
+			if (base64Match?.[1]) {
 				base64Data = base64Match[1];
 			} else {
 				// Not a base64 data URL, return empty

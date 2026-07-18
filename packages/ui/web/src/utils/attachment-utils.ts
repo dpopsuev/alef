@@ -379,7 +379,7 @@ async function processPptx(arrayBuffer: ArrayBuffer, fileName: string): Promise<
 
 		// Extract text from each slide
 		for (let i = 0; i < slideFiles.length; i++) {
-			const slideFile = zip.file(slideFiles[i]);
+			const slideFile = slideFiles[i] ? zip.file(slideFiles[i]!) : null;
 			if (slideFile) {
 				const slideXml = await slideFile.async("text");
 
@@ -390,11 +390,11 @@ async function processPptx(arrayBuffer: ArrayBuffer, fileName: string): Promise<
 				if (textMatches) {
 					extractedText += `\n<slide number="${i + 1}">`;
 					const slideTexts = textMatches
-						.map((match) => {
+						.map((match: string) => {
 							const textMatch = match.match(/<a:t[^>]*>([^<]+)<\/a:t>/);
 							return textMatch ? textMatch[1] : "";
 						})
-						.filter((t) => t.trim());
+						.filter((t: string | undefined) => t?.trim());
 
 					if (slideTexts.length > 0) {
 						extractedText += `\n${slideTexts.join("\n")}`;
@@ -422,11 +422,11 @@ async function processPptx(arrayBuffer: ArrayBuffer, fileName: string): Promise<
 					const textMatches = noteXml.match(/<a:t[^>]*>([^<]+)<\/a:t>/g);
 					if (textMatches) {
 						const noteTexts = textMatches
-							.map((match) => {
+							.map((match: string) => {
 								const textMatch = match.match(/<a:t[^>]*>([^<]+)<\/a:t>/);
 								return textMatch ? textMatch[1] : "";
 							})
-							.filter((t) => t.trim());
+							.filter((t: string | undefined) => t?.trim());
 
 						if (noteTexts.length > 0) {
 							const slideNum = noteFile.match(/notesSlide(\d+)\.xml$/)?.[1];
@@ -456,6 +456,7 @@ async function processExcel(arrayBuffer: ArrayBuffer, fileName: string): Promise
 		// Process each sheet
 		for (const [index, sheetName] of workbook.SheetNames.entries()) {
 			const worksheet = workbook.Sheets[sheetName];
+			if (!worksheet) continue;
 
 			// Extract text as CSV for the extractedText field
 			const csvText = XLSX.utils.sheet_to_csv(worksheet);

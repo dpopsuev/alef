@@ -32,7 +32,7 @@ export class ProviderKeyInput extends LitElement {
 	@state() private hasKey = false;
 	@state() private inputChanged = false;
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this;
 	}
 
@@ -115,7 +115,7 @@ export class ProviderKeyInput extends LitElement {
 		}
 	}
 
-	render() {
+	override render() {
 		return html`
 			<div class="space-y-3">
 				<div class="flex items-center gap-2">

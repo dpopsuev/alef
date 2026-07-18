@@ -14,7 +14,7 @@ export class ExpandableSection extends LitElement {
 	@state() private expanded = false;
 	private capturedChildren: Node[] = [];
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this; // light DOM
 	}
 

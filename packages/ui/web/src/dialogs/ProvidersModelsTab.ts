@@ -200,7 +200,7 @@ export class ProvidersModelsTab extends SettingsTab {
 		}
 	}
 
-	render(): TemplateResult {
+	override render(): TemplateResult {
 		return html`
 			<div class="flex flex-col gap-8">
 				${this.renderKnownProviders()}

@@ -34,6 +34,10 @@
       "types": "./src/context/summarizer.ts",
       "default": "./src/context/summarizer.ts"
     },
+    "./title": {
+      "types": "./src/context/title.ts",
+      "default": "./src/context/title.ts"
+    },
     "./scoring": {
       "types": "./src/context/scoring.ts",
       "default": "./src/context/scoring.ts"
@@ -45,6 +49,10 @@
     "./metadata": {
       "types": "./src/context/metadata.ts",
       "default": "./src/context/metadata.ts"
+    },
+    "./context/offloader": {
+      "types": "./src/context/offloader.ts",
+      "default": "./src/context/offloader.ts"
     },
     "./tracing": {
       "types": "./dist/tracing/index.d.ts",
@@ -72,7 +80,7 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run",
     "prepublishOnly": "npm run clean && npm run build"

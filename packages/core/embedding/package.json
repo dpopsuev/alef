@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "npx tsc -p tsconfig.build.json"
+    "build": "npx tsc -b tsconfig.build.json"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4"

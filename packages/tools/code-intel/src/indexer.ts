@@ -15,6 +15,9 @@ import {
 	type SupportedLanguage,
 	type Symbol,
 } from "./tree-sitter-backend.js";
+import { adaptCalls, adaptComplexity, adaptDataflow, adaptImports, adaptReferences, adaptSymbols } from "./codegraph/adapter.js";
+import { getExtractor, hasCodeGraphExtractor } from "./codegraph/registry.js";
+import { wrapTree } from "./codegraph/shim.js";
 
 export type { IndexedCall, IndexedImport, IndexedReference } from "./graph-types.js";
 
@@ -70,29 +73,51 @@ export class WorkspaceIndexer {
 		}
 
 		const tree = await this.treeSitter.parse(source, language);
-		const symbols = this.treeSitter.extractSymbols(tree, source, language);
-		const imports = extractImports(tree, source, language, absolute, this.cwd);
-		const calls = extractCalls(tree, source, language, symbols);
-		const references = extractReferences(tree, source, language, symbols);
-		const complexity = extractComplexity(tree, source, language, symbols);
-		const dataflow = extractDataflow(tree, language, symbols);
-
 		const hash = computeFileHash(absolute);
 		const storedPath = toStoredPath(absolute, this.cwd);
-		this.graph.replaceFileIndex({
-			path: storedPath,
-			absolutePath: absolute,
-			hash,
-			language,
-			symbols,
-			imports,
-			calls,
-			references,
-			complexity,
-			dataflow,
-			lines: source.split("\n").length,
-			sizeBytes: Buffer.byteLength(source, "utf-8"),
-		});
+		const lineCount = source.split("\n").length;
+		const sizeBytes = Buffer.byteLength(source, "utf-8");
+
+		if (hasCodeGraphExtractor(language)) {
+			const extractor = await getExtractor(language);
+			if (!extractor) return false;
+			const output = extractor(wrapTree(tree), absolute);
+			this.graph.replaceFileIndex({
+				path: storedPath,
+				absolutePath: absolute,
+				hash,
+				language,
+				symbols: adaptSymbols(output),
+				imports: adaptImports(output),
+				calls: adaptCalls(output),
+				references: adaptReferences(output),
+				complexity: adaptComplexity(output),
+				dataflow: adaptDataflow(output),
+				lines: lineCount,
+				sizeBytes,
+			});
+		} else {
+			const symbols = this.treeSitter.extractSymbols(tree, source, language);
+			const imports = extractImports(tree, source, language, absolute, this.cwd);
+			const calls = extractCalls(tree, source, language, symbols);
+			const references = extractReferences(tree, source, language, symbols);
+			const complexity = extractComplexity(tree, source, language, symbols);
+			const dataflow = extractDataflow(tree, language, symbols);
+			this.graph.replaceFileIndex({
+				path: storedPath,
+				absolutePath: absolute,
+				hash,
+				language,
+				symbols,
+				imports,
+				calls,
+				references,
+				complexity,
+				dataflow,
+				lines: lineCount,
+				sizeBytes,
+			});
+		}
 		return true;
 	}
 

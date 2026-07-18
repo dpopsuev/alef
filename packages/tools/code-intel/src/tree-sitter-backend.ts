@@ -91,6 +91,14 @@ const languageRegistry: LanguageConfig[] = [
 			return asLanguage(mod.default ?? mod);
 		},
 	},
+	{
+		name: "go",
+		extensions: [".go"],
+		loadParser: async () => {
+			const mod: Record<string, unknown> = await import("tree-sitter-go");
+			return asLanguage(mod.default ?? mod);
+		},
+	},
 ];
 
 /**

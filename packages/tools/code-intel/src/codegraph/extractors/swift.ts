@@ -1,0 +1,337 @@
+import type {
+  Call,
+  ExtractorOutput,
+  SubDeclaration,
+  TreeSitterNode,
+  TreeSitterTree,
+} from '../types.js';
+import { extractModifierVisibility, findChild, nodeEndLine } from './helpers.js';
+
+/**
+ * Extract symbols from Swift files.
+ */
+export function extractSwiftSymbols(tree: TreeSitterTree, _filePath: string): ExtractorOutput {
+  const ctx: ExtractorOutput = {
+    definitions: [],
+    calls: [],
+    imports: [],
+    classes: [],
+    exports: [],
+    typeMap: new Map(),
+  };
+
+  walkSwiftNode(tree.rootNode, ctx);
+  return ctx;
+}
+
+function walkSwiftNode(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  switch (node.type) {
+    case 'class_declaration':
+      handleSwiftClassDecl(node, ctx);
+      break;
+    case 'protocol_declaration':
+      handleSwiftProtocolDecl(node, ctx);
+      break;
+    case 'function_declaration':
+      handleSwiftFunctionDecl(node, ctx);
+      break;
+    case 'import_declaration':
+      handleSwiftImportDecl(node, ctx);
+      break;
+    case 'call_expression':
+      handleSwiftCallExpression(node, ctx);
+      break;
+    case 'property_declaration':
+      seedSwiftPropertyTypeMap(node, ctx);
+      handleSwiftPropertyDecl(node, ctx);
+      break;
+  }
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child) walkSwiftNode(child, ctx);
+  }
+}
+
+// ── Walk-path per-node-type handlers ────────────────────────────────────────
+
+function hasKeywordChild(node: TreeSitterNode, keyword: string): boolean {
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child && child.text === keyword) return true;
+  }
+  return false;
+}
+
+function handleSwiftClassDecl(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  const isStruct = hasKeywordChild(node, 'struct');
+  const isEnum = hasKeywordChild(node, 'enum');
+
+  // Name is a type_identifier direct child
+  const nameNode = findChild(node, 'type_identifier');
+  if (!nameNode) return;
+  const name = nameNode.text;
+
+  const kind = isEnum ? 'enum' : isStruct ? 'struct' : 'class';
+
+  const children = isEnum ? collectSwiftEnumEntries(node) : collectSwiftProperties(node);
+
+  ctx.definitions.push({
+    name,
+    kind,
+    line: node.startPosition.row + 1,
+    endLine: nodeEndLine(node),
+    children: children.length > 0 ? children : undefined,
+  });
+
+  collectSwiftMethods(node, name, ctx);
+  collectSwiftInheritance(node, name, ctx);
+}
+
+/** Collect enum constant entries from an enum_class_body. */
+function collectSwiftEnumEntries(node: TreeSitterNode): SubDeclaration[] {
+  const entries: SubDeclaration[] = [];
+  const body = findChild(node, 'enum_class_body');
+  if (!body) return entries;
+  for (let i = 0; i < body.childCount; i++) {
+    const child = body.child(i);
+    if (child?.type !== 'enum_entry') continue;
+    const entryName = findChild(child, 'simple_identifier');
+    if (entryName) {
+      entries.push({
+        name: entryName.text,
+        kind: 'constant',
+        line: child.startPosition.row + 1,
+      });
+    }
+  }
+  return entries;
+}
+
+/** Collect property declarations from a class_body. */
+function collectSwiftProperties(node: TreeSitterNode): SubDeclaration[] {
+  const props: SubDeclaration[] = [];
+  const body = findChild(node, 'class_body');
+  if (!body) return props;
+  for (let i = 0; i < body.childCount; i++) {
+    const child = body.child(i);
+    if (child?.type !== 'property_declaration') continue;
+    const pattern = findChild(child, 'pattern');
+    if (!pattern) continue;
+    const propName = findChild(pattern, 'simple_identifier');
+    if (propName) {
+      props.push({
+        name: propName.text,
+        kind: 'property',
+        line: child.startPosition.row + 1,
+        visibility: extractModifierVisibility(child),
+      });
+    }
+  }
+  return props;
+}
+
+/** Collect method declarations from class_body or enum_class_body. */
+function collectSwiftMethods(node: TreeSitterNode, className: string, ctx: ExtractorOutput): void {
+  const body = findChild(node, 'class_body') || findChild(node, 'enum_class_body');
+  if (!body) return;
+  for (let i = 0; i < body.childCount; i++) {
+    const child = body.child(i);
+    if (child?.type !== 'function_declaration') continue;
+    const methName = findChild(child, 'simple_identifier');
+    if (methName) {
+      ctx.definitions.push({
+        name: `${className}.${methName.text}`,
+        kind: 'method',
+        line: child.startPosition.row + 1,
+        endLine: child.endPosition.row + 1,
+        visibility: extractModifierVisibility(child),
+      });
+    }
+  }
+}
+
+/** Collect inheritance from inheritance_specifier children. First = extends, rest = implements. */
+function collectSwiftInheritance(
+  node: TreeSitterNode,
+  className: string,
+  ctx: ExtractorOutput,
+): void {
+  let first = true;
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child?.type !== 'inheritance_specifier') continue;
+    const userType = findChild(child, 'user_type');
+    const typeId = userType ? findChild(userType, 'type_identifier') : null;
+    if (!typeId) continue;
+    if (first) {
+      ctx.classes.push({ name: className, extends: typeId.text, line: node.startPosition.row + 1 });
+      first = false;
+    } else {
+      ctx.classes.push({
+        name: className,
+        implements: typeId.text,
+        line: node.startPosition.row + 1,
+      });
+    }
+  }
+}
+
+function handleSwiftProtocolDecl(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  const nameNode = findChild(node, 'type_identifier');
+  if (!nameNode) return;
+  const name = nameNode.text;
+
+  ctx.definitions.push({
+    name,
+    kind: 'interface',
+    line: node.startPosition.row + 1,
+    endLine: nodeEndLine(node),
+  });
+
+  // Methods inside protocol_body or class_body
+  const body = findChild(node, 'protocol_body') || findChild(node, 'class_body');
+  if (body) {
+    for (let i = 0; i < body.childCount; i++) {
+      const child = body.child(i);
+      if (child && child.type === 'function_declaration') {
+        const methName = findChild(child, 'simple_identifier');
+        if (methName) {
+          ctx.definitions.push({
+            name: `${name}.${methName.text}`,
+            kind: 'method',
+            line: child.startPosition.row + 1,
+            endLine: child.endPosition.row + 1,
+          });
+        }
+      }
+    }
+  }
+}
+
+function handleSwiftFunctionDecl(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // Skip methods already emitted by class/protocol handlers
+  if (
+    node.parent?.type === 'class_body' ||
+    node.parent?.type === 'protocol_body' ||
+    node.parent?.type === 'enum_class_body'
+  ) {
+    if (
+      node.parent.parent?.type === 'class_declaration' ||
+      node.parent.parent?.type === 'protocol_declaration'
+    ) {
+      return;
+    }
+  }
+  const nameNode = findChild(node, 'simple_identifier');
+  if (!nameNode) return;
+  ctx.definitions.push({
+    name: nameNode.text,
+    kind: 'function',
+    line: node.startPosition.row + 1,
+    endLine: nodeEndLine(node),
+    visibility: extractModifierVisibility(node),
+  });
+}
+
+function handleSwiftImportDecl(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  const identNode = findChild(node, 'identifier');
+  if (!identNode) return;
+  const source = identNode.text;
+  ctx.imports.push({
+    source,
+    names: [source],
+    line: node.startPosition.row + 1,
+    swiftImport: true,
+  });
+}
+
+function handleSwiftCallExpression(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  const funcNode = node.child(0);
+  if (!funcNode) return;
+  const call: Call = { name: '', line: node.startPosition.row + 1 };
+  if (funcNode.type === 'navigation_expression') {
+    // obj.method(...) — Swift's tree-sitter grammar wraps the suffix in a
+    // `navigation_suffix` node: navigation_expression > [simple_identifier, navigation_suffix].
+    // We must descend into navigation_suffix to get the bare method name (e.g. "save" not ".save").
+    // Mirrors Rust match_swift_node which also descends into navigation_suffix via find_child
+    // to extract the inner simple_identifier, with a trim_start_matches('.') fallback.
+    const lastChild = funcNode.child(funcNode.childCount - 1);
+    const firstChild = funcNode.child(0);
+    if (lastChild && firstChild) {
+      // Resolve the method name: descend into navigation_suffix to find the
+      // simple_identifier, or fall back to stripping the leading dot from the text.
+      let methodName: string;
+      if (lastChild.type === 'simple_identifier') {
+        methodName = lastChild.text;
+      } else if (lastChild.type === 'navigation_suffix') {
+        const inner = findChild(lastChild, 'simple_identifier');
+        methodName = inner ? inner.text : lastChild.text.replace(/^\./, '');
+      } else {
+        methodName = lastChild.text;
+      }
+      call.name = methodName;
+      call.receiver = firstChild.text;
+    }
+  } else if (funcNode.type === 'simple_identifier') {
+    call.name = funcNode.text;
+  } else {
+    call.name = funcNode.text;
+  }
+  if (call.name) ctx.calls.push(call);
+}
+
+/**
+ * Seed the typeMap for a property_declaration with a type annotation.
+ * This runs for ALL property_declaration nodes (including class-body ones)
+ * so that `repo.method()` calls can be resolved to the correct class.
+ * Mirrors Rust match_swift_type_map which walks all nodes unconditionally.
+ */
+function seedSwiftPropertyTypeMap(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  const typeAnn = findChild(node, 'type_annotation');
+  if (!typeAnn) return;
+  // type_annotation: ":" <user_type | simple_identifier | ...>
+  // The last child is the actual type node.
+  const lastChild = typeAnn.child(typeAnn.childCount - 1);
+  if (!lastChild) return;
+  // For "user_type > type_identifier", grab the inner identifier text;
+  // for a plain simple_identifier, use it directly.
+  const typeNode =
+    lastChild.type === 'user_type' ? findChild(lastChild, 'type_identifier') : lastChild;
+  if (!typeNode) return;
+  const typeName = typeNode.text;
+  if (!typeName) return;
+  const pattern = findChild(node, 'pattern');
+  if (!pattern) return;
+  const varName = findChild(pattern, 'simple_identifier')?.text ?? pattern.text;
+  if (!varName) return;
+  ctx.typeMap.set(varName, { type: typeName, confidence: 0.9 });
+}
+
+function handleSwiftPropertyDecl(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // Only handle top-level properties (class properties are handled inline)
+  if (
+    node.parent?.type === 'class_body' ||
+    node.parent?.type === 'protocol_body' ||
+    node.parent?.type === 'enum_class_body'
+  ) {
+    return;
+  }
+  // Skip function-local let/var bindings
+  if (node.parent?.type === 'statements' || node.parent?.type === 'function_body') {
+    return;
+  }
+  const pattern = findChild(node, 'pattern');
+  if (!pattern) return;
+  const nameNode = findChild(pattern, 'simple_identifier');
+  if (!nameNode) return;
+  // let → constant, var → variable
+  const isLet = hasKeywordChild(node, 'let');
+  const kind = isLet ? 'constant' : 'variable';
+  ctx.definitions.push({
+    name: nameNode.text,
+    kind,
+    line: node.startPosition.row + 1,
+    endLine: nodeEndLine(node),
+  });
+}

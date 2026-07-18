@@ -1053,6 +1053,7 @@ export class TUI extends Container {
 
 		const prevScroll = this.previousScrollable;
 		const prevBodyRows = this.previousStickyBodyRows;
+		const stickyHeightChanged = prevBodyRows > 0 && prevBodyRows !== bodyRows;
 		if (!widthChanged && !heightChanged && prevBodyRows > 0 && prevScroll.length > 0) {
 			const oldStart = Math.max(0, prevScroll.length - prevBodyRows);
 			const newStart = Math.max(0, scrollable.length - bodyRows);
@@ -1072,7 +1073,9 @@ export class TUI extends Container {
 			buffer += "\x1b[?25l";
 			if (clear) {
 				buffer += this.deleteKittyImages(this.previousKittyImageIds);
-				buffer += "\x1b[2J\x1b[H\x1b[3J";
+				// Clear the viewport only — never ESC[3J (erase saved lines). That
+				// truncates pre-Alef shell history and chat archived into scrollback.
+				buffer += "\x1b[2J\x1b[H";
 			} else {
 				buffer += "\x1b[H";
 			}
@@ -1106,6 +1109,23 @@ export class TUI extends Container {
 				ts: Date.now(),
 			};
 			paintFrame(this.previousLines.length > 0);
+			return;
+		}
+
+		// Sticky band grew/shrank (autocomplete, editor wrap, widgets) without a
+		// terminal resize. Differential paint can leave a ghost footer/editor line
+		// in the vacated rows — rewrite the full viewport but do NOT \x1b[3J
+		// (that would wipe scrollback just archived above).
+		if (stickyHeightChanged) {
+			this.renderMeta = {
+				renderPath: "sticky-reflow",
+				firstChanged: 0,
+				prevViewportTop: 0,
+				totalLines: frame.length,
+				height,
+				ts: Date.now(),
+			};
+			paintFrame(false);
 			return;
 		}
 
@@ -1230,7 +1250,8 @@ export class TUI extends Container {
 			buffer += "\x1b[?25l"; // T-1: hide cursor — fallback for terminals without DEC 2026
 			if (clear) {
 				buffer += this.deleteKittyImages(this.previousKittyImageIds);
-				buffer += "\x1b[2J\x1b[H\x1b[3J"; // Clear screen, home, then clear scrollback
+				// Viewport clear only — ESC[3J would wipe terminal scrollback.
+				buffer += "\x1b[2J\x1b[H";
 			}
 			for (let i = 0; i < newLines.length; i++) {
 				if (i > 0) buffer += "\r\n";

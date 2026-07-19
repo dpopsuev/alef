@@ -27,7 +27,7 @@ export {
 	truncateToolOutput,
 } from "@dpopsuev/alef-tui/views";
 export type { TuiHandlerContext } from "./handlers.js";
-export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./handlers.js";
+export { handleColonCommand, handleCtrlC, renderHeaderTopBorder } from "./handlers.js";
 
 interface DiscussionTimelineEntry {
 	timestamp: number;

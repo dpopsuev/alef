@@ -1,21 +1,36 @@
 /**
  * Bootloader overlay -- shown during startup and hot-reload transitions.
  *
- * Renders the Hebrew Alef letter with progress steps during BOOTING,
- * and a compact spinner during RELOADING.
+ * Renders the Hebrew Alef letter (3x scale from 5x5 atomic grid + drop shadow)
+ * with progress steps during BOOTING, and a compact spinner during RELOADING.
  */
 
 import type { Component } from "@dpopsuev/alef-tui";
+import { visibleWidth } from "@dpopsuev/alef-tui";
 import { color, getTheme } from "./theme.js";
 
-const ALEF = [
-	"     \u2584",
-	"  \u2591\u2588\u2588\u2588\u2588",
-	"    \u2591\u2580\u2588",
-	"      \u2588",
-	"      \u2588",
-	"  \u2591\u2591\u2591\u2592\u2588",
-	" \u2592\u2588\u2588\u2588\u2588\u2580",
+/* Foreground layer (accent color). */
+const ALEF_FG = [
+	"\u2588\u2588\u2588      \u2588\u2588\u2588\u2588\u2588\u2588 ",
+	"\u2580\u2580\u2580\u2584\u2584\u2584   \u2580\u2580\u2580\u2588\u2588\u2588 ",
+	"   \u2588\u2588\u2588      \u2588\u2588\u2588 ",
+	"\u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588 ",
+	"\u2588\u2588\u2588   \u2580\u2580\u2580\u2584\u2584\u2584\u2580\u2580\u2580 ",
+	"\u2588\u2588\u2588      \u2588\u2588\u2588    ",
+	"\u2588\u2588\u2588\u2588\u2588\u2588      \u2588\u2588\u2588 ",
+	"\u2580\u2580\u2580\u2580\u2580\u2580      \u2580\u2580\u2580 ",
+];
+
+/* Shadow layer (dim color, offset 1 right + 1 down). */
+const ALEF_SD = [
+	"   \u2584           \u2584",
+	"   \u2584      \u2580\u2580   \u2588",
+	"      \u2588        \u2588",
+	"   \u2584   \u2588  \u2584    \u2588",
+	"   \u2588   \u2580\u2580\u2584   \u2580\u2580\u2588",
+	"   \u2588        \u2588   ",
+	"      \u2584   \u2580\u2580   \u2584",
+	" \u2580\u2580\u2580\u2580\u2580\u2588      \u2580\u2580\u2588",
 ];
 
 const SPINNER_FRAMES = [
@@ -89,14 +104,30 @@ export class Bootloader implements Component {
 		const spinner = SPINNER_FRAMES[this.frame % SPINNER_FRAMES.length]!;
 		const lines: string[] = [];
 		const center = (s: string, w: number): string => {
-			const pad = Math.max(0, Math.floor((w - s.length) / 2));
+			const vw = visibleWidth(s);
+			const pad = Math.max(0, Math.floor((w - vw) / 2));
 			return " ".repeat(pad) + s;
 		};
 
 		if (this.phase === "booting") {
 			lines.push("");
-			for (const line of ALEF) {
-				lines.push(center(color(line, t.accentFg), width));
+			for (let i = 0; i < ALEF_FG.length; i++) {
+				const fg = ALEF_FG[i]!;
+				const sd = ALEF_SD[i] ?? "";
+				let combined = "";
+				const len = Math.max(fg.length, sd.length);
+				for (let j = 0; j < len; j++) {
+					const fc = j < fg.length ? fg[j]! : " ";
+					const sc = j < sd.length ? sd[j]! : " ";
+					if (fc !== " ") {
+						combined += color(fc, t.accentFg);
+					} else if (sc !== " ") {
+						combined += color(sc, t.mutedFg);
+					} else {
+						combined += " ";
+					}
+				}
+				lines.push(center(combined, width));
 			}
 			lines.push("");
 			lines.push("");

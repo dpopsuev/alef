@@ -1,10 +1,18 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { exec, type ExecOptions } from "node:child_process";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { defineManagedService } from "./managed-service.js";
 
-const execAsync = promisify(exec);
+/** Promisified exec that closes stdin on the child to prevent TUI stdin conflicts. */
+function execAsync(command: string, options: ExecOptions & { maxBuffer?: number }): Promise<{ stdout: string; stderr: string }> {
+	return new Promise((resolve, reject) => {
+		const child = exec(command, options, (err, stdout, stderr) => {
+			if (err) reject(err);
+			else resolve({ stdout: String(stdout), stderr: String(stderr) });
+		});
+		child.stdin?.end();
+	});
+}
 
 // eslint-disable-next-line no-magic-numbers -- 10MB buffer for large monorepo builds
 const BUILD_MAX_BUFFER = 10 * 1024 * 1024;

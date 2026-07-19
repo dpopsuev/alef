@@ -460,7 +460,7 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 				requestRender: () => {},
 				addInputListener: () => {},
 				setFocus: () => {},
-				setStickyFrom: () => {},
+				setDock: () => {},
 				terminal: { rows: 40, cols: width },
 			} as unknown as TUIClass;
 
@@ -488,7 +488,7 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUIClass;
 

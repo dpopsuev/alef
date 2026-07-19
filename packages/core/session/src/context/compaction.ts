@@ -10,8 +10,9 @@ import {
 } from "./attention.js";
 import {
 	applySessionMetadataRefresh,
+	firstUserMessageText,
 	parseMetadataFromSummary,
-	provisionalTitleFromMessages,
+	provisionalTitleFromText,
 } from "./metadata.js";
 
 /**
@@ -21,6 +22,9 @@ export type SummarizeFn = (
 	messages: readonly unknown[],
 	opts?: { instructions?: string; priorSummary?: string },
 ) => Promise<string> | string;
+
+/** LLM (or test) title from the first user prompt — 2–5 words. */
+export type TitleFromPromptFn = (prompt: string) => Promise<string | undefined> | string | undefined;
 
 /** Auto-compaction strategy: LLM/default summary, deterministic shake, attention heap, or disabled. */
 export type CompactionStrategy = "summarize" | "shake" | "attention" | "off";
@@ -70,6 +74,8 @@ export interface CompactionStageOptions {
 	attentionPinRecentTurns?: number;
 	/** When set, next assemble forces compaction even below threshold. Cleared after read. */
 	pullForceCompact?: () => { instructions?: string; strategy?: CompactionStrategy } | undefined;
+	/** First-prompt session title (LLM). Falls back to a 2–5 word heuristic when omitted. */
+	titleFromPrompt?: TitleFromPromptFn;
 }
 
 const CHARS_PER_TOKEN = 4;
@@ -639,14 +645,20 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 				lastSummary = prior.payload.summary;
 			}
 			if (!store.name()) {
-				const title = provisionalTitleFromMessages(input.messages);
-				if (title) {
-					await applySessionMetadataRefresh(store, { reason: "first_message", title });
-					publishSignal?.("session.metadata.refresh", {
-						reason: "first_message",
-						title: store.name(),
-						tags: store.tags(),
-					});
+				const prompt = firstUserMessageText(input.messages);
+				if (prompt) {
+					const titled = opts.titleFromPrompt
+						? await opts.titleFromPrompt(prompt)
+						: provisionalTitleFromText(prompt);
+					const title = titled ?? provisionalTitleFromText(prompt);
+					if (title) {
+						await applySessionMetadataRefresh(store, { reason: "first_message", title });
+						publishSignal?.("session.metadata.refresh", {
+							reason: "first_message",
+							title: store.name(),
+							tags: store.tags(),
+						});
+					}
 				}
 			}
 		}

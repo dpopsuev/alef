@@ -113,10 +113,10 @@ describe("formatToolArgs", { tags: ["unit"] }, () => {
 		expect(formatToolArgs({ files: ["a", "b"], meta: { a: 1 } })).toBe("(files: [2 items], meta: {…})");
 	});
 
-	it("summarizes multi-line content instead of inlining", () => {
+	it("summarizes multi-line content with first line visible", () => {
 		const content = "line1\nline2\nline3";
 		expect(formatToolArgs({ path: "schema.sql", content })).toBe(
-			"(path: 'schema.sql', content: <3 lines, 17 chars>)",
+			"(path: 'schema.sql', content: 'line1' +2 lines)",
 		);
 	});
 });

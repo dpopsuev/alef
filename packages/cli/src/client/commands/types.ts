@@ -53,7 +53,7 @@ export type MetaCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "dispa
 /** Theme/model/think/profile/skills commands. */
 export type SettingsCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "dispatch" | "session" | "opts">;
 
-/** Sticky note commands. */
+/** Dock note commands. */
 export type NotesCmdCtx = Pick<TuiHandlerContext, "writer" | "tui" | "store" | "opts">;
 
 /** One argument / subcommand row for `:command ` autocomplete. */

@@ -60,7 +60,7 @@ export const CURSOR_MARKER = "\x1b_pi:c\x07";
  *   first         — initial blank-screen write
  *   width-change  — terminal resized horizontally; full clear redraw
  *   height-change — terminal resized vertically; full clear redraw
- *   sticky-reflow — sticky band height changed; full viewport rewrite (no scrollback clear)
+ *   dock-reflow — dock band height changed; full viewport rewrite (no scrollback clear)
  *   clear-shrink  — content shrank below max rendered; full clear redraw
  *   scrollback    — firstChanged < prevViewportTop; scrollback risk
  *   deleted       — lines deleted and viewport moved up; full clear redraw
@@ -74,7 +74,7 @@ export interface RenderMeta {
 		| "first"
 		| "width-change"
 		| "height-change"
-		| "sticky-reflow"
+		| "dock-reflow"
 		| "clear-shrink"
 		| "scrollback"
 		| "deleted"

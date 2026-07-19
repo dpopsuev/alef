@@ -11,9 +11,9 @@ import type {
 import { cwdHash, TurnIndexer } from "@dpopsuev/alef-session/store";
 import type { Client } from "@libsql/client";
 import type { SessionListEntry } from "../interfaces.js";
+import { MAX_WARM_EVENTS, parseEventPayload, WARM_EVENT_SQL_FILTER } from "./event-load.js";
 
 const SQLITE_PATH_PREFIX = "sqlite:alef.db#";
-const MAX_WARM_EVENTS = 50_000;
 const SESSION_ID_LENGTH = 8;
 const DEFAULT_PRUNE_MAX_AGE_DAYS = 30;
 const DEFAULT_PRUNE_MAX_COUNT = 50;
@@ -123,7 +123,10 @@ export class SqliteSessionStore implements SessionStore {
 		const result = await this._client.execute({
 			sql: `SELECT bus, type, correlation_id, payload, timestamp, elapsed, hash,
 					actor_address, actor_type, session_id
-			 FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT ?`,
+			 FROM events
+			 WHERE session_id = ?
+			 AND (${WARM_EVENT_SQL_FILTER})
+			 ORDER BY rowid DESC LIMIT ?`,
 			args: [this.id, maxEvents],
 		});
 		result.rows.reverse();
@@ -142,8 +145,7 @@ export class SqliteSessionStore implements SessionStore {
 				bus: bus as StorageRecord["bus"],
 				type,
 				correlationId,
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
-				payload: JSON.parse(payload) as Record<string, unknown>,
+				payload: parseEventPayload(payload, type),
 				timestamp: Number(row.timestamp),
 				elapsed: row.elapsed != null ? Number(row.elapsed) : undefined,
 				hash,

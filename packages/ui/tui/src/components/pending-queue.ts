@@ -25,7 +25,7 @@ export interface PendingQueueOptions {
 }
 
 /**
- * Generic sticky panel for pending/queued items (messages, tasks, etc.).
+ * Generic docked panel for pending/queued items (messages, tasks, etc.).
  * Composes truncated one-line rows — same shape as a pending-messages strip.
  */
 export class PendingQueuePanel implements Component {

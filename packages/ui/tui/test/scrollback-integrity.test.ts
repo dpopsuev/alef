@@ -20,7 +20,7 @@ function bufferContains(terminal: VirtualTerminal, needle: string): boolean {
 }
 
 describe("scrollback integrity", { tags: ["unit"] }, () => {
-	it("preserves pre-boot TTY lines through sticky TUI boot and resize", async () => {
+	it("preserves pre-boot TTY lines through dock TUI boot and resize", async () => {
 		const terminal = new VirtualTerminal(50, 8);
 		// Seed more lines than the viewport so early shell output is in scrollback
 		// (not merely overwritten when Alef paints the visible rows).
@@ -48,9 +48,9 @@ describe("scrollback integrity", { tags: ["unit"] }, () => {
 		const chat = new Container();
 		tui.addChild(chat);
 		chat.addChild(new Text("chat-start", 0, 0));
-		const sticky = new DynamicText(() => "EDITOR");
-		tui.addChild(sticky);
-		tui.setStickyFrom(sticky);
+		const dock = new DynamicText(() => "EDITOR");
+		tui.addChild(dock);
+		tui.setDock(dock);
 
 		tui.requestRender(true);
 		await settle();
@@ -75,7 +75,7 @@ describe("scrollback integrity", { tags: ["unit"] }, () => {
 		tui.stop();
 	});
 
-	it("keeps archived chat in scrollback across sticky growth and later resize", async () => {
+	it("keeps archived chat in scrollback across dock growth and later resize", async () => {
 		const terminal = new VirtualTerminal(40, 8);
 		const writes: string[] = [];
 		const originalWrite = terminal.write.bind(terminal);
@@ -94,9 +94,9 @@ describe("scrollback integrity", { tags: ["unit"] }, () => {
 		const chat = new Container();
 		tui.addChild(chat);
 		for (let i = 0; i < 4; i++) chat.addChild(new Text(`archive-me-${i}`, 0, 0));
-		const sticky = new DynamicText(() => "EDITOR");
-		tui.addChild(sticky);
-		tui.setStickyFrom(sticky);
+		const dock = new DynamicText(() => "EDITOR");
+		tui.addChild(dock);
+		tui.setDock(dock);
 
 		tui.requestRender(true);
 		await settle();

@@ -1,5 +1,5 @@
 /**
- * Reproduce footer duplication when the sticky band grows/shrinks or the
+ * Reproduce footer duplication when the dock band grows/shrinks or the
  * terminal resizes — ghost footer lines left in the viewport.
  */
 import { describe, expect, it } from "vitest";
@@ -24,8 +24,8 @@ function countCtxFooters(viewport: string[]): number {
 	return viewport.filter((line) => /\bctx\b/.test(line) && /\d/.test(line)).length;
 }
 
-describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["unit"] }, () => {
-	it("sticky growth then shrink leaves exactly one footer in the viewport", async () => {
+describe("dock footer — no duplicate on resize / dock reflow", { tags: ["unit"] }, () => {
+	it("dock growth then shrink leaves exactly one footer in the viewport", async () => {
 		const terminal = new VirtualTerminal(60, 12);
 		const tui = new TUI(terminal);
 		terminal.start(
@@ -45,7 +45,7 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 		const footer = new DynamicText(() => footerLabel);
 
 		tui.addChild(editor);
-		tui.setStickyFrom(editor);
+		tui.setDock(editor);
 		tui.addChild(autocomplete);
 		tui.addChild(footer);
 
@@ -53,20 +53,20 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 		await settle();
 		expect(countFooterLines(terminal.getViewport())).toBe(1);
 
-		// Open :command hints — sticky band grows (body shrinks).
+		// Open :command hints — dock band grows (body shrinks).
 		autocompleteLines = ["→ model  Switch model", "→ help   Show help", "→ q      Quit"];
 		footerLabel = "FOOTER ctx 25k";
 		tui.requestRender();
 		await settle();
-		expect(tui.renderMeta.renderPath).toBe("sticky-reflow");
+		expect(tui.renderMeta.renderPath).toBe("dock-reflow");
 		expect(countFooterLines(terminal.getViewport())).toBe(1);
 
-		// Close hints + context tick — sticky shrinks; footer text changes.
+		// Close hints + context tick — dock shrinks; footer text changes.
 		autocompleteLines = [];
 		footerLabel = "FOOTER ctx 21k";
 		tui.requestRender();
 		await settle();
-		expect(tui.renderMeta.renderPath).toBe("sticky-reflow");
+		expect(tui.renderMeta.renderPath).toBe("dock-reflow");
 
 		const viewport = terminal.getViewport();
 		const footerHits = countFooterLines(viewport);
@@ -94,7 +94,7 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 		const editor = new Text("EDITOR", 0, 0);
 		const footer = new DynamicText(() => footerLabel);
 		tui.addChild(editor);
-		tui.setStickyFrom(editor);
+		tui.setDock(editor);
 		tui.addChild(footer);
 
 		tui.requestRender(true);
@@ -119,7 +119,7 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 		tui.stop();
 	});
 
-	it("width resize that reflows sticky does not duplicate footer", async () => {
+	it("width resize that reflows dock does not duplicate footer", async () => {
 		const terminal = new VirtualTerminal(80, 10);
 		const tui = new TUI(terminal);
 		terminal.start(
@@ -135,7 +135,7 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 		const longEditor = new Text("EDITOR " + "word ".repeat(40), 0, 0);
 		const footer = new DynamicText(() => "FOOTER ctx 25k · model · : for commands");
 		tui.addChild(longEditor);
-		tui.setStickyFrom(longEditor);
+		tui.setDock(longEditor);
 		tui.addChild(footer);
 
 		tui.requestRender(true);
@@ -224,10 +224,10 @@ describe("sticky footer — no duplicate on resize / sticky reflow", { tags: ["u
 			errorStyle: (s) => s,
 		});
 
-		// Match production: sticky from empty anchor through editor, then footer last.
-		const stickyAnchor = new DynamicText(() => "");
-		tui.addChild(stickyAnchor);
-		tui.setStickyFrom(stickyAnchor);
+		// Match production: dock from empty anchor through editor, then footer last.
+		const dockAnchor = new DynamicText(() => "");
+		tui.addChild(dockAnchor);
+		tui.setDock(dockAnchor);
 		tui.addChild(editor);
 		tui.setFocus(editor);
 		tui.addChild(footer);

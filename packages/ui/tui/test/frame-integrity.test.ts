@@ -28,14 +28,14 @@ async function settle(): Promise<void> {
 }
 
 describe("frame integrity", { tags: ["unit"] }, () => {
-	describe("sticky mode", () => {
+	describe("dock mode", () => {
 		it("frame height equals terminal rows", async () => {
 			const { tui, frames } = makeEnv(80, 24);
 			const chat = new Container();
 			const footer = new Text("footer", 0, 0);
 			tui.addChild(chat);
 			tui.addChild(footer);
-			tui.setStickyFrom(footer);
+			tui.setDock(footer);
 
 			for (let i = 0; i < 30; i++) {
 				chat.addChild(new Text(`line ${i}`, 0, 0));
@@ -54,7 +54,7 @@ describe("frame integrity", { tags: ["unit"] }, () => {
 			const footer = new Text("footer", 0, 0);
 			tui.addChild(chat);
 			tui.addChild(footer);
-			tui.setStickyFrom(footer);
+			tui.setDock(footer);
 
 			chat.addChild(new Text("x".repeat(200), 0, 0));
 			tui.requestRender(true);
@@ -74,7 +74,7 @@ describe("frame integrity", { tags: ["unit"] }, () => {
 			const footer = new Text("footer", 0, 0);
 			tui.addChild(chat);
 			tui.addChild(footer);
-			tui.setStickyFrom(footer);
+			tui.setDock(footer);
 
 			for (let i = 0; i < 20; i++) {
 				chat.addChild(new Text(`msg ${i}`, 0, 0));
@@ -88,7 +88,7 @@ describe("frame integrity", { tags: ["unit"] }, () => {
 		});
 	});
 
-	describe("non-sticky mode", () => {
+	describe("non-dock mode", () => {
 		it("no line exceeds terminal width", async () => {
 			const { tui, frames } = makeEnv(40, 10);
 			tui.addChild(new Text("a".repeat(200), 0, 0));
@@ -110,7 +110,7 @@ describe("frame integrity", { tags: ["unit"] }, () => {
 			const footer = new Text("FOOTER", 0, 0);
 			tui.addChild(chat);
 			tui.addChild(footer);
-			tui.setStickyFrom(footer);
+			tui.setDock(footer);
 
 			const dynamic = new Text("short", 0, 0);
 			chat.addChild(dynamic);
@@ -137,7 +137,7 @@ describe("frame integrity", { tags: ["unit"] }, () => {
 			const footer = new Text("---", 0, 0);
 			tui.addChild(chat);
 			tui.addChild(footer);
-			tui.setStickyFrom(footer);
+			tui.setDock(footer);
 
 			for (let i = 0; i < 30; i++) {
 				chat.addChild(new Text(`chunk ${i}`, 0, 0));

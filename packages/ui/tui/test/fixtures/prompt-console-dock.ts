@@ -1,8 +1,8 @@
 /**
- * PromptConsole-shaped sticky band for scrollback purity tests.
+ * PromptConsole-shaped dock band for scrollback purity tests.
  *
  * Mirrors packages/cli/src/client/console.ts mount() child order:
- *   pendingFooter (sticky anchor) → inFlight → chunkDetail → inspectorHint →
+ *   pendingFooter (dock anchor) → inFlight → chunkDetail → inspectorHint →
  *   backgroundTasks → status → widgetAbove → pendingQueue → editorWrapper →
  *   widgetBelow → hintBar → footer (layout adds DashboardFooter last)
  */
@@ -46,7 +46,7 @@ class EditorChrome implements Component {
 	}
 }
 
-export interface PromptConsoleStickyFixture {
+export interface PromptConsoleDockFixture {
 	chat: Container;
 	inFlight: Container;
 	status: Text;
@@ -56,22 +56,22 @@ export interface PromptConsoleStickyFixture {
 	footer: DynamicText;
 	setMode(label: string): void;
 	setTopic(label: string): void;
-	/** Replace in-flight agent cards (sticky height churn). */
+	/** Replace in-flight agent cards (dock height churn). */
 	setInFlightLines(lines: string[]): void;
 	setThinkingLine(text: string): void;
 }
 
 /**
- * Mount scrollable chat + PromptConsole-ordered sticky band on `tui`.
+ * Mount scrollable chat + PromptConsole-ordered dock band on `tui`.
  * Caller owns TUI lifecycle (start/stop) and terminal.
  */
-export function mountPromptConsoleSticky(tui: TUI): PromptConsoleStickyFixture {
+export function mountPromptConsoleDock(tui: TUI): PromptConsoleDockFixture {
 	const chat = new Container();
 	tui.addChild(chat);
 
 	const pendingFooter = new DynamicText(() => "");
 	tui.addChild(pendingFooter);
-	tui.setStickyFrom(pendingFooter);
+	tui.setDock(pendingFooter);
 
 	const inFlight = new Container();
 	tui.addChild(inFlight);

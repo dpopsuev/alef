@@ -176,6 +176,7 @@ Debug / session store:
   log events <id> [filters...]             Query session events
   log trace <id> <correlationId>           Show one turn
   log summary [<id>]                       Token/tool/error summary
+  log sizes [<id>] [--top N]               Payload MB by type + warm/preview estimate
   log tail [filters...]                    Latest session events
   log chain [<id>]                         Round-trip link check (✅/❌)
   log spans <id>                           List OTel spans

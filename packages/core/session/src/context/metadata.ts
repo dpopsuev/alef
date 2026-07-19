@@ -1,10 +1,10 @@
 import type { SessionStore } from "../contracts/storage.js";
 
-const AUTO_TITLE_MAX = 60;
 const SEARCH_BLOB_MAX = 4_000;
 const MAX_TAGS = 5;
-const MIN_TITLE_CHARS = 8;
-const TITLE_WORD_BREAK_MIN = 20;
+/** Auto / LLM session titles stay scannable in the upper delimiter. */
+export const TITLE_WORD_MIN = 2;
+export const TITLE_WORD_MAX = 5;
 const PLAN_THEME_TAG_MAX = 24;
 
 /**
@@ -95,22 +95,29 @@ export function planThemeTagFromDesired(desired: string): string | undefined {
 }
 
 /**
- *
+ * Normalize a candidate title to 2–5 words (no quotes / trailing punctuation).
  */
-export function provisionalTitleFromText(text: string): string | undefined {
-	const cleaned = text.replace(/\s+/g, " ").trim();
-	if (cleaned.length < MIN_TITLE_CHARS) return undefined;
-	if (cleaned.startsWith(":")) return undefined;
-	if (cleaned.length <= AUTO_TITLE_MAX) return cleaned;
-	const slice = cleaned.slice(0, AUTO_TITLE_MAX);
-	const lastSpace = slice.lastIndexOf(" ");
-	return (lastSpace > TITLE_WORD_BREAK_MIN ? slice.slice(0, lastSpace) : slice).trim();
+export function clampTitleWords(text: string): string | undefined {
+	const cleaned = text
+		.replace(/["'`]/g, "")
+		.replace(/[.!?;:,]+$/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!cleaned || cleaned.startsWith(":")) return undefined;
+	const words = cleaned.split(" ").filter(Boolean);
+	if (words.length < TITLE_WORD_MIN) return undefined;
+	return words.slice(0, TITLE_WORD_MAX).join(" ");
 }
 
 /**
- *
+ * Heuristic session title from free text — 2–5 words.
  */
-export function provisionalTitleFromMessages(messages: readonly unknown[]): string | undefined {
+export function provisionalTitleFromText(text: string): string | undefined {
+	return clampTitleWords(text);
+}
+
+/** First user message with enough words to title (skips greetings / :commands). */
+export function firstUserMessageText(messages: readonly unknown[]): string | undefined {
 	for (const message of messages) {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- untyped pipeline messages
 		const msg = message as { role?: string; content?: unknown };
@@ -124,10 +131,19 @@ export function provisionalTitleFromMessages(messages: readonly unknown[]): stri
 				.map((b) => b.text)
 				.join(" ");
 		}
-		const title = provisionalTitleFromText(text);
-		if (title) return title;
+		const cleaned = text.replace(/\s+/g, " ").trim();
+		if (!cleaned || cleaned.startsWith(":")) continue;
+		if (cleaned.split(" ").filter(Boolean).length >= TITLE_WORD_MIN) return cleaned;
 	}
 	return undefined;
+}
+
+/**
+ *
+ */
+export function provisionalTitleFromMessages(messages: readonly unknown[]): string | undefined {
+	const text = firstUserMessageText(messages);
+	return text ? provisionalTitleFromText(text) : undefined;
 }
 
 /**

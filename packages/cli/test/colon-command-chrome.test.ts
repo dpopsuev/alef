@@ -38,7 +38,7 @@ describe("colon command chrome", { tags: ["unit"] }, () => {
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 

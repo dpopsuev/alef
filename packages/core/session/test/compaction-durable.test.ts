@@ -445,7 +445,27 @@ describe("createCompactionStage — session metadata refresh", { tags: ["unit"] 
 			turn: 1,
 		});
 
-		expect(meta.name).toBe("Fix the session picker rendering bug");
+		expect(meta.name).toBe("Fix the session picker rendering");
+		expect(meta.nameSource).toBe("auto");
+	});
+
+	it("uses titleFromPrompt for LLM session titles on first message", async () => {
+		const meta = metaStore();
+		const stage = createCompactionStage({
+			contextWindow: 200_000,
+			reserveTokens: 16_384,
+			sessionStore: () => meta.store,
+			getLastTokenCount: () => 0,
+			titleFromPrompt: async () => "Multi agent explore",
+		});
+
+		await stage({
+			messages: [{ role: "user", content: "Explroe the code base using multiple agents." }],
+			tools: [],
+			turn: 1,
+		});
+
+		expect(meta.name).toBe("Multi agent explore");
 		expect(meta.nameSource).toBe("auto");
 	});
 

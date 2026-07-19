@@ -58,7 +58,7 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
@@ -84,7 +84,7 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
@@ -114,7 +114,7 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 

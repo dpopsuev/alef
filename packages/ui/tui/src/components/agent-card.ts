@@ -116,16 +116,15 @@ export class AgentCard implements Component {
 	private renderChunkRow(s: AgentCardState, t: AgentCardTheme, width: number): string {
 		if (!this._focused || !s.lastChunk) return "";
 
-		const pad = "     ";
-		const maxW = Math.max(10, width - 6);
-		return `${pad}${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
+		const maxW = Math.max(10, width - 2);
+		return `  ${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
 	}
 
 	private renderBudgetRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {
 		if (s.inputTokens <= 0) return "";
-		if (s.tokenDisplay) return wrap(`     ${s.tokenDisplay}`);
+		if (s.tokenDisplay) return wrap(`  ${s.tokenDisplay}`);
 		const colorFn = this._focused ? t.secondary : t.muted;
-		return wrap(`     ${colorFn(`↑${fmtCompact(s.inputTokens)} ↓${fmtCompact(s.outputTokens)}`)}`);
+		return wrap(`  ${colorFn(`↑${fmtCompact(s.inputTokens)} ↓${fmtCompact(s.outputTokens)}`)}`);
 	}
 }
 

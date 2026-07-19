@@ -24,7 +24,7 @@ import { directive, meta } from "./meta-cmds.js";
 import { stickies, sticky } from "./notes-cmds.js";
 import { plan } from "./plan-cmds.js";
 import { rename, tag } from "./session-meta-cmds.js";
-import { model, profile, skills, theme, think } from "./settings-cmds.js";
+import { model, profile, settings, skills, theme, think } from "./settings-cmds.js";
 import { tasks } from "./task-cmds.js";
 import { CommandRegistry } from "./types.js";
 
@@ -82,6 +82,7 @@ registry
 	.register(rollback)
 	.register(meta)
 	.register(directive)
+	.register(settings)
 	.register(theme)
 	.register(model)
 	.register(think)

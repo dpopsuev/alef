@@ -163,10 +163,16 @@ export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 };
 
 let _active: ThemeTokens = TERMINAL;
+let _activeThemeName = "terminal";
 
 /** Return the currently active theme token palette. */
 export function getTheme(): ThemeTokens {
 	return _active;
+}
+
+/** Return the name of the currently active built-in theme. */
+export function getActiveThemeName(): string {
+	return _activeThemeName;
 }
 
 /** Replace the active theme token palette. */
@@ -283,8 +289,10 @@ export function setThemeByName(name: string): void {
 	if (!t) {
 		process.stderr.write(`[alef] unknown theme '${name}', using terminal\n`);
 		_active = TERMINAL;
+		_activeThemeName = "terminal";
 	} else {
 		_active = t;
+		_activeThemeName = name.toLowerCase();
 	}
 }
 
@@ -336,6 +344,7 @@ export function loadTheme(
 
 	if ((baseName === "terminal" || baseName === "terminal-light") && Object.keys(terminalPalette).length > 0) {
 		setTheme(buildTerminalTheme(terminalPalette));
+		_activeThemeName = baseName.toLowerCase();
 	} else {
 		setThemeByName(baseName);
 	}

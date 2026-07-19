@@ -1,5 +1,6 @@
 import type { ColorToken } from "../ansi.js";
 import type { Component } from "../component.js";
+import { CollapsibleText } from "../components/collapsible-text.js";
 import { Markdown } from "../components/markdown.js";
 import type { ThemeTokens } from "../theme-types.js";
 import { applyBackgroundToLine, visibleWidth, wrapTextWithAnsi } from "../utils.js";
@@ -287,10 +288,18 @@ export function makeToolOutputComponent(
 	snippet: string,
 	displayKind: string | undefined,
 	t: ThemeTokens,
-): Markdown | DiffBlock {
+): Markdown | DiffBlock | CollapsibleText {
 	const sanitized = stripMarkdownFenceLines(sanitizeForDisplay(snippet));
 	if (displayKind === "text/x-diff") {
 		return new DiffBlock(sanitized, t, INDENT.TOOL_OUTPUT);
+	}
+	if (displayKind === "text/plain") {
+		return new CollapsibleText({
+			text: sanitized,
+			paddingX: INDENT.TOOL_OUTPUT,
+			headerStyle: (s) => color(s, t.mutedFg),
+			textStyle: (s) => dim(s),
+		});
 	}
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t));
 }

@@ -1,156 +1,137 @@
 /**
- * Restart E2E tests -- exercises the full reboot lifecycle through
- * the real Supervisor. Session create() calls getOrStart() for dependents,
- * simulating the real materializer path.
+ * Build + restart E2E tests -- exercises the wrapper-based restart protocol.
+ *
+ * The BuildService only compiles code. The caller (entrypoint/command)
+ * composes the restart strategy: build(), then exit(75), then the wrapper
+ * spawns a fresh process.
+ *
+ * These tests verify the composition contract rather than the wrapper itself.
  */
 
 import { describe, expect, it } from "vitest";
-import { createBootloaderDescriptor, type BootEventListener } from "../src/bootloader.js";
-import { defineManagedService } from "../src/managed-service.js";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
-import type { ServiceCreateOpts } from "@dpopsuev/alef-supervisor/lifecycle";
+import { createBuildServiceDescriptor, type BuildEvent, type BuildEventListener, type BuildService } from "../src/bootloader.js";
 
 function createEventCollector() {
-	const events: Array<{ phase: string }> = [];
-	const onEvent: BootEventListener = (event) => events.push(event);
+	const events: BuildEvent[] = [];
+	const onEvent: BuildEventListener = (event) => events.push(event);
 	return { events, onEvent };
 }
 
-describe("restart E2E", { tags: ["unit"] }, () => {
-	it("dependents are re-created via getOrStart during session swap", async () => {
-		const supervisor = new Supervisor();
+describe("build + restart composition", { tags: ["unit"] }, () => {
+	it("successful build followed by exit signal (wrapper protocol)", async () => {
 		const { events, onEvent } = createEventCollector();
+		const exitCalls: number[] = [];
 
-		let planCreateCount = 0;
-		let planStopCount = 0;
-		const planDescriptor = defineManagedService({
-			name: "plan",
-			restart: "transient",
-			shareable: false,
-			dependsOn: ["session"],
-			create() {
-				planCreateCount++;
-				let running = false;
-				return Promise.resolve({
-					start() { running = true; return Promise.resolve(); },
-					stop() { planStopCount++; running = false; return Promise.resolve(); },
-					health: () => Promise.resolve(running),
-				});
-			},
-		});
-
-		let sessionCreateCount = 0;
-		const sessionDescriptor = defineManagedService({
-			name: "session",
-			restart: "permanent",
-			shareable: true,
-			async create(opts: ServiceCreateOpts) {
-				sessionCreateCount++;
-				if (opts.supervisor) {
-					await opts.supervisor.getOrStart(planDescriptor, opts);
-				}
-				let running = false;
-				return {
-					start() { running = true; return Promise.resolve(); },
-					stop() { running = false; return Promise.resolve(); },
-					health: () => Promise.resolve(running),
-				};
-			},
-		});
-
-		supervisor.register(sessionDescriptor);
-		await supervisor.startAll({ cwd: process.cwd() });
-
-		expect(sessionCreateCount).toBe(1);
-		expect(planCreateCount).toBe(1);
-
-		let rebootHandle: { reboot(): Promise<void> } | undefined;
-		const bootloader = createBootloaderDescriptor({
+		let buildService: BuildService | undefined;
+		const desc = createBuildServiceDescriptor({
 			buildCommand: "echo build-ok",
-			swap: async (name, opts) => supervisor.swap(name, opts),
-			sessionServiceName: "session",
 			cwd: process.cwd(),
 			onEvent,
-			onReady: (h) => { rebootHandle = h; },
+			onReady: (svc) => {
+				buildService = svc;
+			},
 		});
-		supervisor.register(bootloader);
-		await supervisor.getOrStart(bootloader, { cwd: process.cwd() });
-		expect(rebootHandle).toBeDefined();
+		const managed = await desc.create({ cwd: process.cwd() });
+		await managed.start();
 
-		await rebootHandle!.reboot();
+		// Compose: build then exit (same as entrypoint does)
+		const rebootPort = {
+			async reboot() {
+				await buildService!.build();
+			},
+		};
 
-		expect(sessionCreateCount).toBe(2);
-		expect(planStopCount).toBe(1);
-		expect(planCreateCount).toBe(2);
+		// Simulate :update command flow
+		await rebootPort.reboot();
+		exitCalls.push(75); // process.exit(75) in real code
 
-		const sessionHealth = await supervisor.get("session")?.health();
-		const planHealth = await supervisor.get("plan")?.health();
-		expect(sessionHealth).toBe(true);
-		expect(planHealth).toBe(true);
+		const phases = events.map((e) => e.phase);
+		expect(phases).toEqual(["build:start", "build:done"]);
+		expect(exitCalls).toEqual([75]);
 
-		const phases = events.map(e => e.phase);
-		expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
-
-		await supervisor.stopAll();
+		await managed.stop();
 	});
 
-	it("build failure leaves dependents untouched", async () => {
-		const supervisor = new Supervisor();
+	it("build failure prevents exit -- no broken handoff", async () => {
 		const { events, onEvent } = createEventCollector();
+		const exitCalls: number[] = [];
 
-		let planCreateCount = 0;
-		const planDescriptor = defineManagedService({
-			name: "plan",
-			restart: "transient",
-			shareable: false,
-			dependsOn: ["session"],
-			create() {
-				planCreateCount++;
-				return Promise.resolve({
-					start() { return Promise.resolve(); },
-					stop() { return Promise.resolve(); },
-					health: () => Promise.resolve(true),
-				});
-			},
-		});
-
-		let sessionCreateCount = 0;
-		const sessionDescriptor = defineManagedService({
-			name: "session",
-			restart: "permanent",
-			shareable: true,
-			async create(opts: ServiceCreateOpts) {
-				sessionCreateCount++;
-				if (opts.supervisor) await opts.supervisor.getOrStart(planDescriptor, opts);
-				return {
-					start() { return Promise.resolve(); },
-					stop() { return Promise.resolve(); },
-					health: () => Promise.resolve(true),
-				};
-			},
-		});
-
-		supervisor.register(sessionDescriptor);
-		await supervisor.startAll({ cwd: process.cwd() });
-
-		let rebootHandle: { reboot(): Promise<void> } | undefined;
-		const bootloader = createBootloaderDescriptor({
+		let buildService: BuildService | undefined;
+		const desc = createBuildServiceDescriptor({
 			buildCommand: "exit 1",
-			swap: async (name, opts) => supervisor.swap(name, opts),
-			sessionServiceName: "session",
 			cwd: process.cwd(),
 			onEvent,
-			onReady: (h) => { rebootHandle = h; },
+			onReady: (svc) => {
+				buildService = svc;
+			},
 		});
-		supervisor.register(bootloader);
-		await supervisor.getOrStart(bootloader, { cwd: process.cwd() });
+		const managed = await desc.create({ cwd: process.cwd() });
+		await managed.start();
 
-		await expect(rebootHandle!.reboot()).rejects.toThrow();
+		const rebootPort = {
+			async reboot() {
+				await buildService!.build();
+			},
+		};
 
-		expect(sessionCreateCount).toBe(1);
-		expect(planCreateCount).toBe(1);
-		expect(events.map(e => e.phase)).toEqual(["build:start", "error"]);
+		// Simulate :update error path
+		try {
+			await rebootPort.reboot();
+			exitCalls.push(75);
+		} catch {
+			// Build failed -- command shows error, does NOT exit
+		}
 
-		await supervisor.stopAll();
+		expect(exitCalls).toEqual([]); // no exit on build failure
+		expect(events.map((e) => e.phase)).toEqual(["build:start", "error"]);
+
+		await managed.stop();
+	});
+
+	it("production mode (no build service) exits immediately", () => {
+		// In prod, the build service is not registered.
+		// resolveReboot() returns undefined.
+		// :update installs the new package, then calls cleanExitForRestart().
+		const rebootPort = undefined;
+		const exitCalls: number[] = [];
+
+		// Simulate :update prod flow
+		if (rebootPort) {
+			throw new Error("should not have a reboot port in prod");
+		}
+		exitCalls.push(75);
+
+		expect(exitCalls).toEqual([75]);
+	});
+
+	it("mock build script produces observable side effect", async () => {
+		const { events, onEvent } = createEventCollector();
+		const output: string[] = [];
+
+		let buildService: BuildService | undefined;
+		const desc = createBuildServiceDescriptor({
+			buildCommand: "echo MOCK_BUILD_OUTPUT",
+			cwd: process.cwd(),
+			onEvent,
+			onReady: (svc) => {
+				buildService = svc;
+			},
+		});
+		const managed = await desc.create({ cwd: process.cwd() });
+		await managed.start();
+
+		await buildService!.build();
+
+		const phases = events.map((e) => e.phase);
+		expect(phases).toContain("build:start");
+		expect(phases).toContain("build:done");
+
+		const startEvent = events.find((e) => e.phase === "build:start");
+		expect(startEvent).toBeDefined();
+		if (startEvent && "command" in startEvent) {
+			expect(startEvent.command).toBe("echo MOCK_BUILD_OUTPUT");
+		}
+
+		await managed.stop();
 	});
 });

@@ -1,7 +1,16 @@
 export { defineAdapterService } from "./adapter-service.js";
 export type { AdapterServiceContext, AdapterServiceDefinition } from "./adapter-service.js";
-export { createBootloaderDescriptor } from "./bootloader.js";
-export type { BootEvent, BootEventListener, BootloaderOpts, RebootHandle } from "./bootloader.js";
+export { createBuildServiceDescriptor, createBootloaderDescriptor } from "./bootloader.js";
+export type {
+	BuildEvent,
+	BuildEventListener,
+	BuildService,
+	BuildServiceOpts,
+	BootEvent,
+	BootEventListener,
+	BootloaderOpts,
+	RebootHandle,
+} from "./bootloader.js";
 export { defineManagedService } from "./managed-service.js";
 export type { ManagedServiceBody, ManagedServiceDefinition } from "./managed-service.js";
 export { createPackageManagerDescriptor } from "./package-manager.js";

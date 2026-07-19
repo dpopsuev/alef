@@ -1,7 +1,7 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import {
-	type BootloaderOpts,
-	createBootloaderDescriptor,
+	type BuildServiceOpts,
+	createBuildServiceDescriptor,
 	createFoundryRuntime,
 	createSchedulerDescriptor,
 	type FoundryRuntime,
@@ -50,7 +50,7 @@ export interface CliFoundryRuntime {
 	stop(): Promise<void>;
 	swap: FoundryRuntime["swap"];
 	getStorage(): Promise<StorageFactory>;
-	registerBootloader(opts: BootloaderOpts): void;
+	registerBuildService(opts: BuildServiceOpts): void;
 	registerApplicationServices(opts: CliApplicationServicesOptions): void;
 }
 
@@ -82,8 +82,8 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageService extends ManagedService with factory field
 			return (svc as StorageService).factory;
 		},
-		registerBootloader(opts: BootloaderOpts) {
-			foundry.register(createBootloaderDescriptor(opts));
+		registerBuildService(opts: BuildServiceOpts) {
+			foundry.register(createBuildServiceDescriptor(opts));
 		},
 		registerApplicationServices(opts: CliApplicationServicesOptions) {
 			foundry.register(

@@ -278,19 +278,20 @@ traceEvent("boot:manifest", {
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 
-// Bootloader: warm reboot for local checkouts (kexec-style rebuild + swap).
+// Build service: register when dev environment has a build command.
+// The RebootPort composes build + exit(75) -- the wrapper handles respawn.
 // Skip when an external process supervisor owns reboot via ALEF_SUPERVISOR=1 IPC.
 if (env.canWarmReboot && process.env.ALEF_SUPERVISOR !== "1") {
 	const { setRebootPort } = await import("./boot/reboot-port.js");
-	runtime.registerBootloader({
+	runtime.registerBuildService({
 		buildCommand: env.buildCommand!,
-		swap: runtime.swap,
-		sessionServiceName: "session",
 		cwd: args.cwd,
-		onReady: (handle) => setRebootPort(handle),
+		onReady: (buildService) => {
+			setRebootPort({ reboot: () => buildService.build() });
+		},
 		onStopped: () => setRebootPort(undefined),
 		onEvent: (event) => {
-			traceEvent(`boot:${event.phase}`, event);
+			traceEvent(`build:${event.phase}`, event);
 		},
 	});
 }

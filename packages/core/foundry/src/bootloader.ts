@@ -1,5 +1,4 @@
 import { exec, type ExecOptions } from "node:child_process";
-import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { defineManagedService } from "./managed-service.js";
 
@@ -19,71 +18,66 @@ function execAsync(
 
 // eslint-disable-next-line no-magic-numbers -- 10MB buffer for large monorepo builds
 const BUILD_MAX_BUFFER = 10 * 1024 * 1024;
-const DEFAULT_SWAP_TIMEOUT_MS = 60_000;
 
 /**
- * Typed boot lifecycle events (EDA).
+ * Build lifecycle events.
  *
- * The bootloader emits these during reboot (warm reboot / kexec-style):
- *   build:start  -- rebuilding code (analogous to loading new kernel image)
- *   build:done   -- build complete
- *   swap:start   -- swapping session service (analogous to kexec jump + init restart)
- *   swap:done    -- swap complete, new session running
- *   complete     -- full reboot cycle finished
- *   error        -- reboot failed at any stage
+ *   build:start  -- compilation starting
+ *   build:done   -- compilation finished
+ *   error        -- build failed
  */
-export type BootEvent =
+export type BuildEvent =
 	| { phase: "build:start"; command: string }
 	| { phase: "build:done"; elapsedMs: number }
-	| { phase: "swap:start" }
-	| { phase: "swap:done"; elapsedMs: number }
-	| { phase: "complete"; totalMs: number }
 	| { phase: "error"; error: string; elapsedMs: number };
 
-/** Subscriber for boot lifecycle events. */
-export type BootEventListener = (event: BootEvent) => void;
+/**
+ *
+ */
+export type BuildEventListener = (event: BuildEvent) => void;
 
-/** Handle exposed when the bootloader service starts -- like systemctl reboot. */
-export interface RebootHandle {
-	/** Warm reboot: rebuild then swap the session service in-process (kexec-style). */
-	reboot(): Promise<void>;
+/**
+ * Single-responsibility build capability.
+ * The caller decides what to do after the build completes (exit, swap, etc.).
+ */
+export interface BuildService {
+	build(): Promise<void>;
 }
 
-/** Configuration for the Foundry bootloader service descriptor. */
-export interface BootloaderOpts {
+/**
+ *
+ */
+export interface BuildServiceOpts {
 	buildCommand: string;
-	swap: (serviceName: string, opts: { cwd: string; logger?: AdapterLogger }) => Promise<void>;
-	sessionServiceName: string;
 	cwd: string;
-	/** Called when the reboot handle is ready (service started). */
-	onReady?: (handle: RebootHandle) => void;
-	/** Called when the bootloader service stops. */
+	onReady?: (service: BuildService) => void;
 	onStopped?: () => void;
-	/** Boot event listener -- receives typed lifecycle events for diagnostics. */
-	onEvent?: BootEventListener;
-	/** Max time (ms) the swap phase may take before aborting. Default: 60_000. */
-	swapTimeoutMs?: number;
+	onEvent?: BuildEventListener;
 }
 
-/** Build a `ServiceDescriptor` for the bootloader service (warm reboot via rebuild + swap). */
-export function createBootloaderDescriptor(opts: BootloaderOpts): ServiceDescriptor {
+/**
+ * Foundry service descriptor that exposes a BuildService.
+ * SRP: this service only compiles code. It does not swap sessions,
+ * manage process lifecycle, or decide restart strategy.
+ */
+export function createBuildServiceDescriptor(opts: BuildServiceOpts): ServiceDescriptor {
 	return defineManagedService({
-		name: "bootloader",
+		name: "build",
 		restart: "permanent",
 		shareable: true,
 		create({ logger }: ServiceCreateOpts) {
 			let active = false;
-			let rebootInFlight: Promise<void> | undefined;
+			let buildInFlight: Promise<void> | undefined;
 			const emit = opts.onEvent ?? (() => {});
 
-			const handle: RebootHandle = {
-				reboot: async () => {
-					if (rebootInFlight) return rebootInFlight;
+			const service: BuildService = {
+				build: async () => {
+					if (buildInFlight) return buildInFlight;
 
-					rebootInFlight = (async () => {
+					buildInFlight = (async () => {
 						const t0 = Date.now();
 						emit({ phase: "build:start", command: opts.buildCommand });
-						logger?.info({}, "Bootloader: build starting");
+						logger?.info({}, "Build: starting");
 
 						try {
 							const { stderr } = await execAsync(opts.buildCommand, {
@@ -91,49 +85,32 @@ export function createBootloaderDescriptor(opts: BootloaderOpts): ServiceDescrip
 								maxBuffer: BUILD_MAX_BUFFER,
 								timeout: 120_000,
 							});
-							const buildMs = Date.now() - t0;
-							emit({ phase: "build:done", elapsedMs: buildMs });
-							logger?.info({ elapsedMs: buildMs }, "Bootloader: build completed");
+							const elapsedMs = Date.now() - t0;
+							emit({ phase: "build:done", elapsedMs });
+							logger?.info({ elapsedMs }, "Build: completed");
 
 							if (stderr) {
 								logger?.warn({ stderr }, "Build warnings");
 							}
-
-							emit({ phase: "swap:start" });
-							const swapStart = Date.now();
-							const swapTimeout = opts.swapTimeoutMs ?? DEFAULT_SWAP_TIMEOUT_MS;
-							const swapPromise = opts.swap(opts.sessionServiceName, {
-								cwd: opts.cwd,
-								logger,
-							});
-							const timeoutPromise = new Promise<never>((_, reject) => {
-								setTimeout(() => reject(new Error(`Swap timed out after ${swapTimeout}ms`)), swapTimeout);
-							});
-							await Promise.race([swapPromise, timeoutPromise]);
-							const swapMs = Date.now() - swapStart;
-							emit({ phase: "swap:done", elapsedMs: swapMs });
-							logger?.info({ elapsedMs: swapMs }, "Bootloader: swap completed");
-
-							emit({ phase: "complete", totalMs: Date.now() - t0 });
-							logger?.info({}, "Bootloader: reboot complete");
 						} catch (err) {
-							emit({ phase: "error", error: err instanceof Error ? err.message : String(err), elapsedMs: Date.now() - t0 });
-							logger?.error({ err }, "Bootloader: reboot failed");
+							const elapsedMs = Date.now() - t0;
+							emit({ phase: "error", error: err instanceof Error ? err.message : String(err), elapsedMs });
+							logger?.error({ err }, "Build: failed");
 							throw err;
 						} finally {
-							rebootInFlight = undefined;
+							buildInFlight = undefined;
 						}
 					})();
 
-					return rebootInFlight;
+					return buildInFlight;
 				},
 			};
 
 			return {
 				start() {
 					active = true;
-					opts.onReady?.(handle);
-					logger?.info({}, "Bootloader service ready");
+					opts.onReady?.(service);
+					logger?.info({}, "Build service ready");
 					return Promise.resolve();
 				},
 				stop() {
@@ -148,3 +125,24 @@ export function createBootloaderDescriptor(opts: BootloaderOpts): ServiceDescrip
 		},
 	});
 }
+
+// -- Backward compatibility aliases --
+
+/** @deprecated Use BuildEvent. */
+export type BootEvent =
+	| BuildEvent
+	| { phase: "swap:start" }
+	| { phase: "swap:done"; elapsedMs: number }
+	| { phase: "complete"; totalMs: number };
+
+/** @deprecated Use BuildEventListener. */
+export type BootEventListener = (event: BootEvent) => void;
+
+/** @deprecated Use BuildService. */
+export type RebootHandle = BuildService;
+
+/** @deprecated Use BuildServiceOpts. */
+export type BootloaderOpts = BuildServiceOpts;
+
+/** @deprecated Use createBuildServiceDescriptor. */
+export const createBootloaderDescriptor = createBuildServiceDescriptor;

@@ -1,99 +1,85 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBootloaderDescriptor, type RebootHandle } from "../src/bootloader.js";
+import { createBuildServiceDescriptor, type BuildService } from "../src/bootloader.js";
 
-describe("createBootloaderDescriptor", { tags: ["unit"] }, () => {
-	let handle: RebootHandle | undefined;
+describe("createBuildServiceDescriptor", { tags: ["unit"] }, () => {
+	let service: BuildService | undefined;
 
 	afterEach(async () => {
-		handle = undefined;
+		service = undefined;
 	});
 
 	it("invokes onReady/onStopped and reports health", async () => {
-		const onReady = vi.fn((readyHandle: RebootHandle) => {
-			handle = readyHandle;
+		const onReady = vi.fn((svc: BuildService) => {
+			service = svc;
 		});
 		const onStopped = vi.fn(() => {
-			handle = undefined;
+			service = undefined;
 		});
-		const descriptor = createBootloaderDescriptor({
+		const descriptor = createBuildServiceDescriptor({
 			buildCommand: "true",
-			swap: vi.fn(),
-			sessionServiceName: "session",
 			cwd: process.cwd(),
 			onReady,
 			onStopped,
 		});
-		const service = await descriptor.create({ cwd: process.cwd() });
-		await service.start();
+		const managed = await descriptor.create({ cwd: process.cwd() });
+		await managed.start();
 
 		expect(onReady).toHaveBeenCalledOnce();
-		expect(handle?.reboot).toBeTypeOf("function");
-		expect(await service.health()).toBe(true);
+		expect(service?.build).toBeTypeOf("function");
+		expect(await managed.health()).toBe(true);
 
-		await service.stop();
+		await managed.stop();
 
 		expect(onStopped).toHaveBeenCalledOnce();
-		expect(handle).toBeUndefined();
-		expect(await service.health()).toBe(false);
+		expect(service).toBeUndefined();
+		expect(await managed.health()).toBe(false);
 	});
 
-	it("keeps handle after a failed build until stop", async () => {
-		const onReady = vi.fn((readyHandle: RebootHandle) => {
-			handle = readyHandle;
+	it("keeps service after a failed build until stop", async () => {
+		const onReady = vi.fn((svc: BuildService) => {
+			service = svc;
 		});
-		const descriptor = createBootloaderDescriptor({
+		const descriptor = createBuildServiceDescriptor({
 			buildCommand: "false",
-			swap: vi.fn(),
-			sessionServiceName: "session",
 			cwd: process.cwd(),
 			onReady,
 			onStopped: () => {
-				handle = undefined;
+				service = undefined;
 			},
 		});
-		const service = await descriptor.create({ cwd: process.cwd() });
-		await service.start();
+		const managed = await descriptor.create({ cwd: process.cwd() });
+		await managed.start();
 
-		await expect(handle?.reboot()).rejects.toThrow();
-		expect(handle?.reboot).toBeTypeOf("function");
+		await expect(service?.build()).rejects.toThrow();
+		expect(service?.build).toBeTypeOf("function");
 
-		await service.stop();
-		expect(handle).toBeUndefined();
-		expect(await service.health()).toBe(false);
+		await managed.stop();
+		expect(service).toBeUndefined();
+		expect(await managed.health()).toBe(false);
 	});
 
-	it("guards concurrent reboots with a single in-flight swap", async () => {
-		let resolveBuild: (() => void) | undefined;
-		const buildGate = new Promise<void>((resolve) => {
-			resolveBuild = resolve;
-		});
-		const swap = vi.fn(async (_serviceName: string, _opts: { cwd: string }) => {});
-
-		const descriptor = createBootloaderDescriptor({
-			buildCommand: "true",
-			swap: async (serviceName, opts) => {
-				await buildGate;
-				await swap(serviceName, opts);
-			},
-			sessionServiceName: "session",
+	it("guards concurrent builds with a single in-flight execution", async () => {
+		let buildCount = 0;
+		const descriptor = createBuildServiceDescriptor({
+			buildCommand: "sleep 0.1 && echo done",
 			cwd: process.cwd(),
-			onReady: (readyHandle) => {
-				handle = readyHandle;
+			onReady: (svc) => {
+				service = svc;
+			},
+			onEvent: (e) => {
+				if (e.phase === "build:done") buildCount++;
 			},
 		});
-		const service = await descriptor.create({ cwd: process.cwd() });
-		await service.start();
+		const managed = await descriptor.create({ cwd: process.cwd() });
+		await managed.start();
 
-		expect(handle?.reboot).toBeTypeOf("function");
+		const first = service!.build();
+		const second = service!.build();
 
-		const first = handle!.reboot();
-		const second = handle!.reboot();
-
-		resolveBuild?.();
 		await Promise.all([first, second]);
 
-		expect(swap).toHaveBeenCalledTimes(1);
+		expect(buildCount).toBe(1);
 
-		await service.stop();
+		await managed.stop();
 	});
 });

@@ -1,239 +1,140 @@
 /**
- * Bootloader E2E tests -- verifies the rebuild + swap lifecycle.
- * Tests model state (boot events, swap calls), not rendered output.
+ * BuildService E2E tests -- verifies the build lifecycle with real shell commands.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	createBootloaderDescriptor,
-	type BootEvent,
-	type BootEventListener,
-	type BootloaderOpts,
-	type RebootHandle,
+	createBuildServiceDescriptor,
+	type BuildEvent,
+	type BuildEventListener,
+	type BuildService,
+	type BuildServiceOpts,
 } from "../src/bootloader.js";
 
-describe("bootloader E2E", { tags: ["unit"] }, () => {
-	let handle: RebootHandle | undefined;
-	let stopped = false;
+describe("BuildService E2E", { tags: ["unit"] }, () => {
+	let service: BuildService | undefined;
 
 	afterEach(() => {
-		handle = undefined;
-		stopped = false;
+		service = undefined;
 	});
 
-	function makeOpts(overrides: Partial<BootloaderOpts> = {}): BootloaderOpts {
+	function makeOpts(overrides: Partial<BuildServiceOpts> = {}): BuildServiceOpts {
 		return {
 			buildCommand: "echo build-ok",
 			cwd: process.cwd(),
-			sessionServiceName: "session",
-			swap: vi.fn().mockResolvedValue(undefined),
-			onReady: (h) => {
-				handle = h;
-			},
-			onStopped: () => {
-				stopped = true;
+			onReady: (svc) => {
+				service = svc;
 			},
 			...overrides,
 		};
 	}
 
-	async function startService(opts: BootloaderOpts) {
-		const descriptor = createBootloaderDescriptor(opts);
-		const service = await descriptor.create({ cwd: process.cwd() });
-		await service.start();
-		return service;
+	async function startService(opts: BuildServiceOpts) {
+		const descriptor = createBuildServiceDescriptor(opts);
+		const managed = await descriptor.create({ cwd: process.cwd() });
+		await managed.start();
+		return managed;
 	}
 
-	it("reboot completes and calls swap", async () => {
-		const opts = makeOpts();
-		const service = await startService(opts);
-
-		expect(handle).toBeDefined();
-		await handle!.reboot();
-
-		expect(opts.swap).toHaveBeenCalledOnce();
-		expect(opts.swap).toHaveBeenCalledWith("session", expect.objectContaining({ cwd: process.cwd() }));
-
-		await service.stop();
-		expect(stopped).toBe(true);
+	it("build completes successfully", async () => {
+		const managed = await startService(makeOpts());
+		expect(service).toBeDefined();
+		await service!.build();
+		await managed.stop();
 	});
 
-	it("build failure does not leave reboot stuck", async () => {
-		const opts = makeOpts({ buildCommand: "exit 1" });
-		const service = await startService(opts);
+	it("build failure does not leave build stuck", async () => {
+		const managed = await startService(makeOpts({ buildCommand: "exit 1" }));
+		await expect(service!.build()).rejects.toThrow();
 
-		await expect(handle!.reboot()).rejects.toThrow();
-		expect(opts.swap).not.toHaveBeenCalled();
+		// Can try again after failure
+		await expect(service!.build()).rejects.toThrow();
 
-		await service.stop();
+		await managed.stop();
 	});
 
-	it("concurrent reboots coalesce into one swap", async () => {
-		let swapCount = 0;
-		const opts = makeOpts({
-			buildCommand: "sleep 0.2 && echo done",
-			swap: vi.fn().mockImplementation(async () => {
-				swapCount++;
+	it("concurrent builds coalesce into one execution", async () => {
+		let buildCount = 0;
+		const managed = await startService(
+			makeOpts({
+				buildCommand: "sleep 0.2 && echo done",
+				onEvent: (e) => {
+					if (e.phase === "build:done") buildCount++;
+				},
 			}),
-		});
-		const service = await startService(opts);
+		);
 
-		const p1 = handle!.reboot();
-		const p2 = handle!.reboot();
+		const p1 = service!.build();
+		const p2 = service!.build();
 		await Promise.all([p1, p2]);
 
-		expect(swapCount).toBe(1);
+		expect(buildCount).toBe(1);
 
-		await service.stop();
-	});
-
-	it("swap failure surfaces as thrown error", async () => {
-		const opts = makeOpts({
-			swap: vi.fn().mockRejectedValue(new Error("swap failed")),
-		});
-		const service = await startService(opts);
-
-		await expect(handle!.reboot()).rejects.toThrow("swap failed");
-
-		await service.stop();
+		await managed.stop();
 	});
 
 	it("child stdin is closed so build never blocks on TUI input", async () => {
-		const opts = makeOpts({
-			buildCommand: "cat /dev/stdin 2>/dev/null; echo stdin-closed",
-		});
-		const service = await startService(opts);
+		const managed = await startService(
+			makeOpts({
+				buildCommand: "cat /dev/stdin 2>/dev/null; echo stdin-closed",
+			}),
+		);
 
-		await handle!.reboot();
-		expect(opts.swap).toHaveBeenCalledOnce();
+		await service!.build();
 
-		await service.stop();
+		await managed.stop();
 	});
 
-	describe("boot event lifecycle", () => {
-		it("emits build:start, build:done, swap:start, swap:done, complete on success", async () => {
-			const events: BootEvent[] = [];
-			const onEvent: BootEventListener = (event) => {
-				events.push(event);
-			};
-			const opts = makeOpts({ onEvent });
-			const service = await startService(opts);
+	describe("build event lifecycle", () => {
+		it("emits build:start and build:done on success", async () => {
+			const events: BuildEvent[] = [];
+			const onEvent: BuildEventListener = (event) => events.push(event);
+			const managed = await startService(makeOpts({ onEvent }));
 
-			await handle!.reboot();
+			await service!.build();
 
 			const phases = events.map((e) => e.phase);
-			expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
+			expect(phases).toEqual(["build:start", "build:done"]);
 
-			// build:start has the command
 			expect((events[0] as { command?: string }).command).toBeDefined();
+			expect((events[1] as { elapsedMs?: number }).elapsedMs).toBeGreaterThanOrEqual(0);
 
-			// build:done and swap:done have elapsed ms
-			expect((events[1] as { elapsedMs?: number }).elapsedMs).toBeDefined();
-			expect((events[3] as { elapsedMs?: number }).elapsedMs).toBeDefined();
-
-			// complete has total ms
-			expect((events[4] as { totalMs?: number }).totalMs).toBeDefined();
-
-			await service.stop();
+			await managed.stop();
 		});
 
 		it("emits build:start then error on build failure", async () => {
-			const events: BootEvent[] = [];
-			const opts = makeOpts({
-				buildCommand: "exit 1",
-				onEvent: (event) => events.push(event),
-			});
-			const service = await startService(opts);
+			const events: BuildEvent[] = [];
+			const managed = await startService(
+				makeOpts({
+					buildCommand: "exit 1",
+					onEvent: (event) => events.push(event),
+				}),
+			);
 
-			await expect(handle!.reboot()).rejects.toThrow();
+			await expect(service!.build()).rejects.toThrow();
 
 			const phases = events.map((e) => e.phase);
 			expect(phases).toEqual(["build:start", "error"]);
 			expect((events[1] as { error?: string }).error).toBeDefined();
-			expect((events[1] as { elapsedMs?: number }).elapsedMs).toBeDefined();
 
-			await service.stop();
-		});
-
-		it("emits swap:start then error on swap failure", async () => {
-			const events: BootEvent[] = [];
-			const opts = makeOpts({
-				swap: vi.fn().mockRejectedValue(new Error("swap boom")),
-				onEvent: (event) => events.push(event),
-			});
-			const service = await startService(opts);
-
-			await expect(handle!.reboot()).rejects.toThrow("swap boom");
-
-			const phases = events.map((e) => e.phase);
-			expect(phases).toEqual(["build:start", "build:done", "swap:start", "error"]);
-
-			await service.stop();
+			await managed.stop();
 		});
 
 		it("elapsed times are positive numbers", async () => {
-			const events: BootEvent[] = [];
-			const opts = makeOpts({
-				onEvent: (event) => events.push(event),
-			});
-			const service = await startService(opts);
+			const events: BuildEvent[] = [];
+			const managed = await startService(
+				makeOpts({ onEvent: (event) => events.push(event) }),
+			);
 
-			await handle!.reboot();
+			await service!.build();
 
 			for (const e of events) {
 				if ("elapsedMs" in e) {
 					expect(e.elapsedMs).toBeGreaterThanOrEqual(0);
 				}
-				if ("totalMs" in e) {
-					expect(e.totalMs).toBeGreaterThanOrEqual(0);
-				}
 			}
 
-			await service.stop();
-		});
-	});
-
-	describe("swap hang detection", () => {
-		it("swap timeout aborts a hung swap and emits error event", async () => {
-			const events: BootEvent[] = [];
-			const opts = makeOpts({
-				swap: vi.fn((): Promise<void> => new Promise(() => {})),
-				onEvent: (event) => events.push(event),
-				swapTimeoutMs: 200,
-			});
-			const service = await startService(opts);
-
-			await expect(handle!.reboot()).rejects.toThrow("Swap timed out after 200ms");
-
-			const phases = events.map((e) => e.phase);
-			expect(phases).toEqual(["build:start", "build:done", "swap:start", "error"]);
-
-			const errorEvent = events.find((e) => e.phase === "error");
-			expect(errorEvent).toBeDefined();
-			if (errorEvent && "error" in errorEvent) {
-				expect(errorEvent.error).toContain("timed out");
-			}
-
-			await service.stop();
-		});
-
-		it("swap that resolves within timeout succeeds normally", async () => {
-			const events: BootEvent[] = [];
-			const opts = makeOpts({
-				swap: vi.fn(async () => {
-					await new Promise((r) => setTimeout(r, 50));
-				}),
-				onEvent: (event) => events.push(event),
-				swapTimeoutMs: 5000,
-			});
-			const service = await startService(opts);
-
-			await handle!.reboot();
-
-			const phases = events.map((e) => e.phase);
-			expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
-
-			await service.stop();
+			await managed.stop();
 		});
 	});
 });

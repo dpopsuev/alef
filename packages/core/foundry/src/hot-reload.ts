@@ -44,10 +44,14 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 						logger?.info({}, "Hot reload: build starting");
 
 						try {
-							const { stderr } = await execAsync(opts.buildCommand, {
+							const buildStart = Date.now();
+						logger?.info({ command: opts.buildCommand }, "Hot reload: exec starting");
+						const { stderr } = await execAsync(opts.buildCommand, {
 								cwd: opts.cwd,
 								maxBuffer: BUILD_MAX_BUFFER,
+								timeout: 120_000,
 							});
+						logger?.info({ elapsed: Date.now() - buildStart }, "Hot reload: exec completed");
 
 							if (stderr) {
 								logger?.warn({ stderr }, "Build warnings");

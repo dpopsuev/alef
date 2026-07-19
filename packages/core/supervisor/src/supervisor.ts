@@ -190,6 +190,14 @@ export class Supervisor implements ServiceRegistry {
 				void this.checkHealth(entry, opts);
 			}, HEALTH_CHECK_INTERVAL_MS);
 		}
+
+		// Cascade: restart services that depend on the swapped service
+		for (const [depName, depEntry] of this.running) {
+			if (depName === name) continue;
+			if (depEntry.descriptor.dependsOn?.includes(name)) {
+				await this.swap(depName, opts);
+			}
+		}
 	}
 
 	private async startService(descriptor: ServiceDescriptor, opts: ServiceCreateOpts): Promise<void> {

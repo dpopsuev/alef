@@ -38,6 +38,7 @@ export interface CliApplicationServicesOptions {
 	model: Model<Api>;
 	storage: StorageFactory;
 	identity?: IdentityContext;
+	reloadAdapters?: () => Promise<AdapterLoadResult>;
 }
 
 /** CLI-specific Foundry facade above raw register/start/stop orchestration. */
@@ -92,6 +93,7 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 					log: opts.log,
 					store: opts.store,
 					loaded: opts.loaded,
+					reloadAdapters: opts.reloadAdapters,
 					model: opts.model,
 					storage: opts.storage,
 					identity: opts.identity,

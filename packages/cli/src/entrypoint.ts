@@ -280,6 +280,15 @@ runtime.registerApplicationServices({
 	model,
 	storage,
 	identity,
+	reloadAdapters: () => {
+		const reloadArgs = { ...args, blueprint: loaded.blueprintName ?? loaded.blueprintPath ?? args.blueprint };
+		return loadAdapters(reloadArgs, cfg, log, sessionDir, {
+			resolveService: runtime.resolveService,
+			actorAddress: identity.agentActor.address,
+			sessionId: session.id,
+			discussion,
+		});
+	},
 });
 
 // Theme

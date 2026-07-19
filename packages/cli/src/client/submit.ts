@@ -6,7 +6,7 @@ import type { ImageAttachment } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import type { TuiEvent } from "./events.js";
 import type { TuiHandlerContext } from "./handlers.js";
-import { handleColonCommand, handleSlashCommand } from "./handlers.js";
+import { handleColonCommand } from "./handlers.js";
 import type { TokenFooterHandle, TuiWriter } from "./state.js";
 
 /**
@@ -109,16 +109,9 @@ export function createSubmitHandler(config: SubmitConfig) {
 		},
 	});
 
-	inputPatterns.register({
-		name: "command",
-		leader: "/",
-		detection: "beginning",
-		description: "Slash commands (aliases to colon commands)",
-		handle: (text) => {
-			handleSlashCommand(text, ctx());
-			return true;
-		},
-	});
+	// Slash command registration removed -- / conflicts with Unix file paths.
+	// All commands use :prefix (e.g. :quit, :help). Paths starting with /
+	// are passed through to the agent as normal input.
 
 	inputPatterns.register({
 		name: "message",

@@ -31,34 +31,15 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
  * /exit → :quit, /new → :clear, /resume → :session, /login → :login, etc.
  * The registry is the single source of truth — slash is just a UI convention.
  */
-const SLASH_TO_COLON: Record<string, string> = {
-	"/exit": "quit",
-	"/new": "clear",
-	"/resume": "session",
-	"/login": "login",
-	"/logout": "logout",
-	"/help": "help",
-	"/compact": "compact",
-};
+// Slash-to-colon map removed -- / prefix conflicts with Unix paths. Use :command.
 
-/** Dispatch a /slash command by mapping it to the corresponding colon command. */
-export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
-	const parts = text.trim().split(/\s+/);
-	const slash = parts[0]!.toLowerCase();
-	const colonName = SLASH_TO_COLON[slash];
-	if (!colonName) {
-		ctx.writer.addNotice(`Unknown command: ${slash}. Type /help for list.`);
-		ctx.tui.requestRender();
-		return false;
-	}
-	const cmd = registry.find(colonName);
-	if (!cmd) {
-		ctx.writer.addNotice(`Command '${colonName}' not registered.`);
-		ctx.tui.requestRender();
-		return false;
-	}
-	void cmd.run(ctx, parts.slice(1));
-	return true;
+/**
+ * Slash command handler -- disabled.
+ * The / prefix conflicts with Unix file paths (/home/user/...).
+ * All commands use the : prefix (e.g. :quit, :clear, :help).
+ */
+export function handleSlashCommand(_text: string, _ctx: TuiHandlerContext): boolean {
+	return false;
 }
 
 /** Dispatch a :colon command by looking it up in the command registry. */

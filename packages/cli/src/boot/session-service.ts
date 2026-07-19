@@ -21,6 +21,7 @@ export interface SessionServiceOptions {
 	model: Model<Api>;
 	storage: StorageFactory;
 	identity?: IdentityContext;
+	reloadAdapters?: () => Promise<AdapterLoadResult>;
 }
 
 /** Managed service exposing the assembled session, model display, and HTTP surface setup. */
@@ -36,12 +37,15 @@ export interface SessionService extends ManagedService {
 
 /** Build a ServiceDescriptor that assembles the local session with identity, adapters, and HTTP surface. */
 export function createSessionServiceDescriptor(opts: SessionServiceOptions): ServiceDescriptor {
+	let createCount = 0;
 	return defineManagedService({
 		name: "session",
 		restart: "permanent",
 		shareable: true,
 		dependsOn: ["storage"],
 		async create() {
+			createCount++;
+			const loaded = createCount > 1 && opts.reloadAdapters ? await opts.reloadAdapters() : opts.loaded;
 			const identity = opts.identity ?? buildIdentityContext(opts.store);
 			const {
 				session: handle,
@@ -55,7 +59,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				opts.cfg,
 				opts.log,
 				opts.store,
-				opts.loaded,
+				loaded,
 				opts.model,
 				opts.storage,
 				identity,
@@ -68,7 +72,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				humanAddress,
 				agentAddress,
 				blueprintName,
-				blueprintPath: opts.loaded.blueprintPath,
+				blueprintPath: loaded.blueprintPath,
 				setupSurface,
 				stop() {
 					stopped = true;

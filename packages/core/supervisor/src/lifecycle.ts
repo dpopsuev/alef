@@ -24,6 +24,7 @@ export interface ManagedLifecycle {
  */
 export interface ServiceRegistry {
 	register(descriptor: ServiceDescriptor): void;
+	getOrStart(descriptor: ServiceDescriptor, opts: ServiceCreateOpts): Promise<ManagedService>;
 	stop(name: string): Promise<void>;
 	get(name: string): ManagedService | undefined;
 	adapters(): Adapter[];

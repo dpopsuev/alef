@@ -168,6 +168,17 @@ export class Supervisor implements ServiceRegistry {
 		const entry = this.running.get(name);
 		if (!entry) return;
 
+		// Stop dependents BEFORE creating the new service so that getOrStart()
+		// inside create() finds them NOT running and creates fresh instances.
+		for (const [depName, depEntry] of this.running) {
+			if (depName === name) continue;
+			if (depEntry.descriptor.dependsOn?.includes(name)) {
+				if (depEntry.healthTimer) clearInterval(depEntry.healthTimer);
+				await depEntry.instance.stop().catch(() => {});
+				this.running.delete(depName);
+			}
+		}
+
 		const enriched = { ...opts, supervisor: this as ServiceRegistry };
 		const next = await entry.descriptor.create(enriched);
 		try {
@@ -189,14 +200,6 @@ export class Supervisor implements ServiceRegistry {
 			entry.healthTimer = setInterval(() => {
 				void this.checkHealth(entry, opts);
 			}, HEALTH_CHECK_INTERVAL_MS);
-		}
-
-		// Cascade: restart services that depend on the swapped service
-		for (const [depName, depEntry] of this.running) {
-			if (depName === name) continue;
-			if (depEntry.descriptor.dependsOn?.includes(name)) {
-				await this.swap(depName, opts);
-			}
 		}
 	}
 

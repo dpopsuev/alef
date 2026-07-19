@@ -192,4 +192,48 @@ describe("bootloader E2E", { tags: ["unit"] }, () => {
 			await service.stop();
 		});
 	});
+
+	describe("swap hang detection", () => {
+		it("swap timeout aborts a hung swap and emits error event", async () => {
+			const events: BootEvent[] = [];
+			const opts = makeOpts({
+				swap: vi.fn((): Promise<void> => new Promise(() => {})),
+				onEvent: (event) => events.push(event),
+				swapTimeoutMs: 200,
+			});
+			const service = await startService(opts);
+
+			await expect(handle!.reboot()).rejects.toThrow("Swap timed out after 200ms");
+
+			const phases = events.map((e) => e.phase);
+			expect(phases).toEqual(["build:start", "build:done", "swap:start", "error"]);
+
+			const errorEvent = events.find((e) => e.phase === "error");
+			expect(errorEvent).toBeDefined();
+			if (errorEvent && "error" in errorEvent) {
+				expect(errorEvent.error).toContain("timed out");
+			}
+
+			await service.stop();
+		});
+
+		it("swap that resolves within timeout succeeds normally", async () => {
+			const events: BootEvent[] = [];
+			const opts = makeOpts({
+				swap: vi.fn(async () => {
+					await new Promise((r) => setTimeout(r, 50));
+				}),
+				onEvent: (event) => events.push(event),
+				swapTimeoutMs: 5000,
+			});
+			const service = await startService(opts);
+
+			await handle!.reboot();
+
+			const phases = events.map((e) => e.phase);
+			expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
+
+			await service.stop();
+		});
+	});
 });

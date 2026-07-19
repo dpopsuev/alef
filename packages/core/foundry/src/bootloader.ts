@@ -19,6 +19,7 @@ function execAsync(
 
 // eslint-disable-next-line no-magic-numbers -- 10MB buffer for large monorepo builds
 const BUILD_MAX_BUFFER = 10 * 1024 * 1024;
+const DEFAULT_SWAP_TIMEOUT_MS = 60_000;
 
 /**
  * Typed boot lifecycle events (EDA).
@@ -60,6 +61,8 @@ export interface BootloaderOpts {
 	onStopped?: () => void;
 	/** Boot event listener -- receives typed lifecycle events for diagnostics. */
 	onEvent?: BootEventListener;
+	/** Max time (ms) the swap phase may take before aborting. Default: 60_000. */
+	swapTimeoutMs?: number;
 }
 
 /** Build a `ServiceDescriptor` for the bootloader service (warm reboot via rebuild + swap). */
@@ -98,10 +101,15 @@ export function createBootloaderDescriptor(opts: BootloaderOpts): ServiceDescrip
 
 							emit({ phase: "swap:start" });
 							const swapStart = Date.now();
-							await opts.swap(opts.sessionServiceName, {
+							const swapTimeout = opts.swapTimeoutMs ?? DEFAULT_SWAP_TIMEOUT_MS;
+							const swapPromise = opts.swap(opts.sessionServiceName, {
 								cwd: opts.cwd,
 								logger,
 							});
+							const timeoutPromise = new Promise<never>((_, reject) => {
+								setTimeout(() => reject(new Error(`Swap timed out after ${swapTimeout}ms`)), swapTimeout);
+							});
+							await Promise.race([swapPromise, timeoutPromise]);
 							const swapMs = Date.now() - swapStart;
 							emit({ phase: "swap:done", elapsedMs: swapMs });
 							logger?.info({ elapsedMs: swapMs }, "Bootloader: swap completed");

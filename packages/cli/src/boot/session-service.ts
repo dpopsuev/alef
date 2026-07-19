@@ -1,6 +1,7 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { RouterAdapter } from "@dpopsuev/alef-engine/http";
 import { defineManagedService } from "@dpopsuev/alef-foundry";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
@@ -45,8 +46,33 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 		dependsOn: ["storage"],
 		async create() {
 			createCount++;
-			const loaded = createCount > 1 && opts.reloadAdapters ? await opts.reloadAdapters() : opts.loaded;
+			const isReboot = createCount > 1;
+			const t0 = Date.now();
+
+			if (isReboot) {
+				traceEvent("session:create:start", { attempt: createCount, reboot: true });
+			}
+
+			let loaded: AdapterLoadResult;
+			if (isReboot && opts.reloadAdapters) {
+				traceEvent("session:adapters:reload:start", {});
+				const adapterT0 = Date.now();
+				loaded = await opts.reloadAdapters();
+				traceEvent("session:adapters:reload:done", {
+					elapsedMs: Date.now() - adapterT0,
+					adapterCount: loaded.adapters.length,
+				});
+			} else {
+				loaded = opts.loaded;
+			}
+
 			const identity = opts.identity ?? buildIdentityContext(opts.store);
+
+			if (isReboot) {
+				traceEvent("session:assemble:start", {});
+			}
+			const assembleT0 = Date.now();
+
 			const {
 				session: handle,
 				resolvedModelDisplay,
@@ -64,6 +90,11 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				opts.storage,
 				identity,
 			);
+
+			if (isReboot) {
+				traceEvent("session:assemble:done", { elapsedMs: Date.now() - assembleT0 });
+				traceEvent("session:create:done", { attempt: createCount, totalMs: Date.now() - t0 });
+			}
 
 			let stopped = false;
 			return {

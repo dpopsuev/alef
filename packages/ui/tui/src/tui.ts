@@ -1169,16 +1169,15 @@ export class TUI extends Container {
 		let buffer = useDec2026 ? "\x1b[?2026h" : "";
 		buffer += "\x1b[?25l";
 		buffer += this.deleteChangedKittyImages(firstChanged, lastChanged);
-		const lineDiff = firstChanged - this.hardwareCursorRow;
-		if (lineDiff > 0) buffer += `\x1b[${lineDiff}B`;
-		else if (lineDiff < 0) buffer += `\x1b[${-lineDiff}A`;
-		buffer += "\r";
+		// Position cursor at firstChanged row using absolute positioning
+		// to avoid drift from accumulated relative moves.
+		buffer += `\x1b[${firstChanged + 1};1H`;
 		const renderEnd = Math.min(lastChanged, frame.length - 1);
 		for (let i = firstChanged; i <= renderEnd; i++) {
 			if (i > firstChanged) buffer += "\r\n";
 			buffer += "\x1b[2K";
 			const line = frame[i]!;
-			buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "…") : line;
+			buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "\u2026") : line;
 		}
 		const finalCursorRow = renderEnd;
 		if (this.previousLines.length > frame.length) {

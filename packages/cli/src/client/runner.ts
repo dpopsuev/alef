@@ -122,9 +122,42 @@ export async function runTuiMode(
 		compacted: false,
 		costUsd: 0,
 	});
+	// Boot splash overlay -- shown while layout builds and history loads
+	const { Bootloader } = await import("./bootloader.js");
+	const bootloader = new Bootloader();
+	bootloader.setPhase("booting");
+	bootloader.setSteps([
+		{ label: "Loading session", status: "active" },
+		{ label: "Building layout", status: "pending" },
+		{ label: "Ready", status: "pending" },
+	]);
+	bootloader.start(() => tui.requestRender());
+	const bootOverlay = tui.showOverlay(bootloader, { anchor: "center", nonCapturing: true });
+	tui.requestRender(true);
+
+	bootloader.setSteps([
+		{ label: "Loading session", status: "done" },
+		{ label: "Building layout", status: "active" },
+		{ label: "Ready", status: "pending" },
+	]);
+
 	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
+
+	bootloader.setSteps([
+		{ label: "Loading session", status: "done" },
+		{ label: "Building layout", status: "done" },
+		{ label: "Ready", status: "active" },
+	]);
+	tui.requestRender();
+
+	// Dismiss boot splash after a brief flash so user sees it
+	setTimeout(() => {
+		bootloader.stop();
+		bootOverlay.hide();
+		tui.requestRender(true);
+	}, 400);
 	let discussionReloadSeq = 0;
 	let historyAbort: AbortController | undefined;
 	let activeDiscussionKey = opts.discussion ? `${opts.discussion.forumId}/${opts.discussion.topicId}` : "";

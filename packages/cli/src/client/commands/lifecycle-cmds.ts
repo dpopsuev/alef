@@ -55,20 +55,23 @@ export const restart: Command = {
 			}
 
 			let frame = 0;
+			let phase = "Building";
 			const spinnerNotice = ctx.writer.addLiveNotice("");
-			const updateSpinner = (phase: string): void => {
+			const tick = (): void => {
 				const f = SPINNER_FRAMES[frame % SPINNER_FRAMES.length]!;
-				spinnerNotice.setText(`${f}  ${phase}`);
+				spinnerNotice.setText(`${f}  ${phase}...`);
 				frame++;
 				ctx.tui.requestRender();
 			};
-			updateSpinner("Building...");
-			const timer = setInterval(() => updateSpinner("Building..."), 100);
+			tick();
+			const timer = setInterval(tick, 100);
 
 			try {
 				const result = await runRestart({
 					rebuild: async () => {
 						await rebuild();
+						phase = "Swapping session";
+						tick();
 					},
 					respawn: async () => {
 						await respawnAndExit(ctx);
@@ -76,13 +79,12 @@ export const restart: Command = {
 				});
 				clearInterval(timer);
 				if (result.kind === "reloaded") {
-					updateSpinner("Swapping session...");
-					spinnerNotice.setText("Reload complete.");
+					spinnerNotice.setText("\u2713 Reload complete.");
 					ctx.tui.requestRender();
 				}
 			} catch (err) {
 				clearInterval(timer);
-				spinnerNotice.setText(`Reload failed: ${err instanceof Error ? err.message : String(err)}`);
+				spinnerNotice.setText(`\u2717 Reload failed: ${err instanceof Error ? err.message : String(err)}`);
 				ctx.tui.requestRender();
 			}
 		});

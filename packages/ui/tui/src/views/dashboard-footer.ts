@@ -226,7 +226,7 @@ export class DashboardFooter implements Component {
 		elements.set("ai.model", {
 			id: "ai.model",
 			priority: 2,
-			render: () => style(modelShort),
+			render: () => style(modelShort + (s.thinkingLevel && s.thinkingLevel !== "off" ? ` (${s.thinkingLevel})` : "")),
 		});
 
 		if (this.opts.updateAvailable) {

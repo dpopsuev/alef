@@ -27,7 +27,7 @@ export function appendUserMsg(
 ): void {
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	// Identity color on the speaker label only — body stays default FG (same as AgentBlock).
-	chat.addChild(new Text(bold(color(` ${label}`, t.userFg)), 0, 0));
+	chat.addChild(new Text(bold(color(label, t.userFg)), 0, 0));
 	const pad = new Pad(INDENT.BLOCK, 0);
 	pad.addChild(new Text(text, 0, 0));
 	chat.addChild(pad);
@@ -115,7 +115,7 @@ export class AgentBlock {
 		if (this.open) return;
 		this.open = true;
 		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
-		this.chat.addChild(new Text(bold(color(` ${this.label}`, this.t.agentFg)), 0, 0));
+		this.chat.addChild(new Text(bold(color(this.label, this.t.agentFg)), 0, 0));
 		this.contentPad = new Pad(INDENT.BLOCK, 0);
 		this.chat.addChild(this.contentPad);
 	}

@@ -8,14 +8,14 @@
 export const INDENT = {
 	/**
 	 * Shared content column for user/agent body, tool call lines, and tool output.
-	 * Speakers stay flush left; everything under them starts here.
+	 * Everything flush left -- no indentation.
 	 */
-	BLOCK: 2,
-	/** Tool call lines (■ fs.read …) — same column as prose. */
-	TOOL_LINE: 2,
-	/** Tool output / diff body — same column as prose (do not stack on Pad(BLOCK)). */
-	TOOL_OUTPUT: 2,
-	/** Section headers (thinking, tools) - flush left within block. */
+	BLOCK: 0,
+	/** Tool call lines (■ fs.read …) — flush left. */
+	TOOL_LINE: 0,
+	/** Tool output / diff body — flush left. */
+	TOOL_OUTPUT: 0,
+	/** Section headers (thinking, tools) — flush left. */
 	SECTION: 0,
 } as const;
 

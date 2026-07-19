@@ -83,12 +83,17 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 
 const LONG_ARG_CHARS = 80;
 
-/** Summarize a string arg for the tool header line (never inline multi-line bodies). */
+/** Summarize a string arg for the tool header line. Show first line truncated for long values. */
 function formatArgValue(value: unknown): string {
 	if (typeof value === "string") {
-		if (value.includes("\n") || value.length > LONG_ARG_CHARS) {
-			const lines = value.split("\n").length;
-			return `<${lines} lines, ${value.length} chars>`;
+		const firstLine = value.split("\n")[0] ?? value;
+		const lineCount = value.split("\n").length;
+		if (lineCount > 1) {
+			const truncated = firstLine.length > LONG_ARG_CHARS ? `${firstLine.slice(0, LONG_ARG_CHARS)}...` : firstLine;
+			return `'${truncated}' +${lineCount - 1} lines`;
+		}
+		if (value.length > LONG_ARG_CHARS) {
+			return `'${value.slice(0, LONG_ARG_CHARS)}...'`;
 		}
 		return `'${value}'`;
 	}

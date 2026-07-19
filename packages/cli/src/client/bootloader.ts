@@ -1,36 +1,20 @@
 /**
  * Bootloader overlay -- shown during startup and hot-reload transitions.
  *
- * Renders the Hebrew Alef letter in box-drawing style with a theme-aware
- * gradient (inspired by pi-startup-header), plus progress steps during
- * BOOTING and a compact spinner during RELOADING.
+ * Renders the Hebrew Alef letter via the alef-logo pipeline with
+ * theme-aware gradient coloring, plus progress steps / spinner.
  */
 
 import type { Component } from "@dpopsuev/alef-tui";
 import { visibleWidth } from "@dpopsuev/alef-tui";
+import { renderAlefLogo } from "./alef-logo.js";
+import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";
 import { color, getTheme } from "./theme.js";
-
-const LOGO_LINES = [
-	"█████▓         ██████████▓",
-	"█████▓         ██████████▓",
-	"▀▀▀▀▀█▄▄▄▄▄    ▀▀▀▀▀█████▓",
-	"     █████▓         █████▓",
-	"     █████▓         █████▓",
-	"█████▓    █████▓    █████▓",
-	"█████▓    █████▓    █████▓",
-	"█████▓    ▀▀▀▀▀█▄▄▄▄█▀▀▀▀▀",
-	"█████▓         █████▓",
-	"█████▓         █████▓",
-	"██████████▓         █████▓",
-	"██████████▓         █████▓",
-	"▀▀▀▀▀▀▀▀▀▀▀         ▀▀▀▀▀▀",
-];
 
 const PALETTE_STEPS = 24;
 const MAX_DARKEN = 0.18;
 const MAX_LIGHTEN = 0.18;
 const ROW_PHASE_STEP = 0.12;
-const RESET = "\x1b[0m";
 
 const SPINNER_FRAMES = [
 	"\u28CB",
@@ -45,77 +29,17 @@ const SPINNER_FRAMES = [
 	"\u28CF",
 ];
 
-type Rgb = [number, number, number];
-
-/** Clamp a color channel to 0-255. */
-function clamp(v: number): number {
-	return Math.max(0, Math.min(255, Math.round(v)));
-}
-
-/** Darken an RGB color by a fraction. */
-function darken(rgb: Rgb, amount: number): Rgb {
-	return [clamp(rgb[0] * (1 - amount)), clamp(rgb[1] * (1 - amount)), clamp(rgb[2] * (1 - amount))];
-}
-
-/** Lighten an RGB color by a fraction. */
-function lighten(rgb: Rgb, amount: number): Rgb {
-	return [
-		clamp(rgb[0] + (255 - rgb[0]) * amount),
-		clamp(rgb[1] + (255 - rgb[1]) * amount),
-		clamp(rgb[2] + (255 - rgb[2]) * amount),
-	];
-}
-
-/** Build a cosine-wave palette around the accent color. */
-function buildPalette(accent: Rgb): Rgb[] {
-	return Array.from({ length: PALETTE_STEPS }, (_, i) => {
-		const wave = -Math.cos((i / PALETTE_STEPS) * Math.PI * 2);
-		return wave < 0 ? darken(accent, MAX_DARKEN * -wave) : lighten(accent, MAX_LIGHTEN * wave);
-	});
-}
-
-/** Sample a color from the palette with interpolation. */
-function sample(palette: Rgb[], pos: number): Rgb {
-	const p = ((pos % 1) + 1) % 1;
-	const scaled = p * palette.length;
-	const base = Math.floor(scaled) % palette.length;
-	const next = (base + 1) % palette.length;
-	const f = scaled - Math.floor(scaled);
-	const a = palette[base]!;
-	const b = palette[next]!;
-	return [
-		Math.round(a[0] + (b[0] - a[0]) * f),
-		Math.round(a[1] + (b[1] - a[1]) * f),
-		Math.round(a[2] + (b[2] - a[2]) * f),
-	];
-}
+/** Cached logo lines -- computed once. */
+let logoCache: string[] | null = null;
 
 /** Resolve the accent color to RGB from the theme token. */
 function resolveAccentRgb(): Rgb {
 	const t = getTheme();
 	const token = t.accentFg;
 	if (token.truecolor) {
-		const hex = token.truecolor.replace("#", "");
-		return [
-			Number.parseInt(hex.slice(0, 2), 16),
-			Number.parseInt(hex.slice(2, 4), 16),
-			Number.parseInt(hex.slice(4, 6), 16),
-		];
+		return hexToRgb(token.truecolor) ?? [100, 140, 255];
 	}
 	return [100, 140, 255];
-}
-
-/** Render a line of text with per-character gradient coloring. */
-function gradientLine(text: string, palette: Rgb[], phase: number): string {
-	const chars = [...text];
-	const span = Math.max(chars.length - 1, 1);
-	return chars
-		.map((ch, i) => {
-			if (ch === " ") return " ";
-			const [r, g, b] = sample(palette, i / span + phase);
-			return `\x1b[38;2;${r};${g};${b}m${ch}${RESET}`;
-		})
-		.join("");
 }
 
 /** Boot phase shown as a progress step. */
@@ -182,12 +106,13 @@ export class Bootloader implements Component {
 		};
 
 		if (this.phase === "booting") {
+			logoCache ??= renderAlefLogo(5, 1, 2);
 			const accent = resolveAccentRgb();
-			const palette = buildPalette(accent);
+			const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
 
 			lines.push("");
-			for (let i = 0; i < LOGO_LINES.length; i++) {
-				const styled = gradientLine(LOGO_LINES[i]!, palette, i * ROW_PHASE_STEP);
+			for (let i = 0; i < logoCache.length; i++) {
+				const styled = gradientLine(logoCache[i]!, palette, i * ROW_PHASE_STEP);
 				lines.push(center(styled, width));
 			}
 			lines.push("");

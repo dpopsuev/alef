@@ -97,13 +97,14 @@ export class ChatLog {
 	}
 
 	addSubagentReply(name: string, reply: string): void {
+		const indent = " ".repeat(INDENT.SUBAGENT);
 		const collapsible = new Collapsible({
 			header: `${name} reply`,
 			collapsed: true,
-			headerStyle: (s) => `    ${color(s, this.t.secondaryFg)}`,
+			headerStyle: (s) => `${indent}${color(s, this.t.secondaryFg)}`,
 		});
 		const md = new Markdown(reply, 0, 0, makeMarkdownTheme(this.t));
-		const padded = new Pad(6, 0);
+		const padded = new Pad(INDENT.SUBAGENT, 0);
 		padded.addChild(md);
 		collapsible.setContent(padded);
 		this.chat.addChild(collapsible);

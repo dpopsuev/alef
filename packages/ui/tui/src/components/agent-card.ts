@@ -1,5 +1,6 @@
 import type { Component } from "../component.js";
 import { truncateToWidth } from "../utils.js";
+import { INDENT, SPACING } from "../views/layout-constants.js";
 import { formatToolArgs } from "../views/tool-view.js";
 
 /**
@@ -91,7 +92,7 @@ export class AgentCard implements Component {
 		if (row3) lines.push(truncateToWidth(row3, width, "…"));
 
 		for (const child of s.children) {
-			const indent = "  ".repeat(child.depth + 1);
+			const indent = " ".repeat(INDENT.CARD_DEPTH_STEP * (child.depth + 1));
 			const childCommand = child.name + formatToolArgs(child.args);
 			lines.push(truncateToWidth(wrap(`${indent}${child.spinner} ${t.secondary(childCommand)}`), width, "…"));
 		}
@@ -111,21 +112,24 @@ export class AgentCard implements Component {
 		if (!this._focused && s.children.length > 0) {
 			parts.push(t.muted(`· ${s.children.length} tool${s.children.length === 1 ? "" : "s"}`));
 		}
-		return wrap(parts.join("  "));
+		const gap = " ".repeat(SPACING.CARD_GAP);
+		return wrap(parts.join(gap));
 	}
 
 	private renderChunkRow(s: AgentCardState, t: AgentCardTheme, width: number): string {
 		if (!this._focused || !s.lastChunk) return "";
 
-		const maxW = Math.max(10, width - 2);
-		return `  ${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
+		const pad = " ".repeat(SPACING.CARD_GAP);
+		const maxW = Math.max(10, width - SPACING.CARD_GAP);
+		return `${pad}${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
 	}
 
 	private renderBudgetRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {
 		if (s.inputTokens <= 0) return "";
-		if (s.tokenDisplay) return wrap(`  ${s.tokenDisplay}`);
+		const pad = " ".repeat(SPACING.CARD_GAP);
+		if (s.tokenDisplay) return wrap(`${pad}${s.tokenDisplay}`);
 		const colorFn = this._focused ? t.secondary : t.muted;
-		return wrap(`  ${colorFn(`↑${fmtCompact(s.inputTokens)} ↓${fmtCompact(s.outputTokens)}`)}`);
+		return wrap(`${pad}${colorFn(`↑${fmtCompact(s.inputTokens)} ↓${fmtCompact(s.outputTokens)}`)}`);
 	}
 }
 

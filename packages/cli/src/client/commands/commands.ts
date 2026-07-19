@@ -1,5 +1,5 @@
 /**
- * Command registry — all TUI commands as named, dispatchable units.
+ * Command registry -- all TUI commands as named, dispatchable units.
  *
  * Domain modules: lifecycle, auth, adapters, meta, settings, notes.
  * The colon prefix is the TUI invoker convention, not part of the command.
@@ -14,7 +14,6 @@ import {
 	createHelpCommand,
 	detach,
 	exit,
-	restart,
 	session,
 	status,
 	tokens,
@@ -49,7 +48,7 @@ export type {
 } from "./types.js";
 export { attempt, CommandRegistry } from "./types.js";
 
-/** Single source of truth for all TUI commands — tab-completion and help derive from this. */
+/** Single source of truth for all TUI commands -- tab-completion and help derive from this. */
 export const registry = new CommandRegistry();
 
 const help = createHelpCommand(
@@ -59,7 +58,6 @@ const help = createHelpCommand(
 
 registry
 	.register(exit, "quit", "exit")
-	.register(restart)
 	.register(update)
 	.register(tokens)
 	.register(status)

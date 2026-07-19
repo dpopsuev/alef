@@ -18,7 +18,7 @@ export interface UpdateShell {
 export type UpdateResult =
 	| { kind: "aborted-dirty" }
 	| { kind: "check"; detail: string }
-	| { kind: "reloaded" }
+	| { kind: "rebuilt" }
 	| { kind: "respawn" }
 	| { kind: "up-to-date" }
 	| { kind: "available"; release: Release }
@@ -27,6 +27,7 @@ export type UpdateResult =
 /** Inputs for pure update orchestration. */
 export interface RunUpdateInput {
 	channel: "dev" | "stable";
+	pull: boolean;
 	force: boolean;
 	checkOnly: boolean;
 	version: string;
@@ -36,34 +37,42 @@ export interface RunUpdateInput {
 }
 
 /** Parse :update flags. */
-export function parseUpdateArgs(args: readonly string[]): { force: boolean; checkOnly: boolean } {
+export function parseUpdateArgs(args: readonly string[]): { pull: boolean; force: boolean; checkOnly: boolean } {
 	return {
+		pull: args.includes("--pull"),
 		force: args.includes("--force"),
 		checkOnly: args.includes("--check"),
 	};
 }
 
-/** Pure update orchestration -- inject shell/rebuild/respawn for tests. */
+/**
+ * Unified update orchestration.
+ *
+ * Dev mode (no --pull): build local code + restart.
+ * Dev mode (--pull):    git pull + npm install + build + restart.
+ * Prod mode:            check release + npm install -g + restart.
+ */
 export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
-	const { channel, force, checkOnly, version, shell, rebuild, respawn } = input;
+	const { channel, pull, force, checkOnly, version, shell, rebuild, respawn } = input;
 
 	try {
 		if (channel === "dev") {
-			const dirty = shell.gitStatusPorcelain().trim();
-			if (dirty && !force) return { kind: "aborted-dirty" };
-
 			if (checkOnly) {
 				return { kind: "check", detail: shell.gitCheckStatus().trim() || "git check complete" };
 			}
 
-			shell.gitPull();
-			shell.npmInstall();
-			shell.build();
+			if (pull) {
+				const dirty = shell.gitStatusPorcelain().trim();
+				if (dirty && !force) return { kind: "aborted-dirty" };
+				shell.gitPull();
+				shell.npmInstall();
+			}
 
 			if (rebuild) {
 				await rebuild();
-				return { kind: "reloaded" };
+				return { kind: "rebuilt" };
 			}
+			shell.build();
 			await respawn();
 			return { kind: "respawn" };
 		}
@@ -82,29 +91,8 @@ export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
 	}
 }
 
-/** Outcome of :restart. */
-export type RestartResult = { kind: "reloaded" } | { kind: "respawn" };
-
-/** True while a warm reboot is in progress. Suppresses false "session ended" errors. */
-export let rebootInProgress = false;
-
-/** Prefer rebuild port; otherwise respawn. */
-export async function runRestart(input: {
-	rebuild?: () => Promise<void>;
-	respawn: () => Promise<void>;
-}): Promise<RestartResult> {
-	if (input.rebuild) {
-		rebootInProgress = true;
-		try {
-			await input.rebuild();
-		} finally {
-			rebootInProgress = false;
-		}
-		return { kind: "reloaded" };
-	}
-	await input.respawn();
-	return { kind: "respawn" };
-}
+/** True while a rebuild is in progress. Suppresses false "session ended" errors. */
+export const rebootInProgress = false;
 
 /** Default shell backed by execSync / GitHub releases. */
 export function createDefaultUpdateShell(): UpdateShell {

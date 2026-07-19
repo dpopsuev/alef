@@ -14,126 +14,122 @@ async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<void> {
 	process.exit(RESTART_EXIT_CODE);
 }
 
-const SPINNER_FRAMES = [
-	"\u28CB",
-	"\u28D9",
-	"\u28F9",
-	"\u28F8",
-	"\u28FC",
-	"\u28F4",
-	"\u28E6",
-	"\u28E7",
-	"\u28C7",
-	"\u28CF",
-];
+const SPINNER_FRAMES = ["⣋", "⣙", "⣹", "⣸", "⣼", "⣴", "⣦", "⣧", "⣇", "⣏"];
 
 /**
- * Restart command: build (if dev), then exit with code 75 for the wrapper to respawn.
+ * Unified update command. Environment-aware:
+ *   dev (no flags):  build local code + restart
+ *   dev --pull:      git pull + npm install + build + restart
+ *   dev --check:     git fetch --dry-run status
+ *   prod (no flags): check release + npm install -g + restart
+ *   prod --check:    show available release without applying
+ *
+ * :restart is registered as an alias.
  */
-export const restart: Command = {
-	name: "restart",
-	description: "Restart Alef (rebuild + respawn)",
-	run(ctx: LifecycleCmdCtx) {
+export const update: Command = {
+	name: "update",
+	description: "Build/update and restart [:update [--pull] [--force] [--check]]",
+	argumentHint: "--pull | --check | --force",
+	run(ctx: LifecycleCmdCtx, args: string[]) {
 		attempt(ctx, async () => {
+			const { pull, force, checkOnly } = parseUpdateArgs(args);
 			const reboot = resolveReboot();
+			const shell = createDefaultUpdateShell();
 
-			if (!reboot) {
-				ctx.writer.addNotice("Restarting...");
+			if (checkOnly) {
+				if (BUILD_INFO.channel === "dev") {
+					ctx.writer.addNotice("Checking git remote...");
+				} else {
+					ctx.writer.addNotice("Checking for updates...");
+				}
 				ctx.tui.requestRender(true);
-				await cleanExitForRestart(ctx);
-				return;
+			} else if (BUILD_INFO.channel === "dev" && !pull) {
+				ctx.writer.addNotice("Building...");
+				ctx.tui.requestRender(true);
+			} else if (BUILD_INFO.channel === "dev" && pull) {
+				ctx.writer.addNotice("Pulling and rebuilding...");
+				ctx.tui.requestRender(true);
+			} else {
+				ctx.writer.addNotice("Checking for updates...");
+				ctx.tui.requestRender(true);
 			}
 
 			let frame = 0;
-			let phase = "Building";
 			const spinnerNotice = ctx.writer.addLiveNotice("");
-			const tick = (): void => {
+			const tick = (phase: string): void => {
 				const f = SPINNER_FRAMES[frame % SPINNER_FRAMES.length]!;
 				spinnerNotice.setText(`${f}  ${phase}...`);
 				frame++;
 				ctx.tui.requestRender();
 			};
-			tick();
-			const timer = setInterval(tick, 100);
 
-			await new Promise<void>((r) => setTimeout(r, 50));
+			let timer: ReturnType<typeof setInterval> | undefined;
+			if (!checkOnly) {
+				const phase = BUILD_INFO.channel === "dev" && !pull ? "Building" : "Updating";
+				tick(phase);
+				timer = setInterval(() => tick(phase), 100);
+
+				if (force && BUILD_INFO.channel === "dev") {
+					const dirty = shell.gitStatusPorcelain().trim();
+					if (dirty) {
+						spinnerNotice.setText("Warning: dirty tree -- proceeding with --force");
+						ctx.tui.requestRender(true);
+					}
+				}
+
+				await new Promise<void>((r) => setTimeout(r, 50));
+			}
 
 			try {
-				await reboot();
-				clearInterval(timer);
-				phase = "Restarting";
-				tick();
-				await cleanExitForRestart(ctx);
+				const result = await runUpdate({
+					channel: BUILD_INFO.channel,
+					pull,
+					force,
+					checkOnly,
+					version: BUILD_INFO.version,
+					shell,
+					rebuild: reboot,
+					respawn: async () => {
+						await cleanExitForRestart(ctx);
+					},
+				});
+
+				if (timer) clearInterval(timer);
+
+				switch (result.kind) {
+					case "aborted-dirty":
+						spinnerNotice.setText(
+							"Update aborted: working tree is dirty. Commit/stash, or :update --pull --force",
+						);
+						break;
+					case "check":
+						spinnerNotice.setText(result.detail);
+						break;
+					case "up-to-date":
+						spinnerNotice.setText("Already on latest version.");
+						break;
+					case "available":
+						spinnerNotice.setText(
+							`Update available: ${BUILD_INFO.version} -> ${result.release.version}\n${result.release.changelog}\n\nTo apply: :update`,
+						);
+						break;
+					case "rebuilt":
+						spinnerNotice.setText("Build complete -- restarting...");
+						ctx.tui.requestRender();
+						await cleanExitForRestart(ctx);
+						break;
+					case "respawn":
+						break;
+					case "failed":
+						spinnerNotice.setText(`\u2717 Failed: ${result.message}`);
+						break;
+				}
+				ctx.tui.requestRender();
 			} catch (err) {
-				clearInterval(timer);
-				spinnerNotice.setText(`\u2717 Build failed: ${err instanceof Error ? err.message : String(err)}`);
+				if (timer) clearInterval(timer);
+				spinnerNotice.setText(`\u2717 Failed: ${err instanceof Error ? err.message : String(err)}`);
 				ctx.tui.requestRender();
 			}
-		});
-	},
-};
-
-export const update: Command = {
-	name: "update",
-	description: "Update Alef [:update [--force] [--check]]",
-	run(ctx: LifecycleCmdCtx, args: string[]) {
-		attempt(ctx, async () => {
-			const { force, checkOnly } = parseUpdateArgs(args);
-			const shell = createDefaultUpdateShell();
-
-			if (BUILD_INFO.channel === "dev") {
-				ctx.writer.addNotice(checkOnly ? "Checking git remote..." : "Updating from git...");
-			} else {
-				ctx.writer.addNotice("Checking for updates...");
-			}
-			ctx.tui.requestRender(true);
-
-			if (force && BUILD_INFO.channel === "dev") {
-				const dirty = shell.gitStatusPorcelain().trim();
-				if (dirty) {
-					ctx.writer.addNotice("Warning: dirty tree -- proceeding with --force");
-					ctx.tui.requestRender(true);
-				}
-			}
-
-			const result = await runUpdate({
-				channel: BUILD_INFO.channel,
-				force,
-				checkOnly,
-				version: BUILD_INFO.version,
-				shell,
-				rebuild: resolveReboot(),
-				respawn: async () => {
-					await cleanExitForRestart(ctx);
-				},
-			});
-
-			switch (result.kind) {
-				case "aborted-dirty":
-					ctx.writer.addNotice("Update aborted: working tree is dirty. Commit/stash, or :update --force");
-					break;
-				case "check":
-					ctx.writer.addNotice(result.detail);
-					break;
-				case "up-to-date":
-					ctx.writer.addNotice("Already on latest version.");
-					break;
-				case "available":
-					ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} -> ${result.release.version}`);
-					ctx.writer.addNotice(`Changelog:\n${result.release.changelog}`);
-					ctx.writer.addNotice(`\nTo apply: :update`);
-					break;
-				case "reloaded":
-					ctx.writer.addNotice("Build complete -- restarting...");
-					await cleanExitForRestart(ctx);
-					break;
-				case "respawn":
-					break;
-				case "failed":
-					ctx.writer.addNotice(`Update failed: ${result.message}`);
-					break;
-			}
-			ctx.tui.requestRender();
 		});
 	},
 };

@@ -1256,7 +1256,8 @@ export class TUI extends Container {
 			}
 			for (let i = 0; i < newLines.length; i++) {
 				if (i > 0) buffer += "\r\n";
-				buffer += newLines[i];
+				const line = newLines[i]!;
+				buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "\u2026") : line;
 			}
 			buffer += "\x1b[?25h"; // T-1: show cursor
 			if (useDec2026) buffer += "\x1b[?2026l"; // End synchronized output
@@ -1499,9 +1500,9 @@ export class TUI extends Container {
 			const isImage = isImageLine(line);
 			if (!isImage && visibleWidth(line) > width) {
 				renderLog(`Line ${i} exceeds width (${visibleWidth(line)} > ${width}), truncating`);
-				newLines[i] = truncateToWidth(line, width, "…");
+				newLines[i] = truncateToWidth(line, width, "\u2026");
 			}
-			buffer += line;
+			buffer += newLines[i];
 		}
 
 		// Track where cursor ended up after rendering

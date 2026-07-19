@@ -1,4 +1,5 @@
 import { exec, type ExecOptions } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { defineManagedService } from "./managed-service.js";
@@ -53,26 +54,32 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 
 						try {
 							const buildStart = Date.now();
-						logger?.info({ command: opts.buildCommand }, "Hot reload: exec starting");
-						const { stderr } = await execAsync(opts.buildCommand, {
+							const trace = (msg: string): void => {
+								const line = `[${new Date().toISOString()}] ${msg}\n`;
+								try { appendFileSync("/tmp/alef-hot-reload.log", line); } catch {}
+								logger?.info({}, msg);
+							};
+							trace(`Hot reload: exec starting (${opts.buildCommand})`);
+							const { stderr } = await execAsync(opts.buildCommand, {
 								cwd: opts.cwd,
 								maxBuffer: BUILD_MAX_BUFFER,
 								timeout: 120_000,
 							});
-						logger?.info({ elapsed: Date.now() - buildStart }, "Hot reload: exec completed");
+							trace(`Hot reload: exec completed (${Date.now() - buildStart}ms)`);
 
 							if (stderr) {
 								logger?.warn({ stderr }, "Build warnings");
 							}
 
-							logger?.info({}, "Hot reload: build passed, swapping session");
-
+							trace("Hot reload: swapping session");
+							const swapStart = Date.now();
 							await opts.swap(opts.sessionServiceName, {
 								cwd: opts.cwd,
 								logger,
 							});
+							trace(`Hot reload: swap completed (${Date.now() - swapStart}ms)`);
 
-							logger?.info({}, "Hot reload: complete");
+							trace("Hot reload: complete");
 						} catch (err) {
 							logger?.error({ err }, "Hot reload failed");
 							throw err;

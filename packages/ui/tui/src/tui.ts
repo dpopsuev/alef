@@ -1082,7 +1082,8 @@ export class TUI extends Container {
 			for (let i = 0; i < frame.length; i++) {
 				if (i > 0) buffer += "\r\n";
 				buffer += "\x1b[2K";
-				buffer += frame[i];
+				const line = frame[i]!;
+				buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "…") : line;
 			}
 			buffer += "\x1b[?25h";
 			if (useDec2026) buffer += "\x1b[?2026l";

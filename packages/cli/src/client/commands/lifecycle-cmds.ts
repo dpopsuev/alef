@@ -21,6 +21,19 @@ async function respawnAndExit(ctx: LifecycleCmdCtx): Promise<void> {
 	process.exit(0);
 }
 
+const SPINNER_FRAMES = [
+	"\u28CB",
+	"\u28D9",
+	"\u28F9",
+	"\u28F8",
+	"\u28FC",
+	"\u28F4",
+	"\u28E6",
+	"\u28E7",
+	"\u28C7",
+	"\u28CF",
+];
+
 /**
  * Restart command: hot-reload in place when available, else respawn + resume.
  */
@@ -30,21 +43,46 @@ export const restart: Command = {
 	run(ctx: LifecycleCmdCtx) {
 		attempt(ctx, async () => {
 			const rebuild = resolveRebuild();
-			if (rebuild) {
-				ctx.writer.addNotice("Hot-reloading session...");
-				ctx.tui.requestRender(true);
-			} else {
+			if (!rebuild) {
 				ctx.writer.addNotice("Restarting...");
 				ctx.tui.requestRender(true);
+				await runRestart({
+					respawn: async () => {
+						await respawnAndExit(ctx);
+					},
+				});
+				return;
 			}
-			const result = await runRestart({
-				rebuild,
-				respawn: async () => {
-					await respawnAndExit(ctx);
-				},
-			});
-			if (result.kind === "reloaded") {
-				ctx.writer.addNotice("Reload complete — session swapped in place.");
+
+			let frame = 0;
+			const spinnerNotice = ctx.writer.addLiveNotice("");
+			const updateSpinner = (phase: string): void => {
+				const f = SPINNER_FRAMES[frame % SPINNER_FRAMES.length]!;
+				spinnerNotice.setText(`${f}  ${phase}`);
+				frame++;
+				ctx.tui.requestRender();
+			};
+			updateSpinner("Building...");
+			const timer = setInterval(() => updateSpinner("Building..."), 100);
+
+			try {
+				const result = await runRestart({
+					rebuild: async () => {
+						await rebuild();
+					},
+					respawn: async () => {
+						await respawnAndExit(ctx);
+					},
+				});
+				clearInterval(timer);
+				if (result.kind === "reloaded") {
+					updateSpinner("Swapping session...");
+					spinnerNotice.setText("Reload complete.");
+					ctx.tui.requestRender();
+				}
+			} catch (err) {
+				clearInterval(timer);
+				spinnerNotice.setText(`Reload failed: ${err instanceof Error ? err.message : String(err)}`);
 				ctx.tui.requestRender();
 			}
 		});

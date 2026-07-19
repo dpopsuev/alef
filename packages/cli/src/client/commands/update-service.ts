@@ -85,13 +85,21 @@ export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
 /** Outcome of :restart. */
 export type RestartResult = { kind: "reloaded" } | { kind: "respawn" };
 
+/** True while a hot-reload swap is in progress. Suppresses false "session ended" errors. */
+export let hotReloadInProgress = false;
+
 /** Prefer rebuild port; otherwise respawn. */
 export async function runRestart(input: {
 	rebuild?: () => Promise<void>;
 	respawn: () => Promise<void>;
 }): Promise<RestartResult> {
 	if (input.rebuild) {
-		await input.rebuild();
+		hotReloadInProgress = true;
+		try {
+			await input.rebuild();
+		} finally {
+			hotReloadInProgress = false;
+		}
 		return { kind: "reloaded" };
 	}
 	await input.respawn();

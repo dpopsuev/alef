@@ -10,6 +10,8 @@ import type { Component } from "../component.js";
 import { Collapsible } from "../components/collapsible.js";
 import { Markdown } from "../components/markdown.js";
 import { Pad } from "../components/pad.js";
+import { Spacer } from "../components/spacer.js";
+import { Text as TextComponent } from "../components/text.js";
 import type { Text as TuiText } from "../components/text.js";
 import type { ThemeTokens } from "../theme-types.js";
 import type { Container } from "../tui.js";
@@ -21,6 +23,7 @@ import {
 	appendTokenFooter,
 	appendUserMsg,
 } from "./chat-view.js";
+import { INDENT, SPACING } from "./layout-constants.js";
 import { makeMarkdownTheme } from "./markdown-themes.js";
 import { color } from "./theme.js";
 import { makeToolOutputComponent } from "./tool-view.js";
@@ -63,6 +66,19 @@ export class ChatLog {
 
 	addNotice(text: string): void {
 		appendNotice(this.chat, text, this.t);
+	}
+
+	/** Append a mutable notice whose text can be updated in place. */
+	addLiveNotice(text: string): { setText(text: string): void } {
+		const node = new TextComponent(color(text, this.t.mutedFg), INDENT.BLOCK, 0);
+		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
+		this.chat.addChild(node);
+		const t = this.t;
+		return {
+			setText(newText: string) {
+				node.setText(color(newText, t.mutedFg));
+			},
+		};
 	}
 
 	addCompletedToolBlock(

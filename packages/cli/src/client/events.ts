@@ -4,6 +4,7 @@ import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
+import { hotReloadInProgress } from "./commands/update-service.js";
 import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 import { flushCompactionPark } from "./submit.js";
 
@@ -183,7 +184,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 		writer.addCompletedToolBlock(entry.name, entry.keyArg, entry.args, 0, false, null, null);
 	}
 
-	if (!event.aborted) {
+	if (!event.aborted && !hotReloadInProgress) {
 		writer.addNotice(`[error] ${formatErrorForUser(event.error)}`);
 	}
 

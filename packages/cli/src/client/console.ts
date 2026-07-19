@@ -13,6 +13,7 @@ import {
 	Toast,
 	type TUI,
 } from "@dpopsuev/alef-tui";
+import { INDENT } from "@dpopsuev/alef-tui/views";
 export type { Component };
 
 /** Wraps the Editor component with top and bottom separator borders. */
@@ -214,7 +215,8 @@ export class PromptConsole {
 			const level = this.pressure.level();
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
 			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
-			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}${intent}`);
+			const pad = " ".repeat(INDENT.BLOCK);
+			this.statusText.setText(`${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`);
 			this.refreshCards();
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));

@@ -4,6 +4,9 @@
  * commands call getRebootPort().
  */
 
+/** Exit code the child sends to the wrapper to request a restart. */
+export const RESTART_EXIT_CODE = 75;
+
 /** Handle that triggers an in-place reboot / session swap. */
 export interface RebootPort {
 	reboot(): Promise<void>;

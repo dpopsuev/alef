@@ -1,5 +1,5 @@
-import { execSync, spawn } from "node:child_process";
-import { getRebootPort } from "../../boot/reboot-port.js";
+import { execSync } from "node:child_process";
+import { getRebootPort, RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import type { Release } from "../../update/release-checker.js";
 import { checkLatestRelease } from "../../update/release-checker.js";
 
@@ -43,7 +43,7 @@ export function parseUpdateArgs(args: readonly string[]): { force: boolean; chec
 	};
 }
 
-/** Pure update orchestration — inject shell/rebuild/respawn for tests. */
+/** Pure update orchestration -- inject shell/rebuild/respawn for tests. */
 export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
 	const { channel, force, checkOnly, version, shell, rebuild, respawn } = input;
 
@@ -141,11 +141,10 @@ export function resolveReboot(): (() => Promise<void>) | undefined {
 	return () => port.reboot();
 }
 
-/** Spawn a new Alef process with --resume and exit this one. */
-export async function defaultRespawn(sessionId: string): Promise<void> {
-	spawn(process.execPath, [...process.argv.slice(1), "--resume", sessionId], {
-		detached: true,
-		stdio: "inherit",
-	});
-	await new Promise((resolve) => setTimeout(resolve, 500));
+/**
+ * Signal the wrapper to respawn us by exiting with RESTART_EXIT_CODE.
+ * The wrapper (bin/alef.js) catches this code and spawns a fresh child.
+ */
+export function defaultRespawn(_sessionId: string): Promise<never> {
+	process.exit(RESTART_EXIT_CODE);
 }

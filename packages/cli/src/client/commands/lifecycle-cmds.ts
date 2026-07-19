@@ -1,24 +1,17 @@
 import { BUILD_INFO } from "../../boot/build-info.js";
+import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
-import {
-	createDefaultUpdateShell,
-	defaultRespawn,
-	parseUpdateArgs,
-	resolveReboot,
-	runRestart,
-	runUpdate,
-} from "./update-service.js";
+import { createDefaultUpdateShell, parseUpdateArgs, resolveReboot, runUpdate } from "./update-service.js";
 
 export { parseUpdateArgs } from "./update-service.js";
 
-/** Spawn a resumed process then dispose the current session UI. */
-async function respawnAndExit(ctx: LifecycleCmdCtx): Promise<void> {
-	await defaultRespawn(ctx.session.state.id);
+/** Clean up session and TUI, then exit with the restart code so the wrapper respawns us. */
+async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<void> {
 	await ctx.session.dispose();
 	ctx.tui.stop();
-	process.exit(0);
+	process.exit(RESTART_EXIT_CODE);
 }
 
 const SPINNER_FRAMES = [
@@ -35,22 +28,19 @@ const SPINNER_FRAMES = [
 ];
 
 /**
- * Restart command: warm reboot in place when available, else respawn + resume.
+ * Restart command: build (if dev), then exit with code 75 for the wrapper to respawn.
  */
 export const restart: Command = {
 	name: "restart",
-	description: "Restart Alef (warm reboot when available)",
+	description: "Restart Alef (rebuild + respawn)",
 	run(ctx: LifecycleCmdCtx) {
 		attempt(ctx, async () => {
 			const reboot = resolveReboot();
+
 			if (!reboot) {
 				ctx.writer.addNotice("Restarting...");
 				ctx.tui.requestRender(true);
-				await runRestart({
-					respawn: async () => {
-						await respawnAndExit(ctx);
-					},
-				});
+				await cleanExitForRestart(ctx);
 				return;
 			}
 
@@ -66,28 +56,17 @@ export const restart: Command = {
 			tick();
 			const timer = setInterval(tick, 100);
 
-			// Yield to event loop so the TUI renders the spinner before build starts
 			await new Promise<void>((r) => setTimeout(r, 50));
 
 			try {
-				const result = await runRestart({
-					rebuild: async () => {
-						await reboot();
-						phase = "Swapping session";
-						tick();
-					},
-					respawn: async () => {
-						await respawnAndExit(ctx);
-					},
-				});
+				await reboot();
 				clearInterval(timer);
-				if (result.kind === "reloaded") {
-					spinnerNotice.setText("\u2713 Reload complete.");
-					ctx.tui.requestRender();
-				}
+				phase = "Restarting";
+				tick();
+				await cleanExitForRestart(ctx);
 			} catch (err) {
 				clearInterval(timer);
-				spinnerNotice.setText(`\u2717 Reload failed: ${err instanceof Error ? err.message : String(err)}`);
+				spinnerNotice.setText(`\u2717 Build failed: ${err instanceof Error ? err.message : String(err)}`);
 				ctx.tui.requestRender();
 			}
 		});
@@ -112,7 +91,7 @@ export const update: Command = {
 			if (force && BUILD_INFO.channel === "dev") {
 				const dirty = shell.gitStatusPorcelain().trim();
 				if (dirty) {
-					ctx.writer.addNotice("Warning: dirty tree — proceeding with --force");
+					ctx.writer.addNotice("Warning: dirty tree -- proceeding with --force");
 					ctx.tui.requestRender(true);
 				}
 			}
@@ -125,7 +104,7 @@ export const update: Command = {
 				shell,
 				rebuild: resolveReboot(),
 				respawn: async () => {
-					await respawnAndExit(ctx);
+					await cleanExitForRestart(ctx);
 				},
 			});
 
@@ -140,15 +119,15 @@ export const update: Command = {
 					ctx.writer.addNotice("Already on latest version.");
 					break;
 				case "available":
-					ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${result.release.version}`);
+					ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} -> ${result.release.version}`);
 					ctx.writer.addNotice(`Changelog:\n${result.release.changelog}`);
 					ctx.writer.addNotice(`\nTo apply: :update`);
 					break;
 				case "reloaded":
-					ctx.writer.addNotice("Reload complete — session swapped in place.");
+					ctx.writer.addNotice("Build complete -- restarting...");
+					await cleanExitForRestart(ctx);
 					break;
 				case "respawn":
-					// process already exiting
 					break;
 				case "failed":
 					ctx.writer.addNotice(`Update failed: ${result.message}`);
@@ -172,7 +151,7 @@ export const detach: Command = {
 	name: "detach",
 	description: "Detach from daemon (leave it running)",
 	run(ctx: LifecycleCmdCtx) {
-		ctx.writer.addNotice("(detached — daemon keeps running)");
+		ctx.writer.addNotice("(detached -- daemon keeps running)");
 		ctx.tui.requestRender(true);
 		void ctx.session.dispose();
 		ctx.tui.stop();
@@ -197,13 +176,13 @@ export const compact: Command = {
 		attempt(ctx, async () => {
 			const store = ctx.store;
 			if (!store) {
-				ctx.writer.addNotice("(compaction unavailable — no session store)");
+				ctx.writer.addNotice("(compaction unavailable -- no session store)");
 				ctx.tui.requestRender();
 				return;
 			}
 			const summarize = ctx.session.summarizeForCompaction ?? ctx.opts?.summarize;
 			if (!summarize && strategy === "summarize") {
-				ctx.writer.addNotice("(compaction unavailable — no LLM summarizer)");
+				ctx.writer.addNotice("(compaction unavailable -- no LLM summarizer)");
 				ctx.tui.requestRender();
 				return;
 			}
@@ -341,7 +320,7 @@ export const tokens: Command = {
 /** Dense session chrome formerly painted in the footer dashboard. */
 export const status: Command = {
 	name: "status",
-	description: "Show session status (model, tokens, context) — detail view",
+	description: "Show session status (model, tokens, context) -- detail view",
 	run(ctx: TuiHandlerContext) {
 		const lines = [
 			"Session status:",
@@ -354,7 +333,7 @@ export const status: Command = {
 		if (stats) {
 			lines.push("");
 			lines.push(
-				`  Tokens:    ↑${stats.input.toLocaleString()} ↓${stats.output.toLocaleString()} (total ${stats.total.toLocaleString()})`,
+				`  Tokens:    up${stats.input.toLocaleString()} down${stats.output.toLocaleString()} (total ${stats.total.toLocaleString()})`,
 			);
 			if (stats.costUsd > 0) lines.push(`  Cost:      $${stats.costUsd.toFixed(4)}`);
 			if (stats.contextWindow > 0) {
@@ -365,10 +344,10 @@ export const status: Command = {
 			}
 		} else {
 			lines.push("");
-			lines.push("  Tokens:    (unavailable — try :tokens after a turn)");
+			lines.push("  Tokens:    (unavailable -- try :tokens after a turn)");
 		}
 		lines.push("");
-		lines.push("Hints: :tokens · :plan · :help · Tab inspect (while tools active)");
+		lines.push("Hints: :tokens -- :plan -- :help -- Tab inspect (while tools active)");
 		ctx.writer.addNotice(lines.join("\n"));
 		ctx.tui.requestRender();
 	},

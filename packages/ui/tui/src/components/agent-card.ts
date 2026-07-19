@@ -100,9 +100,10 @@ export class AgentCard implements Component {
 	}
 
 	private renderIdentityRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {
-		const marker = this._focused ? t.accent(">") : " ";
 		const commandStr = s.name + formatToolArgs(s.args);
-		const parts = [marker, s.spinner, this._focused ? t.primary(commandStr) : t.identity(commandStr)];
+		const parts = this._focused
+			? [t.accent(">"), s.spinner, t.primary(commandStr)]
+			: [s.spinner, t.identity(commandStr)];
 		if (s.address) parts.push(t.identity(s.address));
 		const modelShort = s.modelId?.split("/").pop()?.split(" ")[0];
 		if (modelShort) parts.push(this._focused ? t.secondary(modelShort) : t.muted(modelShort));

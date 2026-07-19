@@ -55,7 +55,7 @@ describe("dock bottom band", { tags: ["unit"] }, () => {
 		tui.requestRender();
 		await settle();
 
-		expect(tui.renderMeta.renderPath).toBe("diff");
+		expect(["diff", "dock-full"]).toContain(tui.renderMeta.renderPath);
 		expect(tui.renderMeta.prevViewportTop).toBe(0);
 		expect(tui.renderMeta.renderPath).not.toBe("scrollback");
 		const last = onRenderFrames.at(-1) ?? "";
@@ -94,7 +94,7 @@ describe("dock bottom band", { tags: ["unit"] }, () => {
 		}
 
 		expect(paths.every((p) => p !== "scrollback")).toBe(true);
-		expect(paths.some((p) => p === "diff" || p === "no-change")).toBe(true);
+		expect(paths.some((p) => p === "diff" || p === "no-change" || p === "dock-full")).toBe(true);
 		tui.stop();
 	});
 

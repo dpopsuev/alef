@@ -1130,6 +1130,21 @@ export class TUI extends Container {
 			return;
 		}
 
+		// Always full-render in dock mode. Differential painting accumulates
+		// cursor drift causing dock content to leak into the scroll region.
+		// Full-frame cost is negligible for viewport-sized frames (24-40 rows).
+		this.renderMeta = {
+			renderPath: "dock-full",
+			firstChanged: 0,
+			prevViewportTop: 0,
+			totalLines: frame.length,
+			height,
+			ts: Date.now(),
+		};
+		paintFrame(false);
+		return;
+
+		// --- Dead code below: kept for reference if differential is re-enabled ---
 		// Viewport-sized frames — differential never hits the scrollback path.
 		let firstChanged = -1;
 		let lastChanged = -1;

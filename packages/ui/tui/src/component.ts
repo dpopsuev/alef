@@ -81,6 +81,7 @@ export interface RenderMeta {
 		| "diff"
 		| "append"
 		| "no-change"
+		| "dock-full"
 		| "none";
 	/** Index of the first changed virtual line (-1 if none). */
 	firstChanged: number;

@@ -4,7 +4,15 @@ import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { ProcessTerminal, type SelectItem, SelectList, setTraceSink, type Terminal, TUI } from "@dpopsuev/alef-tui";
+import {
+	type Editor,
+	ProcessTerminal,
+	type SelectItem,
+	SelectList,
+	setTraceSink,
+	type Terminal,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
@@ -261,7 +269,7 @@ export async function runTuiMode(
 		}
 	});
 
-	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store);
+	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store, editor);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);
 	const historyPickerToggle = (): boolean =>
@@ -379,6 +387,7 @@ export function createContextFactory(
 	getState: () => TuiState,
 	dispatch: (event: TuiEvent) => void,
 	store?: SessionStore,
+	editorRef?: Editor,
 ): () => TuiHandlerContext {
 	return () => {
 		const state = getState();
@@ -402,6 +411,7 @@ export function createContextFactory(
 				contextWindow: session.state.contextWindow || 0,
 			},
 			taskLedger: [...state.taskLedger.values()],
+			editor: editorRef,
 		};
 	};
 }

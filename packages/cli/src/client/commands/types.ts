@@ -4,6 +4,7 @@
 
 import type { AdapterManagementSession, Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../../boot/interactive.js";
 import type { TuiEvent } from "../events.js";
@@ -34,6 +35,7 @@ export interface TuiHandlerContext {
 		contextWindow: number;
 	};
 	taskLedger?: readonly TaskLedgerEntry[];
+	editor?: Editor;
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */
@@ -51,7 +53,10 @@ export type AdapterCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "di
 export type MetaCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "dispatch" | "session">;
 
 /** Theme/model/think/profile/skills commands. */
-export type SettingsCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "dispatch" | "session" | "opts">;
+export type SettingsCmdCtx = Pick<
+	TuiHandlerContext,
+	"t" | "writer" | "tui" | "dispatch" | "session" | "opts" | "editor"
+>;
 
 /** Dock note commands. */
 export type NotesCmdCtx = Pick<TuiHandlerContext, "writer" | "tui" | "store" | "opts">;

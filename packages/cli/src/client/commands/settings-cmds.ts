@@ -229,6 +229,20 @@ function openSettingsOverlay(ctx: SettingsCmdCtx): void {
 			description: "Color theme. Enter to browse.",
 			submenu: (currentValue, done) => buildThemeSubmenu(currentValue, done, ctx),
 		},
+		{
+			id: "cursor-style",
+			label: "Cursor style",
+			currentValue: ctx.editor?.cursorStyle ?? "block",
+			values: ["block", "line"],
+			description: "Software cursor shape. Tab/Shift+Tab to cycle.",
+		},
+		{
+			id: "cursor-blink",
+			label: "Cursor blink",
+			currentValue: ctx.editor?.cursorBlink ? "on" : "off",
+			values: ["off", "on"],
+			description: "Cursor blinking. Tab/Shift+Tab to cycle.",
+		},
 	];
 
 	if (profileNames.length > 0) {
@@ -265,6 +279,21 @@ function openSettingsOverlay(ctx: SettingsCmdCtx): void {
 					setThemeByName(value);
 					ctx.writer.addNotice(`Theme set to '${value}'.`);
 					ctx.tui.requestRender(true);
+					break;
+				case "cursor-style":
+					if (ctx.editor) {
+						ctx.editor.cursorStyle = value === "line" ? "line" : "block";
+						ctx.writer.addNotice(`Cursor style set to '${value}'.`);
+					}
+					break;
+				case "cursor-blink":
+					if (ctx.editor) {
+						const blink = value === "on";
+						ctx.editor.cursorBlink = blink;
+						if (blink) ctx.editor.startBlink();
+						else ctx.editor.stopBlink();
+						ctx.writer.addNotice(`Cursor blink ${blink ? "enabled" : "disabled"}.`);
+					}
 					break;
 				case "profile": {
 					const resolved = resolveProfile({ ...cfg, profile: value });

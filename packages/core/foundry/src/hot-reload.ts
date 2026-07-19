@@ -1,11 +1,13 @@
 import { exec, type ExecOptions } from "node:child_process";
-import { appendFileSync } from "node:fs";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import { defineManagedService } from "./managed-service.js";
 
 /** Promisified exec that closes stdin on the child to prevent TUI stdin conflicts. */
-function execAsync(command: string, options: ExecOptions & { maxBuffer?: number }): Promise<{ stdout: string; stderr: string }> {
+function execAsync(
+	command: string,
+	options: ExecOptions & { maxBuffer?: number },
+): Promise<{ stdout: string; stderr: string }> {
 	return new Promise((resolve, reject) => {
 		const child = exec(command, options, (err, stdout, stderr) => {
 			if (err) reject(err);
@@ -24,6 +26,9 @@ export interface HotReloadRebuildHandle {
 	requestRebuild(): Promise<void>;
 }
 
+/** Trace callback for hot-reload lifecycle events. */
+export type HotReloadTrace = (phase: string, detail?: Record<string, unknown>) => void;
+
 /** Configuration for the Foundry hot-reload service descriptor. */
 export interface HotReloadOpts {
 	buildCommand: string;
@@ -33,6 +38,8 @@ export interface HotReloadOpts {
 	/** Called when the rebuild handle is ready (and again cleared via onStopped). */
 	onReady?: (handle: HotReloadRebuildHandle) => void;
 	onStopped?: () => void;
+	/** Lifecycle trace sink -- each phase emits a trace event for diagnostics. */
+	trace?: HotReloadTrace;
 }
 
 /** Build a `ServiceDescriptor` that exposes in-process rebuild and session swap. */
@@ -44,43 +51,45 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 		create({ logger }: ServiceCreateOpts) {
 			let active = false;
 			let rebuildInFlight: Promise<void> | undefined;
+			const trace = opts.trace ?? (() => {});
 
 			const handle: HotReloadRebuildHandle = {
 				requestRebuild: async () => {
 					if (rebuildInFlight) return rebuildInFlight;
 
 					rebuildInFlight = (async () => {
+						const t0 = Date.now();
+						trace("build:start", { command: opts.buildCommand });
 						logger?.info({}, "Hot reload: build starting");
 
 						try {
-							const buildStart = Date.now();
-							const trace = (msg: string): void => {
-								const line = `[${new Date().toISOString()}] ${msg}\n`;
-								try { appendFileSync("/tmp/alef-hot-reload.log", line); } catch {}
-								logger?.info({}, msg);
-							};
-							trace(`Hot reload: exec starting (${opts.buildCommand})`);
 							const { stderr } = await execAsync(opts.buildCommand, {
 								cwd: opts.cwd,
 								maxBuffer: BUILD_MAX_BUFFER,
 								timeout: 120_000,
 							});
-							trace(`Hot reload: exec completed (${Date.now() - buildStart}ms)`);
+							const buildMs = Date.now() - t0;
+							trace("build:done", { elapsedMs: buildMs });
+							logger?.info({ elapsedMs: buildMs }, "Hot reload: build completed");
 
 							if (stderr) {
 								logger?.warn({ stderr }, "Build warnings");
 							}
 
-							trace("Hot reload: swapping session");
+							trace("swap:start");
 							const swapStart = Date.now();
 							await opts.swap(opts.sessionServiceName, {
 								cwd: opts.cwd,
 								logger,
 							});
-							trace(`Hot reload: swap completed (${Date.now() - swapStart}ms)`);
+							const swapMs = Date.now() - swapStart;
+							trace("swap:done", { elapsedMs: swapMs });
+							logger?.info({ elapsedMs: swapMs }, "Hot reload: swap completed");
 
-							trace("Hot reload: complete");
+							trace("complete", { totalMs: Date.now() - t0 });
+							logger?.info({}, "Hot reload: complete");
 						} catch (err) {
+							trace("error", { error: err instanceof Error ? err.message : String(err), elapsedMs: Date.now() - t0 });
 							logger?.error({ err }, "Hot reload failed");
 							throw err;
 						} finally {

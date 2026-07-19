@@ -265,6 +265,9 @@ if (env.canHotReload && process.env.ALEF_SUPERVISOR !== "1") {
 		cwd: args.cwd,
 		onReady: (handle) => setRebuildPort(handle),
 		onStopped: () => setRebuildPort(undefined),
+		trace: (phase, detail) => {
+			traceEvent(`hot-reload:${phase}`, detail ?? {});
+		},
 	});
 }
 

@@ -30,6 +30,7 @@ export interface SessionService extends ManagedService {
 	readonly humanAddress: string;
 	readonly agentAddress: string;
 	readonly blueprintName: string;
+	readonly blueprintPath: string | undefined;
 	readonly setupSurface: () => Promise<{ port: number; router: RouterAdapter } | undefined>;
 }
 
@@ -67,6 +68,7 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 				humanAddress,
 				agentAddress,
 				blueprintName,
+				blueprintPath: opts.loaded.blueprintPath,
 				setupSurface,
 				stop() {
 					stopped = true;

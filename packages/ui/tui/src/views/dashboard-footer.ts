@@ -173,7 +173,12 @@ export class DashboardFooter implements Component {
 		const modelShort = s.modelId.split("/").pop()?.split(" ")[0] ?? s.modelId;
 		const path = shortPath(this.opts.cwd);
 		const branchPart = this.branch ? ` (${this.branch})` : "";
-		const left = dimStyle(truncateToWidth(`${path}${branchPart}`, Math.max(10, Math.floor(width * 0.28)), "…"));
+
+		const leftParts: string[] = [dimStyle(truncateToWidth(`${path}${branchPart}`, Math.max(10, Math.floor(width * 0.35)), "…"))];
+		if (this.opts.blueprintName) {
+			leftParts.push(dimStyle(`[${shortPath(this.opts.blueprintName)}]`));
+		}
+		const left = leftParts.join(dimStyle(" · "));
 
 		const ctx = this.renderContextBar(s.contextWindow, width, style, warnStyle, errorStyle, dimStyle);
 
@@ -181,33 +186,19 @@ export class DashboardFooter implements Component {
 		for (const value of this.statuses.values()) {
 			if (value) rightParts.push(style(value));
 		}
+		if (ctx) rightParts.push(ctx);
 		rightParts.push(style(modelShort));
-		if (this.opts.blueprintName) rightParts.push(dimStyle(`[${this.opts.blueprintName}]`));
 		if (this.opts.updateAvailable) {
 			rightParts.push(warnStyle(`↑ ${this.opts.updateAvailable.version}`));
 		}
 		if (this.hint) rightParts.push(dimStyle(this.hint));
 		const right = rightParts.join(dimStyle(" · "));
 
-		const sep = dimStyle("  ");
-		const pieces = [left, ctx, right].filter((part) => part.length > 0);
-		const joined = pieces.join(sep);
-		if (visibleWidth(joined) <= width) {
-			if (!ctx) return [joined];
-			// Pin context bar as the visual center: path left, ctx mid, meta right.
-			const mid = ctx;
-			const leftW = visibleWidth(left);
-			const midW = visibleWidth(mid);
-			const rightW = visibleWidth(right);
-			const gaps = width - leftW - midW - rightW;
-			if (gaps >= 2) {
-				const leftGap = Math.floor(gaps / 2);
-				const rightGap = gaps - leftGap;
-				return [left + " ".repeat(leftGap) + mid + " ".repeat(rightGap) + right];
-			}
-			return [truncateToWidth(joined, width, "…")];
+		const gap = width - visibleWidth(left) - visibleWidth(right);
+		if (gap >= 2) {
+			return [left + " ".repeat(gap) + right];
 		}
-		return [truncateToWidth(joined, width, "…")];
+		return [truncateToWidth(`${left}  ${right}`, width, "…")];
 	}
 
 	setUpdateAvailable(version: string): void {

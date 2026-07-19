@@ -245,6 +245,9 @@ export class Editor implements Component, Focusable {
 	/** Focusable interface - set by TUI when focus changes */
 	focused: boolean = false;
 
+	/** When true and the editor is empty, the software cursor is hidden. */
+	suppressCursor = false;
+
 	protected tui: TuiHandle;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
@@ -557,7 +560,8 @@ export class Editor implements Component, Focusable {
 			let cursorInPadding = false;
 
 			// Add cursor if this line has it
-			if (layoutLine.hasCursor && layoutLine.cursorPos !== undefined) {
+			const showSoftCursor = !(this.suppressCursor && this.isEditorEmpty());
+			if (showSoftCursor && layoutLine.hasCursor && layoutLine.cursorPos !== undefined) {
 				const before = displayText.slice(0, layoutLine.cursorPos);
 				const after = displayText.slice(layoutLine.cursorPos);
 

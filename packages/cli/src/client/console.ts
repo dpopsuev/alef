@@ -201,6 +201,7 @@ export class PromptConsole {
 	}
 
 	startThinking(): void {
+		this.editor.suppressCursor = true;
 		if (this.thinkingTimer) {
 			clearTimeout(this.thinkingTimer);
 			this.thinkingTimer = undefined;
@@ -227,6 +228,7 @@ export class PromptConsole {
 	}
 
 	stopThinking(): void {
+		this.editor.suppressCursor = false;
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");

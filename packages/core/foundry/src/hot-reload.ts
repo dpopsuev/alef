@@ -6,6 +6,9 @@ import { defineManagedService } from "./managed-service.js";
 
 const execAsync = promisify(exec);
 
+// eslint-disable-next-line no-magic-numbers -- 10MB buffer for large monorepo builds
+const BUILD_MAX_BUFFER = 10 * 1024 * 1024;
+
 /** Callback handle exposed when the hot-reload service starts. */
 export interface HotReloadRebuildHandle {
 	/** Build then swap the session service in-process. */
@@ -43,6 +46,7 @@ export function createHotReloadDescriptor(opts: HotReloadOpts): ServiceDescripto
 						try {
 							const { stderr } = await execAsync(opts.buildCommand, {
 								cwd: opts.cwd,
+								maxBuffer: BUILD_MAX_BUFFER,
 							});
 
 							if (stderr) {

@@ -66,6 +66,9 @@ export const restart: Command = {
 			tick();
 			const timer = setInterval(tick, 100);
 
+			// Yield to event loop so the TUI renders the spinner before build starts
+			await new Promise<void>((r) => setTimeout(r, 50));
+
 			try {
 				const result = await runRestart({
 					rebuild: async () => {

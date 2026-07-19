@@ -233,6 +233,8 @@ initSessionSink((record) => {
 
 traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
+// Boot manifest is emitted after adapters/model resolve -- see boot:manifest below.
+
 Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/sqlite/session")])
 	.then(([{ setEmbedder, LocalEmbedder, queueEmbedding }, { setEmbeddingCallback }]) => {
 		setEmbedder(new LocalEmbedder());
@@ -251,6 +253,28 @@ const loaded = await loadAdapters(args, cfg, log, sessionDir, {
 	discussion,
 });
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
+
+// Boot manifest: full operational snapshot for debugging, audit, and cost attribution.
+traceEvent("boot:manifest", {
+	version: BUILD_INFO.version,
+	gitHash: BUILD_INFO.gitHash,
+	gitBranch: BUILD_INFO.gitBranch,
+	channel: BUILD_INFO.channel,
+	nodeVersion: process.version,
+	pid: process.pid,
+	sessionId: session.id,
+	cwd: args.cwd,
+	model: model.id,
+	contextWindow: model.contextWindow,
+	reasoning: model.reasoning,
+	blueprint: loaded.blueprintName ?? null,
+	blueprintPath: loaded.blueprintPath ?? null,
+	adapters: loaded.adapters.map((a) => a.name),
+	adapterCount: loaded.adapters.length,
+	environment: env.mode,
+	canWarmReboot: env.canWarmReboot,
+	tui: !args.noTui,
+});
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 

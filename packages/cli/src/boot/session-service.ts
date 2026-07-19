@@ -93,7 +93,14 @@ export function createSessionServiceDescriptor(opts: SessionServiceOptions): Ser
 
 			if (isReboot) {
 				traceEvent("session:assemble:done", { elapsedMs: Date.now() - assembleT0 });
-				traceEvent("session:create:done", { attempt: createCount, totalMs: Date.now() - t0 });
+				traceEvent("session:create:done", {
+					attempt: createCount,
+					totalMs: Date.now() - t0,
+					blueprint: loaded.blueprintName ?? null,
+					adapters: loaded.adapters.map((a) => a.name),
+					adapterCount: loaded.adapters.length,
+					model: opts.model.id,
+				});
 			}
 
 			let stopped = false;

@@ -29,12 +29,12 @@ describe("CLI Foundry runtime", { tags: ["unit"] }, () => {
 		await runtime.stop();
 	});
 
-	it("registers hot-reload through the bootstrap facade", async () => {
+	it("registers bootloader through the bootstrap facade", async () => {
 		const cwd = makeTmp();
 		const swap = vi.fn(async () => {});
 		const runtime = createCliFoundryRuntime({ cwd });
 
-		runtime.registerHotReload({
+		runtime.registerBootloader({
 			buildCommand: "true",
 			swap,
 			sessionServiceName: "session",
@@ -43,7 +43,7 @@ describe("CLI Foundry runtime", { tags: ["unit"] }, () => {
 
 		await runtime.start();
 
-		expect(runtime.get("hot-reload")).toBeDefined();
+		expect(runtime.get("bootloader")).toBeDefined();
 
 		await runtime.stop();
 	});

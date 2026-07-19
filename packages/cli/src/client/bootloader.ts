@@ -1,5 +1,5 @@
 /**
- * Bootloader overlay -- shown during startup and hot-reload transitions.
+ * Bootloader overlay -- shown during startup and warm reboot transitions.
  *
  * Renders the Hebrew Alef letter via the alef-logo pipeline with
  * theme-aware gradient coloring, plus progress steps / spinner.

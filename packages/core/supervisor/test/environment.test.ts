@@ -26,11 +26,11 @@ describe("detectEnvironment", { tags: ["unit"] }, () => {
 		const env = detectEnvironment(cwd);
 
 		expect(env.mode).toBe("production");
-		expect(env.canHotReload).toBe(false);
+		expect(env.canWarmReboot).toBe(false);
 		expect(env.buildCommand).toBeNull();
 	});
 
-	it("sets canHotReload false when development but no build script", () => {
+	it("sets canWarmReboot false when development but no build script", () => {
 		const cwd = tempDir();
 		writeFileSync(join(cwd, "tsconfig.json"), "{}");
 		writeFileSync(join(cwd, "package.json"), JSON.stringify({ scripts: { test: "vitest" } }));
@@ -40,7 +40,7 @@ describe("detectEnvironment", { tags: ["unit"] }, () => {
 		const env = detectEnvironment(cwd);
 
 		expect(env.mode).toBe("development");
-		expect(env.canHotReload).toBe(false);
+		expect(env.canWarmReboot).toBe(false);
 		expect(env.buildCommand).toBeNull();
 	});
 
@@ -54,6 +54,6 @@ describe("detectEnvironment", { tags: ["unit"] }, () => {
 		expect(() => detectEnvironment(cwd)).not.toThrow();
 		const env = detectEnvironment(cwd);
 		expect(env.mode).toBe("development");
-		expect(env.canHotReload).toBe(false);
+		expect(env.canWarmReboot).toBe(false);
 	});
 });

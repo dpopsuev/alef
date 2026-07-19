@@ -199,7 +199,7 @@ import { setModelLogger } from "@dpopsuev/alef-agent/model";
 setModelLogger({ warn: (msg) => log.warn(msg), error: (msg) => log.error(msg) });
 
 const env = detectEnvironment(args.cwd);
-log.info({ mode: env.mode, hotReload: env.canHotReload }, "Runtime environment");
+log.info({ mode: env.mode, warmReboot: env.canWarmReboot }, "Runtime environment");
 
 const storage = await runtime.getStorage();
 
@@ -254,19 +254,19 @@ const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 
-// In-process hot-reload for local checkouts. Skip when an external process
-// supervisor owns alefRequestRebuild via ALEF_SUPERVISOR=1 IPC.
-if (env.canHotReload && process.env.ALEF_SUPERVISOR !== "1") {
-	const { setRebuildPort } = await import("./boot/rebuild-port.js");
-	runtime.registerHotReload({
+// Bootloader: warm reboot for local checkouts (kexec-style rebuild + swap).
+// Skip when an external process supervisor owns reboot via ALEF_SUPERVISOR=1 IPC.
+if (env.canWarmReboot && process.env.ALEF_SUPERVISOR !== "1") {
+	const { setRebootPort } = await import("./boot/reboot-port.js");
+	runtime.registerBootloader({
 		buildCommand: env.buildCommand!,
 		swap: runtime.swap,
 		sessionServiceName: "session",
 		cwd: args.cwd,
-		onReady: (handle) => setRebuildPort(handle),
-		onStopped: () => setRebuildPort(undefined),
-		trace: (phase, detail) => {
-			traceEvent(`hot-reload:${phase}`, detail ?? {});
+		onReady: (handle) => setRebootPort(handle),
+		onStopped: () => setRebootPort(undefined),
+		onEvent: (event) => {
+			traceEvent(`boot:${event.phase}`, event);
 		},
 	});
 }

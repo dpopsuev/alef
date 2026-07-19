@@ -1,27 +1,26 @@
 /**
- * Restart E2E tests -- exercises the full hot-reload lifecycle through
+ * Restart E2E tests -- exercises the full reboot lifecycle through
  * the real Supervisor. Session create() calls getOrStart() for dependents,
  * simulating the real materializer path.
  */
 
 import { describe, expect, it } from "vitest";
-import { createHotReloadDescriptor, type HotReloadTrace } from "../src/hot-reload.js";
+import { createBootloaderDescriptor, type BootEventListener } from "../src/bootloader.js";
 import { defineManagedService } from "../src/managed-service.js";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import type { ServiceCreateOpts } from "@dpopsuev/alef-supervisor/lifecycle";
 
-function createTraceCollector() {
-	const events: { phase: string; detail?: Record<string, unknown> }[] = [];
-	const trace: HotReloadTrace = (phase, detail) => events.push({ phase, detail });
-	return { events, trace };
+function createEventCollector() {
+	const events: Array<{ phase: string }> = [];
+	const onEvent: BootEventListener = (event) => events.push(event);
+	return { events, onEvent };
 }
 
 describe("restart E2E", { tags: ["unit"] }, () => {
 	it("dependents are re-created via getOrStart during session swap", async () => {
 		const supervisor = new Supervisor();
-		const { events, trace } = createTraceCollector();
+		const { events, onEvent } = createEventCollector();
 
-		// Track plan lifecycle
 		let planCreateCount = 0;
 		let planStopCount = 0;
 		const planDescriptor = defineManagedService({
@@ -40,7 +39,6 @@ describe("restart E2E", { tags: ["unit"] }, () => {
 			},
 		});
 
-		// Session create() calls getOrStart("plan") -- like the real materializer
 		let sessionCreateCount = 0;
 		const sessionDescriptor = defineManagedService({
 			name: "session",
@@ -48,7 +46,6 @@ describe("restart E2E", { tags: ["unit"] }, () => {
 			shareable: true,
 			async create(opts: ServiceCreateOpts) {
 				sessionCreateCount++;
-				// Simulate materializer: resolve plan service during session creation
 				if (opts.supervisor) {
 					await opts.supervisor.getOrStart(planDescriptor, opts);
 				}
@@ -61,44 +58,36 @@ describe("restart E2E", { tags: ["unit"] }, () => {
 			},
 		});
 
-		// Boot
 		supervisor.register(sessionDescriptor);
 		await supervisor.startAll({ cwd: process.cwd() });
 
 		expect(sessionCreateCount).toBe(1);
 		expect(planCreateCount).toBe(1);
 
-		// Register hot-reload and get handle
-		let rebuildHandle: { requestRebuild(): Promise<void> } | undefined;
-		const hotReload = createHotReloadDescriptor({
+		let rebootHandle: { reboot(): Promise<void> } | undefined;
+		const bootloader = createBootloaderDescriptor({
 			buildCommand: "echo build-ok",
 			swap: async (name, opts) => supervisor.swap(name, opts),
 			sessionServiceName: "session",
 			cwd: process.cwd(),
-			trace,
-			onReady: (h) => { rebuildHandle = h; },
+			onEvent,
+			onReady: (h) => { rebootHandle = h; },
 		});
-		supervisor.register(hotReload);
-		await supervisor.getOrStart(hotReload, { cwd: process.cwd() });
-		expect(rebuildHandle).toBeDefined();
+		supervisor.register(bootloader);
+		await supervisor.getOrStart(bootloader, { cwd: process.cwd() });
+		expect(rebootHandle).toBeDefined();
 
-		// Trigger restart
-		await rebuildHandle!.requestRebuild();
+		await rebootHandle!.reboot();
 
-		// Session was re-created
 		expect(sessionCreateCount).toBe(2);
-
-		// Plan was stopped (by swap pre-cascade) then re-created (by session's getOrStart)
 		expect(planStopCount).toBe(1);
 		expect(planCreateCount).toBe(2);
 
-		// Both are healthy
 		const sessionHealth = await supervisor.get("session")?.health();
 		const planHealth = await supervisor.get("plan")?.health();
 		expect(sessionHealth).toBe(true);
 		expect(planHealth).toBe(true);
 
-		// Trace shows full lifecycle
 		const phases = events.map(e => e.phase);
 		expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
 
@@ -107,7 +96,7 @@ describe("restart E2E", { tags: ["unit"] }, () => {
 
 	it("build failure leaves dependents untouched", async () => {
 		const supervisor = new Supervisor();
-		const { events, trace } = createTraceCollector();
+		const { events, onEvent } = createEventCollector();
 
 		let planCreateCount = 0;
 		const planDescriptor = defineManagedService({
@@ -144,21 +133,20 @@ describe("restart E2E", { tags: ["unit"] }, () => {
 		supervisor.register(sessionDescriptor);
 		await supervisor.startAll({ cwd: process.cwd() });
 
-		let rebuildHandle: { requestRebuild(): Promise<void> } | undefined;
-		const hotReload = createHotReloadDescriptor({
+		let rebootHandle: { reboot(): Promise<void> } | undefined;
+		const bootloader = createBootloaderDescriptor({
 			buildCommand: "exit 1",
 			swap: async (name, opts) => supervisor.swap(name, opts),
 			sessionServiceName: "session",
 			cwd: process.cwd(),
-			trace,
-			onReady: (h) => { rebuildHandle = h; },
+			onEvent,
+			onReady: (h) => { rebootHandle = h; },
 		});
-		supervisor.register(hotReload);
-		await supervisor.getOrStart(hotReload, { cwd: process.cwd() });
+		supervisor.register(bootloader);
+		await supervisor.getOrStart(bootloader, { cwd: process.cwd() });
 
-		await expect(rebuildHandle!.requestRebuild()).rejects.toThrow();
+		await expect(rebootHandle!.reboot()).rejects.toThrow();
 
-		// Nothing was touched
 		expect(sessionCreateCount).toBe(1);
 		expect(planCreateCount).toBe(1);
 		expect(events.map(e => e.phase)).toEqual(["build:start", "error"]);

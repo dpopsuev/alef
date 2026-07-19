@@ -1,7 +1,7 @@
 export { defineAdapterService } from "./adapter-service.js";
 export type { AdapterServiceContext, AdapterServiceDefinition } from "./adapter-service.js";
-export { createHotReloadDescriptor } from "./hot-reload.js";
-export type { HotReloadOpts, HotReloadRebuildHandle, HotReloadTrace } from "./hot-reload.js";
+export { createBootloaderDescriptor } from "./bootloader.js";
+export type { BootEvent, BootEventListener, BootloaderOpts, RebootHandle } from "./bootloader.js";
 export { defineManagedService } from "./managed-service.js";
 export type { ManagedServiceBody, ManagedServiceDefinition } from "./managed-service.js";
 export { createPackageManagerDescriptor } from "./package-manager.js";

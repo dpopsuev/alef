@@ -6,7 +6,7 @@ import {
 	createDefaultUpdateShell,
 	defaultRespawn,
 	parseUpdateArgs,
-	resolveRebuild,
+	resolveReboot,
 	runRestart,
 	runUpdate,
 } from "./update-service.js";
@@ -35,15 +35,15 @@ const SPINNER_FRAMES = [
 ];
 
 /**
- * Restart command: hot-reload in place when available, else respawn + resume.
+ * Restart command: warm reboot in place when available, else respawn + resume.
  */
 export const restart: Command = {
 	name: "restart",
-	description: "Restart Alef (in-place hot-reload when available)",
+	description: "Restart Alef (warm reboot when available)",
 	run(ctx: LifecycleCmdCtx) {
 		attempt(ctx, async () => {
-			const rebuild = resolveRebuild();
-			if (!rebuild) {
+			const reboot = resolveReboot();
+			if (!reboot) {
 				ctx.writer.addNotice("Restarting...");
 				ctx.tui.requestRender(true);
 				await runRestart({
@@ -72,7 +72,7 @@ export const restart: Command = {
 			try {
 				const result = await runRestart({
 					rebuild: async () => {
-						await rebuild();
+						await reboot();
 						phase = "Swapping session";
 						tick();
 					},
@@ -123,7 +123,7 @@ export const update: Command = {
 				checkOnly,
 				version: BUILD_INFO.version,
 				shell,
-				rebuild: resolveRebuild(),
+				rebuild: resolveReboot(),
 				respawn: async () => {
 					await respawnAndExit(ctx);
 				},

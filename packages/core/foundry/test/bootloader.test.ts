@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createHotReloadDescriptor, type HotReloadRebuildHandle } from "../src/hot-reload.js";
+import { createBootloaderDescriptor, type RebootHandle } from "../src/bootloader.js";
 
-describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
-	let handle: HotReloadRebuildHandle | undefined;
+describe("createBootloaderDescriptor", { tags: ["unit"] }, () => {
+	let handle: RebootHandle | undefined;
 
 	afterEach(async () => {
 		handle = undefined;
 	});
 
 	it("invokes onReady/onStopped and reports health", async () => {
-		const onReady = vi.fn((readyHandle: HotReloadRebuildHandle) => {
+		const onReady = vi.fn((readyHandle: RebootHandle) => {
 			handle = readyHandle;
 		});
 		const onStopped = vi.fn(() => {
 			handle = undefined;
 		});
-		const descriptor = createHotReloadDescriptor({
+		const descriptor = createBootloaderDescriptor({
 			buildCommand: "true",
 			swap: vi.fn(),
 			sessionServiceName: "session",
@@ -27,7 +27,7 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 		await service.start();
 
 		expect(onReady).toHaveBeenCalledOnce();
-		expect(handle?.requestRebuild).toBeTypeOf("function");
+		expect(handle?.reboot).toBeTypeOf("function");
 		expect(await service.health()).toBe(true);
 
 		await service.stop();
@@ -38,10 +38,10 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 	});
 
 	it("keeps handle after a failed build until stop", async () => {
-		const onReady = vi.fn((readyHandle: HotReloadRebuildHandle) => {
+		const onReady = vi.fn((readyHandle: RebootHandle) => {
 			handle = readyHandle;
 		});
-		const descriptor = createHotReloadDescriptor({
+		const descriptor = createBootloaderDescriptor({
 			buildCommand: "false",
 			swap: vi.fn(),
 			sessionServiceName: "session",
@@ -54,22 +54,22 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 
-		await expect(handle?.requestRebuild()).rejects.toThrow();
-		expect(handle?.requestRebuild).toBeTypeOf("function");
+		await expect(handle?.reboot()).rejects.toThrow();
+		expect(handle?.reboot).toBeTypeOf("function");
 
 		await service.stop();
 		expect(handle).toBeUndefined();
 		expect(await service.health()).toBe(false);
 	});
 
-	it("guards concurrent rebuilds with a single in-flight swap", async () => {
+	it("guards concurrent reboots with a single in-flight swap", async () => {
 		let resolveBuild: (() => void) | undefined;
 		const buildGate = new Promise<void>((resolve) => {
 			resolveBuild = resolve;
 		});
 		const swap = vi.fn(async (_serviceName: string, _opts: { cwd: string }) => {});
 
-		const descriptor = createHotReloadDescriptor({
+		const descriptor = createBootloaderDescriptor({
 			buildCommand: "true",
 			swap: async (serviceName, opts) => {
 				await buildGate;
@@ -84,10 +84,10 @@ describe("createHotReloadDescriptor", { tags: ["unit"] }, () => {
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 
-		expect(handle?.requestRebuild).toBeTypeOf("function");
+		expect(handle?.reboot).toBeTypeOf("function");
 
-		const first = handle!.requestRebuild();
-		const second = handle!.requestRebuild();
+		const first = handle!.reboot();
+		const second = handle!.reboot();
 
 		resolveBuild?.();
 		await Promise.all([first, second]);

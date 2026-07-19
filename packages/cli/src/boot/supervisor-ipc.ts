@@ -1,4 +1,4 @@
-import { setRebuildPort } from "./rebuild-port.js";
+import { setRebootPort } from "./reboot-port.js";
 
 /**
  * When spawned under an external process supervisor (ALEF_SUPERVISOR=1),
@@ -20,8 +20,8 @@ export function setupSupervisorIpc(
 	const ipcScope =
 		blueprintUpgradePolicy === "self" ? "self" : blueprintUpgradePolicy === "packages" ? "packages" : "rebuild";
 
-	setRebuildPort({
-		requestRebuild(): Promise<void> {
+	setRebootPort({
+		reboot(): Promise<void> {
 			if (ipcScope === "rebuild") {
 				process.send?.({ type: "rebuild" });
 			} else {

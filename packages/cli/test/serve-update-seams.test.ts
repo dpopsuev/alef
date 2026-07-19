@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Args } from "../src/boot/args.js";
 import { shouldMirrorSessionToRouter } from "../src/boot/build-delegation.js";
 import { awaitProcessLifetime, SERVE_IDLE_TIMEOUT_MS } from "../src/boot/process-lifetime.js";
-import { getRebuildPort, setRebuildPort } from "../src/boot/rebuild-port.js";
+import { getRebootPort, setRebootPort } from "../src/boot/reboot-port.js";
 import { setupSupervisorIpc } from "../src/boot/supervisor-ipc.js";
 import { isHeadlessServe, ServeViewMode, selectViewMode } from "../src/boot/views.js";
 import { parseUpdateArgs, runRestart, runUpdate, type UpdateShell } from "../src/client/commands/update-service.js";
@@ -60,16 +60,16 @@ describe("awaitProcessLifetime", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("RebuildPort", { tags: ["unit"] }, () => {
+describe("RebootPort", { tags: ["unit"] }, () => {
 	it("set/get/clear and mirrors globalThis", async () => {
-		const requestRebuild = vi.fn(async () => {});
-		setRebuildPort({ requestRebuild });
-		expect(getRebuildPort()?.requestRebuild).toBe(requestRebuild);
-		await (globalThis as { alefRequestRebuild?: () => Promise<void> }).alefRequestRebuild?.();
-		expect(requestRebuild).toHaveBeenCalledOnce();
-		setRebuildPort(undefined);
-		expect(getRebuildPort()).toBeUndefined();
-		expect((globalThis as { alefRequestRebuild?: unknown }).alefRequestRebuild).toBeUndefined();
+		const reboot = vi.fn(async () => {});
+		setRebootPort({ reboot });
+		expect(getRebootPort()?.reboot).toBe(reboot);
+		await (globalThis as { alefReboot?: () => Promise<void> }).alefReboot?.();
+		expect(reboot).toHaveBeenCalledOnce();
+		setRebootPort(undefined);
+		expect(getRebootPort()).toBeUndefined();
+		expect((globalThis as { alefReboot?: unknown }).alefReboot).toBeUndefined();
 	});
 });
 
@@ -95,7 +95,7 @@ describe("setupSupervisorIpc", { tags: ["unit"] }, () => {
 		else process.env.ALEF_SUPERVISOR = prev;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- restore
 		(process as any).send = originalSend;
-		setRebuildPort(undefined);
+		setRebootPort(undefined);
 	});
 });
 

@@ -373,7 +373,7 @@ async function loadAdapterModule(
 
 /**
  * Load a single adapter from an absolute TypeScript file path.
- * Used by hot-reload (:reload) to swap an adapter in-place without restart.
+ * Used by :reload to swap an adapter in-place without restart.
  */
 export async function loadAdapterFromPath(
 	path: string,

@@ -1,5 +1,5 @@
 import { execSync, spawn } from "node:child_process";
-import { getRebuildPort } from "../../boot/rebuild-port.js";
+import { getRebootPort } from "../../boot/reboot-port.js";
 import type { Release } from "../../update/release-checker.js";
 import { checkLatestRelease } from "../../update/release-checker.js";
 
@@ -85,8 +85,8 @@ export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
 /** Outcome of :restart. */
 export type RestartResult = { kind: "reloaded" } | { kind: "respawn" };
 
-/** True while a hot-reload swap is in progress. Suppresses false "session ended" errors. */
-export let hotReloadInProgress = false;
+/** True while a warm reboot is in progress. Suppresses false "session ended" errors. */
+export let rebootInProgress = false;
 
 /** Prefer rebuild port; otherwise respawn. */
 export async function runRestart(input: {
@@ -94,11 +94,11 @@ export async function runRestart(input: {
 	respawn: () => Promise<void>;
 }): Promise<RestartResult> {
 	if (input.rebuild) {
-		hotReloadInProgress = true;
+		rebootInProgress = true;
 		try {
 			await input.rebuild();
 		} finally {
-			hotReloadInProgress = false;
+			rebootInProgress = false;
 		}
 		return { kind: "reloaded" };
 	}
@@ -134,11 +134,11 @@ export function createDefaultUpdateShell(): UpdateShell {
 	};
 }
 
-/** Resolve rebuild callback from RebuildPort when present. */
-export function resolveRebuild(): (() => Promise<void>) | undefined {
-	const port = getRebuildPort();
+/** Resolve reboot callback from the bootloader's RebootPort when present. */
+export function resolveReboot(): (() => Promise<void>) | undefined {
+	const port = getRebootPort();
 	if (!port) return undefined;
-	return () => port.requestRebuild();
+	return () => port.reboot();
 }
 
 /** Spawn a new Alef process with --resume and exit this one. */

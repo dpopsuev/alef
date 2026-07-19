@@ -421,29 +421,29 @@ export async function handlePromote(
 	doc.spec = spec;
 	writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
 	
-	// Check for hot-reload capability via global function
+	// Check for warm reboot capability via globalThis (set by RebootPort)
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-	const canHotReload = typeof (globalThis as any).alefRequestRebuild === "function";
-	if (canHotReload) {
+	const canWarmReboot = typeof (globalThis as any).alefReboot === "function";
+	if (canWarmReboot) {
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-			await (globalThis as any).alefRequestRebuild();
+			await (globalThis as any).alefReboot();
 			return withDisplay(
 				{ promoted: true, adapterPath, blueprintPath },
-				{ text: `Promoted ${adapterPath} — hot reload complete`, mimeType: "text/plain" },
+				{ text: `Promoted ${adapterPath} — warm reboot complete`, mimeType: "text/plain" },
 			);
 		} catch (err) {
 			return withDisplay(
 				{ promoted: false, reason: String(err), adapterPath, blueprintPath },
-				{ text: `Wrote ${adapterPath} to blueprint but reload failed: ${String(err)}`, mimeType: "text/plain" },
+				{ text: `Wrote ${adapterPath} to blueprint but reboot failed: ${String(err)}`, mimeType: "text/plain" },
 			);
 		}
 	}
 	
 	return withDisplay(
-		{ promoted: false, reason: "hot reload not available", adapterPath, blueprintPath },
+		{ promoted: false, reason: "warm reboot not available", adapterPath, blueprintPath },
 		{
-			text: `Wrote ${adapterPath} to blueprint but hot reload not available — restart to apply`,
+			text: `Wrote ${adapterPath} to blueprint but warm reboot not available — restart to apply`,
 			mimeType: "text/plain",
 		},
 	);

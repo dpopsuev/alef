@@ -1,18 +1,19 @@
 /**
- * Hot-reload E2E tests -- verifies the rebuild + swap lifecycle.
- * Tests model state (trace events, swap calls), not rendered output.
+ * Bootloader E2E tests -- verifies the rebuild + swap lifecycle.
+ * Tests model state (boot events, swap calls), not rendered output.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-	createHotReloadDescriptor,
-	type HotReloadOpts,
-	type HotReloadRebuildHandle,
-	type HotReloadTrace,
-} from "../src/hot-reload.js";
+	createBootloaderDescriptor,
+	type BootEvent,
+	type BootEventListener,
+	type BootloaderOpts,
+	type RebootHandle,
+} from "../src/bootloader.js";
 
-describe("hot-reload E2E", { tags: ["unit"] }, () => {
-	let handle: HotReloadRebuildHandle | undefined;
+describe("bootloader E2E", { tags: ["unit"] }, () => {
+	let handle: RebootHandle | undefined;
 	let stopped = false;
 
 	afterEach(() => {
@@ -20,7 +21,7 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		stopped = false;
 	});
 
-	function makeOpts(overrides: Partial<HotReloadOpts> = {}): HotReloadOpts {
+	function makeOpts(overrides: Partial<BootloaderOpts> = {}): BootloaderOpts {
 		return {
 			buildCommand: "echo build-ok",
 			cwd: process.cwd(),
@@ -36,19 +37,19 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		};
 	}
 
-	async function startService(opts: HotReloadOpts) {
-		const descriptor = createHotReloadDescriptor(opts);
+	async function startService(opts: BootloaderOpts) {
+		const descriptor = createBootloaderDescriptor(opts);
 		const service = await descriptor.create({ cwd: process.cwd() });
 		await service.start();
 		return service;
 	}
 
-	it("rebuild completes and calls swap", async () => {
+	it("reboot completes and calls swap", async () => {
 		const opts = makeOpts();
 		const service = await startService(opts);
 
 		expect(handle).toBeDefined();
-		await handle!.requestRebuild();
+		await handle!.reboot();
 
 		expect(opts.swap).toHaveBeenCalledOnce();
 		expect(opts.swap).toHaveBeenCalledWith("session", expect.objectContaining({ cwd: process.cwd() }));
@@ -57,17 +58,17 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		expect(stopped).toBe(true);
 	});
 
-	it("build failure does not leave rebuildInFlight stuck", async () => {
+	it("build failure does not leave reboot stuck", async () => {
 		const opts = makeOpts({ buildCommand: "exit 1" });
 		const service = await startService(opts);
 
-		await expect(handle!.requestRebuild()).rejects.toThrow();
+		await expect(handle!.reboot()).rejects.toThrow();
 		expect(opts.swap).not.toHaveBeenCalled();
 
 		await service.stop();
 	});
 
-	it("concurrent rebuilds coalesce into one swap", async () => {
+	it("concurrent reboots coalesce into one swap", async () => {
 		let swapCount = 0;
 		const opts = makeOpts({
 			buildCommand: "sleep 0.2 && echo done",
@@ -77,8 +78,8 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		});
 		const service = await startService(opts);
 
-		const p1 = handle!.requestRebuild();
-		const p2 = handle!.requestRebuild();
+		const p1 = handle!.reboot();
+		const p2 = handle!.reboot();
 		await Promise.all([p1, p2]);
 
 		expect(swapCount).toBe(1);
@@ -92,7 +93,7 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		});
 		const service = await startService(opts);
 
-		await expect(handle!.requestRebuild()).rejects.toThrow("swap failed");
+		await expect(handle!.reboot()).rejects.toThrow("swap failed");
 
 		await service.stop();
 	});
@@ -103,90 +104,88 @@ describe("hot-reload E2E", { tags: ["unit"] }, () => {
 		});
 		const service = await startService(opts);
 
-		// If stdin were open, `cat` would hang forever. With stdin.end(),
-		// cat gets EOF immediately and the command completes.
-		await handle!.requestRebuild();
+		await handle!.reboot();
 		expect(opts.swap).toHaveBeenCalledOnce();
 
 		await service.stop();
 	});
 
-	describe("trace lifecycle", () => {
+	describe("boot event lifecycle", () => {
 		it("emits build:start, build:done, swap:start, swap:done, complete on success", async () => {
-			const traces: Array<{ phase: string; detail?: Record<string, unknown> }> = [];
-			const trace: HotReloadTrace = (phase, detail) => {
-				traces.push({ phase, detail });
+			const events: BootEvent[] = [];
+			const onEvent: BootEventListener = (event) => {
+				events.push(event);
 			};
-			const opts = makeOpts({ trace });
+			const opts = makeOpts({ onEvent });
 			const service = await startService(opts);
 
-			await handle!.requestRebuild();
+			await handle!.reboot();
 
-			const phases = traces.map((t) => t.phase);
+			const phases = events.map((e) => e.phase);
 			expect(phases).toEqual(["build:start", "build:done", "swap:start", "swap:done", "complete"]);
 
 			// build:start has the command
-			expect(traces[0]!.detail).toHaveProperty("command");
+			expect((events[0] as { command?: string }).command).toBeDefined();
 
 			// build:done and swap:done have elapsed ms
-			expect(traces[1]!.detail).toHaveProperty("elapsedMs");
-			expect(traces[3]!.detail).toHaveProperty("elapsedMs");
+			expect((events[1] as { elapsedMs?: number }).elapsedMs).toBeDefined();
+			expect((events[3] as { elapsedMs?: number }).elapsedMs).toBeDefined();
 
 			// complete has total ms
-			expect(traces[4]!.detail).toHaveProperty("totalMs");
+			expect((events[4] as { totalMs?: number }).totalMs).toBeDefined();
 
 			await service.stop();
 		});
 
 		it("emits build:start then error on build failure", async () => {
-			const traces: Array<{ phase: string; detail?: Record<string, unknown> }> = [];
+			const events: BootEvent[] = [];
 			const opts = makeOpts({
 				buildCommand: "exit 1",
-				trace: (phase, detail) => traces.push({ phase, detail }),
+				onEvent: (event) => events.push(event),
 			});
 			const service = await startService(opts);
 
-			await expect(handle!.requestRebuild()).rejects.toThrow();
+			await expect(handle!.reboot()).rejects.toThrow();
 
-			const phases = traces.map((t) => t.phase);
+			const phases = events.map((e) => e.phase);
 			expect(phases).toEqual(["build:start", "error"]);
-			expect(traces[1]!.detail).toHaveProperty("error");
-			expect(traces[1]!.detail).toHaveProperty("elapsedMs");
+			expect((events[1] as { error?: string }).error).toBeDefined();
+			expect((events[1] as { elapsedMs?: number }).elapsedMs).toBeDefined();
 
 			await service.stop();
 		});
 
 		it("emits swap:start then error on swap failure", async () => {
-			const traces: Array<{ phase: string; detail?: Record<string, unknown> }> = [];
+			const events: BootEvent[] = [];
 			const opts = makeOpts({
 				swap: vi.fn().mockRejectedValue(new Error("swap boom")),
-				trace: (phase, detail) => traces.push({ phase, detail }),
+				onEvent: (event) => events.push(event),
 			});
 			const service = await startService(opts);
 
-			await expect(handle!.requestRebuild()).rejects.toThrow("swap boom");
+			await expect(handle!.reboot()).rejects.toThrow("swap boom");
 
-			const phases = traces.map((t) => t.phase);
+			const phases = events.map((e) => e.phase);
 			expect(phases).toEqual(["build:start", "build:done", "swap:start", "error"]);
 
 			await service.stop();
 		});
 
 		it("elapsed times are positive numbers", async () => {
-			const traces: Array<{ phase: string; detail?: Record<string, unknown> }> = [];
+			const events: BootEvent[] = [];
 			const opts = makeOpts({
-				trace: (phase, detail) => traces.push({ phase, detail }),
+				onEvent: (event) => events.push(event),
 			});
 			const service = await startService(opts);
 
-			await handle!.requestRebuild();
+			await handle!.reboot();
 
-			for (const t of traces) {
-				if (t.detail && "elapsedMs" in t.detail) {
-					expect(t.detail.elapsedMs).toBeGreaterThanOrEqual(0);
+			for (const e of events) {
+				if ("elapsedMs" in e) {
+					expect(e.elapsedMs).toBeGreaterThanOrEqual(0);
 				}
-				if (t.detail && "totalMs" in t.detail) {
-					expect(t.detail.totalMs).toBeGreaterThanOrEqual(0);
+				if ("totalMs" in e) {
+					expect(e.totalMs).toBeGreaterThanOrEqual(0);
 				}
 			}
 

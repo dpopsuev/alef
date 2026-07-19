@@ -383,7 +383,7 @@ export async function createLocalSession(
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
 			const g = globalThis as Record<string, unknown>;
-			if (typeof g.alefRequestRebuild === "function") (g.alefRequestRebuild as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
+			if (typeof g.alefReboot === "function") (g.alefReboot as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
 		},
 	});
 	// Meta tools stay on the bus for :meta / prototype paths — hide from LLM tool schemas.

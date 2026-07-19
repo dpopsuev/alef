@@ -1,19 +1,21 @@
 /**
  * Bootloader overlay -- shown during startup and hot-reload transitions.
  *
- * Renders a centered ASCII splash with progress steps during BOOTING,
+ * Renders the Hebrew Alef letter with progress steps during BOOTING,
  * and a compact spinner during RELOADING.
  */
 
 import type { Component } from "@dpopsuev/alef-tui";
-import { bold, color, getTheme } from "./theme.js";
+import { color, getTheme } from "./theme.js";
 
-const SPLASH = [
-	"        _       __",
-	"  __ _ | | ___ / _|",
-	" / _` || |/ _ \\ |_ ",
-	"| (_| || |  __/  _|",
-	" \\__,_||_|\\___|_|  ",
+const ALEF = [
+	"     \u2584",
+	"  \u2591\u2588\u2588\u2588\u2588",
+	"    \u2591\u2580\u2588",
+	"      \u2588",
+	"      \u2588",
+	"  \u2591\u2591\u2591\u2592\u2588",
+	" \u2592\u2588\u2588\u2588\u2588\u2580",
 ];
 
 const SPINNER_FRAMES = [
@@ -40,7 +42,6 @@ export type BootPhase = "booting" | "reloading" | "ready";
 
 /**
  * Bootloader component that renders as a TUI overlay.
- * Call update() to advance steps, then render() reflects the change.
  */
 export class Bootloader implements Component {
 	private phase: BootPhase = "booting";
@@ -94,8 +95,8 @@ export class Bootloader implements Component {
 
 		if (this.phase === "booting") {
 			lines.push("");
-			for (const line of SPLASH) {
-				lines.push(center(bold(color(line, t.primaryFg)), width));
+			for (const line of ALEF) {
+				lines.push(center(color(line, t.accentFg), width));
 			}
 			lines.push("");
 			lines.push("");

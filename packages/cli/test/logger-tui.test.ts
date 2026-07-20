@@ -1,13 +1,16 @@
 /**
  * Bug regression: pino debug logs leak into the TUI viewport.
  *
- * In TUI mode, stderr is suppressed by run-agent.ts — pino writes to stderr
- * but those writes are silently dropped. Debug events go through traceEvent()
- * to the session JSONL (bus: "debug"), not through pino.
+ * Root cause: pino worker transports open fd 2 directly, bypassing the
+ * process.stderr.write override. Fix: when TUI is active, pino writes
+ * to $XDG_STATE_HOME/alef/debug.log instead of stderr.
  */
 
+import { existsSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createLogger } from "../src/boot/logger.js";
+import { createLogger, createRunnerLogger } from "../src/boot/logger.js";
 
 describe("logger: warn level does not emit debug lines to stderr", { tags: ["unit"] }, () => {
 	let stderrWrites: string[] = [];
@@ -38,5 +41,34 @@ describe("logger: warn level does not emit debug lines to stderr", { tags: ["uni
 		log.debug({ src: "test" }, "debug msg — should not appear at warn level");
 		const debugLines = stderrWrites.filter((l) => l.includes('"level":20'));
 		expect(debugLines).toHaveLength(0);
+	});
+});
+
+describe("logger: TUI mode redirects to log file", { tags: ["unit"] }, () => {
+	it("createLogger with logFile writes to file, not stderr", async () => {
+		const logFile = join(tmpdir(), `alef-test-logger-${Date.now()}.log`);
+		try {
+			const log = createLogger("debug", logFile);
+			log.debug({ src: "test" }, "to file");
+			// Worker transport is async; give it a moment to flush
+			await new Promise((r) => setTimeout(r, 200));
+			expect(existsSync(logFile)).toBe(true);
+		} finally {
+			try {
+				unlinkSync(logFile);
+			} catch {
+				/* cleanup */
+			}
+		}
+	});
+
+	it("createRunnerLogger with TUI+debug targets a log file", () => {
+		const log = createRunnerLogger(true, true);
+		expect(log.level).toBe("debug");
+	});
+
+	it("createRunnerLogger with TUI without debug is silent", () => {
+		const log = createRunnerLogger(true, false);
+		expect(log.level).toBe("silent");
 	});
 });

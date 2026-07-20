@@ -15,6 +15,11 @@ export {
 	openDiscourseBackend,
 	openInMemoryDiscourseBackend,
 } from "./open-backend.js";
+export {
+	PapyrusArtifactReferenceVerifier,
+	PapyrusDiscourseStore,
+	type PapyrusOperationCall,
+} from "./papyrus-store.js";
 export { type ScribeArtifactCall, ScribeDiscourseProjection } from "./scribe-projection.js";
 export { service } from "./service.js";
 export { SqliteCapabilityDiscourseStore } from "./sqlite-capability-store.js";

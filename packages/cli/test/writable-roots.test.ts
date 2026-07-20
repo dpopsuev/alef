@@ -9,9 +9,9 @@ describe("resolveWritableRoots", { tags: ["unit"] }, () => {
 		delete process.env.ALEF_WRITABLE_ROOTS;
 	});
 
-	it("returns undefined when no security config (unrestricted)", () => {
+	it("defaults to [cwd] when no security config", () => {
 		const cfg: AlefConfig = {};
-		expect(resolveWritableRoots("/workspace", cfg)).toBeUndefined();
+		expect(resolveWritableRoots("/workspace", cfg)).toEqual(["/workspace"]);
 	});
 
 	it("resolves cwd placeholder", () => {
@@ -46,9 +46,9 @@ describe("resolveWritableRoots", { tags: ["unit"] }, () => {
 		expect(result).toEqual([resolve("/workspace")]);
 	});
 
-	it("returns undefined for malformed env var", () => {
+	it("defaults to [cwd] for malformed env var", () => {
 		process.env.ALEF_WRITABLE_ROOTS = "not-json";
 		const cfg: AlefConfig = {};
-		expect(resolveWritableRoots("/workspace", cfg)).toBeUndefined();
+		expect(resolveWritableRoots("/workspace", cfg)).toEqual(["/workspace"]);
 	});
 });

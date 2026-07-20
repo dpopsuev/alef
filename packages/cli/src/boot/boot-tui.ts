@@ -51,6 +51,10 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 
 	let shellRef: TuiShell | null = null;
 	let resolvedRef: ResolvedSession | null = null;
+	let sessionHandleRef: {
+		unloadAdapter(name: string): boolean;
+		reloadAdapter(name: string, path: string): Promise<void>;
+	} | null = null;
 
 	const restartTui = async (): Promise<void> => {
 		if (!shellRef || !resolvedRef) return;
@@ -245,6 +249,8 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			// Create the local session (agent, adapters, LLM)
 			const result = await createLocalSession(args, cfg, log, store, loaded, model, storage, identity);
 
+			sessionHandleRef = result.session;
+
 			return {
 				session: result.session,
 				store,
@@ -274,6 +280,19 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			restartStrategy: getRestartStrategy(),
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 			restartTui,
+			reloadAdapters: async (_names: string[]) => {
+				if (!sessionHandleRef) return;
+				for (const name of _names) {
+					sessionHandleRef.unloadAdapter(name);
+				}
+				// Full adapter reload via the runtime's registered reload callback
+				const { foundry } = runtime;
+				const sessionSvc = foundry.get("session");
+				if (sessionSvc && "reboot" in sessionSvc) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'reboot' in check
+					await (sessionSvc as unknown as { reboot(): Promise<void> }).reboot();
+				}
+			},
 		}),
 	});
 

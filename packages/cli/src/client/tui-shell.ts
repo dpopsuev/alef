@@ -313,10 +313,12 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 						if (deps.restartStrategy) return deps.restartStrategy.restart();
 						process.exit(75);
 					},
-					reloadAdapters: async () => {
-						if (deps.restartStrategy) return deps.restartStrategy.restart();
-						process.exit(75);
-					},
+					reloadAdapters:
+						deps.reloadAdapters ??
+						(async () => {
+							if (deps.restartStrategy) return deps.restartStrategy.restart();
+							process.exit(75);
+						}),
 				}
 			: undefined,
 	);

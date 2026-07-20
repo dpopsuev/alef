@@ -188,4 +188,6 @@ export interface WireSessionDeps {
 	checkForUpdate: () => Promise<string | null>;
 	/** Tear down and rebuild the TUI while keeping the supervisor alive. */
 	restartTui?: () => Promise<void>;
+	/** Hot-reload adapters by name (unload + reload). */
+	reloadAdapters?: (names: string[]) => Promise<void>;
 }

@@ -30,7 +30,6 @@ import { buildIdentityContext, loadSession } from "./boot/session.js";
 import type { SessionService } from "./boot/session-service.js";
 import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
-import { pickSession } from "./client/commands/sessions.js";
 import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "./client/theme.js";
 import { dispatchCliOp } from "./debug/cli-ops.js";
 import { runDebugSession } from "./debug/debug-session.js";
@@ -215,10 +214,23 @@ import { setAuthStore, warmAuthCache } from "./boot/auth.js";
 setAuthStore(storage.authStore());
 await warmAuthCache();
 
+// ---------------------------------------------------------------------------
+// TUI path: delegate to Bootstrapper for unified boot
+// ---------------------------------------------------------------------------
+if (willUseTui) {
+	const { bootWithBootstrapper } = await import("./boot/boot-tui.js");
+	await bootWithBootstrapper({ args, cfg, log, runtime, storage });
+	await runtime.stop();
+	process.exit(0);
+}
+
+// ---------------------------------------------------------------------------
+// Non-TUI path: sequential boot (print, json, serve, daemon)
+// ---------------------------------------------------------------------------
 import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
 const preview: SessionPreviewProvider = storage.sessionPreview();
-const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
+const session = await loadSession(args, storage.sessions, false, undefined, preview);
 process.env.ALEF_SESSION_ID = session.id;
 const identity = buildIdentityContext(session);
 const discussion = deriveDiscussionRef(session, args.cwd);

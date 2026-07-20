@@ -178,4 +178,6 @@ export interface WireSessionDeps {
 	restartStrategy?: RestartStrategy;
 	/** Check for newer version (async, best-effort). */
 	checkForUpdate: () => Promise<string | null>;
+	/** Tear down and rebuild the TUI while keeping the supervisor alive. */
+	restartTui?: () => Promise<void>;
 }

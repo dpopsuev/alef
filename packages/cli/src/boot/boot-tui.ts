@@ -15,7 +15,7 @@ import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { isTermDark } from "is-term-dark";
 import type { Logger } from "pino";
 import { pickBlueprintInTui } from "../client/blueprint-picker-app.js";
-import type { SessionSelection, TuiShell } from "../client/boot-types.js";
+import type { ResolvedSession, SessionSelection, TuiShell, WireSessionDeps } from "../client/boot-types.js";
 import { pickSessionInTui } from "../client/session-picker-app.js";
 import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "../client/theme.js";
 import { bootTuiShell, wireSession } from "../client/tui-shell.js";
@@ -50,6 +50,23 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 	const env = detectEnvironment(args.cwd);
 
 	let shellRef: TuiShell | null = null;
+	let resolvedRef: ResolvedSession | null = null;
+
+	const restartTui = async (): Promise<void> => {
+		if (!shellRef || !resolvedRef) return;
+		shellRef.tui.stop();
+		const newShell = await bootTuiShell({ cwd: args.cwd });
+		shellRef = newShell;
+		const wireDeps: WireSessionDeps = {
+			signalHandlers: getUiSignalHandlers(),
+			isCompacted,
+			rebootPort: getRebootPort(),
+			restartStrategy: getRestartStrategy(),
+			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
+			restartTui,
+		};
+		wireSession(newShell, resolvedRef, wireDeps);
+	};
 
 	const handle = createBootstrapper({
 		cwd: args.cwd,
@@ -245,7 +262,10 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			};
 		},
 
-		wireSession: (shell, resolved, wireDeps) => wireSession(shell, resolved, wireDeps),
+		wireSession: (shell, resolved, wireDeps) => {
+			resolvedRef = resolved;
+			wireSession(shell, resolved, wireDeps);
+		},
 
 		getDeps: () => ({
 			signalHandlers: getUiSignalHandlers(),
@@ -253,6 +273,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			rebootPort: getRebootPort(),
 			restartStrategy: getRestartStrategy(),
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
+			restartTui,
 		}),
 	});
 

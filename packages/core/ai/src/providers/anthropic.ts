@@ -1215,7 +1215,7 @@ function buildParams(
 	const { cacheControl } = getCacheControl(model, options?.cacheRetention);
 	const params: MessageCreateParamsStreaming = {
 		model: model.id,
-		messages: convertMessages(context.messages, model, isOAuthToken, cacheControl),
+		messages: convertMessages(context.messages, model, isOAuthToken, cacheControl, isVertex),
 		// eslint-disable-next-line no-magic-numbers, @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
 		max_tokens: options?.maxTokens || (model.maxTokens / 3) | 0,
 		stream: true,
@@ -1360,6 +1360,7 @@ function convertMessages(
 	model: Model<"anthropic-messages">,
 	isOAuthToken: boolean,
 	cacheControl?: CacheControlEphemeral,
+	isVertex = false,
 ): MessageParam[] {
 	const params: MessageParam[] = [];
 
@@ -1455,6 +1456,12 @@ function convertMessages(
 				content: toolResults,
 			});
 		}
+	}
+
+	// Vertex AI does not support assistant message prefill (trailing assistant message).
+	// Strip it to avoid 400 errors. The direct Anthropic API allows prefill.
+	if (isVertex && params.length > 0 && params[params.length - 1]!.role === "assistant") {
+		params.pop();
 	}
 
 	// Add cache_control to the last user message to cache conversation history

@@ -126,47 +126,81 @@ function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: st
 /**
  *
  */
+/**
+ * Parse optional provider override from model ID.
+ *
+ *   "anthropic/claude-sonnet-4-5"                -> { base: "anthropic/claude-sonnet-4-5", routeVia: undefined }
+ *   "anthropic/claude-sonnet-4-5 [google-vertex]" -> { base: "anthropic/claude-sonnet-4-5", routeVia: "google-vertex" }
+ */
+function parseProviderOverride(id: string): { base: string; routeVia: string | undefined } {
+	const match = /^(.+?)\s*\[([^\]]+)\]\s*$/.exec(id);
+	if (match) return { base: match[1]!.trim(), routeVia: match[2]!.trim() };
+	return { base: id, routeVia: undefined };
+}
+
+/** Apply a provider override to a resolved model, switching api/baseUrl/provider to the route target. */
+function applyRouteOverride(model: Model<Api>, routeVia: string): Model<Api> {
+	const api = inferApi(routeVia);
+	const baseUrl = inferBaseUrl(routeVia);
+	return { ...model, provider: routeVia, api, ...(baseUrl ? { baseUrl } : {}) };
+}
+
+/**
+ * Resolve a model ID string to a Model object.
+ *
+ * Format: `producer/model` or `producer/model [provider]`.
+ * When `[provider]` is present, the model is looked up by producer
+ * but routed through the specified provider endpoint.
+ */
 export function buildModel(id: string): Model<Api> {
-	if (id.startsWith("ollama/")) {
-		const modelId = id.slice("ollama/".length);
-		return syntheticModel("ollama", modelId, "openai-completions", OLLAMA_BASE_URL);
+	const { base, routeVia } = parseProviderOverride(id);
+
+	if (base.startsWith("ollama/")) {
+		const modelId = base.slice("ollama/".length);
+		const model = syntheticModel("ollama", modelId, "openai-completions", OLLAMA_BASE_URL);
+		return routeVia ? applyRouteOverride(model, routeVia) : model;
 	}
 
-	const slashIdx = id.indexOf("/");
+	const slashIdx = base.indexOf("/");
 	if (slashIdx !== -1) {
-		const provider = id.slice(0, slashIdx);
-		const modelId = id.slice(slashIdx + 1);
+		const provider = base.slice(0, slashIdx);
+		const modelId = base.slice(slashIdx + 1);
 		const catalogModel = lookupModel(provider, modelId);
-		if (catalogModel) return catalogModel;
+		if (catalogModel) return routeVia ? applyRouteOverride(catalogModel, routeVia) : catalogModel;
 
 		const knownProviders: readonly string[] = getProviders();
 		if (!knownProviders.includes(provider)) {
-			_logger.warn(`unknown provider "${provider}" — using synthetic model for ${id}`);
+			_logger.warn(`unknown provider "${provider}" — using synthetic model for ${base}`);
 		}
 		const baseUrl = inferBaseUrl(provider);
 		if (!baseUrl && provider !== "google" && provider !== "google-vertex" && provider !== "amazon-bedrock") {
 			_logger.warn(`no base URL for provider "${provider}" — API calls may fail`);
 		}
-		return syntheticModel(provider, modelId, inferApi(provider), baseUrl);
+		const synthetic = syntheticModel(provider, modelId, inferApi(provider), baseUrl);
+		return routeVia ? applyRouteOverride(synthetic, routeVia) : synthetic;
 	}
 
 	const allProviders = getProviders();
 	const matches: Array<{ provider: string; model: Model<Api> }> = [];
 	for (const provider of allProviders) {
 		const models = getModels(provider);
-		const found = models.find((m) => m.id === id);
+		const found = models.find((m) => m.id === base);
 		if (found) matches.push({ provider, model: found });
 	}
 
 	if (matches.length > 1) {
 		const names = matches.map((m) => m.provider).join(", ");
-		_logger.warn(`"${id}" found in multiple providers: ${names} — using ${matches[0]!.provider}`);
+		_logger.warn(`"${base}" found in multiple providers: ${names} — using ${matches[0]!.provider}`);
 	}
 
-	if (matches.length > 0) return matches[0]!.model;
+	if (matches.length > 0) {
+		const model = matches[0]!.model;
+		return routeVia ? applyRouteOverride(model, routeVia) : model;
+	}
 
-	_logger.warn(`"${id}" not found in any provider catalog — creating synthetic model (typo?)`);
-	return syntheticModel("anthropic", id, "anthropic-messages", "https://api.anthropic.com");
+	_logger.warn(`"${base}" not found in any provider catalog — creating synthetic model (typo?)`);
+	const fallback = syntheticModel("anthropic", base, "anthropic-messages", "https://api.anthropic.com");
+	return routeVia ? applyRouteOverride(fallback, routeVia) : fallback;
 }
 
 const PROVIDER_API_MAP: Record<string, Api> = {

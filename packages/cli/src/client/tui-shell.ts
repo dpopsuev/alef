@@ -302,6 +302,23 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 		editor,
 		deps.rebootPort,
 		deps.restartStrategy,
+		deps.restartTui
+			? {
+					exit: async () => {
+						if (deps.restartStrategy) return deps.restartStrategy.restart();
+						process.exit(75);
+					},
+					restartTui: () => deps.restartTui!(),
+					restartSupervisor: async () => {
+						if (deps.restartStrategy) return deps.restartStrategy.restart();
+						process.exit(75);
+					},
+					reloadAdapters: async () => {
+						if (deps.restartStrategy) return deps.restartStrategy.restart();
+						process.exit(75);
+					},
+				}
+			: undefined,
 	);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);

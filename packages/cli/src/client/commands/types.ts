@@ -6,7 +6,7 @@ import type { AdapterManagementSession, Session } from "@dpopsuev/alef-session/c
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions, RebootPort, RestartStrategy } from "../boot-types.js";
+import type { InteractiveOptions, RebootPort, RestartExecutor, RestartStrategy } from "../boot-types.js";
 import type { TuiEvent } from "../events.js";
 import type { TaskLedgerEntry } from "../state.js";
 import type { ThemeTokens } from "../theme.js";
@@ -38,10 +38,14 @@ export interface TuiHandlerContext {
 	editor?: Editor;
 	rebootPort?: RebootPort;
 	restartStrategy?: RestartStrategy;
+	restartExecutor?: RestartExecutor;
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */
-export type LifecycleCmdCtx = Pick<TuiHandlerContext, "session" | "writer" | "tui" | "rebootPort" | "restartStrategy">;
+export type LifecycleCmdCtx = Pick<
+	TuiHandlerContext,
+	"session" | "writer" | "tui" | "rebootPort" | "restartStrategy" | "restartExecutor"
+>;
 
 /** Auth commands: login, logout. */
 export type AuthCmdCtx = Pick<TuiHandlerContext, "writer" | "tui">;

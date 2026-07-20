@@ -10,20 +10,11 @@
  *   none       -> no-op
  */
 
+export type { RestartExecutor } from "../client/boot-types.js";
+
+import type { RestartExecutor } from "../client/boot-types.js";
 import type { RestartScope, Sbom } from "./sbom.js";
 import { diffSbom, type SbomDiffResult } from "./sbom-diff.js";
-
-/** Execution primitives the restart policy can invoke. */
-export interface RestartExecutor {
-	/** Full process exit for external respawn. */
-	exit(): Promise<never>;
-	/** Tear down and rebuild the TUI without killing the supervisor. */
-	restartTui(): Promise<void>;
-	/** Drain active work and restart the supervisor service graph. */
-	restartSupervisor(): Promise<void>;
-	/** Hot-reload specific adapters by name. */
-	reloadAdapters(names: string[]): Promise<void>;
-}
 
 /** Result of applying the restart policy. */
 export interface RestartPolicyResult {

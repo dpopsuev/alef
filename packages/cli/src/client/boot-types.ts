@@ -162,6 +162,14 @@ export interface RestartStrategy {
 	restart(): Promise<never>;
 }
 
+/** Execution primitives for scoped restart after :update. */
+export interface RestartExecutor {
+	exit(): Promise<never>;
+	restartTui(): Promise<void>;
+	restartSupervisor(): Promise<void>;
+	reloadAdapters(names: string[]): Promise<void>;
+}
+
 /**
  * Dependencies injected into wireSession by the Bootstrapper.
  * These replace the module-level singleton imports that previously

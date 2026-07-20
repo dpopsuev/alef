@@ -1,6 +1,7 @@
 import { BUILD_INFO } from "../../boot/build-info.js";
-import { applyRestartPolicy, type RestartExecutor } from "../../boot/restart-policy.js";
+import { applyRestartPolicy } from "../../boot/restart-policy.js";
 import { generateSbom, SBOM } from "../../boot/sbom.js";
+import type { RestartExecutor } from "../boot-types.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
@@ -133,18 +134,13 @@ export const update: Command = {
 						spinnerNotice.setText("Build complete -- checking restart scope...");
 						ctx.tui.requestRender();
 						const newSbom = generateSbom();
-						const executor: RestartExecutor = {
+						const fallback: RestartExecutor = {
 							exit: () => cleanExitForRestart(ctx),
-							restartTui: async () => {
-								await cleanExitForRestart(ctx);
-							},
-							restartSupervisor: async () => {
-								await cleanExitForRestart(ctx);
-							},
-							reloadAdapters: async () => {
-								await cleanExitForRestart(ctx);
-							},
+							restartTui: () => cleanExitForRestart(ctx),
+							restartSupervisor: () => cleanExitForRestart(ctx),
+							reloadAdapters: () => cleanExitForRestart(ctx),
 						};
+						const executor = ctx.restartExecutor ?? fallback;
 						const policy = await applyRestartPolicy(SBOM, newSbom, executor);
 						if (!policy.executed) {
 							spinnerNotice.setText("Build complete -- no changes detected.");

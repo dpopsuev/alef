@@ -1,5 +1,4 @@
 import { BUILD_INFO } from "../../boot/build-info.js";
-import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
@@ -14,11 +13,14 @@ import {
 
 export { parseUpdateArgs } from "./update-service.js";
 
-/** Clean up session and TUI, then exit with the restart code so the wrapper respawns us. */
-async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<void> {
+/** Clean up session and TUI, then delegate to the injected restart strategy. */
+async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<never> {
 	await ctx.session.dispose();
 	ctx.tui.stop();
-	process.exit(RESTART_EXIT_CODE);
+	if (!ctx.restartStrategy) {
+		throw new Error("No restart strategy available");
+	}
+	return ctx.restartStrategy.restart();
 }
 
 const SPINNER_FRAMES = [

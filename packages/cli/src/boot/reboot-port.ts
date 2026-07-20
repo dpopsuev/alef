@@ -1,26 +1,44 @@
 /**
- * Process-local port for in-place reboot / session swap.
- * The bootloader service and ALEF_SUPERVISOR IPC both register here;
- * commands call getRebootPort().
+ * Restart abstractions.
+ *
+ * RebootPort: "prepare for restart" (build new code). Optional -- prod has none.
+ * RestartStrategy: "execute the restart" (exit, fork, IPC). Always present.
  */
 
 /** Exit code the child sends to the wrapper to request a restart. */
 export const RESTART_EXIT_CODE = 75;
 
-/** Handle that triggers an in-place reboot / session swap. */
+/** Prepare for restart -- typically runs the build step. */
 export interface RebootPort {
 	reboot(): Promise<void>;
+}
+
+/** Execute the actual process restart. Injected through context. */
+export interface RestartStrategy {
+	restart(): Promise<never>;
+}
+
+/** RestartStrategy that exits with RESTART_EXIT_CODE for the wrapper to catch. */
+export function createExitRestartStrategy(): RestartStrategy {
+	return {
+		restart(): Promise<never> {
+			process.exit(RESTART_EXIT_CODE);
+		},
+	};
 }
 
 type AlefGlobal = typeof globalThis & {
 	alefReboot?: () => void | Promise<void>;
 };
 
-let current: RebootPort | undefined;
+let currentPort: RebootPort | undefined;
+let currentStrategy: RestartStrategy | undefined;
 
-/** Install or clear the active reboot port; mirrors onto globalThis for legacy callers. */
+/**
+ *
+ */
 export function setRebootPort(port: RebootPort | undefined): void {
-	current = port;
+	currentPort = port;
 	const globalRef = globalThis as AlefGlobal;
 	if (port) {
 		globalRef.alefReboot = () => port.reboot();
@@ -29,7 +47,23 @@ export function setRebootPort(port: RebootPort | undefined): void {
 	}
 }
 
-/** Active reboot port, if any. */
+/**
+ *
+ */
 export function getRebootPort(): RebootPort | undefined {
-	return current;
+	return currentPort;
+}
+
+/**
+ *
+ */
+export function setRestartStrategy(strategy: RestartStrategy | undefined): void {
+	currentStrategy = strategy;
+}
+
+/**
+ *
+ */
+export function getRestartStrategy(): RestartStrategy | undefined {
+	return currentStrategy;
 }

@@ -1,35 +1,16 @@
 /**
- * SBOM generation and loading tests.
+ * SBOM generation tests.
  */
 
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
-import { loadSbom, type Sbom } from "../src/boot/sbom.js";
+import { describe, expect, it } from "vitest";
+import { generateSbom, SBOM } from "../src/boot/sbom.js";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const SBOM_PATH = join(ROOT, "sbom.test.json");
 
-describe("SBOM generation", { tags: ["unit"] }, () => {
-	afterAll(() => {
-		try {
-			unlinkSync(SBOM_PATH);
-		} catch {
-			/* cleanup */
-		}
-	});
-
-	it("generates a valid SBOM with all component groups", () => {
-		execSync(`npx tsx scripts/generate-sbom.ts --output ${SBOM_PATH}`, {
-			cwd: ROOT,
-			encoding: "utf-8",
-			stdio: "pipe",
-		});
-
-		expect(existsSync(SBOM_PATH)).toBe(true);
-		const sbom = JSON.parse(readFileSync(SBOM_PATH, "utf-8")) as Sbom;
-
+describe("generateSbom", { tags: ["unit"] }, () => {
+	it("produces a valid SBOM with all component groups", () => {
+		const sbom = generateSbom(ROOT);
 		expect(sbom.version).toBe(1);
 		expect(sbom.generatedAt).toBeTruthy();
 		expect(sbom.gitHash).toBeTruthy();
@@ -37,9 +18,8 @@ describe("SBOM generation", { tags: ["unit"] }, () => {
 	});
 
 	it("includes bootstrapper, tui, supervisor, and adapter components", () => {
-		const sbom = JSON.parse(readFileSync(SBOM_PATH, "utf-8")) as Sbom;
+		const sbom = generateSbom(ROOT);
 		const names = sbom.components.map((c) => c.name);
-
 		expect(names).toContain("bootstrapper");
 		expect(names).toContain("tui");
 		expect(names).toContain("supervisor");
@@ -47,66 +27,48 @@ describe("SBOM generation", { tags: ["unit"] }, () => {
 	});
 
 	it("each component has a 16-char hex hash", () => {
-		const sbom = JSON.parse(readFileSync(SBOM_PATH, "utf-8")) as Sbom;
+		const sbom = generateSbom(ROOT);
 		for (const c of sbom.components) {
 			expect(c.hash, `${c.name} hash`).toMatch(/^[0-9a-f]{16}$/);
 		}
 	});
 
 	it("maps restart scopes correctly", () => {
-		const sbom = JSON.parse(readFileSync(SBOM_PATH, "utf-8")) as Sbom;
+		const sbom = generateSbom(ROOT);
 		const byName = new Map(sbom.components.map((c) => [c.name, c]));
-
 		expect(byName.get("bootstrapper")?.scope).toBe("exit");
 		expect(byName.get("tui")?.scope).toBe("tui");
 		expect(byName.get("supervisor")?.scope).toBe("supervisor");
 		expect(byName.get("core:kernel")?.scope).toBe("exit");
 
-		const adapters = sbom.components.filter((c) => c.name.startsWith("adapter:"));
-		for (const a of adapters) {
+		for (const a of sbom.components.filter((c) => c.name.startsWith("adapter:"))) {
 			expect(a.scope, `${a.name} scope`).toBe("adapter");
 		}
 	});
 
-	it("hashes are deterministic (same content produces same hash)", () => {
-		const secondPath = SBOM_PATH.replace(".json", ".second.json");
-		try {
-			execSync(`npx tsx scripts/generate-sbom.ts --output ${secondPath}`, {
-				cwd: ROOT,
-				encoding: "utf-8",
-				stdio: "pipe",
-			});
-			const first = JSON.parse(readFileSync(SBOM_PATH, "utf-8")) as Sbom;
-			const second = JSON.parse(readFileSync(secondPath, "utf-8")) as Sbom;
-
-			for (const fc of first.components) {
-				const sc = second.components.find((c) => c.name === fc.name);
-				expect(sc, `${fc.name} missing in second run`).toBeDefined();
-				expect(sc!.hash, `${fc.name} hash changed between runs`).toBe(fc.hash);
-			}
-		} finally {
-			try {
-				unlinkSync(secondPath);
-			} catch {
-				/* cleanup */
-			}
+	it("hashes are deterministic", () => {
+		const first = generateSbom(ROOT);
+		const second = generateSbom(ROOT);
+		for (const fc of first.components) {
+			const sc = second.components.find((c) => c.name === fc.name);
+			expect(sc, `${fc.name} missing in second run`).toBeDefined();
+			expect(sc!.hash, `${fc.name} hash changed between runs`).toBe(fc.hash);
 		}
 	});
 });
 
-describe("loadSbom", { tags: ["unit"] }, () => {
-	it("loads a valid SBOM from disk", () => {
-		const sbom = loadSbom(ROOT);
-		if (!existsSync(join(ROOT, "sbom.json"))) {
-			expect(sbom).toBeNull();
-			return;
-		}
-		expect(sbom).not.toBeNull();
-		expect(sbom!.version).toBe(1);
+describe("SBOM constant", { tags: ["unit"] }, () => {
+	it("is pre-computed at import time", () => {
+		expect(SBOM.version).toBe(1);
+		expect(SBOM.components.length).toBeGreaterThan(0);
 	});
 
-	it("returns null for missing SBOM", () => {
-		const sbom = loadSbom("/nonexistent/path");
-		expect(sbom).toBeNull();
+	it("matches a fresh generateSbom call", () => {
+		const fresh = generateSbom(ROOT);
+		for (const c of SBOM.components) {
+			const fc = fresh.components.find((f) => f.name === c.name);
+			expect(fc, `${c.name} missing in fresh`).toBeDefined();
+			expect(fc!.hash, `${c.name} hash drift`).toBe(c.hash);
+		}
 	});
 });

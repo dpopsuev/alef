@@ -307,7 +307,6 @@ export function dispatchTuiEvent(
 			promptConsole.removeInFlightCall(callId);
 		}
 		writer.addNotice("(interrupted)");
-		ui.tui.requestRender(true);
 		return {
 			...state,
 			activeCalls: new Map(),

@@ -65,5 +65,3 @@ packages/core/eval/SCOREBOARD.md
 *.generated.ts
 .npmrc
 sbom.json
-sbom.test.json
-sbom.test.second.json

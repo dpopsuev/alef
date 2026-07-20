@@ -132,7 +132,8 @@ export async function runTuiMode(
 		compacted: false,
 		costUsd: 0,
 	});
-	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore);
+	const isNewSession = !store;
+	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore, isNewSession);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
 	let discussionReloadSeq = 0;

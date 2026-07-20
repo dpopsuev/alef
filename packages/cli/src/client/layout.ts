@@ -49,6 +49,7 @@ export async function buildLayout(
 	t: ThemeTokens,
 	opts: InteractiveOptions,
 	tuiStore: TuiStateStore,
+	isNewSession = false,
 ): Promise<TuiLayout> {
 	const { BUILD_INFO } = await import("../boot/build-info.js");
 	const dashboard = new DashboardFooter({
@@ -68,9 +69,9 @@ export async function buildLayout(
 	const agentLabel = displayActorName(opts.agentAddress, "alef");
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
 
-	// Render splash glyph into the conversation as the first content
+	// Render splash glyph into the conversation for new sessions only
 	const splash = await renderSplash();
-	if (splash) {
+	if (isNewSession && splash) {
 		const accent = resolveAccentRgb(t);
 		const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
 		const styled = splash.lines.map((line, i) => gradientLine(line, palette, i * ROW_PHASE_STEP)).join("\n");

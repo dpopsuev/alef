@@ -14,12 +14,14 @@ import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { isTermDark } from "is-term-dark";
 import type { Logger } from "pino";
-import type { SessionSelection } from "../client/boot-types.js";
+import { pickBlueprintInTui } from "../client/blueprint-picker-app.js";
+import type { SessionSelection, TuiShell } from "../client/boot-types.js";
 import { pickSessionInTui } from "../client/session-picker-app.js";
 import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "../client/theme.js";
 import { bootTuiShell, wireSession } from "../client/tui-shell.js";
 import { loadAdapters } from "./adapters.js";
 import type { Args } from "./args.js";
+import { discoverBlueprints } from "./blueprints.js";
 import { createBootstrapper } from "./bootstrapper.js";
 import { BUILD_INFO } from "./build-info.js";
 import type { AlefConfig } from "./config.js";
@@ -47,11 +49,17 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 	const { args, cfg, log, runtime, storage } = deps;
 	const env = detectEnvironment(args.cwd);
 
+	let shellRef: TuiShell | null = null;
+
 	const handle = createBootstrapper({
 		cwd: args.cwd,
 		willUseTui: true,
 
-		createShell: (ctx) => bootTuiShell(ctx),
+		async createShell(ctx) {
+			const s = await bootTuiShell(ctx);
+			shellRef = s;
+			return s;
+		},
 
 		async pickSession(shell) {
 			const _preview = storage.sessionPreview();
@@ -117,9 +125,19 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 					log.warn({ error: String(err) }, "embedder init failed");
 				});
 
+			// Blueprint selection (if multiple available and not already specified)
+			const resolvedArgs = { ...args };
+			if (!resolvedArgs.blueprint) {
+				const discovered = discoverBlueprints();
+				if (discovered.length > 1 && shellRef) {
+					const chosen = await pickBlueprintInTui(shellRef, discovered);
+					if (chosen) resolvedArgs.blueprint = chosen.name;
+				}
+			}
+
 			// Load adapters + model
 			const sessionDir = dirname(store.path);
-			const loaded = await loadAdapters(args, cfg, log, sessionDir, {
+			const loaded = await loadAdapters(resolvedArgs, cfg, log, sessionDir, {
 				resolveService: runtime.resolveService,
 				actorAddress: identity.agentActor.address,
 				sessionId: store.id,

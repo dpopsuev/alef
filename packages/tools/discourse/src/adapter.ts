@@ -6,7 +6,7 @@ import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Client } from "@libsql/client";
 import { z } from "zod";
 import type { DiscourseBackend } from "./backend.js";
-import { InMemoryDiscourseStore } from "./memory-store.js";
+import { CapabilityDiscourseBackend } from "./capability-backend.js";
 import { maybeMirrorToScribe } from "./open-backend.js";
 import type { ScribeArtifactCall } from "./scribe-backend.js";
 import { SqliteDiscourseStore } from "./sqlite-store.js";
@@ -112,7 +112,7 @@ function resolveBackend(opts: DiscourseAdapterOptions): DiscourseBackend {
 	} else if (opts.client && opts.sessionId) {
 		store = new SqliteDiscourseStore(opts.client, opts.sessionId);
 	} else {
-		store = new InMemoryDiscourseStore();
+		store = new CapabilityDiscourseBackend();
 	}
 	return maybeMirrorToScribe(store, {
 		scribeCall: opts.scribeCall,
@@ -154,7 +154,11 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, content, author, replyToPostId } = ctx.payload;
-		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content, { replyToPostId });
+		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content, {
+			replyToPostId,
+			operationId: ctx.toolCallId ?? ctx.correlationId,
+			correlationId: ctx.correlationId,
+		});
 		return withDisplay(
 			{ posted: true, id: post.id, topic, thread, timestamp: post.timestamp, replyToPostId: post.replyToPostId },
 			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },

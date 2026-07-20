@@ -7,6 +7,11 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./src/index.ts" },
+    "./constants": { "types": "./dist/constants.d.ts", "default": "./src/constants.ts" },
+    "./memory-store": { "types": "./dist/memory-store.d.ts", "default": "./src/memory-store.ts" },
+    "./ports": { "types": "./dist/ports.d.ts", "default": "./src/ports.ts" },
+    "./service": { "types": "./dist/service.d.ts", "default": "./src/service.ts" },
+    "./types": { "types": "./dist/types.d.ts", "default": "./src/types.ts" },
     "./conformance": "./test/conformance.ts"
   },
   "files": ["dist"],

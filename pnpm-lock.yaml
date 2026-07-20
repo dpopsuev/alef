@@ -953,6 +953,9 @@ importers:
       '@dpopsuev/alef-supervisor':
         specifier: workspace:*
         version: link:../../core/supervisor
+      '@dpopsuev/discourse-capability':
+        specifier: workspace:*
+        version: link:../../core/discourse
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4

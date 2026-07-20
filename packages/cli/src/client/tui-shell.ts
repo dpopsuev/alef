@@ -119,8 +119,29 @@ export async function bootTuiShell(ctx: TuiShellContext): Promise<TuiShell> {
 		chrome,
 		tuiStore,
 		cwd: ctx.cwd,
-		handleBootEvent(_event) {
-			// TODO: render boot progress (bootloader overlay or footer notices)
+		handleBootEvent(event) {
+			switch (event.phase) {
+				case "storage":
+					footer.setStatus("boot", event.status === "ready" ? undefined : "storage...");
+					break;
+				case "session":
+					footer.setStatus("boot", event.status === "ready" ? undefined : "session...");
+					break;
+				case "adapters":
+					footer.setStatus("boot", event.status === "ready" ? undefined : "loading adapters...");
+					break;
+				case "model":
+					footer.setStatus("boot", undefined);
+					break;
+				case "agent":
+					footer.setStatus("boot", event.status === "ready" ? undefined : "wiring agent...");
+					break;
+				case "error":
+					writer.addNotice(`Boot error: ${event.error}`);
+					footer.setStatus("boot", undefined);
+					break;
+			}
+			tui.requestRender();
 		},
 		stopped,
 	};

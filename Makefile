@@ -71,16 +71,14 @@ test: ## Run tests in all workspaces that define a test script
 	$(NPM) run test
 
 .PHONY: alef
-alef: ## Run Alef
+alef: ## Run Alef from source (no build step)
 	@node scripts/check-native.mjs
-	@npm run build --silent
-	@node packages/cli/bin/alef.js
+	@npx tsx packages/cli/src/entrypoint.ts
 
 .PHONY: debug
-debug: ## Run Alef in debug mode
+debug: ## Run Alef in debug mode from source
 	@node scripts/check-native.mjs
-	@npm run build --silent
-	@ALEF_DEBUG=1 node packages/cli/bin/alef.js
+	@ALEF_DEBUG=1 npx tsx packages/cli/src/entrypoint.ts --debug
 
 .PHONY: adapter
 adapter: ## Create a new adapter scaffold: make adapter NAME=weather

@@ -1,4 +1,6 @@
 import { BUILD_INFO } from "../../boot/build-info.js";
+import { applyRestartPolicy, type RestartExecutor } from "../../boot/restart-policy.js";
+import { generateSbom, SBOM } from "../../boot/sbom.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
@@ -127,11 +129,28 @@ export const update: Command = {
 							`Update available: ${BUILD_INFO.version} -> ${result.release.version}\n${result.release.changelog}\n\nTo apply: :update`,
 						);
 						break;
-					case "rebuilt":
-						spinnerNotice.setText("Build complete -- restarting...");
+					case "rebuilt": {
+						spinnerNotice.setText("Build complete -- checking restart scope...");
 						ctx.tui.requestRender();
-						await cleanExitForRestart(ctx);
+						const newSbom = generateSbom();
+						const executor: RestartExecutor = {
+							exit: () => cleanExitForRestart(ctx),
+							restartTui: async () => {
+								await cleanExitForRestart(ctx);
+							},
+							restartSupervisor: async () => {
+								await cleanExitForRestart(ctx);
+							},
+							reloadAdapters: async () => {
+								await cleanExitForRestart(ctx);
+							},
+						};
+						const policy = await applyRestartPolicy(SBOM, newSbom, executor);
+						if (!policy.executed) {
+							spinnerNotice.setText("Build complete -- no changes detected.");
+						}
 						break;
+					}
 					case "respawn":
 						break;
 					case "failed":

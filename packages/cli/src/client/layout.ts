@@ -5,6 +5,7 @@ import type { InteractiveOptions } from "../boot/interactive.js";
 import { displayActorName } from "./actor-label.js";
 import { createTuiChrome } from "./chrome.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
+import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";
 import { renderSplash } from "./greeter.js";
 import { InputPanel } from "./panel.js";
 import { boldColor, color, type ThemeTokens } from "./theme.js";
@@ -37,6 +38,11 @@ export interface TuiLayout {
 	chrome: ReturnType<typeof createTuiChrome>;
 }
 
+const PALETTE_STEPS = 24;
+const MAX_DARKEN = 0.18;
+const MAX_LIGHTEN = 0.18;
+const ROW_PHASE_STEP = 0.12;
+
 /** Compose the output panel, input panel, and hint footer into a ready TUI layout. */
 export async function buildLayout(
 	tui: TUI,
@@ -58,12 +64,19 @@ export async function buildLayout(
 		buildInfo: BUILD_INFO,
 	});
 
-	const splash = await renderSplash();
-	if (splash) tui.addChild(new Text(splash, 2, 0));
-
 	const humanLabel = displayActorName(opts.humanAddress, "you");
 	const agentLabel = displayActorName(opts.agentAddress, "alef");
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
+
+	// Render splash glyph into the conversation as the first content
+	const splash = await renderSplash();
+	if (splash) {
+		const accent = resolveAccentRgb(t);
+		const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
+		const styled = splash.lines.map((line, i) => gradientLine(line, palette, i * ROW_PHASE_STEP)).join("\n");
+		const label = color(`${splash.glyph}  ${splash.script}`, t.mutedFg);
+		output.writer.container.addChild(new Text(`${styled}\n${label}`, 2, 1));
+	}
 
 	const input = new InputPanel({
 		tui,
@@ -82,4 +95,12 @@ export async function buildLayout(
 	tui.addChild(dashboard);
 
 	return { output, input, footer: dashboard, chrome };
+}
+
+/** Resolve the accent color to RGB from the theme token. */
+function resolveAccentRgb(t: ThemeTokens): Rgb {
+	if (t.accentFg.truecolor) {
+		return hexToRgb(t.accentFg.truecolor) ?? [100, 140, 255];
+	}
+	return [100, 140, 255];
 }

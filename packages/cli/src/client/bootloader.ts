@@ -1,14 +1,16 @@
 /**
  * Bootloader overlay -- shown during startup and warm reboot transitions.
  *
- * Renders the Hebrew Alef letter via the alef-logo pipeline with
- * theme-aware gradient coloring, plus progress steps / spinner.
+ * Renders a glyph from the greeter's splash pipeline with theme-aware
+ * gradient coloring, plus progress steps / spinner. Falls back to the
+ * hardcoded Hebrew Alef logo when no splash glyph is available.
  */
 
 import type { Component } from "@dpopsuev/alef-tui";
 import { visibleWidth } from "@dpopsuev/alef-tui";
 import { renderAlefLogo } from "./alef-logo.js";
 import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";
+import type { SplashResult } from "./greeter.js";
 import { color, getTheme } from "./theme.js";
 
 const PALETTE_STEPS = 24;
@@ -28,9 +30,6 @@ const SPINNER_FRAMES = [
 	"\u28C7",
 	"\u28CF",
 ];
-
-/** Cached logo lines -- computed once. */
-let logoCache: string[] | null = null;
 
 /** Resolve the accent color to RGB from the theme token. */
 function resolveAccentRgb(): Rgb {
@@ -61,6 +60,12 @@ export class Bootloader implements Component {
 	private statusLine = "";
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private requestRender: (() => void) | null = null;
+	private splash: SplashResult | null = null;
+
+	/** Set the splash glyph result from the greeter pipeline. */
+	setSplash(splash: SplashResult | null): void {
+		this.splash = splash;
+	}
 
 	/** Start the animation timer. */
 	start(requestRender: () => void): void {
@@ -106,15 +111,21 @@ export class Bootloader implements Component {
 		};
 
 		if (this.phase === "booting") {
-			logoCache ??= renderAlefLogo(5, 1, 2);
+			const logoLines = this.splash?.lines ?? renderAlefLogo(5, 1, 2);
 			const accent = resolveAccentRgb();
 			const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
 
 			lines.push("");
-			for (let i = 0; i < logoCache.length; i++) {
-				const styled = gradientLine(logoCache[i]!, palette, i * ROW_PHASE_STEP);
+			for (let i = 0; i < logoLines.length; i++) {
+				const styled = gradientLine(logoLines[i]!, palette, i * ROW_PHASE_STEP);
 				lines.push(center(styled, width));
 			}
+
+			if (this.splash) {
+				lines.push("");
+				lines.push(center(color(`${this.splash.glyph}  ${this.splash.script}`, t.mutedFg), width));
+			}
+
 			lines.push("");
 			lines.push("");
 			for (const step of this.steps) {

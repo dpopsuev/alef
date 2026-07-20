@@ -62,13 +62,21 @@ export function cropColumns(pixels: readonly (readonly number[])[]): readonly (r
 //
 //
 
-/** Convert a pixel-darkness grid into styled Unicode block characters for terminal display. */
-export function rasterToBlocks(
+/**
+ * Convert a pixel-darkness grid into half-block lines.
+ * When no style callbacks are provided, returns plain (unstyled) characters.
+ */
+export function rasterToLines(
 	pixels: readonly (readonly number[])[],
-	dense: (ch: string) => string,
-	mid: (ch: string) => string,
-	faint: (ch: string) => string,
-): string {
+	dense?: (ch: string) => string,
+	mid?: (ch: string) => string,
+	faint?: (ch: string) => string,
+): string[] {
+	const identity = (ch: string): string => ch;
+	const d = dense ?? identity;
+	const m = mid ?? identity;
+	const f = faint ?? identity;
+
 	const cropped = cropColumns(pixels);
 	const H = cropped.length;
 	const W = cropped[0]?.length ?? 0;
@@ -92,18 +100,18 @@ export function rasterToBlocks(
 
 			let ch: string;
 			if (topOn && botOn)
-				ch = "\u2588"; // █
+				ch = "\u2588"; // full
 			else if (topOn)
-				ch = "\u2580"; // ▀
+				ch = "\u2580"; // upper
 			else if (botOn)
-				ch = "\u2584"; // ▄
+				ch = "\u2584"; // lower
 			else if (avg > 0.25)
-				ch = "\u2593"; // ▓
+				ch = "\u2593"; // dark shade
 			else if (avg > 0.15)
-				ch = "\u2592"; // ▒
-			else ch = "\u2591"; // ░
+				ch = "\u2592"; // medium shade
+			else ch = "\u2591"; // light shade
 
-			const style = avg > 0.5 ? dense : avg > 0.2 ? mid : faint;
+			const style = avg > 0.5 ? d : avg > 0.2 ? m : f;
 			line += style(ch);
 		}
 
@@ -116,14 +124,24 @@ export function rasterToBlocks(
 	while (start <= end && lines[start]?.trim() === "") start++;
 	while (end >= start && lines[end]?.trim() === "") end--;
 
-	return lines.slice(start, end + 1).join("\n");
+	return lines.slice(start, end + 1);
+}
+
+/** Convert a pixel-darkness grid into a styled Unicode block string for terminal display. */
+export function rasterToBlocks(
+	pixels: readonly (readonly number[])[],
+	dense: (ch: string) => string,
+	mid: (ch: string) => string,
+	faint: (ch: string) => string,
+): string {
+	return rasterToLines(pixels, dense, mid, faint).join("\n");
 }
 
 // ALEF_NO_SPLASH=1 disables the splash.
 
 import { execSync } from "node:child_process";
 import { getConfig } from "../boot/config.js";
-import { chalkForToken, getTheme, systemLang } from "./theme.js";
+import { systemLang } from "./theme.js";
 
 interface ScriptBlock {
 	lang: string;
@@ -194,7 +212,6 @@ function fontPathForLang(lang: string): string | null {
 			.split("\n")
 			.map((l) => l.trim())
 			.filter((f) => f.endsWith(".ttf") || f.endsWith(".otf"));
-		// Prefer Noto / Google fonts over bitmap/terminal fonts (Terminus, etc.)
 
 		return (
 			files.find((f) => /noto/i.test(f)) ??
@@ -218,14 +235,20 @@ export function buildPool(): ScriptBlock[] {
 	return preferred ? [preferred, ...pool.filter((b) => b !== preferred)] : pool;
 }
 
-let _cached: string | null = null;
+/** Result of splash rasterization: unstyled lines for gradient rendering, plus the source glyph. */
+export interface SplashResult {
+	lines: string[];
+	glyph: string;
+	script: string;
+}
 
-/** Render a locale-aware Unicode art splash screen for the TUI greeting. */
-export async function renderSplash(): Promise<string> {
-	if (process.env.ALEF_NO_SPLASH === "1") return "";
-	if (_cached !== null) return _cached;
+let _cached: SplashResult | null | undefined;
 
-	const tokenChalk = chalkForToken(getTheme().accentFg);
+/** Rasterize a random Unicode glyph into unstyled half-block lines for the bootloader. */
+export async function renderSplash(): Promise<SplashResult | null> {
+	if (process.env.ALEF_NO_SPLASH === "1") return null;
+	if (_cached !== undefined) return _cached;
+
 	const pool = buildPool();
 
 	for (let attempt = 0; attempt < 8; attempt++) {
@@ -236,21 +259,17 @@ export async function renderSplash(): Promise<string> {
 		const fontPath = fontPathForLang(block.lang);
 		if (!fontPath) continue;
 
-		const pixels = await rasterise(randomCodePoint(block), fontPath, GLYPH_PT_SIZE);
+		const glyph = randomCodePoint(block);
+		const pixels = await rasterise(glyph, fontPath, GLYPH_PT_SIZE);
 		if (!pixels) continue;
 
-		const art = rasterToBlocks(
-			pixels,
-			(ch) => tokenChalk.bold(ch),
-			(ch) => tokenChalk(ch),
-			(ch) => tokenChalk.dim(ch),
-		);
-		if (!art.trim()) continue;
+		const lines = rasterToLines(pixels);
+		if (lines.length === 0 || lines.every((l) => l.trim() === "")) continue;
 
-		_cached = art;
+		_cached = { lines, glyph, script: block.name };
 		return _cached;
 	}
 
-	_cached = "";
-	return _cached;
+	_cached = null;
+	return null;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { completeSimple } from "../src/stream.js";
+import { skipIfQuotaExceeded, withStatusCapture } from "./api-status.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 
 function createLongSystemPrompt(): string {
 	const nonce = `${Date.now()}-${Math.random()}`;
@@ -11,11 +13,14 @@ function createLongSystemPrompt(): string {
 		.join("\n\n")}`;
 }
 
-describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter cache_write repro E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM || !process.env.OPENROUTER_API_KEY)(
+	"OpenRouter cache_write repro E2E",
+	{ tags: ["real-llm"] },
+	() => {
 	it(
 		"regression: preserves cache_write_tokens on openai-completions stream path",
 		{ retry: 2, timeout: 90000 },
-		async () => {
+		async (ctx) => {
 			const model = getModel("openrouter", "google/gemini-2.5-flash")!;
 			const context = {
 				systemPrompt: createLongSystemPrompt(),
@@ -63,10 +68,14 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter cache_write repro E
 				},
 			};
 
-			const first = await completeSimple(model, context, options);
+			const capture1 = withStatusCapture(options);
+			const first = await completeSimple(model, context, capture1.options);
+			skipIfQuotaExceeded(ctx, capture1.getStatus(), first.errorMessage);
 			expect(first.stopReason, first.errorMessage).toBe("stop");
 
-			const second = await completeSimple(model, context, options);
+			const capture2 = withStatusCapture(options);
+			const second = await completeSimple(model, context, capture2.options);
+			skipIfQuotaExceeded(ctx, capture2.getStatus(), second.errorMessage);
 			expect(second.stopReason, second.errorMessage).toBe("stop");
 
 			// Regression expectation: cache_write_tokens from provider usage must be preserved.
@@ -75,4 +84,5 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter cache_write repro E
 			expect(hasCacheWrite).toBe(true);
 		},
 	);
-});
+	},
+);

@@ -29,8 +29,10 @@ import { getModel } from "../src/models/llm.js";
 import { completeSimple } from "../src/stream.js";
 import { getEnvApiKey } from "../src/env-api-keys.js";
 import type { Api, AssistantMessage, Message, Model, Tool, ToolResultMessage } from "../src/types.js";
+import { isQuotaError } from "./api-status.js";
 import { hasAzureOpenAICredentials } from "./azure-utils.js";
 import { hasCloudflareAiGatewayCredentials, hasCloudflareWorkersAICredentials } from "./cloudflare-utils.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 // Simple tool for testing
@@ -329,7 +331,7 @@ async function generateContext(
 	};
 }
 
-describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM || !hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] }, () => {
 	let contexts: Record<string, CachedContext>;
 	let availablePairs: ProviderModelPair[];
 
@@ -385,7 +387,7 @@ describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] 
 
 			console.log("\n=== Testing Cross-Provider Handoffs ===\n");
 
-			const results: { target: string; success: boolean; error?: string }[] = [];
+			const results: { target: string; success: boolean; error?: string; quotaExceeded?: boolean }[] = [];
 
 			for (const targetPair of availablePairs) {
 				const apiKey = await getApiKey(targetPair.provider);
@@ -455,14 +457,17 @@ describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] 
 					);
 
 					if (response.stopReason === "error") {
-						console.log(`[Target: ${targetPair.label}] FAILED: ${response.errorMessage}`);
+						const quotaExceeded = isQuotaError(undefined, response.errorMessage);
+						console.log(
+							`[Target: ${targetPair.label}] ${quotaExceeded ? "QUOTA-EXHAUSTED" : "FAILED"}: ${response.errorMessage}`,
+						);
 						dumpFailurePayload({
 							label: targetPair.label,
 							error: response.errorMessage || "Unknown error",
 							payload: lastPayload,
 							messages: allMessages,
 						});
-						results.push({ target: targetPair.label, success: false, error: response.errorMessage });
+						results.push({ target: targetPair.label, success: false, error: response.errorMessage, quotaExceeded });
 					} else {
 						const text = response.content
 							.filter((c) => c.type === "text")
@@ -474,22 +479,32 @@ describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] 
 					}
 				} catch (error) {
 					const msg = error instanceof Error ? error.message : String(error);
-					console.log(`[Target: ${targetPair.label}] EXCEPTION: ${msg}`);
+					const quotaExceeded = isQuotaError(undefined, msg);
+					console.log(`[Target: ${targetPair.label}] ${quotaExceeded ? "QUOTA-EXHAUSTED" : "EXCEPTION"}: ${msg}`);
 					dumpFailurePayload({
 						label: targetPair.label,
 						error: msg,
 						payload: lastPayload,
 						messages: allMessages,
 					});
-					results.push({ target: targetPair.label, success: false, error: msg });
+					results.push({ target: targetPair.label, success: false, error: msg, quotaExceeded });
 				}
 			}
 
 			console.log("\n=== Results Summary ===\n");
 			const successes = results.filter((r) => r.success);
-			const failures = results.filter((r) => !r.success);
+			// Quota/rate-limit rejections prove the request was valid but unaffordable right now —
+			// not a real cross-provider compatibility regression, so they don't count as failures.
+			const quotaExhausted = results.filter((r) => !r.success && r.quotaExceeded);
+			const failures = results.filter((r) => !r.success && !r.quotaExceeded);
 
 			console.log(`Passed: ${successes.length}/${results.length}`);
+			if (quotaExhausted.length > 0) {
+				console.log(`\nSkipped (quota-exhausted): ${quotaExhausted.length}`);
+				for (const f of quotaExhausted) {
+					console.log(`  - ${f.target}: ${f.error}`);
+				}
+			}
 			if (failures.length > 0) {
 				console.log("\nFailures:");
 				for (const f of failures) {

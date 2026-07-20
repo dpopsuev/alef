@@ -13,7 +13,7 @@
  */
 
 import type { TestContext } from "vitest";
-import { describe, expect, it } from "vitest";
+import { expect } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { complete } from "../src/stream.js";
 import type { Api, Context, Model, StreamOptions, Usage } from "../src/types.js";
@@ -24,8 +24,8 @@ import { skipIfQuotaExceeded, withStatusCapture } from "./api-status.js";
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
 import { hasCloudflareAiGatewayCredentials, hasCloudflareWorkersAICredentials } from "./cloudflare-utils.js";
-import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
+import { describeProviders, type ProviderCase } from "./provider-matrix.js";
 
 // Resolve OAuth tokens at module level (async, runs before tests)
 const oauthTokens = await Promise.all([
@@ -89,6 +89,12 @@ async function testTotalTokensWithCache<TApi extends Api>(
 	skipIfQuotaExceeded(ctx, capture2.getStatus(), response2.errorMessage);
 	expect(response2.stopReason).toBe("stop");
 
+	if (llm.provider === "anthropic") {
+		// Anthropic should have cache activity
+		const hasCache = response2.usage.cacheRead > 0 || response2.usage.cacheWrite > 0 || response1.usage.cacheWrite > 0;
+		expect(hasCache).toBe(true);
+	}
+
 	return { first: response1.usage, second: response2.usage };
 }
 
@@ -106,695 +112,217 @@ function assertTotalTokensEqualsComponents(usage: Usage) {
 	expect(usage.totalTokens).toBe(computed);
 }
 
-describe.skipIf(!HAVE_REAL_LLM)("totalTokens field", { tags: ["integration"] }, () => {
+const PROVIDERS: ProviderCase[] = [
+	{
+		name: "Anthropic (API Key)",
+		hasCredentials: !!process.env.ANTHROPIC_API_KEY,
+		model: () => getModel("anthropic", "claude-sonnet-4-5"),
+		options: { apiKey: process.env.ANTHROPIC_API_KEY },
+	},
+	{
+		name: "Anthropic (OAuth)",
+		hasCredentials: !!anthropicOAuthToken,
+		model: () => getModel("anthropic", "claude-sonnet-4-6"),
+		options: { apiKey: anthropicOAuthToken },
+	},
+	{
+		name: "OpenAI Completions",
+		hasCredentials: !!process.env.OPENAI_API_KEY,
+		model: () => {
+			const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!!;
+			void _compat;
+			return { ...baseModel, api: "openai-completions" } satisfies Model<"openai-completions">;
+		},
+	},
+	{
+		name: "OpenAI Responses",
+		hasCredentials: !!process.env.OPENAI_API_KEY,
+		model: () => getModel("openai", "gpt-5-mini"),
+	},
+	{
+		name: "Azure OpenAI Responses",
+		hasCredentials: hasAzureOpenAICredentials(),
+		model: () => getModel("azure-openai-responses", "gpt-4o-mini"),
+		options: (llm) => {
+			const azureDeploymentName = resolveAzureDeploymentName(llm.id);
+			return azureDeploymentName ? { azureDeploymentName } : {};
+		},
+	},
+	{
+		name: "Google",
+		hasCredentials: !!process.env.GEMINI_API_KEY,
+		model: () => getModel("google", "gemini-2.0-flash"),
+	},
+	{
+		name: "xAI",
+		hasCredentials: !!process.env.XAI_API_KEY,
+		model: () => getModel("xai", "grok-code-fast-1"),
+		options: { apiKey: process.env.XAI_API_KEY },
+	},
+	{
+		name: "Groq",
+		hasCredentials: !!process.env.GROQ_API_KEY,
+		model: () => getModel("groq", "openai/gpt-oss-120b"),
+		options: { apiKey: process.env.GROQ_API_KEY },
+	},
+	{
+		name: "Cerebras",
+		hasCredentials: !!process.env.CEREBRAS_API_KEY,
+		model: () => getModel("cerebras", "gpt-oss-120b"),
+		options: { apiKey: process.env.CEREBRAS_API_KEY },
+	},
+	{
+		name: "Cloudflare Workers AI",
+		hasCredentials: hasCloudflareWorkersAICredentials(),
+		model: () => getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6"),
+		options: { apiKey: process.env.CLOUDFLARE_API_KEY },
+	},
+	{
+		name: "Cloudflare AI Gateway",
+		hasCredentials: hasCloudflareAiGatewayCredentials(),
+		model: () => getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6"),
+		options: { apiKey: process.env.CLOUDFLARE_API_KEY },
+	},
+	{
+		name: "Hugging Face",
+		hasCredentials: !!process.env.HF_TOKEN,
+		model: () => getModel("huggingface", "moonshotai/Kimi-K2.5"),
+		options: { apiKey: process.env.HF_TOKEN },
+	},
+	{
+		name: "Together AI",
+		hasCredentials: !!process.env.TOGETHER_API_KEY,
+		model: () => getModel("together", "moonshotai/Kimi-K2.6"),
+		options: { apiKey: process.env.TOGETHER_API_KEY, reasoningEffort: "high" },
+	},
+	{
+		name: "z.ai",
+		hasCredentials: !!process.env.ZAI_API_KEY,
+		model: () => getModel("zai", "glm-4.5-air"),
+		options: { apiKey: process.env.ZAI_API_KEY },
+	},
+	{
+		name: "Mistral",
+		hasCredentials: !!process.env.MISTRAL_API_KEY,
+		model: () => getModel("mistral", "devstral-medium-latest"),
+		options: { apiKey: process.env.MISTRAL_API_KEY },
+	},
+	{
+		name: "MiniMax",
+		hasCredentials: !!process.env.MINIMAX_API_KEY,
+		model: () => getModel("minimax", "MiniMax-M2.7"),
+		options: { apiKey: process.env.MINIMAX_API_KEY },
+	},
+	{
+		name: "Xiaomi MiMo (API billing)",
+		hasCredentials: !!process.env.XIAOMI_API_KEY,
+		model: () => getModel("xiaomi", "mimo-v2.5-pro"),
+		options: { apiKey: process.env.XIAOMI_API_KEY },
+	},
+	{
+		name: "Xiaomi MiMo Token Plan (CN)",
+		hasCredentials: !!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY,
+		model: () => getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro"),
+		options: { apiKey: process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY },
+	},
+	{
+		name: "Xiaomi MiMo Token Plan (AMS)",
+		hasCredentials: !!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY,
+		model: () => getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro"),
+		options: { apiKey: process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY },
+	},
+	{
+		name: "Xiaomi MiMo Token Plan (SGP)",
+		hasCredentials: !!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY,
+		model: () => getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro"),
+		options: { apiKey: process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY },
+	},
+	{
+		name: "Kimi For Coding",
+		hasCredentials: !!process.env.KIMI_API_KEY,
+		model: () => getModel("kimi-coding", "kimi-k2-thinking"),
+		options: { apiKey: process.env.KIMI_API_KEY },
+	},
+	{
+		name: "Vercel AI Gateway",
+		hasCredentials: !!process.env.AI_GATEWAY_API_KEY,
+		model: () => getModel("vercel-ai-gateway", "google/gemini-2.5-flash"),
+		options: { apiKey: process.env.AI_GATEWAY_API_KEY },
+	},
+	{
+		name: "Amazon Bedrock",
+		hasCredentials: hasBedrockCredentials(),
+		model: () => getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+	},
 	// =========================================================================
-	// Anthropic
+	// OpenRouter — all models below use the ":free" catalog (cost: 0 in
+	// llm.generated.ts) so opt-in ALEF_TEST_LLM=1 runs never bill an account.
 	// =========================================================================
-
-	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic (API Key)", () => {
-		it(
-			"claude-sonnet-4-5 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("anthropic", "claude-sonnet-4-5")!;
-
-				console.log(`\nAnthropic / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.ANTHROPIC_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-
-				// Anthropic should have cache activity
-				const hasCache = second.cacheRead > 0 || second.cacheWrite > 0 || first.cacheWrite > 0;
-				expect(hasCache).toBe(true);
-			},
-		);
-	});
-
-	describe("Anthropic (OAuth)", () => {
-		it.skipIf(!anthropicOAuthToken)(
-			"claude-sonnet-4 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("anthropic", "claude-sonnet-4-6")!;
-
-				console.log(`\nAnthropic OAuth / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: anthropicOAuthToken });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-
-				// Anthropic should have cache activity
-				const hasCache = second.cacheRead > 0 || second.cacheWrite > 0 || first.cacheWrite > 0;
-				expect(hasCache).toBe(true);
-			},
-		);
-	});
-
+	{
+		name: "OpenRouter (cohere/north-mini-code:free)",
+		hasCredentials: !!process.env.OPENROUTER_API_KEY,
+		model: () => getModel("openrouter", "cohere/north-mini-code:free"),
+		options: { apiKey: process.env.OPENROUTER_API_KEY },
+	},
+	{
+		name: "OpenRouter (poolside/laguna-m.1:free)",
+		hasCredentials: !!process.env.OPENROUTER_API_KEY,
+		model: () => getModel("openrouter", "poolside/laguna-m.1:free"),
+		options: { apiKey: process.env.OPENROUTER_API_KEY },
+	},
+	{
+		name: "OpenRouter (nvidia/nemotron-nano-9b-v2:free)",
+		hasCredentials: !!process.env.OPENROUTER_API_KEY,
+		model: () => getModel("openrouter", "nvidia/nemotron-nano-9b-v2:free"),
+		options: { apiKey: process.env.OPENROUTER_API_KEY },
+	},
+	{
+		name: "OpenRouter (nvidia/nemotron-3-super-120b-a12b:free)",
+		hasCredentials: !!process.env.OPENROUTER_API_KEY,
+		model: () => getModel("openrouter", "nvidia/nemotron-3-super-120b-a12b:free"),
+		options: { apiKey: process.env.OPENROUTER_API_KEY },
+	},
+	{
+		name: "OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)",
+		hasCredentials: !!process.env.OPENROUTER_API_KEY,
+		model: () => getModel("openrouter", "nvidia/nemotron-3-ultra-550b-a55b:free"),
+		options: { apiKey: process.env.OPENROUTER_API_KEY },
+	},
 	// =========================================================================
-	// OpenAI
+	// OAuth-based providers (credentials from Alef agent dir `oauth.json`)
 	// =========================================================================
+	{
+		name: "GitHub Copilot (OAuth) - gpt-4o",
+		hasCredentials: !!githubCopilotToken,
+		model: () => getModel("github-copilot", "gpt-5-mini"),
+		options: { apiKey: githubCopilotToken },
+	},
+	{
+		name: "GitHub Copilot (OAuth) - claude-sonnet-4",
+		hasCredentials: !!githubCopilotToken,
+		model: () => getModel("github-copilot", "claude-sonnet-4.5"),
+		options: { apiKey: githubCopilotToken },
+	},
+	{
+		name: "OpenAI Codex (OAuth)",
+		hasCredentials: !!openaiCodexToken,
+		model: () => getModel("openai-codex", "gpt-5.2-codex"),
+		options: { apiKey: openaiCodexToken },
+	},
+];
 
-	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions", () => {
-		it(
-			"gpt-4o-mini - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!!;
-				void _compat;
-				const llm: Model<"openai-completions"> = {
-					...baseModel,
-					api: "openai-completions",
-				};
-
-				console.log(`\nOpenAI Completions / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm);
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses", () => {
-		it("gpt-4o - should return totalTokens equal to sum of components", { retry: 3, timeout: 60000 }, async (ctx) => {
-			const llm = getModel("openai", "gpt-5-mini")!;
-
-			console.log(`\nOpenAI Responses / ${llm.id}:`);
-			const { first, second } = await testTotalTokensWithCache(ctx, llm);
+describeProviders("totalTokens field", PROVIDERS, [
+	{
+		title: "should return totalTokens equal to sum of components",
+		run: async (ctx, llm, options) => {
+			console.log(`\n${llm.provider} / ${llm.id}:`);
+			const { first, second } = await testTotalTokensWithCache(ctx, llm, options);
 
 			logUsage("First request", first);
 			logUsage("Second request", second);
 
 			assertTotalTokensEqualsComponents(first);
 			assertTotalTokensEqualsComponents(second);
-		});
-	});
-
-	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses", () => {
-		it(
-			"gpt-4o-mini - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("azure-openai-responses", "gpt-4o-mini")!;
-				const azureDeploymentName = resolveAzureDeploymentName(llm.id);
-				const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
-
-				console.log(`\nAzure OpenAI Responses / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, azureOptions);
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Google
-	// =========================================================================
-
-	describe.skipIf(!process.env.GEMINI_API_KEY)("Google", () => {
-		it(
-			"gemini-2.0-flash - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("google", "gemini-2.0-flash")!;
-
-				console.log(`\nGoogle / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm);
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// xAI
-	// =========================================================================
-
-	describe.skipIf(!process.env.XAI_API_KEY)("xAI", () => {
-		it(
-			"grok-3-fast - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("xai", "grok-code-fast-1")!;
-
-				console.log(`\nxAI / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.XAI_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Groq
-	// =========================================================================
-
-	describe.skipIf(!process.env.GROQ_API_KEY)("Groq", () => {
-		it(
-			"openai/gpt-oss-120b - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("groq", "openai/gpt-oss-120b")!;
-
-				console.log(`\nGroq / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.GROQ_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Cerebras
-	// =========================================================================
-
-	describe.skipIf(!process.env.CEREBRAS_API_KEY)("Cerebras", () => {
-		it(
-			"gpt-oss-120b - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("cerebras", "gpt-oss-120b")!;
-
-				console.log(`\nCerebras / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.CEREBRAS_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Cloudflare Workers AI
-	// =========================================================================
-
-	describe.skipIf(!hasCloudflareWorkersAICredentials())("Cloudflare Workers AI", () => {
-		it(
-			"@cf/moonshotai/kimi-k2.6 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("cloudflare-workers-ai", "@cf/moonshotai/kimi-k2.6")!;
-
-				console.log(`\nCloudflare Workers AI / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-					apiKey: process.env.CLOUDFLARE_API_KEY,
-				});
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Cloudflare AI Gateway
-	// =========================================================================
-
-	describe.skipIf(!hasCloudflareAiGatewayCredentials())("Cloudflare AI Gateway", () => {
-		it(
-			"workers-ai/@cf/moonshotai/kimi-k2.6 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
-
-				console.log(`\nCloudflare AI Gateway / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-					apiKey: process.env.CLOUDFLARE_API_KEY,
-				});
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Hugging Face
-	// =========================================================================
-
-	describe.skipIf(!process.env.HF_TOKEN)("Hugging Face", () => {
-		it("Kimi-K2.5 - should return totalTokens equal to sum of components", { retry: 3, timeout: 60000 }, async (ctx) => {
-			const llm = getModel("huggingface", "moonshotai/Kimi-K2.5")!;
-
-			console.log(`\nHugging Face / ${llm.id}:`);
-			const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.HF_TOKEN });
-
-			logUsage("First request", first);
-			logUsage("Second request", second);
-
-			assertTotalTokensEqualsComponents(first);
-			assertTotalTokensEqualsComponents(second);
-		});
-	});
-
-	// =========================================================================
-	// Together AI
-	// =========================================================================
-
-	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI", () => {
-		it("Kimi-K2.6 - should return totalTokens equal to sum of components", { retry: 3, timeout: 60000 }, async (ctx) => {
-			const llm = getModel("together", "moonshotai/Kimi-K2.6")!;
-
-			console.log(`\nTogether AI / ${llm.id}:`);
-			const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-				apiKey: process.env.TOGETHER_API_KEY,
-				reasoningEffort: "high",
-			});
-
-			logUsage("First request", first);
-			logUsage("Second request", second);
-
-			assertTotalTokensEqualsComponents(first);
-			assertTotalTokensEqualsComponents(second);
-		});
-	});
-
-	// =========================================================================
-	// z.ai
-	// =========================================================================
-
-	describe.skipIf(!process.env.ZAI_API_KEY)("z.ai", () => {
-		it(
-			"glm-4.5-air - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("zai", "glm-4.5-air")!;
-
-				console.log(`\nz.ai / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.ZAI_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Mistral
-	// =========================================================================
-
-	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral", () => {
-		it(
-			"devstral-medium-latest - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("mistral", "devstral-medium-latest")!;
-
-				console.log(`\nMistral / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.MISTRAL_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// MiniMax
-	// =========================================================================
-
-	describe.skipIf(!process.env.MINIMAX_API_KEY)("MiniMax", () => {
-		it(
-			"MiniMax-M2.7 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("minimax", "MiniMax-M2.7")!;
-
-				console.log(`\nMiniMax / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.MINIMAX_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Xiaomi MiMo
-	// =========================================================================
-
-	describe.skipIf(!process.env.XIAOMI_API_KEY)("Xiaomi MiMo (API billing)", () => {
-		it(
-			"mimo-v2.5-pro - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("xiaomi", "mimo-v2.5-pro")!;
-
-				console.log(`\nXiaomi MiMo / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.XIAOMI_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Xiaomi MiMo Token Plan CN
-	// =========================================================================
-
-	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY)("Xiaomi MiMo Token Plan (CN)", () => {
-		it(
-			"mimo-v2.5-pro - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro")!;
-
-				console.log(`\nXiaomi MiMo Token Plan CN / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-					apiKey: process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY,
-				});
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Xiaomi MiMo Token Plan AMS
-	// =========================================================================
-
-	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY)("Xiaomi MiMo Token Plan (AMS)", () => {
-		it(
-			"mimo-v2.5-pro - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro")!;
-
-				console.log(`\nXiaomi MiMo Token Plan AMS / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-					apiKey: process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY,
-				});
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Xiaomi MiMo Token Plan SGP
-	// =========================================================================
-
-	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY)("Xiaomi MiMo Token Plan (SGP)", () => {
-		it(
-			"mimo-v2.5-pro - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro")!;
-
-				console.log(`\nXiaomi MiMo Token Plan SGP / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, {
-					apiKey: process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY,
-				});
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Kimi For Coding
-	// =========================================================================
-
-	describe.skipIf(!process.env.KIMI_API_KEY)("Kimi For Coding", () => {
-		it(
-			"kimi-k2-thinking - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("kimi-coding", "kimi-k2-thinking")!;
-
-				console.log(`\nKimi For Coding / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.KIMI_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// Vercel AI Gateway
-	// =========================================================================
-
-	describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("Vercel AI Gateway", () => {
-		it(
-			"google/gemini-2.5-flash - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("vercel-ai-gateway", "google/gemini-2.5-flash")!;
-
-				console.log(`\nVercel AI Gateway / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.AI_GATEWAY_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// OpenRouter - Multiple backend providers
-	// =========================================================================
-
-	// All OpenRouter test models below use the ":free" catalog (cost: 0 in
-	// models.generated.ts) so opt-in ALEF_TEST_LLM=1 runs never bill an account.
-	describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter", () => {
-		it(
-			"cohere/north-mini-code:free - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openrouter", "cohere/north-mini-code:free")!;
-
-				console.log(`\nOpenRouter / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.OPENROUTER_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-
-		it(
-			"poolside/laguna-m.1:free - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openrouter", "poolside/laguna-m.1:free")!;
-
-				console.log(`\nOpenRouter / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.OPENROUTER_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-
-		it(
-			"nvidia/nemotron-nano-9b-v2:free - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openrouter", "nvidia/nemotron-nano-9b-v2:free")!;
-
-				console.log(`\nOpenRouter / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.OPENROUTER_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-
-		it(
-			"nvidia/nemotron-3-super-120b-a12b:free - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openrouter", "nvidia/nemotron-3-super-120b-a12b:free")!;
-
-				console.log(`\nOpenRouter / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.OPENROUTER_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-
-		it(
-			"nvidia/nemotron-3-ultra-550b-a55b:free - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openrouter", "nvidia/nemotron-3-ultra-550b-a55b:free")!;
-
-				console.log(`\nOpenRouter / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: process.env.OPENROUTER_API_KEY });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// GitHub Copilot (OAuth)
-	// =========================================================================
-
-	describe("GitHub Copilot (OAuth)", () => {
-		it.skipIf(!githubCopilotToken)(
-			"gpt-4o - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("github-copilot", "gpt-5-mini")!;
-
-				console.log(`\nGitHub Copilot / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: githubCopilotToken });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-
-		it.skipIf(!githubCopilotToken)(
-			"claude-sonnet-4 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("github-copilot", "claude-sonnet-4.5")!;
-
-				console.log(`\nGitHub Copilot / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: githubCopilotToken });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// =========================================================================
-
-	// =========================================================================
-	// =========================================================================
-
-	describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock", () => {
-		it(
-			"claude-sonnet-4-5 - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
-
-				console.log(`\nAmazon Bedrock / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm);
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-
-	// =========================================================================
-	// OpenAI Codex (OAuth)
-	// =========================================================================
-
-	describe("OpenAI Codex (OAuth)", () => {
-		it.skipIf(!openaiCodexToken)(
-			"gpt-5.2-codex - should return totalTokens equal to sum of components",
-			{ retry: 3, timeout: 60000 },
-			async (ctx) => {
-				const llm = getModel("openai-codex", "gpt-5.2-codex")!;
-
-				console.log(`\nOpenAI Codex / ${llm.id}:`);
-				const { first, second } = await testTotalTokensWithCache(ctx, llm, { apiKey: openaiCodexToken });
-
-				logUsage("First request", first);
-				logUsage("Second request", second);
-
-				assertTotalTokensEqualsComponents(first);
-				assertTotalTokensEqualsComponents(second);
-			},
-		);
-	});
-});
+		},
+	},
+]);

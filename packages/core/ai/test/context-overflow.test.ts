@@ -13,13 +13,16 @@
 
 import type { ChildProcess } from "child_process";
 import { execSync, spawn } from "child_process";
+import type { TestContext } from "vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { complete } from "../src/stream.js";
 import type { AssistantMessage, Context, Model, Usage } from "../src/types.js";
 import { isContextOverflow } from "../src/utils/overflow.js";
+import { skipIfQuotaExceeded, withStatusCapture } from "./api-status.js";
 import { hasAzureOpenAICredentials } from "./azure-utils.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 // Resolve OAuth tokens at module level (async, runs before tests)
@@ -49,7 +52,7 @@ interface OverflowResult {
 	response: AssistantMessage;
 }
 
-async function testContextOverflow(model: Model<any>, apiKey: string): Promise<OverflowResult> {
+async function testContextOverflow(ctx: TestContext, model: Model<any>, apiKey: string): Promise<OverflowResult> {
 	const overflowContent = generateOverflowContent(model.contextWindow);
 
 	const context: Context = {
@@ -63,7 +66,9 @@ async function testContextOverflow(model: Model<any>, apiKey: string): Promise<O
 		],
 	};
 
-	const response = await complete(model, context, { apiKey });
+	const capture = withStatusCapture({ apiKey });
+	const response = await complete(model, context, capture.options);
+	skipIfQuotaExceeded(ctx, capture.getStatus(), response.errorMessage);
 
 	const hasUsageData = response.usage.input > 0 || response.usage.cacheRead > 0;
 
@@ -93,11 +98,11 @@ function logResult(result: OverflowResult) {
 // Expected pattern: "prompt is too long: X tokens > Y maximum"
 // =============================================================================
 
-describe("Context overflow error handling", { tags: ["integration"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Context overflow error handling", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic (API Key)", () => {
-		it("claude-haiku-4-5 - should detect overflow via isContextOverflow", async () => {
+		it("claude-haiku-4-5 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("anthropic", "claude-haiku-4-5")!;
-			const result = await testContextOverflow(model, process.env.ANTHROPIC_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.ANTHROPIC_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -107,9 +112,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.ANTHROPIC_OAUTH_TOKEN)("Anthropic (OAuth)", () => {
-		it("claude-sonnet-4 - should detect overflow via isContextOverflow", async () => {
+		it("claude-sonnet-4 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("anthropic", "claude-sonnet-4-6")!;
-			const result = await testContextOverflow(model, process.env.ANTHROPIC_OAUTH_TOKEN!);
+			const result = await testContextOverflow(ctx, model, process.env.ANTHROPIC_OAUTH_TOKEN!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -127,9 +132,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		// OpenAI model via Copilot
 		it.skipIf(!githubCopilotToken)(
 			"gpt-4o - should detect overflow via isContextOverflow",
-			async () => {
+			async (ctx) => {
 				const model = getModel("github-copilot", "gpt-5-mini")!;
-				const result = await testContextOverflow(model, githubCopilotToken!);
+				const result = await testContextOverflow(ctx, model, githubCopilotToken!);
 				logResult(result);
 
 				expect(result.stopReason).toBe("error");
@@ -142,9 +147,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		// Anthropic model via Copilot
 		it.skipIf(!githubCopilotToken)(
 			"claude-sonnet-4 - should detect overflow via isContextOverflow",
-			async () => {
+			async (ctx) => {
 				const model = getModel("github-copilot", "claude-sonnet-4.5")!;
-				const result = await testContextOverflow(model, githubCopilotToken!);
+				const result = await testContextOverflow(ctx, model, githubCopilotToken!);
 				logResult(result);
 
 				expect(result.stopReason).toBe("error");
@@ -161,10 +166,10 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions", () => {
-		it("gpt-4o-mini - should detect overflow via isContextOverflow", async () => {
+		it("gpt-4o-mini - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = { ...getModel("openai", "gpt-4o-mini")! };
 			model.api = "openai-completions" as any;
-			const result = await testContextOverflow(model, process.env.OPENAI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENAI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -174,9 +179,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses", () => {
-		it("gpt-4o - should detect overflow via isContextOverflow", async () => {
+		it("gpt-4o - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openai", "gpt-5-mini")!;
-			const result = await testContextOverflow(model, process.env.OPENAI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENAI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -186,9 +191,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses", () => {
-		it("gpt-4o-mini - should detect overflow via isContextOverflow", async () => {
+		it("gpt-4o-mini - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("azure-openai-responses", "gpt-4o-mini")!;
-			const result = await testContextOverflow(model, process.env.AZURE_OPENAI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.AZURE_OPENAI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -203,9 +208,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google", () => {
-		it("gemini-2.0-flash - should detect overflow via isContextOverflow", async () => {
+		it("gemini-2.0-flash - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("google", "gemini-2.0-flash")!;
-			const result = await testContextOverflow(model, process.env.GEMINI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.GEMINI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -229,9 +234,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	describe("OpenAI Codex (OAuth)", () => {
 		it.skipIf(!openaiCodexToken)(
 			"gpt-5.2-codex - should detect overflow via isContextOverflow",
-			async () => {
+			async (ctx) => {
 				const model = getModel("openai-codex", "gpt-5.2-codex")!;
-				const result = await testContextOverflow(model, openaiCodexToken!);
+				const result = await testContextOverflow(ctx, model, openaiCodexToken!);
 				logResult(result);
 
 				expect(result.stopReason).toBe("error");
@@ -247,9 +252,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock", () => {
-		it("claude-sonnet-4-5 - should detect overflow via isContextOverflow", async () => {
+		it("claude-sonnet-4-5 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("amazon-bedrock", "global.anthropic.claude-sonnet-4-5-20250929-v1:0")!;
-			const result = await testContextOverflow(model, "");
+			const result = await testContextOverflow(ctx, model, "");
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -263,9 +268,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.XAI_API_KEY)("xAI", () => {
-		it("grok-3-fast - should detect overflow via isContextOverflow", async () => {
+		it("grok-3-fast - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("xai", "grok-code-fast-1")!;
-			const result = await testContextOverflow(model, process.env.XAI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.XAI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -280,9 +285,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.GROQ_API_KEY)("Groq", () => {
-		it("llama-3.3-70b-versatile - should detect overflow via isContextOverflow", async () => {
+		it("llama-3.3-70b-versatile - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("groq", "llama-3.3-70b-versatile")!;
-			const result = await testContextOverflow(model, process.env.GROQ_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.GROQ_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -297,9 +302,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.CEREBRAS_API_KEY)("Cerebras", () => {
-		it("qwen-3-235b - should detect overflow via isContextOverflow", async () => {
+		it("qwen-3-235b - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("cerebras", "gpt-oss-120b")!;
-			const result = await testContextOverflow(model, process.env.CEREBRAS_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.CEREBRAS_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -315,9 +320,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.HF_TOKEN)("Hugging Face", () => {
-		it("Kimi-K2.5 - should detect overflow via isContextOverflow", async () => {
+		it("Kimi-K2.5 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("huggingface", "moonshotai/Kimi-K2.5")!;
-			const result = await testContextOverflow(model, process.env.HF_TOKEN!);
+			const result = await testContextOverflow(ctx, model, process.env.HF_TOKEN!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -331,9 +336,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI", () => {
-		it("Kimi-K2.6 - should detect overflow via isContextOverflow", async () => {
+		it("Kimi-K2.6 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("together", "moonshotai/Kimi-K2.6")!;
-			const result = await testContextOverflow(model, process.env.TOGETHER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.TOGETHER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -348,9 +353,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.ZAI_API_KEY)("z.ai", () => {
-		it("glm-4.5-air - should detect overflow via isContextOverflow when z.ai reports it", async () => {
+		it("glm-4.5-air - should detect overflow via isContextOverflow when z.ai reports it", async (ctx) => {
 			const model = getModel("zai", "glm-4.5-air")!;
-			const result = await testContextOverflow(model, process.env.ZAI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.ZAI_API_KEY!);
 			logResult(result);
 
 			// z.ai behavior is inconsistent:
@@ -378,9 +383,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.MISTRAL_API_KEY)("Mistral", () => {
-		it("devstral-medium-latest - should detect overflow via isContextOverflow", async () => {
+		it("devstral-medium-latest - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("mistral", "devstral-medium-latest")!;
-			const result = await testContextOverflow(model, process.env.MISTRAL_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.MISTRAL_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -395,9 +400,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.MINIMAX_API_KEY)("MiniMax", () => {
-		it("MiniMax-M2.7 - should detect overflow via isContextOverflow", async () => {
+		it("MiniMax-M2.7 - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("minimax", "MiniMax-M2.7")!;
-			const result = await testContextOverflow(model, process.env.MINIMAX_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.MINIMAX_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -413,9 +418,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		// Xiaomi silently truncates oversized input to fill the context window exactly,
 		// then returns finish_reason "length" with output=0 (no room left to generate).
 		// This is a detectable overflow signal but uses stopReason "length" rather than "error".
-		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async () => {
+		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("xiaomi", "mimo-v2.5-pro")!;
-			const result = await testContextOverflow(model, process.env.XIAOMI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.XIAOMI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("length");
@@ -425,9 +430,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY)("Xiaomi MiMo Token Plan (CN)", () => {
-		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async () => {
+		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("xiaomi-token-plan-cn", "mimo-v2.5-pro")!;
-			const result = await testContextOverflow(model, process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.XIAOMI_TOKEN_PLAN_CN_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("length");
@@ -437,9 +442,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY)("Xiaomi MiMo Token Plan (AMS)", () => {
-		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async () => {
+		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("xiaomi-token-plan-ams", "mimo-v2.5-pro")!;
-			const result = await testContextOverflow(model, process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.XIAOMI_TOKEN_PLAN_AMS_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("length");
@@ -449,9 +454,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	});
 
 	describe.skipIf(!process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY)("Xiaomi MiMo Token Plan (SGP)", () => {
-		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async () => {
+		it("mimo-v2.5-pro - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("xiaomi-token-plan-sgp", "mimo-v2.5-pro")!;
-			const result = await testContextOverflow(model, process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.XIAOMI_TOKEN_PLAN_SGP_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("length");
@@ -465,9 +470,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.KIMI_API_KEY)("Kimi For Coding", () => {
-		it("kimi-k2-thinking - should detect overflow via isContextOverflow", async () => {
+		it("kimi-k2-thinking - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("kimi-coding", "kimi-k2-thinking")!;
-			const result = await testContextOverflow(model, process.env.KIMI_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.KIMI_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -480,9 +485,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	// =============================================================================
 
 	describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("Vercel AI Gateway", () => {
-		it("google/gemini-2.5-flash via AI Gateway - should detect overflow via isContextOverflow", async () => {
+		it("google/gemini-2.5-flash via AI Gateway - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("vercel-ai-gateway", "google/gemini-2.5-flash")!;
-			const result = await testContextOverflow(model, process.env.AI_GATEWAY_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.AI_GATEWAY_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -497,9 +502,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 
 	describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter", () => {
 		// Anthropic backend
-		it("anthropic/claude-sonnet-4 via OpenRouter - should detect overflow via isContextOverflow", async () => {
+		it("anthropic/claude-sonnet-4 via OpenRouter - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openrouter", "anthropic/claude-sonnet-4")!;
-			const result = await testContextOverflow(model, process.env.OPENROUTER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENROUTER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -508,9 +513,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		}, 120000);
 
 		// DeepSeek backend
-		it("deepseek/deepseek-v3.2 via OpenRouter - should detect overflow via isContextOverflow", async () => {
+		it("deepseek/deepseek-v3.2 via OpenRouter - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openrouter", "deepseek/deepseek-v3.2")!;
-			const result = await testContextOverflow(model, process.env.OPENROUTER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENROUTER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -519,9 +524,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		}, 120000);
 
 		// Mistral backend
-		it("mistralai/mistral-large-2512 via OpenRouter - should detect overflow via isContextOverflow", async () => {
+		it("mistralai/mistral-large-2512 via OpenRouter - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openrouter", "mistralai/mistral-large-2512")!;
-			const result = await testContextOverflow(model, process.env.OPENROUTER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENROUTER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -530,9 +535,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		}, 120000);
 
 		// Google backend
-		it("google/gemini-2.5-flash via OpenRouter - should detect overflow via isContextOverflow", async () => {
+		it("google/gemini-2.5-flash via OpenRouter - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openrouter", "google/gemini-2.5-flash")!;
-			const result = await testContextOverflow(model, process.env.OPENROUTER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENROUTER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -541,9 +546,9 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		}, 120000);
 
 		// Meta/Llama backend
-		it("meta-llama/llama-4-scout via OpenRouter - should detect overflow via isContextOverflow", async () => {
+		it("meta-llama/llama-4-scout via OpenRouter - should detect overflow via isContextOverflow", async (ctx) => {
 			const model = getModel("openrouter", "meta-llama/llama-4-scout")!;
-			const result = await testContextOverflow(model, process.env.OPENROUTER_API_KEY!);
+			const result = await testContextOverflow(ctx, model, process.env.OPENROUTER_API_KEY!);
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -629,8 +634,8 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 			}
 		});
 
-		it("gpt-oss:20b - should detect overflow via isContextOverflow (ollama silently truncates)", async () => {
-			const result = await testContextOverflow(model, "ollama");
+		it("gpt-oss:20b - should detect overflow via isContextOverflow (ollama silently truncates)", async (ctx) => {
+			const result = await testContextOverflow(ctx, model, "ollama");
 			logResult(result);
 
 			// Ollama silently truncates input instead of erroring
@@ -662,7 +667,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	}
 
 	describe.skipIf(!lmStudioRunning)("LM Studio (local)", () => {
-		it("should detect overflow via isContextOverflow", async () => {
+		it("should detect overflow via isContextOverflow", async (ctx) => {
 			const model: Model<"openai-completions"> = {
 				id: "local-model",
 				api: "openai-completions",
@@ -676,7 +681,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 				name: "LM Studio Local Model",
 			};
 
-			const result = await testContextOverflow(model, "lm-studio");
+			const result = await testContextOverflow(ctx, model, "lm-studio");
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");
@@ -703,7 +708,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 	}
 
 	describe.skipIf(!llamaCppRunning)("llama.cpp (local)", () => {
-		it("should detect overflow via isContextOverflow", async () => {
+		it("should detect overflow via isContextOverflow", async (ctx) => {
 			// Using small context (4096) to match server --ctx-size setting
 			const model: Model<"openai-completions"> = {
 				id: "local-model",
@@ -718,7 +723,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 				name: "llama.cpp Local Model",
 			};
 
-			const result = await testContextOverflow(model, "llama.cpp");
+			const result = await testContextOverflow(ctx, model, "llama.cpp");
 			logResult(result);
 
 			expect(result.stopReason).toBe("error");

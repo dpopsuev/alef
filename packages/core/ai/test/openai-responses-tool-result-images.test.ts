@@ -3,12 +3,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ResponseFunctionCallOutputItemList } from "openai/resources/responses/responses.js";
 import { Type } from "typebox";
-import { describe, expect, it } from "vitest";
+import type { TestContext } from "vitest";
+import { expect } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { complete } from "../src/stream.js";
 import type { Api, Context, Model, StreamOptions, Tool, ToolResultMessage } from "../src/types.js";
+import { skipIfQuotaExceeded, withStatusCapture } from "./api-status.js";
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { resolveApiKey } from "./oauth.js";
+import { describeProviders, type ProviderCase } from "./provider-matrix.js";
 
 type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;
 
@@ -48,8 +51,9 @@ function isInputImageItem(value: unknown): value is { type: "input_image"; image
 }
 
 async function verifyToolResultImagesStayInFunctionCallOutput<TApi extends Api>(
+	ctx: TestContext,
 	model: Model<TApi>,
-	options?: StreamOptionsWithExtras,
+	options: StreamOptionsWithExtras = {},
 ) {
 	if (!model.input.includes("image")) {
 		console.log(`Skipping responses tool-result image test. Model ${model.id} does not support images.`);
@@ -73,7 +77,9 @@ async function verifyToolResultImagesStayInFunctionCallOutput<TApi extends Api>(
 		tools: [getImageTool],
 	};
 
-	const firstResponse = await complete(model, context, options);
+	const capture1 = withStatusCapture(options);
+	const firstResponse = await complete(model, context, capture1.options);
+	skipIfQuotaExceeded(ctx, capture1.getStatus(), firstResponse.errorMessage);
 	expect(firstResponse.stopReason, `Error: ${firstResponse.errorMessage}`).toBe("toolUse");
 
 	const toolCall = firstResponse.content.find((block) => block.type === "toolCall");
@@ -96,12 +102,14 @@ async function verifyToolResultImagesStayInFunctionCallOutput<TApi extends Api>(
 	} satisfies ToolResultMessage);
 
 	let capturedPayload: unknown;
-	const secondResponse = await complete(model, context, {
+	const capture2 = withStatusCapture({
 		...options,
-		onPayload: (payload) => {
+		onPayload: (payload: unknown) => {
 			capturedPayload = payload;
 		},
 	});
+	const secondResponse = await complete(model, context, capture2.options);
+	skipIfQuotaExceeded(ctx, capture2.getStatus(), secondResponse.errorMessage);
 
 	expect(secondResponse.stopReason, `Error: ${secondResponse.errorMessage}`).toBe("stop");
 	expect(secondResponse.errorMessage).toBeFalsy();
@@ -150,52 +158,41 @@ async function verifyToolResultImagesStayInFunctionCallOutput<TApi extends Api>(
 	expect(responseText).toContain("circle");
 }
 
-describe("Responses API tool result images", { tags: ["integration"] }, () => {
-	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider (gpt-5-mini)", () => {
-		const model = getModel("openai", "gpt-5-mini")!;
+const PROVIDERS: ProviderCase[] = [
+	{
+		name: "OpenAI Responses Provider (gpt-5-mini)",
+		hasCredentials: !!process.env.OPENAI_API_KEY,
+		model: () => getModel("openai", "gpt-5-mini"),
+		options: { reasoningEffort: "low" },
+	},
+	{
+		name: "Azure OpenAI Responses Provider (gpt-4o-mini)",
+		hasCredentials: hasAzureOpenAICredentials(),
+		model: () => getModel("azure-openai-responses", "gpt-4o-mini"),
+		options: (llm) => {
+			const azureDeploymentName = resolveAzureDeploymentName(llm.id);
+			return azureDeploymentName ? { azureDeploymentName } : {};
+		},
+	},
+	{
+		name: "GitHub Copilot Responses Provider (gpt-5-mini)",
+		hasCredentials: !!githubCopilotToken,
+		model: () => getModel("github-copilot", "gpt-5-mini"),
+		options: { apiKey: githubCopilotToken, reasoningEffort: "low" },
+	},
+	{
+		name: "OpenAI Codex Responses Provider (gpt-5.2-codex)",
+		hasCredentials: !!openaiCodexToken,
+		model: () => getModel("openai-codex", "gpt-5.2-codex"),
+		options: { apiKey: openaiCodexToken, reasoningEffort: "low" },
+	},
+];
 
-		it("should send tool result images in function_call_output", { retry: 3, timeout: 30000 }, async () => {
-			await verifyToolResultImagesStayInFunctionCallOutput(model, { reasoningEffort: "low" });
-		});
-	});
-
-	describe.skipIf(!hasAzureOpenAICredentials())("Azure OpenAI Responses Provider (gpt-4o-mini)", () => {
-		const model = getModel("azure-openai-responses", "gpt-4o-mini")!;
-		const azureDeploymentName = resolveAzureDeploymentName(model.id);
-		const azureOptions = azureDeploymentName ? { azureDeploymentName } : {};
-
-		it("should send tool result images in function_call_output", { retry: 3, timeout: 30000 }, async () => {
-			await verifyToolResultImagesStayInFunctionCallOutput(model, azureOptions);
-		});
-	});
-
-	describe("GitHub Copilot Responses Provider (gpt-5-mini)", () => {
-		const model = getModel("github-copilot", "gpt-5-mini")!;
-
-		it.skipIf(!githubCopilotToken)(
-			"should send tool result images in function_call_output",
-			{ retry: 3, timeout: 30000 },
-			async () => {
-				await verifyToolResultImagesStayInFunctionCallOutput(model, {
-					apiKey: githubCopilotToken,
-					reasoningEffort: "low",
-				});
-			},
-		);
-	});
-
-	describe("OpenAI Codex Responses Provider (gpt-5.2-codex)", () => {
-		const model = getModel("openai-codex", "gpt-5.2-codex")!;
-
-		it.skipIf(!openaiCodexToken)(
-			"should send tool result images in function_call_output",
-			{ retry: 3, timeout: 30000 },
-			async () => {
-				await verifyToolResultImagesStayInFunctionCallOutput(model, {
-					apiKey: openaiCodexToken,
-					reasoningEffort: "low",
-				});
-			},
-		);
-	});
-});
+describeProviders("Responses API tool result images", PROVIDERS, [
+	{
+		title: "should send tool result images in function_call_output",
+		run: async (ctx, llm, options) => {
+			await verifyToolResultImagesStayInFunctionCallOutput(ctx, llm, options);
+		},
+	},
+]);

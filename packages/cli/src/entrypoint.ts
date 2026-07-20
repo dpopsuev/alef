@@ -40,8 +40,11 @@ import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
 // Phase 1: Pure setup
 // ---------------------------------------------------------------------------
 
+import { createExitRestartStrategy, setRestartStrategy } from "./boot/reboot-port.js";
+
 process.title = "alef";
 setupSupervisorIpc();
+setRestartStrategy(createExitRestartStrategy());
 updateNotifier({ pkg: { name: "@dpopsuev/alef", version: BUILD_INFO.version } }).notify();
 ensureDirectories();
 

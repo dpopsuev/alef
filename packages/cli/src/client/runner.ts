@@ -6,6 +6,7 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import {
 	type Editor,
+	matchesKey,
 	ProcessTerminal,
 	type SelectItem,
 	SelectList,
@@ -15,7 +16,7 @@ import {
 } from "@dpopsuev/alef-tui";
 import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
-import { getRebootPort } from "../boot/reboot-port.js";
+import { getRebootPort, getRestartStrategy } from "../boot/reboot-port.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
 import { displayActorName } from "./actor-label.js";
@@ -414,35 +415,9 @@ export function createContextFactory(
 			taskLedger: [...state.taskLedger.values()],
 			editor: editorRef,
 			rebootPort: getRebootPort(),
+			restartStrategy: getRestartStrategy(),
 		};
 	};
-}
-
-const KEY = {
-	CTRL_C: "\x03",
-	CTRL_R: "\x12",
-	CTRL_T: "\x14",
-	TAB: "\t",
-	ESC: "\x1b",
-	SHIFT_TAB: "\x1b[Z",
-	UP: "\x1b[A",
-	DOWN: "\x1b[B",
-} as const;
-
-const KEY_MAP: Record<string, string> = {
-	"ctrl+c": KEY.CTRL_C,
-	"ctrl+r": KEY.CTRL_R,
-	"ctrl+t": KEY.CTRL_T,
-	tab: KEY.TAB,
-	escape: KEY.ESC,
-	"shift+tab": KEY.SHIFT_TAB,
-	up: KEY.UP,
-	down: KEY.DOWN,
-};
-
-/** Test whether a raw terminal data string matches a named key combo. */
-function matchesKey(data: string, combo: string): boolean {
-	return data === (KEY_MAP[combo] ?? combo);
 }
 
 /** Route raw terminal input to overlays, inspector, or global shortcuts before the editor sees it. */
@@ -468,9 +443,13 @@ export function handleRawInput(
 		return true;
 	}
 
-	// Ctrl+C: Interrupt or quit
+	// Ctrl+C: interrupt active turn, or exit when idle
 	if (matchesKey(data, "ctrl+c")) {
 		traceEvent("raw:ctrl+c");
+		if (tuiState.abortCurrentTurn) {
+			dispatch({ type: "turn.interrupt" });
+			return true;
+		}
 		handleCtrlC(ctx());
 		return true;
 	}

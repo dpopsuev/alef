@@ -4,7 +4,6 @@ import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
-import { rebootInProgress } from "./commands/update-service.js";
 import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 import { flushCompactionPark } from "./submit.js";
 
@@ -15,6 +14,7 @@ export type TuiInputEvent =
 	| { type: "turn.start"; timestamp: number }
 	| { type: "turn.complete"; tokenFooter: TokenFooterHandle }
 	| { type: "turn.abort" }
+	| { type: "turn.interrupt" }
 	| { type: "turn.error"; error: unknown; aborted: boolean }
 	| { type: "abort.set"; fn: () => void }
 	| { type: "abort.clear" }
@@ -184,7 +184,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 		writer.addCompletedToolBlock(entry.name, entry.keyArg, entry.args, 0, false, null, null);
 	}
 
-	if (!event.aborted && !rebootInProgress) {
+	if (!event.aborted) {
 		writer.addNotice(`[error] ${formatErrorForUser(event.error)}`);
 	}
 
@@ -294,6 +294,26 @@ export function dispatchTuiEvent(
 	/** Handle turn abort event. */
 	function onTurnAbort(): TuiState {
 		return { ...state, abortCurrentTurn: undefined };
+	}
+
+	/** Handle Ctrl+C mid-turn: abort the current turn, reset UI, add notice. */
+	function onTurnInterrupt(): TuiState {
+		if (!state.abortCurrentTurn) return state;
+		state.abortCurrentTurn();
+		resetUIComponents(ui);
+		promptConsole.stopThinking();
+		promptConsole.hidePendingFooter();
+		for (const [callId] of state.activeCalls) {
+			promptConsole.removeInFlightCall(callId);
+		}
+		writer.addNotice("(interrupted)");
+		ui.tui.requestRender(true);
+		return {
+			...state,
+			activeCalls: new Map(),
+			pendingFooterShown: false,
+			abortCurrentTurn: undefined,
+		};
 	}
 
 	/** Handle turn error event. */
@@ -601,6 +621,7 @@ export function dispatchTuiEvent(
 		"turn.start": onTurnStart,
 		"turn.complete": onTurnComplete,
 		"turn.abort": onTurnAbort,
+		"turn.interrupt": onTurnInterrupt,
 		"turn.error": onTurnError,
 		"abort.set": onAbortSet,
 		"abort.clear": onAbortClear,

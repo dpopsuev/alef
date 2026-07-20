@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SCRIBE_RESPONSE_MAX_BYTES } from "../src/constants.js";
 import { createHttpScribeArtifactCall, scribeCallFromEnv } from "../src/http-scribe-call.js";
 
 describe("createHttpScribeArtifactCall", () => {
@@ -44,6 +45,16 @@ describe("createHttpScribeArtifactCall", () => {
 			name: "artifact",
 			arguments: { action: "create", id: "ctx-1", title: "t" },
 		});
+	});
+
+	it("bounds external responses and configures a request deadline", async () => {
+		const fetchMock = vi.fn(async (_url: URL, init?: RequestInit) => {
+			expect(init?.signal).toBeInstanceOf(AbortSignal);
+			return new Response("x".repeat(SCRIBE_RESPONSE_MAX_BYTES + 1), { status: 200 });
+		});
+		vi.stubGlobal("fetch", fetchMock);
+		const call = createHttpScribeArtifactCall("http://scribe.test/");
+		await expect(call("create", {})).rejects.toThrow("response exceeds");
 	});
 
 	it("scribeCallFromEnv returns undefined without SCRIBE_URL", () => {

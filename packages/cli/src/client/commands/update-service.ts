@@ -1,5 +1,4 @@
 import { execSync } from "node:child_process";
-import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import type { Release } from "../../update/release-checker.js";
 import { checkLatestRelease } from "../../update/release-checker.js";
 
@@ -172,17 +171,4 @@ export function createDefaultReleaseChecker(): ReleaseChecker {
 // State
 // ---------------------------------------------------------------------------
 
-/** True while a rebuild is in progress. Suppresses false session-ended errors. */
-export const rebootInProgress = false;
-
-// ---------------------------------------------------------------------------
-// Misc
-// ---------------------------------------------------------------------------
-
-/**
- * Signal the wrapper to respawn us by exiting with RESTART_EXIT_CODE.
- * The wrapper (bin/alef.js) catches this code and spawns a fresh child.
- */
-export function defaultRespawn(_sessionId: string): Promise<never> {
-	process.exit(RESTART_EXIT_CODE);
-}
+// (restart architecture: pending -- exit code 75 convention defined in reboot-port.ts)

@@ -13,8 +13,8 @@ export class ApiKeyPromptDialog extends DialogBase {
 	private resolvePromise?: (success: boolean) => void;
 	private unsubscribe?: () => void;
 
-	protected modalWidth = "min(500px, 90vw)";
-	protected modalHeight = "auto";
+	protected override modalWidth = "min(500px, 90vw)";
+	protected override modalHeight = "auto";
 
 	static async prompt(provider: string): Promise<boolean> {
 		const dialog = new ApiKeyPromptDialog();

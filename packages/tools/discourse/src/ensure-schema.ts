@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Client } from "@libsql/client";
 import { runPluginMigrations } from "@dpopsuev/alef-storage/sqlite/migrations";
+import type { Client } from "@libsql/client";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
@@ -23,9 +23,7 @@ async function upgradeLegacyDiscourseColumns(client: Client): Promise<void> {
 	if (table.rows.length === 0) return;
 
 	const info = await client.execute("PRAGMA table_info(discourse_posts)");
-	const columns = new Set(
-		info.rows.map((row) => (typeof row.name === "string" ? row.name : "")).filter(Boolean),
-	);
+	const columns = new Set(info.rows.map((row) => (typeof row.name === "string" ? row.name : "")).filter(Boolean));
 
 	for (const column of REQUIRED_COLUMNS) {
 		if (!columns.has(column.name)) {

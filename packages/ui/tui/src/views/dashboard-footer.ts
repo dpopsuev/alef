@@ -1,11 +1,13 @@
 import { execSync } from "node:child_process";
 import type { Component } from "../component.js";
 import { ProgressBar } from "../components/progress-bar.js";
-import { truncateToWidth, visibleWidth } from "../utils.js";
+import { truncateToWidth } from "../utils.js";
+import type { FooterContainer, FooterElement } from "./footer-layout.js";
+import { layoutFooter } from "./footer-layout.js";
 import type { TuiStateStore } from "./state.js";
 
 /**
- *
+ * Options for creating the dashboard footer.
  */
 export interface DashboardFooterOptions {
 	sessionId: string;
@@ -21,9 +23,7 @@ export interface DashboardFooterOptions {
 	updateAvailable?: { version: string };
 }
 
-/**
- *
- */
+/** Format a token count compactly (e.g. 1.2M, 45k, 800). */
 function fmtTokens(n: number): string {
 	if (n <= 0) return "0";
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -32,18 +32,14 @@ function fmtTokens(n: number): string {
 	return String(Math.round(n));
 }
 
-/**
- *
- */
+/** Replace $HOME prefix with ~ for compact display. */
 function shortPath(cwd: string): string {
 	const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
 	if (home && cwd.startsWith(home)) return `~${cwd.slice(home.length)}`;
 	return cwd;
 }
 
-/**
- *
- */
+/** Read the current git branch name, or undefined if not in a repo. */
 function getGitBranch(cwd: string): string | undefined {
 	try {
 		return execSync("git rev-parse --abbrev-ref HEAD 2>/dev/null", { cwd, encoding: "utf-8" }).trim() || undefined;
@@ -55,7 +51,6 @@ function getGitBranch(cwd: string): string | undefined {
 const CONTEXT_FILL_ERROR = 0.9;
 const CONTEXT_FILL_WARN = 0.7;
 const CONTEXT_FILL_ACCENT = 0.5;
-
 const DRAIN_STEPS = 12;
 const DRAIN_STEP_MS = 60;
 const BLINK_MS = 280;
@@ -63,15 +58,14 @@ const CELEBRATE_BLINKS = 4;
 
 type CompactPhase = "idle" | "compacting" | "draining" | "celebrate";
 
-/**
- *
- */
+/** Re-export for backward compatibility. */
 export type FooterPanel = DashboardFooter;
 
 /**
- * Footer chrome: path · compact context spark · model · blueprint.
- * Compaction: blink (attention) then drain (peak-end relief). Respects ALEF_REDUCED_MOTION.
- * Coaching hints (: for commands) live in the empty input, not here.
+ * Composable dashboard footer using the footer-layout engine.
+ *
+ * Layout: Repo[path, branch] · Alef[blueprint] ... AI[ctx, model]
+ * Containers and sections are declarative -- move a container by changing its section field.
  */
 export class DashboardFooter implements Component {
 	private readonly opts: DashboardFooterOptions;
@@ -117,7 +111,6 @@ export class DashboardFooter implements Component {
 		this.opts.requestRender();
 	}
 
-	/** Compaction in progress — blink the context bar to draw selective attention. */
 	setCompacting(active: boolean): void {
 		this.clearTimers();
 		if (active) {
@@ -131,7 +124,6 @@ export class DashboardFooter implements Component {
 		this.opts.requestRender();
 	}
 
-	/** Animate context fill from → to after compaction (drain + short celebrate blink). */
 	playDrain(from: number, to: number): void {
 		this.clearTimers();
 		const start = Math.max(0, from);
@@ -143,17 +135,14 @@ export class DashboardFooter implements Component {
 			this.opts.requestRender();
 			return;
 		}
-
 		this.phase = "draining";
 		this.displayUsed = start;
 		this.blinkOn = true;
 		this.opts.requestRender();
-
 		let step = 0;
 		const tick = (): void => {
 			step++;
 			const t = Math.min(1, step / DRAIN_STEPS);
-			// Ease-out: fast at first, settle at the end (peak-end relief).
 			const eased = 1 - (1 - t) ** 2;
 			this.displayUsed = start + (end - start) * eased;
 			this.opts.requestRender();
@@ -167,63 +156,120 @@ export class DashboardFooter implements Component {
 		this.timers.push(setTimeout(tick, DRAIN_STEP_MS));
 	}
 
-	render(width: number): string[] {
-		const { store, dimStyle, style, warnStyle, errorStyle } = this.opts;
-		const s = store.get();
-		const modelShort = s.modelId.split("/").pop()?.split(" ")[0] ?? s.modelId;
-		const path = shortPath(this.opts.cwd);
-		const branchPart = this.branch ? ` (${this.branch})` : "";
-		const left = dimStyle(truncateToWidth(`${path}${branchPart}`, Math.max(10, Math.floor(width * 0.28)), "…"));
-
-		const ctx = this.renderContextBar(s.contextWindow, width, style, warnStyle, errorStyle, dimStyle);
-
-		const rightParts: string[] = [];
-		for (const value of this.statuses.values()) {
-			if (value) rightParts.push(style(value));
-		}
-		rightParts.push(style(modelShort));
-		if (this.opts.blueprintName) rightParts.push(dimStyle(`[${this.opts.blueprintName}]`));
-		if (this.opts.updateAvailable) {
-			rightParts.push(warnStyle(`↑ ${this.opts.updateAvailable.version}`));
-		}
-		if (this.hint) rightParts.push(dimStyle(this.hint));
-		const right = rightParts.join(dimStyle(" · "));
-
-		const sep = dimStyle("  ");
-		const pieces = [left, ctx, right].filter((part) => part.length > 0);
-		const joined = pieces.join(sep);
-		if (visibleWidth(joined) <= width) {
-			if (!ctx) return [joined];
-			// Pin context bar as the visual center: path left, ctx mid, meta right.
-			const mid = ctx;
-			const leftW = visibleWidth(left);
-			const midW = visibleWidth(mid);
-			const rightW = visibleWidth(right);
-			const gaps = width - leftW - midW - rightW;
-			if (gaps >= 2) {
-				const leftGap = Math.floor(gaps / 2);
-				const rightGap = gaps - leftGap;
-				return [left + " ".repeat(leftGap) + mid + " ".repeat(rightGap) + right];
-			}
-			return [truncateToWidth(joined, width, "…")];
-		}
-		return [truncateToWidth(joined, width, "…")];
-	}
-
 	setUpdateAvailable(version: string): void {
 		this.opts.updateAvailable = { version };
 		this.opts.requestRender();
 	}
 
-	/** Test/inspection: current compaction animation phase. */
 	get compactPhase(): CompactPhase {
 		return this.phase;
 	}
 
-	/** Test/inspection: animated context-used value. */
 	get animatedContextUsed(): number {
 		return this.displayUsed;
 	}
+
+	// ── Render via layout engine ──────────────────────────────────────
+
+	render(width: number): string[] {
+		const { dimStyle } = this.opts;
+		const sep = dimStyle(" \u00b7 ");
+		const { elements, containers } = this.buildLayout(width);
+		const line = layoutFooter(containers, elements, width, sep);
+		return [line];
+	}
+
+	/** Build the element registry and container list for the current state. */
+	private buildLayout(width: number): { elements: Map<string, FooterElement>; containers: FooterContainer[] } {
+		const { store, dimStyle, style, warnStyle, errorStyle } = this.opts;
+		const s = store.get();
+		const elements = new Map<string, FooterElement>();
+
+		// ── Repo container (left) ────────────────────────────────────
+		const path = shortPath(this.opts.cwd);
+		const branchPart = this.branch ? ` (${this.branch})` : "";
+		elements.set("repo.path", {
+			id: "repo.path",
+			priority: 1,
+			render: (maxW) => dimStyle(truncateToWidth(`${path}${branchPart}`, maxW, "\u2026")),
+		});
+
+		// ── Alef container (left) ────────────────────────────────────
+		if (this.opts.blueprintName) {
+			elements.set("alef.blueprint", {
+				id: "alef.blueprint",
+				priority: 30,
+				render: () => dimStyle(`[${shortPath(this.opts.blueprintName!)}]`),
+			});
+		}
+
+		// ── Status elements (right, high priority) ───────────────────
+		for (const [key, value] of this.statuses) {
+			elements.set(`status.${key}`, {
+				id: `status.${key}`,
+				priority: 5,
+				render: () => style(value),
+			});
+		}
+
+		// ── AI container (right) ─────────────────────────────────────
+		const ctxBar = this.renderContextBar(s.contextWindow, width, style, warnStyle, errorStyle, dimStyle);
+		if (ctxBar) {
+			elements.set("ai.context", {
+				id: "ai.context",
+				priority: 10,
+				render: () => ctxBar,
+			});
+		}
+
+		const modelShort = s.modelId.split("/").pop()?.split(" ")[0] ?? s.modelId;
+		elements.set("ai.model", {
+			id: "ai.model",
+			priority: 2,
+			render: () => style(modelShort + (s.thinkingLevel && s.thinkingLevel !== "off" ? ` (${s.thinkingLevel})` : "")),
+		});
+
+		if (this.opts.updateAvailable) {
+			const ver = this.opts.updateAvailable.version;
+			elements.set("ai.update", {
+				id: "ai.update",
+				priority: 20,
+				render: () => warnStyle(`\u2191 ${ver}`),
+			});
+		}
+
+		if (this.hint) {
+			elements.set("ai.hint", {
+				id: "ai.hint",
+				priority: 40,
+				render: () => dimStyle(this.hint),
+			});
+		}
+
+		// ── Containers ───────────────────────────────────────────────
+		// Moving a container to a different section is a one-field change.
+		const containers: FooterContainer[] = [
+			{ id: "repo", section: "left", children: ["repo.path"], priority: 1 },
+		];
+
+		if (this.opts.blueprintName) {
+			containers.push({ id: "alef", section: "left", children: ["alef.blueprint"], priority: 20 });
+		}
+
+		const statusIds = [...this.statuses.keys()].map((k) => `status.${k}`);
+		if (statusIds.length > 0) {
+			containers.push({ id: "status", section: "right", children: statusIds, priority: 5 });
+		}
+
+		const aiChildren = ["ai.context", "ai.model"];
+		if (this.opts.updateAvailable) aiChildren.push("ai.update");
+		if (this.hint) aiChildren.push("ai.hint");
+		containers.push({ id: "ai", section: "right", children: aiChildren, priority: 1 });
+
+		return { elements, containers };
+	}
+
+	// ── Context bar rendering (unchanged) ────────────────────────────
 
 	private renderContextBar(
 		contextWindow: number,
@@ -234,10 +280,8 @@ export class DashboardFooter implements Component {
 		dimStyle: (s: string) => string,
 	): string {
 		if (contextWindow <= 0) return "";
-
 		const used = this.phase === "idle" ? this.opts.store.get().contextUsed : this.displayUsed;
 		const fill = contextWindow > 0 ? Math.min(used / contextWindow, 1) : 0;
-		// Compact fill — counts carry the precision; bar is a glanceable spark only.
 		const barWidth = Math.min(Math.max(Math.floor(width * 0.06), 4), 8);
 		const pb = new ProgressBar({ value: used, max: contextWindow });
 		const bar = pb.format(barWidth);
@@ -249,13 +293,10 @@ export class DashboardFooter implements Component {
 					: fill > CONTEXT_FILL_ACCENT
 						? style
 						: dimStyle;
-
 		const label = this.phase === "compacting" ? "compact" : "ctx";
 		const counts = `${fmtTokens(used)}/${fmtTokens(contextWindow)}`;
-
-		// Von Restorff: diverge from steady chrome via blink / phase label — not color alone.
 		if ((this.phase === "compacting" || this.phase === "celebrate") && !this.blinkOn) {
-			return dimStyle(`${label} ${"░".repeat(barWidth)} ${counts}`);
+			return dimStyle(`${label} ${"\u2591".repeat(barWidth)} ${counts}`);
 		}
 		if (this.phase === "compacting") {
 			return `${warnStyle(label)} ${colorFn(bar)} ${dimStyle(counts)}`;
@@ -263,9 +304,11 @@ export class DashboardFooter implements Component {
 		if (this.phase === "celebrate" || this.phase === "draining") {
 			return `${style(label)} ${colorFn(bar)} ${dimStyle(counts)}`;
 		}
-		const compactSuffix = this.opts.store.get().compacted ? dimStyle(" · compacted") : "";
+		const compactSuffix = this.opts.store.get().compacted ? dimStyle(" \u00b7 compacted") : "";
 		return `${dimStyle(label)} ${colorFn(bar)} ${dimStyle(counts)}${compactSuffix}`;
 	}
+
+	// ── Animation internals ──────────────────────────────────────────
 
 	private beginCelebrate(): void {
 		this.phase = "celebrate";

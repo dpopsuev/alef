@@ -13,6 +13,20 @@ import type { Symbol } from "./tree-sitter-backend.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** All file extensions the graph can index. */
+const CODE_EXTENSIONS = [
+	".ts", ".js", ".tsx", ".jsx", ".py", ".go",
+	".rs", ".java", ".cs", ".rb", ".php", ".c", ".h",
+	".cpp", ".hpp", ".cc", ".cxx", ".kt", ".kts",
+	".swift", ".scala", ".sc", ".sh", ".bash",
+	".ex", ".exs", ".lua", ".dart", ".zig",
+	".hs", ".ml", ".mli", ".fs", ".fsx", ".fsi",
+	".gleam", ".clj", ".cljs", ".cljc", ".jl",
+	".r", ".R", ".erl", ".hrl", ".sol", ".m",
+	".cu", ".cuh", ".groovy", ".gvy", ".v", ".sv",
+	".tf", ".hcl",
+];
+
 /**
  *
  */
@@ -382,13 +396,13 @@ export class GraphBackend {
 		}
 		return {
 			changedCount: changedFiles.length,
-			totalCount: this.findCodeFiles(workspaceRoot, [".ts", ".js", ".tsx", ".jsx", ".py"]).length,
+			totalCount: this.findCodeFiles(workspaceRoot, CODE_EXTENSIONS).length,
 		};
 	}
 
 	scanWorkspace(
 		workspaceRoot: string,
-		extensions: string[] = [".ts", ".js", ".tsx", ".jsx", ".py"],
+		extensions: string[] = CODE_EXTENSIONS,
 	): string[] {
 		const allFiles = this.findCodeFiles(workspaceRoot, extensions);
 		return this.detectChangedFiles(allFiles);

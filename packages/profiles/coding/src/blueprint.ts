@@ -14,6 +14,7 @@ import {
 	provisionalTitleFromText,
 } from "@dpopsuev/alef-session/metadata";
 import { createLlmSummarizer } from "@dpopsuev/alef-session/summarizer";
+import { createLlmTitleGenerator } from "@dpopsuev/alef-session/title";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
 export type { BlueprintStack, BlueprintStackOptions };
@@ -66,6 +67,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
 		summarize: createLlmSummarizer((input) => completeSimple(opts.model, input)),
+		titleFromPrompt: createLlmTitleGenerator((input) => completeSimple(opts.model, input)),
 		compactionStrategy: (() => {
 			const raw = process.env.ALEF_COMPACTION_STRATEGY;
 			return raw === "shake" || raw === "off" || raw === "summarize" || raw === "attention"

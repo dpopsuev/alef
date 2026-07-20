@@ -7,17 +7,15 @@
  *
  * Covers:
  * handleCtrlC — idle (quit) and mid-turn (cancel) paths
- * handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-reasoner/tool-events";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, ToolCallRow } from "@dpopsuev/alef-tui/views";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { getStoredApiKey, removeStoredApiKey } from "../src/boot/auth.js";
+import { describe, expect, it, vi } from "vitest";
 import type { TuiHandlerContext } from "../src/client/runner.js";
-import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/client/runner.js";
+import { handleColonCommand, handleCtrlC, truncateToolOutput } from "../src/client/runner.js";
 import { getTheme } from "../src/client/theme.js";
 
 // ---------------------------------------------------------------------------
@@ -123,125 +121,6 @@ describe("handleCtrlC — mid-turn (agent is running)", { tags: ["unit"] }, () =
 });
 
 // ---------------------------------------------------------------------------
-// handleSlashCommand — /exit
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand /exit", { tags: ["unit"] }, () => {
-	it("calls dispose() and tui.stop()", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/exit", ctx);
-		expect(ctx.session.dispose).toHaveBeenCalledOnce();
-		expect(ctx.tui.stop).toHaveBeenCalledOnce();
-	});
-
-	it("returns true (command recognised)", () => {
-		expect(handleSlashCommand("/exit", makeCtx())).toBe(true);
-	});
-
-	it("is case-insensitive", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/EXIT", ctx);
-		expect(ctx.tui.stop).toHaveBeenCalledOnce();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// handleSlashCommand — /new
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand /new", { tags: ["unit"] }, () => {
-	it("clears pre-existing children and replaces with notice pill", () => {
-		const ctx = makeCtx();
-		// Add some children to chat first.
-		ctx.writer.container.addChild(new Container());
-		ctx.writer.container.addChild(new Container());
-		expect(ctx.writer.container.children).toHaveLength(2);
-		handleSlashCommand("/new", ctx);
-		// Pre-existing children cleared; only the notice remains.
-		// appendNotice adds: Spacer + Text(body) = 2
-		expect(ctx.writer.container.children.length).toBe(2);
-	});
-
-	it("appends '(conversation cleared)' notice", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/new", ctx);
-		expect(chatText(ctx)).toContain("conversation cleared");
-	});
-
-	it("requests a render", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/new", ctx);
-		expect(ctx.tui.requestRender).toHaveBeenCalledWith(true);
-	});
-
-	it("returns true", () => {
-		expect(handleSlashCommand("/new", makeCtx())).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// handleSlashCommand — /resume
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand /resume", { tags: ["unit"] }, () => {
-	it("appends the session ID to chat", () => {
-		const ctx = makeCtx({
-			session: makeSession({ state: { id: "abc-999", modelId: "test-model", contextWindow: 128_000 } }),
-		});
-		handleSlashCommand("/resume", ctx);
-		expect(chatText(ctx)).toContain("abc-999");
-	});
-
-	it("returns true", () => {
-		expect(handleSlashCommand("/resume", makeCtx())).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// handleSlashCommand — /help
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand /help", { tags: ["unit"] }, () => {
-	it("appends help text listing all commands", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/help", ctx);
-		const text = chatText(ctx);
-		expect(text).toContain(":q");
-		expect(text).toContain(":new");
-		expect(text).toContain(":session");
-		expect(text).toContain(":help");
-	});
-
-	it("returns true", () => {
-		expect(handleSlashCommand("/help", makeCtx())).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// handleSlashCommand — unknown command
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand — unknown command", { tags: ["unit"] }, () => {
-	it("appends an 'Unknown command' notice", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/frobnitz", ctx);
-		expect(chatText(ctx)).toContain("Unknown command");
-		expect(chatText(ctx)).toContain("/frobnitz");
-	});
-
-	it("returns false (not recognised)", () => {
-		expect(handleSlashCommand("/frobnitz", makeCtx())).toBe(false);
-	});
-
-	it("does not call dispose or tui.stop", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/frobnitz", ctx);
-		expect(ctx.session.dispose).not.toHaveBeenCalled();
-		expect(ctx.tui.stop).not.toHaveBeenCalled();
-	});
-});
-
-// ---------------------------------------------------------------------------
 // truncateToolOutput
 // ---------------------------------------------------------------------------
 
@@ -269,70 +148,6 @@ describe("truncateToolOutput", { tags: ["unit"] }, () => {
 
 	it("handles empty string", () => {
 		expect(truncateToolOutput("")).toBe("");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// handleSlashCommand /login and /logout
-// ---------------------------------------------------------------------------
-
-describe("handleSlashCommand /login", { tags: ["unit"] }, () => {
-	const TEST_PROVIDER = `test-provider-${Date.now()}`;
-
-	afterEach(() => {
-		removeStoredApiKey(TEST_PROVIDER);
-	});
-
-	it("saves key and confirms in chat", () => {
-		const ctx = makeCtx();
-		handleSlashCommand(`/login ${TEST_PROVIDER} sk-test-key`, ctx);
-		expect(getStoredApiKey(TEST_PROVIDER)).toBe("sk-test-key");
-		expect(chatText(ctx)).toContain("Saved API key");
-	});
-
-	it("shows usage when no provider given", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/login", ctx);
-		expect(chatText(ctx)).toContain("Usage:");
-	});
-
-	it("shows usage when no key given", () => {
-		const ctx = makeCtx();
-		handleSlashCommand(`/login ${TEST_PROVIDER}`, ctx);
-		expect(chatText(ctx)).toContain("Usage:");
-	});
-
-	it("returns true", () => {
-		const ctx = makeCtx();
-		expect(handleSlashCommand(`/login ${TEST_PROVIDER} sk-x`, ctx)).toBe(true);
-	});
-});
-
-describe("handleSlashCommand /logout", { tags: ["unit"] }, () => {
-	const TEST_PROVIDER = `test-logout-provider-${Date.now()}`;
-
-	afterEach(() => {
-		removeStoredApiKey(TEST_PROVIDER);
-	});
-
-	it("removes stored key and confirms", () => {
-		const ctx = makeCtx();
-		handleSlashCommand(`/login ${TEST_PROVIDER} sk-to-remove`, ctx);
-		handleSlashCommand(`/logout ${TEST_PROVIDER}`, ctx);
-		expect(getStoredApiKey(TEST_PROVIDER)).toBeUndefined();
-		expect(chatText(ctx)).toContain("Removed");
-	});
-
-	it("reports when no key is stored", () => {
-		const ctx = makeCtx();
-		handleSlashCommand(`/logout ${TEST_PROVIDER}`, ctx);
-		expect(chatText(ctx)).toContain("No stored key");
-	});
-
-	it("shows usage when no provider given", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/logout", ctx);
-		expect(chatText(ctx)).toContain("Usage:");
 	});
 });
 
@@ -460,7 +275,7 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 				requestRender: () => {},
 				addInputListener: () => {},
 				setFocus: () => {},
-				setStickyFrom: () => {},
+				setDock: () => {},
 				terminal: { rows: 40, cols: width },
 			} as unknown as TUIClass;
 
@@ -488,7 +303,7 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUIClass;
 

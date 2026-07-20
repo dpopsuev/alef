@@ -29,6 +29,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
 			const sessionSvc = raw as SessionService;
 
+			const blueprintDisplay = sessionSvc.blueprintPath ?? sessionSvc.blueprintName;
 			const interactiveOpts = {
 				cwd: opts.args.cwd,
 				modelId: sessionSvc.resolvedModelDisplay,
@@ -40,7 +41,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				setThinking: (level: string) => sessionSvc.session.setThinking(level),
 				humanAddress: sessionSvc.humanAddress,
 				agentAddress: sessionSvc.agentAddress,
-				blueprintName: sessionSvc.blueprintName,
+				blueprintName: blueprintDisplay,
 				discussion: sessionSvc.session.state.discussion?.active,
 			};
 

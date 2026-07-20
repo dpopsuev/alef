@@ -13,7 +13,7 @@ import { getAppStorage } from "../storage/app-storage.js";
 export abstract class SettingsTab extends LitElement {
 	abstract getTabName(): string;
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this;
 	}
 }
@@ -21,11 +21,11 @@ export abstract class SettingsTab extends LitElement {
 // API Keys Tab
 @customElement("api-keys-tab")
 export class ApiKeysTab extends SettingsTab {
-	getTabName(): string {
+	override getTabName(): string {
 		return i18n("API Keys");
 	}
 
-	render(): TemplateResult {
+	override render(): TemplateResult {
 		const providers = getProviders();
 
 		return html`
@@ -70,11 +70,11 @@ export class ProxyTab extends SettingsTab {
 		}
 	}
 
-	getTabName(): string {
+	override getTabName(): string {
 		return i18n("Proxy");
 	}
 
-	render(): TemplateResult {
+	override render(): TemplateResult {
 		return html`
 			<div class="flex flex-col gap-4">
 				<p class="text-sm text-muted-foreground">
@@ -118,7 +118,7 @@ export class SettingsDialog extends LitElement {
 	@state() private isOpen = false;
 	@state() private activeTabIndex = 0;
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this;
 	}
 
@@ -166,7 +166,7 @@ export class SettingsDialog extends LitElement {
 		`;
 	}
 
-	render() {
+	override render() {
 		if (this.tabs.length === 0) {
 			return html``;
 		}

@@ -1,0 +1,459 @@
+import type { ExtractorOutput, SubDeclaration, TreeSitterNode, TreeSitterTree } from '../types.js';
+import { findChild, nodeEndLine, nodeStartLine, pushCall, pushImport } from './helpers.js';
+
+/**
+ * Extract symbols from Julia files.
+ *
+ * tree-sitter-julia grammar notes:
+ * - function_definition: `function name(params)...end`
+ * - assignment: `name(params) = expr` (short form), LHS is call_expression
+ * - struct_definition: `struct TypeHead...end`, name is in type_head
+ * - module_definition: `module Name...end`
+ * - import_statement / using_statement
+ * - macro_definition: `macro name(params)...end`
+ * - abstract_definition: `abstract type Name end`
+ * - call_expression: function calls
+ */
+export function extractJuliaSymbols(tree: TreeSitterTree, _filePath: string): ExtractorOutput {
+  const ctx: ExtractorOutput = {
+    definitions: [],
+    calls: [],
+    imports: [],
+    classes: [],
+    exports: [],
+    typeMap: new Map(),
+  };
+
+  walkJuliaNode(tree.rootNode, ctx, null);
+  return ctx;
+}
+
+function walkJuliaNode(
+  node: TreeSitterNode,
+  ctx: ExtractorOutput,
+  currentModule: string | null,
+): void {
+  let nextModule = currentModule;
+
+  switch (node.type) {
+    case 'module_definition':
+      nextModule = handleModuleDef(node, ctx);
+      break;
+    case 'function_definition':
+      handleFunctionDef(node, ctx, currentModule);
+      break;
+    case 'assignment':
+      handleAssignment(node, ctx, currentModule);
+      break;
+    case 'struct_definition':
+      handleStructDef(node, ctx);
+      break;
+    case 'abstract_definition':
+      handleAbstractDef(node, ctx);
+      break;
+    case 'macro_definition':
+      handleMacroDef(node, ctx, currentModule);
+      break;
+    case 'import_statement':
+    case 'using_statement':
+      handleImport(node, ctx);
+      break;
+    case 'call_expression':
+      handleCall(node, ctx);
+      break;
+  }
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child) walkJuliaNode(child, ctx, nextModule);
+  }
+}
+
+function handleModuleDef(node: TreeSitterNode, ctx: ExtractorOutput): string | null {
+  const nameNode = node.childForFieldName('name') || findChild(node, 'identifier');
+  if (!nameNode) return null;
+
+  ctx.definitions.push({
+    name: nameNode.text,
+    kind: 'module',
+    line: nodeStartLine(node),
+    endLine: nodeEndLine(node),
+  });
+
+  return nameNode.text;
+}
+
+function qualifyName(base: string, currentModule: string | null): string {
+  // For qualified names (`function Base.show ... end` inside `module Foo`,
+  // or short-form `Foo.bar(x, y) = x + y` inside `module Outer`), the LHS
+  // is a `scoped_identifier` already containing the qualifier — skip the
+  // module prefix to avoid producing `Foo.Base.show` / `Outer.Foo.bar`.
+  if (currentModule && !base.includes('.')) return `${currentModule}.${base}`;
+  return base;
+}
+
+/**
+ * Extract the call_expression from a function/macro definition's signature.
+ *
+ * tree-sitter-julia wraps the signature in a `signature` node whose direct
+ * children include the `call_expression` for the function name and parameters.
+ * `findChild` only inspects direct children, so we unwrap one level explicitly.
+ * Without this step, `findChild(node, 'call_expression')` on a
+ * `function_definition` would match the *body's* first call_expression
+ * (e.g. `println(...)` inside the body) instead of the signature.
+ *
+ * Grammar assumption: every `function_definition` / `macro_definition` emits a
+ * `signature` child in the current tree-sitter-julia grammar. The fallback to
+ * `findChild(node, 'call_expression')` exists only as a defensive measure for
+ * grammar drift — if it ever fires on a real definition, that fallback would
+ * silently match the first body call_expression and mis-record the function
+ * name. Callers must therefore treat a missing `signature` as a parser/grammar
+ * mismatch worth investigating, not as a routine code path.
+ */
+function signatureCall(node: TreeSitterNode): TreeSitterNode | null {
+  const sig = findChild(node, 'signature');
+  if (sig) return findChild(sig, 'call_expression');
+  return findChild(node, 'call_expression');
+}
+
+function handleFunctionDef(
+  node: TreeSitterNode,
+  ctx: ExtractorOutput,
+  currentModule: string | null,
+): void {
+  const callSig = signatureCall(node);
+  if (callSig) {
+    const funcNameNode = callSig.child(0);
+    if (funcNameNode) {
+      const name = qualifyName(funcNameNode.text, currentModule);
+      const params = extractJuliaParams(callSig);
+      ctx.definitions.push({
+        name,
+        kind: 'function',
+        line: nodeStartLine(node),
+        endLine: nodeEndLine(node),
+        children: params.length > 0 ? params : undefined,
+      });
+      return;
+    }
+  }
+
+  // Fallback: look for identifier directly
+  const nameNode = node.childForFieldName('name') || findChild(node, 'identifier');
+  if (!nameNode) return;
+
+  ctx.definitions.push({
+    name: qualifyName(nameNode.text, currentModule),
+    kind: 'function',
+    line: nodeStartLine(node),
+    endLine: nodeEndLine(node),
+  });
+}
+
+function handleAssignment(
+  node: TreeSitterNode,
+  ctx: ExtractorOutput,
+  currentModule: string | null,
+): void {
+  // assignment: LHS operator RHS
+  // Short function form: add(x, y) = x + y → LHS is call_expression
+  const lhs = node.child(0);
+  if (!lhs) return;
+
+  if (lhs.type === 'call_expression') {
+    const funcNameNode = lhs.child(0);
+    if (!funcNameNode) return;
+
+    const params = extractJuliaParams(lhs);
+
+    ctx.definitions.push({
+      name: qualifyName(funcNameNode.text, currentModule),
+      kind: 'function',
+      line: nodeStartLine(node),
+      endLine: nodeEndLine(node),
+      children: params.length > 0 ? params : undefined,
+    });
+  }
+}
+
+/**
+ * Locate the base-name identifier within a `type_head` node.
+ *
+ * Handles plain identifiers, `Name <: Super` binary expressions, and
+ * parameterized forms like `Name{T}` / `Name{T} <: Super{T,1}` by recursing
+ * into wrapper kinds the Julia grammar actually emits for type heads
+ * (binary expressions, parametrized type expressions, parameterized
+ * identifiers). Returns `null` when no identifier can be located — callers
+ * should skip emitting a definition in that case.
+ *
+ * Note: `type_parameter_list` / `type_argument_list` are intentionally
+ * excluded — Julia's grammar uses `curly_expression` for `{T}` constructs,
+ * not those node kinds. Including them would risk recursing into a
+ * type-parameter list and returning a type variable (e.g. `T`) instead of
+ * the struct name if `findBaseName` were ever called on a node lacking a
+ * direct `identifier` child.
+ */
+const TYPE_HEAD_WRAPPERS: ReadonlySet<string> = new Set([
+  'binary_expression',
+  'parametrized_type_expression',
+  'parameterized_identifier',
+]);
+
+function findBaseName(node: TreeSitterNode): TreeSitterNode | null {
+  if (node.type === 'identifier') return node;
+  const direct = findChild(node, 'identifier');
+  if (direct) return direct;
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+    if (TYPE_HEAD_WRAPPERS.has(child.type)) {
+      const found = findBaseName(child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function handleStructDef(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // struct_definition: struct type_head fields... end
+  // type_head wraps the name and optional supertype. The name may be a
+  // bare `identifier`, a parameterized form (e.g. `Vec{T}`), or either
+  // of those nested inside a `binary_expression` (`Name <: Super`).
+  const typeHead = findChild(node, 'type_head');
+  if (!typeHead) return;
+
+  const { nameNode, supertypeNode } = resolveJuliaStructHeadNames(typeHead);
+  if (!nameNode) return;
+  const structName = nameNode.text;
+
+  const children = collectJuliaStructFields(node);
+
+  if (supertypeNode) {
+    ctx.classes.push({
+      name: structName,
+      extends: supertypeNode.text,
+      line: nodeStartLine(node),
+    });
+  }
+
+  ctx.definitions.push({
+    name: structName,
+    kind: 'struct',
+    line: nodeStartLine(node),
+    endLine: nodeEndLine(node),
+    children: children.length > 0 ? children : undefined,
+  });
+}
+
+// Resolves the struct's name and optional supertype from its `type_head`.
+// Handles both the plain form (`Name` or `Vec{T}`) and the `Name <: Super`
+// binary_expression form, walking into each side to find the base-name
+// identifier for parameterized forms like `Vec{T} <: AbstractArray{T,1}`.
+function resolveJuliaStructHeadNames(typeHead: TreeSitterNode): {
+  nameNode: TreeSitterNode | null;
+  supertypeNode: TreeSitterNode | null;
+} {
+  const binary = findChild(typeHead, 'binary_expression');
+  if (!binary) {
+    return { nameNode: findBaseName(typeHead), supertypeNode: null };
+  }
+
+  const sides: TreeSitterNode[] = [];
+  for (let i = 0; i < binary.childCount; i++) {
+    const c = binary.child(i);
+    if (c && c.type !== 'operator') sides.push(c);
+  }
+  return {
+    nameNode: sides[0] ? findBaseName(sides[0]) : null,
+    supertypeNode: sides[1] ? findBaseName(sides[1]) : null,
+  };
+}
+
+// Collects the struct's field declarations: `typed_expression` (typed field)
+// and plain `identifier` (untyped field) direct children of the
+// struct_definition node.
+function collectJuliaStructFields(node: TreeSitterNode): SubDeclaration[] {
+  const children: SubDeclaration[] = [];
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+    if (child.type === 'typed_expression') {
+      const fieldName = findChild(child, 'identifier');
+      if (fieldName) {
+        children.push({
+          name: fieldName.text,
+          kind: 'property',
+          line: nodeStartLine(child),
+        });
+      }
+    } else if (child.type === 'identifier') {
+      // Plain identifier fields (no type annotation) appear as direct
+      // identifier children of struct_definition. The type_head is a
+      // separate node so there is nothing to filter out here.
+      children.push({ name: child.text, kind: 'property', line: nodeStartLine(child) });
+    }
+  }
+  return children;
+}
+
+function handleAbstractDef(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // abstract_definition: `abstract type` type_head `end`
+  // The identifier is nested inside `type_head` — possibly wrapped in a
+  // `Name <: Super` binary_expression or a `Name{T,...}` parameterized form.
+  // Mirror handleStructDef and skip rather than emit a garbled name when no
+  // base identifier can be located.
+  const typeHead = findChild(node, 'type_head');
+  if (!typeHead) return;
+  const nameNode = findBaseName(typeHead);
+  if (!nameNode) return;
+
+  ctx.definitions.push({
+    name: nameNode.text,
+    kind: 'type',
+    line: nodeStartLine(node),
+    endLine: nodeEndLine(node),
+  });
+}
+
+function handleMacroDef(
+  node: TreeSitterNode,
+  ctx: ExtractorOutput,
+  currentModule: string | null,
+): void {
+  // macro_definition: `macro` signature/call_expression body `end`.
+  // The name lives in the same shape as a function signature — unwrap via
+  // signatureCall so we don't pick up an identifier from the body (e.g.
+  // `macro mymac(x) x end` would otherwise resolve to `@x`).
+  const callSig = signatureCall(node);
+  const nameNode =
+    callSig?.child(0) ?? node.childForFieldName('name') ?? findChild(node, 'identifier');
+  if (!nameNode) return;
+
+  const base = nameNode.text;
+  const name = currentModule ? `${currentModule}.@${base}` : `@${base}`;
+  ctx.definitions.push({
+    name,
+    kind: 'function',
+    line: nodeStartLine(node),
+    endLine: nodeEndLine(node),
+  });
+}
+
+function handleImport(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // tree-sitter-julia shapes:
+  //   `using LinearAlgebra`     → using_statement [ using, identifier ]
+  //   `import Foo.Bar`          → import_statement [ import, scoped_identifier ]
+  //   `import Base: show`       → import_statement [ import, selected_import[Base, show] ]
+  //   `import Foo.Bar: baz`     → import_statement [ import, selected_import[scoped_identifier, baz] ]
+  const names: string[] = [];
+  let source = '';
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+    if (child.type === 'identifier' || child.type === 'scoped_identifier') {
+      const txt = child.text;
+      if (!source) source = txt;
+      names.push(txt.split('.').pop() || txt);
+    } else if (child.type === 'selected_import') {
+      source = collectJuliaSelectedImportParts(child, names, source);
+    }
+  }
+
+  if (source) {
+    // pushImport falls back to source basename for empty `names`. Julia module
+    // sources have no `/` separator, so the basename equals `source` — matching
+    // the previous explicit `[source]` fallback.
+    pushImport(ctx, node, source, names);
+  }
+}
+
+// Handles the `selected_import` shape (`import Base: show` /
+// `import Foo.Bar: baz`): the first identifier-bearing node is the source
+// module; the rest are imported names. The module may itself be a
+// `scoped_identifier` — handled alongside bare `identifier`, using the
+// trailing segment as the display name, mirroring the outer loop. Returns
+// the resolved source (unchanged from `currentSource` if already set or if
+// no identifier-bearing child was found).
+function collectJuliaSelectedImportParts(
+  child: TreeSitterNode,
+  names: string[],
+  currentSource: string,
+): string {
+  let source = currentSource;
+  let first = true;
+  for (let j = 0; j < child.childCount; j++) {
+    const part = child.child(j);
+    if (!part) continue;
+    if (part.type !== 'identifier' && part.type !== 'scoped_identifier') continue;
+    const txt = part.text;
+    if (first) {
+      if (!source) source = txt;
+      first = false;
+    } else {
+      names.push(txt.split('.').pop() || txt);
+    }
+  }
+  return source;
+}
+
+function handleCall(node: TreeSitterNode, ctx: ExtractorOutput): void {
+  // Don't record if parent is assignment LHS (that's a function definition)
+  if (node.parent?.type === 'assignment' && node === node.parent.child(0)) return;
+  // Skip when this call is the signature of a function/macro definition.
+  // tree-sitter-julia wraps the signature in a `signature` node whose parent
+  // is `function_definition` or `macro_definition`. Body calls (e.g.
+  // `println(name)` inside `function greet ... end`) appear as descendants of
+  // the body, not as direct children of `signature`, so they are unaffected.
+  if (node.parent?.type === 'signature') {
+    const grand = node.parent.parent;
+    if (grand?.type === 'function_definition' || grand?.type === 'macro_definition') return;
+  }
+
+  const funcNode = node.child(0);
+  if (!funcNode) return;
+
+  if (funcNode.type === 'identifier') {
+    pushCall(ctx, node, funcNode.text);
+  } else if (funcNode.type === 'field_expression' || funcNode.type === 'scoped_identifier') {
+    const parts = funcNode.text.split('.');
+    if (parts.length >= 2) {
+      pushCall(ctx, node, parts[parts.length - 1]!, {
+        receiver: parts.slice(0, -1).join('.'),
+      });
+    } else {
+      pushCall(ctx, node, funcNode.text);
+    }
+  }
+}
+
+const JULIA_PARAM_WRAPPER_TYPES = new Set([
+  'typed_parameter',
+  'typed_expression',
+  'optional_parameter',
+  'default_parameter',
+]);
+
+function extractJuliaParams(callExpr: TreeSitterNode): SubDeclaration[] {
+  const params: SubDeclaration[] = [];
+  const argList = findChild(callExpr, 'argument_list') || findChild(callExpr, 'tuple_expression');
+  if (!argList) return params;
+
+  for (let i = 0; i < argList.childCount; i++) {
+    const child = argList.child(i);
+    if (!child) continue;
+    if (child.type === 'identifier') {
+      params.push({ name: child.text, kind: 'parameter', line: nodeStartLine(child) });
+    } else if (JULIA_PARAM_WRAPPER_TYPES.has(child.type)) {
+      const nameNode = findChild(child, 'identifier');
+      if (nameNode) {
+        params.push({
+          name: nameNode.text,
+          kind: 'parameter',
+          line: nodeStartLine(child),
+        });
+      }
+    }
+  }
+  return params;
+}

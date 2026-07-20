@@ -6,7 +6,7 @@ import { join } from "node:path";
  */
 export interface RuntimeEnvironment {
   mode: "development" | "production";
-  canHotReload: boolean;
+  canWarmReboot: boolean;
   buildCommand: string | null;
 }
 
@@ -46,7 +46,7 @@ export function detectEnvironment(cwd: string): RuntimeEnvironment {
   
   return {
     mode: isDevelopment ? "development" : "production",
-    canHotReload: isDevelopment && buildCommand !== null,
+    canWarmReboot: isDevelopment && buildCommand !== null,
     buildCommand: isDevelopment ? buildCommand : null,
   };
 }

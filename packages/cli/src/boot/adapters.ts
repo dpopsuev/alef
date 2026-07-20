@@ -25,14 +25,15 @@ const require = createRequire(import.meta.url);
 
 /**
  * Resolve writable_roots from config (or inherited env var), substituting placeholders.
- * Returns undefined = unrestricted (no guard).
+ * Returns [cwd] when no config is set (safe default).
+ * Callers pass undefined to mean "unrestricted" (e.g. --debug).
  *
  * Resolution order:
  *   1. config.security.writable_roots (explicit user config)
  *   2. ALEF_WRITABLE_ROOTS env var (propagated from parent via orchestration.spawn)
- *   3. undefined (unrestricted (no guard))
+ *   3. [cwd] (safe default)
  */
-export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly string[] | undefined {
+export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly string[] {
 	const raw = cfg.security?.writable_roots;
 	if (raw) {
 		const CWD_PLACEHOLDER = "$" + "{cwd}";
@@ -48,7 +49,7 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 			/* malformed — treat as unrestricted */
 		}
 	}
-	return undefined;
+	return [cwd];
 }
 
 /** Resolved adapters, model, surfaces, and security grants from blueprint materialization. */
@@ -96,6 +97,7 @@ export async function loadAdapters(
 	sessionDir?: string,
 	extra: Pick<MaterializerOptions, "resolveService" | "discussion" | "sessionId"> & { actorAddress?: string } = {},
 ): Promise<AdapterLoadResult> {
+	const writableRoots = args.debug ? undefined : resolveWritableRoots(args.cwd, cfg);
 	let blueprintPath: string | undefined;
 	let blueprintName: string | undefined;
 	/** True when the user pointed at a concrete YAML file (not a registry stack name). */
@@ -173,7 +175,7 @@ export async function loadAdapters(
 			sessionDir,
 			loggerFor: (name) => log.child({ adapter: name }),
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-			writableRoots: resolveWritableRoots(args.cwd, cfg),
+			writableRoots,
 			resolveExternalPath: resolveAdapterPath,
 			resolveService: extra.resolveService,
 			actorAddress: extra.actorAddress,
@@ -188,7 +190,7 @@ export async function loadAdapters(
 			blueprintSurfaces: definition.surfaces,
 			blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
 			blueprintPath,
-			writableRoots: resolveWritableRoots(args.cwd, cfg),
+			writableRoots,
 		};
 	}
 
@@ -198,7 +200,7 @@ export async function loadAdapters(
 			sessionDir,
 			loggerFor: (name) => log.child({ adapter: name }),
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-			writableRoots: resolveWritableRoots(args.cwd, cfg),
+			writableRoots,
 			resolveExternalPath: resolveAdapterPath,
 			resolveService: extra.resolveService,
 			actorAddress: extra.actorAddress,
@@ -212,7 +214,7 @@ export async function loadAdapters(
 			blueprintSurfaces: definition.surfaces,
 			blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
 			blueprintPath: undefined,
-			writableRoots: resolveWritableRoots(args.cwd, cfg),
+			writableRoots,
 		};
 	}
 
@@ -226,7 +228,7 @@ export async function loadAdapters(
 		sessionDir,
 		loggerFor: (name) => log.child({ adapter: name }),
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-		writableRoots: resolveWritableRoots(args.cwd, cfg),
+		writableRoots,
 		resolveExternalPath: resolveAdapterPath,
 		resolveService: extra.resolveService,
 		actorAddress: extra.actorAddress,
@@ -241,6 +243,6 @@ export async function loadAdapters(
 		blueprintSurfaces: [],
 		blueprintUpgradePolicy: "rebuild_only",
 		blueprintPath: undefined,
-		writableRoots: resolveWritableRoots(args.cwd, cfg),
+		writableRoots,
 	};
 }

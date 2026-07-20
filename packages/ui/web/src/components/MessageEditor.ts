@@ -82,7 +82,7 @@ export class MessageEditor extends LitElement {
 
 		// Check for image items in clipboard
 		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
+			const item = items[i]!;
 			if (item.type.startsWith("image/")) {
 				const file = item.getAsFile();
 				if (file) {

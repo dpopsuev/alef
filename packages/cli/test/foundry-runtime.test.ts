@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createCliFoundryRuntime } from "../src/boot/foundry-runtime.js";
 
 describe("CLI Foundry runtime", { tags: ["unit"] }, () => {
@@ -29,21 +29,18 @@ describe("CLI Foundry runtime", { tags: ["unit"] }, () => {
 		await runtime.stop();
 	});
 
-	it("registers hot-reload through the bootstrap facade", async () => {
+	it("registers build service through the bootstrap facade", async () => {
 		const cwd = makeTmp();
-		const swap = vi.fn(async () => {});
 		const runtime = createCliFoundryRuntime({ cwd });
 
-		runtime.registerHotReload({
+		runtime.registerBuildService({
 			buildCommand: "true",
-			swap,
-			sessionServiceName: "session",
 			cwd,
 		});
 
 		await runtime.start();
 
-		expect(runtime.get("hot-reload")).toBeDefined();
+		expect(runtime.get("build")).toBeDefined();
 
 		await runtime.stop();
 	});

@@ -26,6 +26,11 @@
       "import": "./src/context.ts",
       "default": "./src/context.ts"
     },
+    "./context": {
+      "source": "./src/context.ts",
+      "import": "./src/context.ts",
+      "default": "./src/context.ts"
+    },
     "./contributions": {
       "source": "./src/adapter/contributions.ts",
       "import": "./src/adapter/contributions.ts",
@@ -83,7 +88,7 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run",
     "prepublishOnly": "npm run clean && npm run build"

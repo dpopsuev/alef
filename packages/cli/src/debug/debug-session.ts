@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-base-to-string -- libsql Value type requires explicit String() casts */
 /**
  * alef debug session — inspect session events for tool-call pairing issues.
  *
@@ -5,10 +6,15 @@
  *   alef debug session              — inspect most recent session for current cwd
  *   alef debug session <id>         — inspect session by ID prefix
  *   alef debug session --list       — list sessions for current cwd
+ *
+ * Uses SQL with truncated payloads — never resumes/warms the full session
+ * (fat context.assemble rows must not JSON.parse into OOM).
  */
 
-import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
+import { getDatabase } from "@dpopsuev/alef-storage/sqlite/database";
+import { WARM_EVENT_SQL_FILTER } from "@dpopsuev/alef-storage/sqlite/event-load";
+import type { Client } from "@libsql/client";
 
 /** Inspect a session for orphaned tool-call commands or list available sessions. */
 export async function runDebugSession(args: string[], cwd: string, sessions: SessionStoreFactory): Promise<void> {
@@ -33,7 +39,7 @@ async function listSessions(cwd: string, sessions: SessionStoreFactory): Promise
 	}
 }
 
-/** Load a session by ID prefix and report command/event pairing issues. */
+/** Load pairing rows via SQL (substr payloads) and report command/event issues. */
 async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPrefix?: string): Promise<void> {
 	const list = await sessions.list(cwd);
 	if (list.length === 0) {
@@ -51,11 +57,54 @@ async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPref
 		target = found;
 	}
 
-	const store = await sessions.resume(cwd, target!.id);
-	const records: StorageRecord[] = await store.events();
+	const sessionId = target!.id;
+	const db = await getDatabase();
+	await inspectPairing(db, sessionId);
+}
 
-	const motorByCorr = new Map<string, StorageRecord[]>();
-	const senseByCorr = new Map<string, StorageRecord[]>();
+/**
+ *
+ */
+interface PairRow {
+	bus: string;
+	type: string;
+	correlationId: string;
+	timestamp: number;
+	isError: boolean;
+}
+
+/** Query bounded warm-filter events with truncated payloads for pairing analysis. */
+async function loadPairRows(db: Client, sessionId: string): Promise<PairRow[]> {
+	const result = await db.execute({
+		sql: `SELECT bus, type, correlation_id,
+				timestamp,
+				CASE
+					WHEN substr(payload, 1, 500) LIKE '%"isError":true%'
+						OR substr(payload, 1, 500) LIKE '%"isError": true%'
+					THEN 1 ELSE 0
+				END AS is_error
+			FROM events
+			WHERE session_id = ?
+			AND (${WARM_EVENT_SQL_FILTER})
+			ORDER BY rowid ASC`,
+		args: [sessionId],
+	});
+
+	return result.rows.map((row) => ({
+		bus: String(row.bus ?? ""),
+		type: String(row.type ?? ""),
+		correlationId: String(row.correlation_id ?? ""),
+		timestamp: Number(row.timestamp ?? 0),
+		isError: Number(row.is_error ?? 0) === 1,
+	}));
+}
+
+/** Report command/event pairing for a session without materializing fat payloads. */
+async function inspectPairing(db: Client, sessionId: string): Promise<void> {
+	const records = await loadPairRows(db, sessionId);
+
+	const motorByCorr = new Map<string, PairRow[]>();
+	const senseByCorr = new Map<string, PairRow[]>();
 	let turns = 0;
 	let errors = 0;
 
@@ -69,15 +118,15 @@ async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPref
 			if (!motorByCorr.has(key)) motorByCorr.set(key, []);
 			motorByCorr.get(key)!.push(r);
 		} else if (r.bus === "event") {
-			if (r.payload.isError) errors++;
+			if (r.isError) errors++;
 			if (r.type === "llm.input") continue;
 			if (!senseByCorr.has(key)) senseByCorr.set(key, []);
 			senseByCorr.get(key)!.push(r);
 		}
 	}
 
-	console.log(`Session: ${target!.id}`);
-	console.log(`Events:  ${records.length}  Turns: ${turns}  Errors: ${errors}`);
+	console.log(`Session: ${sessionId}`);
+	console.log(`Events:  ${records.length} (warm filter)  Turns: ${turns}  Errors: ${errors}`);
 	console.log();
 
 	const issues: string[] = [];

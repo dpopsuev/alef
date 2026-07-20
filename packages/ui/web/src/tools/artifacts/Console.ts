@@ -19,7 +19,7 @@ export class Console extends LitElement {
 	@state() private autoscroll = true;
 	private logsContainerRef: Ref<HTMLDivElement> = createRef();
 
-	protected createRenderRoot() {
+	protected override createRenderRoot() {
 		return this; // light DOM
 	}
 

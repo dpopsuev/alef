@@ -124,7 +124,9 @@ export function isCorsError(error: unknown): boolean {
  * @param getProxyUrl - Async function to get current proxy URL (or undefined if disabled)
  * @returns A streamFn compatible with Agent's streamFn option
  */
-export function createStreamFn(getProxyUrl: () => Promise<string | undefined>) {
+export function createStreamFn(
+	getProxyUrl: () => Promise<string | undefined>,
+): (model: Model<Api>, context: Context, options?: SimpleStreamOptions) => Promise<ReturnType<typeof streamSimple>> {
 	return async (model: Model<any>, context: Context, options?: SimpleStreamOptions) => {
 		const apiKey = options?.apiKey;
 		const proxyUrl = await getProxyUrl();

@@ -6,7 +6,7 @@
  * 2. Handle IPC handoff_prepare → handoff_ack when ALEF_SUPERVISOR=1
  *
  * Process blue-green supervisor describes are skipped — that binary was
- * removed; rolling updates use in-process Supervisor.swap + hot-reload.
+ * removed; rolling updates use in-process Supervisor.swap + bootloader reboot.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it } from "vitest";
 const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const RUNNER_MAIN = resolve(__dirname, "../src/entrypoint.ts");
-// Process-level supervisor binary was deleted (in-process Supervisor + hot-reload).
+// Process-level supervisor binary was deleted (in-process Supervisor + bootloader).
 // Remaining describe.skip blocks document the retired blue-green IPC contract.
 const SUPERVISOR = resolve(__dirname, "../src/supervisor.ts");
 const HAS_PROCESS_SUPERVISOR = false;

@@ -7,7 +7,7 @@ import { INDENT, SPACING, sanitizeForDisplay, stripAnsi } from "../../src/views/
 
 describe("Layout Constants", { tags: ["unit"] }, () => {
 	it("defines block indent", () => {
-		expect(INDENT.BLOCK).toBe(2);
+		expect(INDENT.BLOCK).toBe(0);
 	});
 
 	it("keeps tool line and tool output on the shared content column", () => {

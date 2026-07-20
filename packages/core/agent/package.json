@@ -28,7 +28,7 @@
     "./workflow": "./src/workflow/index.ts"
   },
   "scripts": {
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "check": "tsc --noEmit"
   },
   "dependencies": {

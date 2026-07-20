@@ -7,6 +7,7 @@
  *   events <id> [filters...]                       Query events
  *   trace <id> <correlationId>                     Show one turn
  *   summary [<id>]                                 Token/tool/error summary
+ *   sizes [<id>] [--top N]                         Payload MB by type + warm estimate
  *   tail [filters...]                              Latest session events
  *
  * Filters (composable, any combination):
@@ -22,10 +23,12 @@
  *   --json                JSON output
  */
 
+import { MAX_WARM_EVENTS } from "@dpopsuev/alef-storage/sqlite/event-load";
+import { getSessionPayloadStats } from "@dpopsuev/alef-storage/sqlite/size-stats";
 import type { Client, InValue } from "@libsql/client";
 import { parseCauseFlags, resolveSpanIdFromEffect, walkCauseChain } from "./cause-walk.js";
 
-/** Dispatch a log-query subcommand (sessions, events, trace, summary, tail, cause, spans). */
+/** Dispatch a log-query subcommand (sessions, events, trace, summary, sizes, tail, cause, spans). */
 export async function runLogCommand(subcmd: string, args: string[]): Promise<void> {
 	const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
 	const db = await getDatabase();
@@ -43,6 +46,9 @@ export async function runLogCommand(subcmd: string, args: string[]): Promise<voi
 		case "summary":
 			await showSummary(db, args);
 			break;
+		case "sizes":
+			await showSizes(db, args);
+			break;
 		case "tail":
 			await tailLatest(db, args);
 			break;
@@ -57,7 +63,7 @@ export async function runLogCommand(subcmd: string, args: string[]): Promise<voi
 			break;
 		default:
 			console.error(`Unknown store subcommand: ${subcmd}`);
-			console.error("Available: sessions, events, trace, summary, tail, cause, spans, chain");
+			console.error("Available: sessions, events, trace, summary, sizes, tail, cause, spans, chain");
 			process.exit(1);
 	}
 }
@@ -395,6 +401,83 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 	}
 
 	await printColdStartBreakdown(db, resolvedId);
+}
+
+/** Resolve session id argument (`latest` or prefix) to a concrete id. */
+async function resolveSessionId(db: Client, sessionId: string): Promise<string | undefined> {
+	if (sessionId === "latest") {
+		const r = await db.execute({ sql: "SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1", args: [] });
+		const id = r.rows[0]?.id;
+		return typeof id === "string" ? id : undefined;
+	}
+	const r = await db.execute({
+		sql: "SELECT id FROM sessions WHERE id LIKE ? ORDER BY created_at DESC LIMIT 1",
+		args: [`${sessionId}%`],
+	});
+	const id = r.rows[0]?.id;
+	return typeof id === "string" ? id : undefined;
+}
+
+/** Format byte count as MB with one decimal. */
+function formatMb(bytes: number): string {
+	return `${(bytes / 1e6).toFixed(1)}`;
+}
+
+/**
+ * Payload size forensics — SQL LENGTH only, no JSON.parse.
+ * Reports per-type MB + warm/preview window estimates (same filters as runtime).
+ */
+async function showSizes(db: Client, args: string[]): Promise<void> {
+	const sessionArg = args.find((a) => !a.startsWith("--")) ?? "latest";
+	const topIdx = args.indexOf("--top");
+	const topN = topIdx >= 0 ? Number.parseInt(args[topIdx + 1] ?? "20", 10) || 20 : 20;
+
+	const resolvedId = await resolveSessionId(db, sessionArg);
+	if (!resolvedId) {
+		console.log("No sessions found.");
+		return;
+	}
+
+	const stats = await getSessionPayloadStats(db, resolvedId, topN);
+
+	console.log(`Session:  ${stats.sessionId}`);
+	console.log(
+		`Events:   ${stats.total.count}  Payload: ${formatMb(stats.total.bytes)} MB  Max row: ${formatMb(stats.total.maxBytes)} MB`,
+	);
+	console.log(`Parse cap: ${formatMb(stats.maxPayloadBytes)} MB (stubs above; llm.input/response/result exempt)`);
+	console.log();
+	console.log(`${pad("Type", 36)} ${pad("Count", 8)} ${pad("MB", 8)} ${pad("Max MB", 8)}`);
+	console.log("-".repeat(64));
+	for (const row of stats.byType) {
+		console.log(
+			`${pad(truncate(row.type, 34), 36)} ${pad(String(row.count), 8)} ${pad(formatMb(row.bytes), 8)} ${pad(formatMb(row.maxBytes), 8)}`,
+		);
+	}
+
+	console.log();
+	console.log("Warm / preview windows (LENGTH only — same filters as runtime):");
+	console.log(
+		`  Legacy warm (unfiltered LIMIT ${MAX_WARM_EVENTS}): ${stats.legacyWarm.count} rows, ${formatMb(stats.legacyWarm.bytes)} MB text`,
+	);
+	console.log(
+		`  Bounded warm (filtered LIMIT ${MAX_WARM_EVENTS}):  ${stats.boundedWarm.count} rows, ${formatMb(stats.boundedWarm.bytes)} MB text (max row ${formatMb(stats.boundedWarm.maxBytes)} MB)`,
+	);
+	console.log(
+		`  Preview (transcript filter LIMIT 500):             ${stats.preview.count} rows, ${formatMb(stats.preview.bytes)} MB text (max row ${formatMb(stats.preview.maxBytes)} MB)`,
+	);
+
+	const heapWarnMb = 800;
+	if (stats.legacyWarm.bytes / 1e6 >= heapWarnMb) {
+		console.log();
+		console.log(
+			`  WARN: legacy unfiltered warm would materialize ~${formatMb(stats.legacyWarm.bytes)} MB of JSON text (JS heap ≫ that) — picker/resume OOM risk before bounded load.`,
+		);
+	}
+	if (stats.boundedWarm.bytes / 1e6 >= heapWarnMb) {
+		console.log(
+			`  WARN: bounded warm still ~${formatMb(stats.boundedWarm.bytes)} MB — check stubbed fat checkpoints / raise filters.`,
+		);
+	}
 }
 
 /** Print system-prompt vs tool-schema cold-start split from debug events. */

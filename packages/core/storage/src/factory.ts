@@ -8,11 +8,9 @@ import {
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
+import { parseEventPayload, PREVIEW_EVENT_SQL_FILTER, previewEventLimit } from "./sqlite/event-load.js";
 import { SqliteSessionStore } from "./sqlite/session.js";
 import { SqliteSummaryStore } from "./sqlite/summary.js";
-
-/** Match session warm window so preview sees the same event set as resume. */
-const PREVIEW_EVENT_LIMIT = 50_000;
 
 /**
  *
@@ -22,12 +20,13 @@ function parseNameSource(value: unknown): SessionNameSource | undefined {
 }
 
 /**
- * Load store events for transcript projection — same buses resume warms,
- * then shared `projectTranscriptSlice` (picker + ChatLog history).
+ * Load transcript-relevant events for picker preview — filtered + turn-bounded,
+ * never materializes context.assemble / checkpoint blobs.
  */
 async function loadSessionEventProjections(
 	client: Client,
 	sessionId: string,
+	maxTurns: number,
 ): Promise<{ cwd: string | undefined; events: SessionRecordProjection[] }> {
 	const meta = await client.execute({
 		sql: "SELECT cwd FROM sessions WHERE id = ?",
@@ -35,20 +34,20 @@ async function loadSessionEventProjections(
 	});
 	const cwd = typeof meta.rows[0]?.cwd === "string" ? meta.rows[0].cwd : undefined;
 
+	const limit = previewEventLimit(maxTurns);
 	const result = await client.execute({
 		sql: `SELECT bus, type, payload FROM events
 			WHERE session_id = ?
+			AND (${PREVIEW_EVENT_SQL_FILTER})
 			ORDER BY rowid DESC LIMIT ?`,
-		args: [sessionId, PREVIEW_EVENT_LIMIT],
+		args: [sessionId, limit],
 	});
 
 	const events = [...result.rows].reverse().map((row) => {
 		const bus = typeof row.bus === "string" ? row.bus : "";
 		const type = typeof row.type === "string" ? row.type : "";
 		const rawPayload = typeof row.payload === "string" ? row.payload : "{}";
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
-		const payload = JSON.parse(rawPayload) as Record<string, unknown>;
-		return { bus, type, payload };
+		return { bus, type, payload: parseEventPayload(rawPayload, type) };
 	});
 
 	return { cwd, events };
@@ -88,7 +87,7 @@ export class SqliteStorageFactory implements StorageFactory {
 				return parseNameSource(r.rows[0]?.name_source);
 			},
 			getSessionPreview: async (sessionId, maxTurns) => {
-				const { cwd, events } = await loadSessionEventProjections(this.client, sessionId);
+				const { cwd, events } = await loadSessionEventProjections(this.client, sessionId, maxTurns);
 				const plan = await loadPlanPreview(cwd);
 				return projectTranscriptSlice(events, maxTurns, plan ? { plan } : undefined);
 			},

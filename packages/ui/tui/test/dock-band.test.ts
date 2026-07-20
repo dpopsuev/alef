@@ -1,5 +1,5 @@
 /**
- * Sticky bottom band — live streaming/input/footer must never enter scrollback
+ * Dock bottom band — live streaming/input/footer must never enter scrollback
  * when chat grows or live widgets tick.
  */
 
@@ -25,8 +25,8 @@ async function settle(ms = 30): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, ms));
 }
 
-describe("sticky bottom band", { tags: ["unit"] }, () => {
-	it("keeps live sticky content in the viewport when chat overflows", async () => {
+describe("dock bottom band", { tags: ["unit"] }, () => {
+	it("keeps live dock content in the viewport when chat overflows", async () => {
 		const { tui } = makeEnv(40, 6);
 		const chat = new Container();
 		tui.addChild(chat);
@@ -36,7 +36,7 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		const live = new DynamicText(() => `LIVE ${tick}`);
 		const editor = new Text("EDITOR", 0, 0);
 		tui.addChild(live);
-		tui.setStickyFrom(live);
+		tui.setDock(live);
 		tui.addChild(editor);
 
 		tui.requestRender(true);
@@ -55,7 +55,7 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		tui.requestRender();
 		await settle();
 
-		expect(tui.renderMeta.renderPath).toBe("diff");
+		expect(["diff", "dock-full"]).toContain(tui.renderMeta.renderPath);
 		expect(tui.renderMeta.prevViewportTop).toBe(0);
 		expect(tui.renderMeta.renderPath).not.toBe("scrollback");
 		const last = onRenderFrames.at(-1) ?? "";
@@ -66,7 +66,7 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		tui.stop();
 	});
 
-	it("live sticky ticks never take the scrollback render path", async () => {
+	it("live dock ticks never take the scrollback render path", async () => {
 		const { tui } = makeEnv(40, 5);
 		const chat = new Container();
 		tui.addChild(chat);
@@ -76,7 +76,7 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		const status = new DynamicText(() => `status:${tick}`);
 		const tasks = new DynamicText(() => `task-1 ${tick}s`);
 		tui.addChild(status);
-		tui.setStickyFrom(status);
+		tui.setDock(status);
 		tui.addChild(tasks);
 
 		tui.requestRender(true);
@@ -94,20 +94,20 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		}
 
 		expect(paths.every((p) => p !== "scrollback")).toBe(true);
-		expect(paths.some((p) => p === "diff" || p === "no-change")).toBe(true);
+		expect(paths.some((p) => p === "diff" || p === "no-change" || p === "dock-full")).toBe(true);
 		tui.stop();
 	});
 
-	it("growing chat above sticky does not mark sticky updates as scrollback", async () => {
+	it("growing chat above dock does not mark dock updates as scrollback", async () => {
 		const { tui } = makeEnv(40, 6);
 		const chat = new Container();
 		tui.addChild(chat);
 		chat.addChild(new Text("seed", 0, 0));
 
 		let tick = 0;
-		const sticky = new DynamicText(() => `sticky-${tick}`);
-		tui.addChild(sticky);
-		tui.setStickyFrom(sticky);
+		const dock = new DynamicText(() => `dock-${tick}`);
+		tui.addChild(dock);
+		tui.setDock(dock);
 
 		tui.requestRender(true);
 		await settle();
@@ -129,17 +129,17 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 		tui.stop();
 	});
 
-	it("caps an oversized sticky band so the editor stays in the frame", async () => {
+	it("caps an oversized dock band so the editor stays in the frame", async () => {
 		const { tui } = makeEnv(40, 5);
 		const chat = new Container();
 		tui.addChild(chat);
 		chat.addChild(new Text("hello", 0, 0));
 
-		const stickyRoot = new Container();
-		tui.addChild(stickyRoot);
-		tui.setStickyFrom(stickyRoot);
-		for (let i = 0; i < 10; i++) stickyRoot.addChild(new Text(`widget-${i}`, 0, 0));
-		stickyRoot.addChild(new Text("EDITOR", 0, 0));
+		const dockRoot = new Container();
+		tui.addChild(dockRoot);
+		tui.setDock(dockRoot);
+		for (let i = 0; i < 10; i++) dockRoot.addChild(new Text(`widget-${i}`, 0, 0));
+		dockRoot.addChild(new Text("EDITOR", 0, 0));
 
 		const frames: string[] = [];
 		tui.onRender = (f) => {
@@ -150,7 +150,7 @@ describe("sticky bottom band", { tags: ["unit"] }, () => {
 
 		const last = frames.at(-1) ?? "";
 		expect(last).toContain("EDITOR");
-		// Top of oversized sticky was clipped
+		// Top of oversized dock was clipped
 		expect(last).not.toContain("widget-0");
 		expect(tui.renderMeta.totalLines).toBe(5);
 		tui.stop();

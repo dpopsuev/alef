@@ -56,6 +56,8 @@ export interface DelegationStackOptions {
 	extraAdapters?: Adapter[];
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
+	/** First-prompt LLM title (2–5 words) for session.metadata.refresh. */
+	titleFromPrompt?: (prompt: string) => Promise<string | undefined>;
 	/** Auto-compaction strategy for createCompactionStage. Default summarize. */
 	compactionStrategy?: "summarize" | "shake" | "attention" | "off";
 	/** Optional embedder for Attention similarity scoring. */
@@ -150,6 +152,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			contextWindow,
 			strategy: opts.compactionStrategy ?? "summarize",
 			summarize: opts.summarize,
+			titleFromPrompt: opts.titleFromPrompt,
 			embedAttentionQuery: opts.embedAttentionQuery,
 			sessionStore: opts.sessionStore ? () => opts.sessionStore : undefined,
 			publishSignal: (type: string, payload: Record<string, unknown>) => signalPublish?.(type, payload),

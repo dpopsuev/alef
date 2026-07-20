@@ -97,7 +97,7 @@ export interface RouterOptions {
 	onSetThinking?: (level: string) => void;
 	/** Called on POST /cancel to abort the current turn. */
 	onCancel?: () => void;
-	/** Called on POST /reload { name, path } to hot-reload an adapter. */
+	/** Called on POST /reload { name, path } to reload an adapter in-place. */
 	onReloadAdapter?: (name: string, path: string) => Promise<void>;
 	/** Returns conversation history for GET /history. */
 	getHistory?: () => Record<string, unknown>[];

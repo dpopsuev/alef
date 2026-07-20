@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run",
     "prepublishOnly": "npm run clean && npm run build"
@@ -31,6 +31,7 @@
     "better-sqlite3": "^12.11.1",
     "glob": "^13.0.6",
     "tree-sitter": "^0.25.0",
+    "tree-sitter-go": "0.25.0",
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",

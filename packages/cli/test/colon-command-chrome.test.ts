@@ -38,7 +38,7 @@ describe("colon command chrome", { tags: ["unit"] }, () => {
 			requestRender: () => {},
 			addInputListener: () => {},
 			setFocus: () => {},
-			setStickyFrom: () => {},
+			setDock: () => {},
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
@@ -79,6 +79,5 @@ describe("colon command chrome", { tags: ["unit"] }, () => {
 		expect(lines.slice(0, insertIdx).some((line) => line.includes("Quit"))).toBe(false);
 		const fullRules = lines.filter((line) => /^─+$/.test(line));
 		expect(fullRules.length).toBeLessThanOrEqual(1);
-		expect(lines.some((line) => line.includes(":restart") && line.includes(":update"))).toBe(false);
 	});
 });

@@ -3,12 +3,12 @@ import { setupSupervisorIpc } from "../src/boot/supervisor-ipc.js";
 import { parseUpdateArgs } from "../src/client/commands/update-service.js";
 
 describe("parseUpdateArgs", { tags: ["unit"] }, () => {
-	it("defaults to apply mode without force", () => {
-		expect(parseUpdateArgs([])).toEqual({ force: false, checkOnly: false });
+	it("defaults to local build without pull or force", () => {
+		expect(parseUpdateArgs([])).toEqual({ pull: false, force: false, checkOnly: false });
 	});
 
-	it("recognizes --force and --check", () => {
-		expect(parseUpdateArgs(["--force", "--check"])).toEqual({ force: true, checkOnly: true });
+	it("recognizes --pull, --force, and --check", () => {
+		expect(parseUpdateArgs(["--pull", "--force", "--check"])).toEqual({ pull: true, force: true, checkOnly: true });
 	});
 });
 

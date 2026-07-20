@@ -3,6 +3,7 @@ export { fmtMs, hasAnsi, sanitizeForDisplay, stripAnsi } from "./ansi-utils.js";
 export { ChatLog, type ChatLogLabels } from "./chat-log.js";
 export { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "./chat-view.js";
 export { DashboardFooter, type FooterPanel } from "./dashboard-footer.js";
+export { layoutFooter, type FooterContainer, type FooterElement, type FooterSection, type SectionPolicy } from "./footer-layout.js";
 export { DynamicText } from "./dynamic-text.js";
 export { INDENT, SPACING } from "./layout-constants.js";
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./markdown-themes.js";

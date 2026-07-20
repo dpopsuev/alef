@@ -1,10 +1,10 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import {
+	type BuildServiceOpts,
+	createBuildServiceDescriptor,
 	createFoundryRuntime,
-	createHotReloadDescriptor,
 	createSchedulerDescriptor,
 	type FoundryRuntime,
-	type HotReloadOpts,
 } from "@dpopsuev/alef-foundry";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
@@ -38,6 +38,7 @@ export interface CliApplicationServicesOptions {
 	model: Model<Api>;
 	storage: StorageFactory;
 	identity?: IdentityContext;
+	reloadAdapters?: () => Promise<AdapterLoadResult>;
 }
 
 /** CLI-specific Foundry facade above raw register/start/stop orchestration. */
@@ -49,7 +50,7 @@ export interface CliFoundryRuntime {
 	stop(): Promise<void>;
 	swap: FoundryRuntime["swap"];
 	getStorage(): Promise<StorageFactory>;
-	registerHotReload(opts: HotReloadOpts): void;
+	registerBuildService(opts: BuildServiceOpts): void;
 	registerApplicationServices(opts: CliApplicationServicesOptions): void;
 }
 
@@ -81,8 +82,8 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageService extends ManagedService with factory field
 			return (svc as StorageService).factory;
 		},
-		registerHotReload(opts: HotReloadOpts) {
-			foundry.register(createHotReloadDescriptor(opts));
+		registerBuildService(opts: BuildServiceOpts) {
+			foundry.register(createBuildServiceDescriptor(opts));
 		},
 		registerApplicationServices(opts: CliApplicationServicesOptions) {
 			foundry.register(
@@ -92,6 +93,7 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 					log: opts.log,
 					store: opts.store,
 					loaded: opts.loaded,
+					reloadAdapters: opts.reloadAdapters,
 					model: opts.model,
 					storage: opts.storage,
 					identity: opts.identity,

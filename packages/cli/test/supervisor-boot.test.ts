@@ -273,7 +273,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		);
 		await session.send?.("hello", 10_000);
 
-		const entries = discourse.readThread(discussion.forumId, discussion.topicId);
+		const entries = await discourse.readThread(discussion.forumId, discussion.topicId);
 		expect(entries).toHaveLength(2);
 		expect(entries[0]!.content).toBe("hello");
 		expect(entries[1]!.content).toBe("hello");
@@ -334,8 +334,8 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			{ mode: "mentions-only", leaseMs: 60_000 },
 		);
 
-		discourse.append(discussion.forumId, "watch", "@other", `hello ${agentAddress}`);
-		discourse.append(discussion.forumId, "watch", "@other", "no mention here");
+		await discourse.append(discussion.forumId, "watch", "@other", `hello ${agentAddress}`);
+		await discourse.append(discussion.forumId, "watch", "@other", "no mention here");
 
 		const watched = (await session.listDiscussionSubscriptions?.())?.find(
 			(entry) => entry.discussion.topicId === "watch",

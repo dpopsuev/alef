@@ -25,7 +25,7 @@ export interface PendingQueueOptions {
 }
 
 /**
- * Generic sticky panel for pending/queued items (messages, tasks, etc.).
+ * Generic docked panel for pending/queued items (messages, tasks, etc.).
  * Composes truncated one-line rows — same shape as a pending-messages strip.
  */
 export class PendingQueuePanel implements Component {
@@ -98,18 +98,18 @@ export class PendingQueuePanel implements Component {
 
 		for (const entry of visible) {
 			const label = entry.prefix ? `${entry.prefix}: ${entry.text}` : entry.text;
-			lines.push(this.theme.item(truncateToWidth(`  ${label}`, width, "…")));
+			lines.push(this.theme.item(truncateToWidth(label, width, "…")));
 		}
 
 		const hidden = this.entries.length - visible.length;
 		if (hidden > 0) {
-			const more = `  … +${hidden} more`;
+			const more = `… +${hidden} more`;
 			lines.push(this.theme.item(truncateToWidth(more, width, "…")));
 		}
 
 		if (this.hint) {
 			const style = this.theme.hint ?? this.theme.item;
-			lines.push(style(truncateToWidth(`  ${this.hint}`, width, "…")));
+			lines.push(style(truncateToWidth(this.hint, width, "…")));
 		}
 
 		return lines;

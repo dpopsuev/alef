@@ -31,7 +31,7 @@ export class GenericArtifact extends ArtifactElement {
 		let base64Data = this._content;
 		if (this._content.startsWith("data:")) {
 			const base64Match = this._content.match(/base64,(.+)/);
-			if (base64Match) {
+			if (base64Match?.[1]) {
 				base64Data = base64Match[1];
 			}
 		}

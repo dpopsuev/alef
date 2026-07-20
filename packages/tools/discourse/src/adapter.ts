@@ -1,15 +1,13 @@
 import type { Adapter, BaseAdapterOptions, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
-import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
-import type { Client } from "@libsql/client";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import type { DiscourseBackend } from "./backend.js";
-import { InMemoryDiscourseStore } from "./memory-store.js";
-import { maybeMirrorToScribe } from "./open-backend.js";
-import type { ScribeArtifactCall } from "./scribe-backend.js";
-import { SqliteDiscourseStore } from "./sqlite-store.js";
+import { CapabilityDiscourseBackend } from "./capability-backend.js";
+import { openInMemoryDiscourseBackend } from "./open-backend.js";
+import type { ScribeArtifactCall } from "./scribe-projection.js";
 import type { Post } from "./types.js";
 
 /**
@@ -18,10 +16,6 @@ import type { Post } from "./types.js";
 export interface DiscourseAdapterOptions extends BaseAdapterOptions {
 	/** Injected backend (preferred). */
 	backend?: DiscourseBackend;
-	/** Session DB client — used with sessionId when backend is omitted. */
-	client?: Client;
-	/** Session id for SqliteDiscourseStore. */
-	sessionId?: string;
 	actorAddress?: string;
 	ignoredThread?: { topic: string; thread: string };
 	/** When set (or SCRIBE_URL), wrap the store with a Scribe mirror. */
@@ -96,53 +90,40 @@ async function findUnansweredQuestions(store: DiscourseBackend, actorAddress?: s
 		}
 	}
 
-	return [...questions.entries()]
-		.filter(([id]) => !answered.has(id))
-		.map(([, post]) => post);
+	return [...questions.entries()].filter(([id]) => !answered.has(id)).map(([, post]) => post);
 }
 
-/**
- * Resolve backend — session store first; Scribe only as optional dual-write mirror.
- * Schema for SqliteDiscourseStore must already be applied (see openDiscourseBackend).
- */
-function resolveBackend(opts: DiscourseAdapterOptions): DiscourseBackend {
-	let store: DiscourseBackend;
-	if (opts.backend) {
-		store = opts.backend;
-	} else if (opts.client && opts.sessionId) {
-		store = new SqliteDiscourseStore(opts.client, opts.sessionId);
-	} else {
-		store = new InMemoryDiscourseStore();
-	}
-	return maybeMirrorToScribe(store, {
-		scribeCall: opts.scribeCall,
-		scope: opts.scope,
-		logger: opts.logger,
-	});
+/** Resolve exactly one capability-backed mutation authority. */
+function resolveBackend(opts: DiscourseAdapterOptions): CapabilityDiscourseBackend {
+	const store =
+		opts.backend ??
+		openInMemoryDiscourseBackend({ scribeCall: opts.scribeCall, scope: opts.scope, logger: opts.logger });
+	if (!(store instanceof CapabilityDiscourseBackend))
+		throw new Error("Discourse adapter requires a capability-backed store");
+	return store;
 }
 
 /** Create the discourse adapter with forum tools and question-aware context injection. */
 export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	const store = resolveBackend(opts);
-	let lastReadTs = Date.now();
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
-		const newPosts = await store.readNewPosts(lastReadTs);
+		const newPosts = await store.readPendingPosts();
 		const blocks: string[] = [];
-		const visiblePosts = opts.ignoredThread
-			? newPosts.filter((post) => !(post.topic === opts.ignoredThread!.topic && post.thread === opts.ignoredThread!.thread))
+		const ignoredThread = opts.ignoredThread;
+		const visiblePosts = ignoredThread
+			? newPosts.filter((post) => !(post.topic === ignoredThread.topic && post.thread === ignoredThread.thread))
 			: newPosts;
 
-		if (newPosts.length > 0) {
-			lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
-		}
 		if (visiblePosts.length > 0) {
 			blocks.push(`[Forum — ${visiblePosts.length} new post(s)]\n${visiblePosts.map(formatContextPost).join("\n")}`);
 		}
 
 		const unanswered = await findUnansweredQuestions(store, opts.actorAddress);
 		if (unanswered.length > 0) {
-			blocks.push(`[QUESTIONS — ${unanswered.length} unanswered]\n${unanswered.map((q) => `[${q.topic}/${q.thread}] @${q.author}: ${typeof q.content === "object" && q.content !== null && "text" in q.content ? String((q.content as Record<string, unknown>).text) : String(q.content)}`).join("\n")}`);
+			blocks.push(
+				`[QUESTIONS — ${unanswered.length} unanswered]\n${unanswered.map((q) => `[${q.topic}/${q.thread}] @${q.author}: ${typeof q.content === "object" && q.content !== null && "text" in q.content ? String((q.content as Record<string, unknown>).text) : String(q.content)}`).join("\n")}`,
+			);
 		}
 
 		if (blocks.length === 0) return {};
@@ -154,7 +135,11 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		ctx: CommandHandlerCtx<z.infer<typeof FORUM_POST.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, content, author, replyToPostId } = ctx.payload;
-		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content, { replyToPostId });
+		const post = await store.append(topic, thread, author ?? opts.actorAddress ?? "agent", content, {
+			replyToPostId,
+			operationId: ctx.toolCallId ?? ctx.correlationId,
+			correlationId: ctx.correlationId,
+		});
 		return withDisplay(
 			{ posted: true, id: post.id, topic, thread, timestamp: post.timestamp, replyToPostId: post.replyToPostId },
 			{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
@@ -187,7 +172,10 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 					text:
 						infos.length > 0
 							? infos
-									.map((info) => `  ${topic}/${info.name} (${info.posts} posts, ${info.participants.join(", ")})`)
+									.map(
+										(info) =>
+											`  ${topic}/${info.name} (${info.posts} posts, ${info.participants.join(", ")})`,
+									)
 									.join("\n")
 							: `(no threads in ${topic})`,
 					mimeType: "text/plain",
@@ -213,7 +201,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 			},
 		},
 		{
-			description: "Forum — shared message forum for multi-agent coordination. Pull-based: agents read when ready.",
+			description: "Forum — shared message forum with bounded sequenced delivery for multi-agent coordination.",
 			labels: ["discourse", "forum", "multi-agent", "experimental"],
 			directives: [
 				"Use discourse for agent-to-agent coordination: sharing findings, asking questions, coordinating reviews, and leaving structured feedback. Discourse is for communication between agents.",
@@ -221,7 +209,9 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 				"Post with discourse.post({topic, thread, content}). Read others' posts with discourse.read({topic, thread}). List topics with discourse.list().",
 				"Forum posts auto-inject into context each turn - no polling needed.",
 				...(usingScribe
-					? ["Session store and Scribe are dual-written (mirror); Scribe is vault SoT when loaded (message_add under knowledge.context)."]
+					? [
+							"Discourse commits posts and projection outbox records atomically; Scribe receives an idempotent checkpointed view with observable lag.",
+						]
 					: ["Discourse posts persist in the Alef session store."]),
 			],
 			sources: [{ name: usingScribe ? "session-store+scribe" : "session-store", kind: "process" }],

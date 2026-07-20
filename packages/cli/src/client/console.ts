@@ -13,6 +13,7 @@ import {
 	Toast,
 	type TUI,
 } from "@dpopsuev/alef-tui";
+import { INDENT } from "@dpopsuev/alef-tui/views";
 export type { Component };
 
 /** Wraps the Editor component with top and bottom separator borders. */
@@ -65,7 +66,7 @@ import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pr
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
 import { type ColorToken, color, glyph, selectListThemeFromTokens, statusGlyph, type ThemeTokens } from "./theme.js";
 
-/** Prefer header + active plan block + following rows when the sticky widget is height-capped. */
+/** Prefer header + active plan block + following rows when the dock widget is height-capped. */
 export function prioritizeWidgetLines(lines: readonly string[], maxLines: number): string[] {
 	if (lines.length <= maxLines) return [...lines];
 	const header = lines[0] ?? "";
@@ -172,13 +173,13 @@ export class PromptConsole {
 		this.chunkDetail = new Text("", 2, 0);
 		this.inspectorHint = new Text("", 0, 0);
 
-		// Sticky anchor only — never paint a bare mid-run delimiter (Scribe: hide-full-width-delimiter…).
+		// Dock anchor only — never paint a bare mid-run delimiter (Scribe: hide-full-width-delimiter…).
 		this.pendingFooter = new DynamicText(() => "");
 	}
 
 	mount(): void {
 		this.tui.addChild(this.pendingFooter);
-		this.tui.setStickyFrom(this.pendingFooter);
+		this.tui.setDock(this.pendingFooter);
 		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
@@ -200,6 +201,7 @@ export class PromptConsole {
 	}
 
 	startThinking(): void {
+		this.editor.suppressCursor = true;
 		if (this.thinkingTimer) {
 			clearTimeout(this.thinkingTimer);
 			this.thinkingTimer = undefined;
@@ -214,7 +216,8 @@ export class PromptConsole {
 			const level = this.pressure.level();
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
 			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
-			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}${intent}`);
+			const pad = " ".repeat(INDENT.BLOCK);
+			this.statusText.setText(`${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`);
 			this.refreshCards();
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
@@ -225,6 +228,7 @@ export class PromptConsole {
 	}
 
 	stopThinking(): void {
+		this.editor.suppressCursor = false;
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
@@ -287,7 +291,7 @@ export class PromptConsole {
 			this.widgetAboveText = null;
 			return;
 		}
-		// Prefer a single status line; multi-line sticky trees are collapsed to the header.
+		// Prefer a single status line; multi-line dock trees are collapsed to the header.
 		const firstLine = text.split("\n").find((line) => line.trim()) ?? text;
 		const display = firstLine.startsWith("Plan ·")
 			? color(firstLine, this.t.mutedFg)
@@ -386,7 +390,7 @@ export class PromptConsole {
 	}
 
 	showPendingFooter(_fg: ColorToken): void {
-		// Sticky anchor stays mounted; never paint a mid-run full-width delimiter.
+		// Dock anchor stays mounted; never paint a mid-run full-width delimiter.
 	}
 
 	hidePendingFooter(): void {}
@@ -475,7 +479,7 @@ export class PromptConsole {
 	}
 
 	/**
-	 * Sync the sticky pending-queue panel from a message-queued signal.
+	 * Sync the dock pending-queue panel from a message-queued signal.
 	 * Enqueue notifications carry `text`; drain notifications only carry `queueLength`.
 	 * Returns texts shifted off the panel head (promote those to chat scrollback).
 	 */

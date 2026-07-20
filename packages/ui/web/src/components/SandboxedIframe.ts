@@ -55,7 +55,7 @@ export class SandboxIframe extends LitElement {
 	 */
 	@property({ attribute: false }) sandboxUrlProvider?: SandboxUrlProvider;
 
-	createRenderRoot() {
+	override createRenderRoot() {
 		return this;
 	}
 

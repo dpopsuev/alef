@@ -1,8 +1,9 @@
 import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
+import type { SettingsListTheme } from "@dpopsuev/alef-tui";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 import { getConfig } from "../../boot/config.js";
-import { color, getProviderColor, setThemeByName } from "../theme.js";
+import { color, getActiveThemeName, getProviderColor, setThemeByName } from "../theme.js";
 import { buildPickerTheme, openConfigPicker, openEnumPicker, openPicker } from "./overlay-picker.js";
 import { type Command, completeCommandArguments, type SettingsCmdCtx } from "./types.js";
 
@@ -21,6 +22,17 @@ function isAnthropicViaVertex(): boolean {
 	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
 	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 	return Boolean(projectId && region);
+}
+
+/** Build the SettingsList theme from the active TUI color tokens. */
+export function buildSettingsTheme(ctx: SettingsCmdCtx): SettingsListTheme {
+	return {
+		label: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : s),
+		value: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : color(s, ctx.t.mutedFg)),
+		description: (s: string) => color(s, ctx.t.mutedFg),
+		cursor: color("\u2192 ", ctx.t.accentFg),
+		hint: (s: string) => color(s, ctx.t.mutedFg),
+	};
 }
 
 /** Build the list of selectable model items from the active profile or all providers. */
@@ -67,8 +79,8 @@ function buildModelSubmenu(currentValue: string, done: (value?: string) => void,
 		...item,
 		label: currentValue.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
 	}));
-	const theme = buildPickerTheme(ctx.t);
-	const list = new SelectList(items, PICKER_MAX_VISIBLE, theme).enableSearch();
+	const pickerTheme = buildPickerTheme(ctx.t);
+	const list = new SelectList(items, PICKER_MAX_VISIBLE, pickerTheme).enableSearch();
 	list.onSelect = (item: SelectItem) => {
 		try {
 			buildModel(item.value);
@@ -77,6 +89,65 @@ function buildModelSubmenu(currentValue: string, done: (value?: string) => void,
 			ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
 			done();
 		}
+	};
+	list.onCancel = () => done();
+	return list;
+}
+
+/** Create a theme enum picker submenu. */
+function buildThemeSubmenu(_currentValue: string, done: (value?: string) => void, ctx: SettingsCmdCtx) {
+	const items: SelectItem[] = THEMES.map((v) => ({
+		value: v,
+		label: v === getActiveThemeName() ? `${v} *` : v,
+	}));
+	const pickerTheme = buildPickerTheme(ctx.t);
+	const list = new SelectList(items, THEMES.length, pickerTheme);
+	list.onSelect = (item: SelectItem) => {
+		setThemeByName(item.value);
+		done(item.value);
+		ctx.tui.requestRender(true);
+	};
+	list.onCancel = () => done();
+	return list;
+}
+
+/** Create a profile picker submenu. */
+function buildProfileSubmenu(_currentValue: string, done: (value?: string) => void, ctx: SettingsCmdCtx) {
+	const cfg = getConfig();
+	const names = cfg.profiles ? Object.keys(cfg.profiles) : [];
+	if (names.length === 0) {
+		ctx.writer.addNotice("No profiles defined in config.yaml.");
+		done();
+		return new (class NullComponent {
+			render() {
+				return [];
+			}
+			invalidate() {}
+		})();
+	}
+	const items: SelectItem[] = names.map((n) => {
+		const p = cfg.profiles?.[n];
+		const active = n === cfg.profile;
+		return {
+			value: n,
+			label: active ? `${n} *` : n,
+			description: p ? `${p.providers.join(", ")}${p.default ? ` > ${p.default}` : ""}` : "",
+		};
+	});
+	const pickerTheme = buildPickerTheme(ctx.t);
+	const list = new SelectList(items, 6, pickerTheme);
+	list.onSelect = (item: SelectItem) => {
+		const resolved = resolveProfile({ ...cfg, profile: item.value });
+		const defaultModel = resolved?.defaultModel;
+		if (defaultModel) {
+			try {
+				buildModel(defaultModel);
+				ctx.session.setModel(defaultModel);
+			} catch {
+				// default model not valid
+			}
+		}
+		done(item.value);
 	};
 	list.onCancel = () => done();
 	return list;
@@ -97,24 +168,17 @@ function openModelPicker(ctx: SettingsCmdCtx): void {
 			label: "Thinking",
 			currentValue: ctx.session.getThinking(),
 			values: [...THINKING_LEVELS],
-			description: "Extended thinking depth. Space/Enter to cycle.",
+			description: "Extended thinking depth. Tab/Shift+Tab to cycle.",
 		},
 	];
-
-	const settingsTheme = {
-		label: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : s),
-		value: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : color(s, ctx.t.mutedFg)),
-		description: (s: string) => color(s, ctx.t.mutedFg),
-		cursor: color("→ ", ctx.t.accentFg),
-		hint: (s: string) => color(s, ctx.t.mutedFg),
-	};
 
 	const close = () => {
 		ctx.dispatch({ type: "overlay.hide", id: "model-picker" });
 		ctx.tui.requestRender();
 	};
 
-	const settings = new SettingsList(
+	const settingsTheme = buildSettingsTheme(ctx);
+	const list = new SettingsList(
 		settingsItems,
 		SETTINGS_MAX_VISIBLE,
 		settingsTheme,
@@ -134,9 +198,139 @@ function openModelPicker(ctx: SettingsCmdCtx): void {
 
 	ctx.dispatch({
 		type: "overlay.show",
-		descriptor: { id: "model-picker", component: settings, handleInput: (d: string) => settings.handleInput(d) },
+		descriptor: { id: "model-picker", component: list, handleInput: (d: string) => list.handleInput(d) },
 	});
 }
+
+/** Open the unified settings overlay with all runtime settings. */
+function openSettingsOverlay(ctx: SettingsCmdCtx): void {
+	const cfg = getConfig();
+	const profileNames = cfg.profiles ? Object.keys(cfg.profiles) : [];
+
+	const settingsItems: SettingItem[] = [
+		{
+			id: "model",
+			label: "Model",
+			currentValue: ctx.session.getModel(),
+			description: "LLM model. Enter to browse available models.",
+			submenu: (currentValue, done) => buildModelSubmenu(currentValue, done, ctx),
+		},
+		{
+			id: "thinking",
+			label: "Thinking",
+			currentValue: ctx.session.getThinking(),
+			values: [...THINKING_LEVELS],
+			description: "Extended thinking depth. Tab/Shift+Tab to cycle.",
+		},
+		{
+			id: "theme",
+			label: "Theme",
+			currentValue: getActiveThemeName(),
+			description: "Color theme. Enter to browse.",
+			submenu: (currentValue, done) => buildThemeSubmenu(currentValue, done, ctx),
+		},
+		{
+			id: "cursor-style",
+			label: "Cursor style",
+			currentValue: ctx.editor?.cursorStyle ?? "block",
+			values: ["block", "line"],
+			description: "Software cursor shape. Tab/Shift+Tab to cycle.",
+		},
+		{
+			id: "cursor-blink",
+			label: "Cursor blink",
+			currentValue: ctx.editor?.cursorBlink ? "on" : "off",
+			values: ["off", "on"],
+			description: "Cursor blinking. Tab/Shift+Tab to cycle.",
+		},
+	];
+
+	if (profileNames.length > 0) {
+		settingsItems.push({
+			id: "profile",
+			label: "Profile",
+			currentValue: cfg.profile ?? "default",
+			description: "Model profile (provider/model subsets). Enter to browse.",
+			submenu: (currentValue, done) => buildProfileSubmenu(currentValue, done, ctx),
+		});
+	}
+
+	const close = () => {
+		ctx.dispatch({ type: "overlay.hide", id: "settings" });
+		ctx.tui.requestRender();
+	};
+
+	const settingsTheme = buildSettingsTheme(ctx);
+	const list = new SettingsList(
+		settingsItems,
+		SETTINGS_MAX_VISIBLE,
+		settingsTheme,
+		(id, value) => {
+			switch (id) {
+				case "model":
+					ctx.session.setModel(value);
+					ctx.writer.addNotice(`Model switched to ${value}.`);
+					break;
+				case "thinking":
+					ctx.session.setThinking(value);
+					ctx.writer.addNotice(`Thinking set to "${value}".`);
+					break;
+				case "theme":
+					setThemeByName(value);
+					ctx.writer.addNotice(`Theme set to '${value}'.`);
+					ctx.tui.requestRender(true);
+					break;
+				case "cursor-style":
+					if (ctx.editor) {
+						ctx.editor.cursorStyle = value === "line" ? "line" : "block";
+						ctx.writer.addNotice(`Cursor style set to '${value}'.`);
+					}
+					break;
+				case "cursor-blink":
+					if (ctx.editor) {
+						const blink = value === "on";
+						ctx.editor.cursorBlink = blink;
+						if (blink) ctx.editor.startBlink();
+						else ctx.editor.stopBlink();
+						ctx.writer.addNotice(`Cursor blink ${blink ? "enabled" : "disabled"}.`);
+					}
+					break;
+				case "profile": {
+					const resolved = resolveProfile({ ...cfg, profile: value });
+					const count = resolved?.models.length ?? 0;
+					const defaultModel = resolved?.defaultModel;
+					if (defaultModel) {
+						try {
+							buildModel(defaultModel);
+							ctx.session.setModel(defaultModel);
+						} catch {
+							// default model not valid
+						}
+					}
+					ctx.writer.addNotice(
+						`Profile "${value}" active -- ${count} models.${defaultModel ? ` Default: ${defaultModel}` : ""}`,
+					);
+					break;
+				}
+			}
+			close();
+		},
+		close,
+	);
+
+	ctx.dispatch({
+		type: "overlay.show",
+		descriptor: { id: "settings", component: list, handleInput: (d: string) => list.handleInput(d) },
+	});
+}
+
+export const settings: Command = {
+	name: "settings",
+	description: "Open settings overlay",
+	run(ctx: SettingsCmdCtx) {
+		openSettingsOverlay(ctx);
+	},
+};
 
 export const theme: Command = {
 	name: "theme",
@@ -174,7 +368,7 @@ export const theme: Command = {
 
 export const model: Command = {
 	name: "model",
-	description: "Switch model — :model or :model <id>",
+	description: "Switch model -- :model or :model <id>",
 	run(ctx: SettingsCmdCtx, args: string[]) {
 		const [newId] = args;
 		if (newId) {
@@ -229,7 +423,7 @@ export const think: Command = {
 
 export const profile: Command = {
 	name: "profile",
-	description: "Switch model profile — :profile or :profile <name>",
+	description: "Switch model profile -- :profile or :profile <name>",
 	run(ctx: SettingsCmdCtx, args: string[]) {
 		const cfg = getConfig();
 		const names = cfg.profiles ? Object.keys(cfg.profiles) : [];
@@ -253,11 +447,11 @@ export const profile: Command = {
 					buildModel(defaultModel);
 					ctx.session.setModel(defaultModel);
 				} catch {
-					// default model not valid — ignore
+					// default model not valid -- ignore
 				}
 			}
 			ctx.writer.addNotice(
-				`Profile "${name}" active — ${count} models.${defaultModel ? ` Default: ${defaultModel}` : ""}`,
+				`Profile "${name}" active -- ${count} models.${defaultModel ? ` Default: ${defaultModel}` : ""}`,
 			);
 			ctx.tui.requestRender();
 		};
@@ -291,7 +485,7 @@ export const profile: Command = {
 
 export const skills: Command = {
 	name: "skills",
-	description: "Browse and invoke skills — :skills or :skills <name>",
+	description: "Browse and invoke skills -- :skills or :skills <name>",
 	async run(ctx: SettingsCmdCtx, args: string[]) {
 		const [name] = args;
 		if (name) {

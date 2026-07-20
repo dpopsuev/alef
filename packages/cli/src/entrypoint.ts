@@ -40,8 +40,11 @@ import { handleSelfUpdate, runPmCommand } from "./pkg/run-pm-command.js";
 // Phase 1: Pure setup
 // ---------------------------------------------------------------------------
 
+import { createExitRestartStrategy, setRestartStrategy } from "./boot/reboot-port.js";
+
 process.title = "alef";
 setupSupervisorIpc();
+setRestartStrategy(createExitRestartStrategy());
 updateNotifier({ pkg: { name: "@dpopsuev/alef", version: BUILD_INFO.version } }).notify();
 ensureDirectories();
 
@@ -199,7 +202,7 @@ import { setModelLogger } from "@dpopsuev/alef-agent/model";
 setModelLogger({ warn: (msg) => log.warn(msg), error: (msg) => log.error(msg) });
 
 const env = detectEnvironment(args.cwd);
-log.info({ mode: env.mode, hotReload: env.canHotReload }, "Runtime environment");
+log.info({ mode: env.mode, warmReboot: env.canWarmReboot }, "Runtime environment");
 
 const storage = await runtime.getStorage();
 
@@ -233,6 +236,8 @@ initSessionSink((record) => {
 
 traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
+// Boot manifest is emitted after adapters/model resolve -- see boot:manifest below.
+
 Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/sqlite/session")])
 	.then(([{ setEmbedder, LocalEmbedder, queueEmbedding }, { setEmbeddingCallback }]) => {
 		setEmbedder(new LocalEmbedder());
@@ -252,19 +257,45 @@ const loaded = await loadAdapters(args, cfg, log, sessionDir, {
 });
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
 
+// Boot manifest: full operational snapshot for debugging, audit, and cost attribution.
+traceEvent("boot:manifest", {
+	version: BUILD_INFO.version,
+	gitHash: BUILD_INFO.gitHash,
+	gitBranch: BUILD_INFO.gitBranch,
+	channel: BUILD_INFO.channel,
+	nodeVersion: process.version,
+	pid: process.pid,
+	sessionId: session.id,
+	cwd: args.cwd,
+	model: model.id,
+	contextWindow: model.contextWindow,
+	reasoning: model.reasoning,
+	blueprint: loaded.blueprintName ?? null,
+	blueprintPath: loaded.blueprintPath ?? null,
+	adapters: loaded.adapters.map((a) => a.name),
+	adapterCount: loaded.adapters.length,
+	environment: env.mode,
+	canWarmReboot: env.canWarmReboot,
+	tui: !args.noTui,
+});
+
 import("@dpopsuev/alef-ai/models").then((m) => m.refreshModelRegistry()).catch(() => {});
 
-// In-process hot-reload for local checkouts. Skip when an external process
-// supervisor owns alefRequestRebuild via ALEF_SUPERVISOR=1 IPC.
-if (env.canHotReload && process.env.ALEF_SUPERVISOR !== "1") {
-	const { setRebuildPort } = await import("./boot/rebuild-port.js");
-	runtime.registerHotReload({
+// Build service: register when dev environment has a build command.
+// The RebootPort composes build + exit(75) -- the wrapper handles respawn.
+// Skip when an external process supervisor owns reboot via ALEF_SUPERVISOR=1 IPC.
+if (env.canWarmReboot && process.env.ALEF_SUPERVISOR !== "1") {
+	const { setRebootPort } = await import("./boot/reboot-port.js");
+	runtime.registerBuildService({
 		buildCommand: env.buildCommand!,
-		swap: runtime.swap,
-		sessionServiceName: "session",
 		cwd: args.cwd,
-		onReady: (handle) => setRebuildPort(handle),
-		onStopped: () => setRebuildPort(undefined),
+		onReady: (buildService) => {
+			setRebootPort({ reboot: () => buildService.build() });
+		},
+		onStopped: () => setRebootPort(undefined),
+		onEvent: (event) => {
+			traceEvent(`build:${event.phase}`, event);
+		},
 	});
 }
 
@@ -277,6 +308,15 @@ runtime.registerApplicationServices({
 	model,
 	storage,
 	identity,
+	reloadAdapters: () => {
+		const reloadArgs = { ...args, blueprint: loaded.blueprintName ?? loaded.blueprintPath ?? args.blueprint };
+		return loadAdapters(reloadArgs, cfg, log, sessionDir, {
+			resolveService: runtime.resolveService,
+			actorAddress: identity.agentActor.address,
+			sessionId: session.id,
+			discussion,
+		});
+	},
 });
 
 // Theme

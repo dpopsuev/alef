@@ -4,9 +4,19 @@ import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { ProcessTerminal, type SelectItem, SelectList, setTraceSink, type Terminal, TUI } from "@dpopsuev/alef-tui";
+import {
+	type Editor,
+	matchesKey,
+	ProcessTerminal,
+	type SelectItem,
+	SelectList,
+	setTraceSink,
+	type Terminal,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
+import { getRebootPort, getRestartStrategy } from "../boot/reboot-port.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
 import { displayActorName } from "./actor-label.js";
@@ -27,7 +37,7 @@ export {
 	truncateToolOutput,
 } from "@dpopsuev/alef-tui/views";
 export type { TuiHandlerContext } from "./handlers.js";
-export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./handlers.js";
+export { handleColonCommand, handleCtrlC, renderHeaderTopBorder } from "./handlers.js";
 
 interface DiscussionTimelineEntry {
 	timestamp: number;
@@ -122,9 +132,42 @@ export async function runTuiMode(
 		compacted: false,
 		costUsd: 0,
 	});
+	// Boot splash overlay -- shown while layout builds and history loads
+	const { Bootloader } = await import("./bootloader.js");
+	const bootloader = new Bootloader();
+	bootloader.setPhase("booting");
+	bootloader.setSteps([
+		{ label: "Loading session", status: "active" },
+		{ label: "Building layout", status: "pending" },
+		{ label: "Ready", status: "pending" },
+	]);
+	bootloader.start(() => tui.requestRender());
+	const bootOverlay = tui.showOverlay(bootloader, { anchor: "center", nonCapturing: true });
+	tui.requestRender(true);
+
+	bootloader.setSteps([
+		{ label: "Loading session", status: "done" },
+		{ label: "Building layout", status: "active" },
+		{ label: "Ready", status: "pending" },
+	]);
+
 	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
+
+	bootloader.setSteps([
+		{ label: "Loading session", status: "done" },
+		{ label: "Building layout", status: "done" },
+		{ label: "Ready", status: "active" },
+	]);
+	tui.requestRender();
+
+	// Dismiss boot splash after a brief flash so user sees it
+	setTimeout(() => {
+		bootloader.stop();
+		bootOverlay.hide();
+		tui.requestRender(true);
+	}, 400);
 	let discussionReloadSeq = 0;
 	let historyAbort: AbortController | undefined;
 	let activeDiscussionKey = opts.discussion ? `${opts.discussion.forumId}/${opts.discussion.topicId}` : "";
@@ -228,7 +271,7 @@ export async function runTuiMode(
 		}
 	});
 
-	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store);
+	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store, editor);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);
 	const historyPickerToggle = (): boolean =>
@@ -346,6 +389,7 @@ export function createContextFactory(
 	getState: () => TuiState,
 	dispatch: (event: TuiEvent) => void,
 	store?: SessionStore,
+	editorRef?: Editor,
 ): () => TuiHandlerContext {
 	return () => {
 		const state = getState();
@@ -369,35 +413,11 @@ export function createContextFactory(
 				contextWindow: session.state.contextWindow || 0,
 			},
 			taskLedger: [...state.taskLedger.values()],
+			editor: editorRef,
+			rebootPort: getRebootPort(),
+			restartStrategy: getRestartStrategy(),
 		};
 	};
-}
-
-const KEY = {
-	CTRL_C: "\x03",
-	CTRL_R: "\x12",
-	CTRL_T: "\x14",
-	TAB: "\t",
-	ESC: "\x1b",
-	SHIFT_TAB: "\x1b[Z",
-	UP: "\x1b[A",
-	DOWN: "\x1b[B",
-} as const;
-
-const KEY_MAP: Record<string, string> = {
-	"ctrl+c": KEY.CTRL_C,
-	"ctrl+r": KEY.CTRL_R,
-	"ctrl+t": KEY.CTRL_T,
-	tab: KEY.TAB,
-	escape: KEY.ESC,
-	"shift+tab": KEY.SHIFT_TAB,
-	up: KEY.UP,
-	down: KEY.DOWN,
-};
-
-/** Test whether a raw terminal data string matches a named key combo. */
-function matchesKey(data: string, combo: string): boolean {
-	return data === (KEY_MAP[combo] ?? combo);
 }
 
 /** Route raw terminal input to overlays, inspector, or global shortcuts before the editor sees it. */
@@ -423,9 +443,13 @@ export function handleRawInput(
 		return true;
 	}
 
-	// Ctrl+C: Interrupt or quit
+	// Ctrl+C: interrupt active turn, or exit when idle
 	if (matchesKey(data, "ctrl+c")) {
 		traceEvent("raw:ctrl+c");
+		if (tuiState.abortCurrentTurn) {
+			dispatch({ type: "turn.interrupt" });
+			return true;
+		}
 		handleCtrlC(ctx());
 		return true;
 	}

@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "test": "vitest --run",
     "clean": "shx rm -rf dist"
   },

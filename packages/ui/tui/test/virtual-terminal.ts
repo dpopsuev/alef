@@ -189,7 +189,7 @@ export class VirtualTerminal implements Terminal {
 		return lines;
 	}
 
-	/** Lines above the viewport — terminal scrollback only, not the sticky band. */
+	/** Lines above the viewport — terminal scrollback only, not the dock band. */
 	getScrollbackAboveViewport(): string[] {
 		const lines: string[] = [];
 		const buffer = this.xterm.buffer.active;

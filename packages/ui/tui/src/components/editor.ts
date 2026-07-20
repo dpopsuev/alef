@@ -245,6 +245,17 @@ export class Editor implements Component, Focusable {
 	/** Focusable interface - set by TUI when focus changes */
 	focused: boolean = false;
 
+	/** When true and the editor is empty, the software cursor is hidden. */
+	suppressCursor = false;
+
+	/** Software cursor shape: block (inverse char) or line (thin bar). */
+	cursorStyle: "block" | "line" = "block";
+
+	/** When true, the software cursor blinks (toggles visibility every ~530ms). */
+	cursorBlink = false;
+	private blinkVisible = true;
+	private blinkTimer: ReturnType<typeof setInterval> | null = null;
+
 	protected tui: TuiHandle;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
@@ -491,6 +502,38 @@ export class Editor implements Component, Focusable {
 		// No cached state to invalidate currently
 	}
 
+	/** Start blink timer if cursorBlink is enabled. */
+	startBlink(): void {
+		if (this.blinkTimer) return;
+		if (!this.cursorBlink) return;
+		this.blinkVisible = true;
+		this.blinkTimer = setInterval(() => {
+			this.blinkVisible = !this.blinkVisible;
+			this.tui.requestRender();
+		}, 530);
+	}
+
+	/** Stop blink timer and reset to visible. */
+	stopBlink(): void {
+		if (this.blinkTimer) {
+			clearInterval(this.blinkTimer);
+			this.blinkTimer = null;
+		}
+		this.blinkVisible = true;
+	}
+
+	/** Reset blink phase to visible (call on any keystroke). */
+	private resetBlink(): void {
+		this.blinkVisible = true;
+		if (this.blinkTimer) {
+			clearInterval(this.blinkTimer);
+			this.blinkTimer = setInterval(() => {
+				this.blinkVisible = !this.blinkVisible;
+				this.tui.requestRender();
+			}, 530);
+		}
+	}
+
 	render(width: number): string[] {
 		const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
 		const paddingX = Math.min(this.paddingX, maxPadding);
@@ -557,7 +600,8 @@ export class Editor implements Component, Focusable {
 			let cursorInPadding = false;
 
 			// Add cursor if this line has it
-			if (layoutLine.hasCursor && layoutLine.cursorPos !== undefined) {
+			const showSoftCursor = !(this.suppressCursor && this.isEditorEmpty());
+			if (showSoftCursor && layoutLine.hasCursor && layoutLine.cursorPos !== undefined) {
 				const before = displayText.slice(0, layoutLine.cursorPos);
 				const after = displayText.slice(layoutLine.cursorPos);
 
@@ -565,19 +609,34 @@ export class Editor implements Component, Focusable {
 				const marker = emitCursorMarker ? CURSOR_MARKER : "";
 
 				if (after.length > 0) {
-					// Cursor is on a character (grapheme) - replace it with highlighted version
-					// Get the first grapheme from 'after'
 					const afterGraphemes = [...this.segment(after)];
 					const firstGrapheme = afterGraphemes[0]?.segment ?? "";
 					const restAfter = after.slice(firstGrapheme.length);
-					const cursor = `\x1b[7m${firstGrapheme}\x1b[0m`;
-					displayText = before + marker + cursor + restAfter;
+					if (!this.cursorBlink || this.blinkVisible) {
+						if (this.cursorStyle === "line") {
+							const cursor = `\x1b[7m\u2502\x1b[0m${firstGrapheme}`;
+							displayText = before + marker + cursor + restAfter;
+						} else {
+							const cursor = `\x1b[7m${firstGrapheme}\x1b[0m`;
+							displayText = before + marker + cursor + restAfter;
+						}
+					} else {
+						displayText = before + marker + firstGrapheme + restAfter;
+					}
 					// lineVisibleWidth stays the same - we're replacing, not adding
 				} else {
-					// Cursor is at the end - add highlighted space, then idle ghost hint.
-					const cursor = "\x1b[7m \x1b[0m";
 					const ghost = this.ghostHint?.overlay() ?? "";
-					displayText = before + marker + cursor + ghost;
+					if (!this.cursorBlink || this.blinkVisible) {
+						if (this.cursorStyle === "line") {
+							const cursor = "\x1b[7m\u2502\x1b[0m";
+							displayText = before + marker + cursor + ghost;
+						} else {
+							const cursor = "\x1b[7m \x1b[0m";
+							displayText = before + marker + cursor + ghost;
+						}
+					} else {
+						displayText = before + marker + " " + ghost;
+					}
 					lineVisibleWidth = lineVisibleWidth + 1 + visibleWidth(ghost);
 					// If cursor overflows content width into the padding, flag it
 					if (lineVisibleWidth > contentWidth && paddingX > 0) {
@@ -622,6 +681,7 @@ export class Editor implements Component, Focusable {
 	handleInput(data: string): void {
 		const kb = getKeybindings();
 		this.ghostHint?.onActivity();
+		this.resetBlink();
 
 		// Handle character jump mode (awaiting next character to jump to)
 		if (this.jumpMode !== null) {

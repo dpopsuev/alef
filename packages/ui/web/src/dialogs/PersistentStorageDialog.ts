@@ -11,8 +11,8 @@ export class PersistentStorageDialog extends DialogBase {
 
 	private resolvePromise?: (userApproved: boolean) => void;
 
-	protected modalWidth = "min(500px, 90vw)";
-	protected modalHeight = "auto";
+	protected override modalWidth = "min(500px, 90vw)";
+	protected override modalHeight = "auto";
 
 	/**
 	 * Request persistent storage permission.

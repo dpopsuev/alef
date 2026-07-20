@@ -3,7 +3,7 @@ import { type AdapterCmdCtx, attempt, type Command } from "./types.js";
 
 export const reload: Command = {
 	name: "reload",
-	description: "Hot-reload an adapter — :reload <name> <path>",
+	description: "Reload an adapter in-place — :reload <name> <path>",
 	run(ctx: AdapterCmdCtx, args: string[]) {
 		const [name, path] = args;
 		if (!name || !path) {

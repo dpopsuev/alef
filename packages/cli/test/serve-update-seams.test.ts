@@ -2,13 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import type { Args } from "../src/boot/args.js";
 import { shouldMirrorSessionToRouter } from "../src/boot/build-delegation.js";
 import { awaitProcessLifetime, SERVE_IDLE_TIMEOUT_MS } from "../src/boot/process-lifetime.js";
-import { getRebuildPort, setRebuildPort } from "../src/boot/rebuild-port.js";
+import { getRebootPort, setRebootPort } from "../src/boot/reboot-port.js";
 import { setupSupervisorIpc } from "../src/boot/supervisor-ipc.js";
 import { isHeadlessServe, ServeViewMode, selectViewMode } from "../src/boot/views.js";
-import { parseUpdateArgs, runRestart, runUpdate, type UpdateShell } from "../src/client/commands/update-service.js";
+import {
+	type GitOps,
+	type PackageInstaller,
+	parseUpdateArgs,
+	type ReleaseChecker,
+	runDevUpdate,
+	runStableUpdate,
+} from "../src/client/commands/update-service.js";
 
 function baseArgs(over: Partial<Args> = {}): Args {
-	// Minimal stub — only fields read by isHeadlessServe / selectViewMode matter.
 	return { print: false, noTui: false, serve: undefined, json: false, ...over } as Args;
 }
 
@@ -60,16 +66,16 @@ describe("awaitProcessLifetime", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("RebuildPort", { tags: ["unit"] }, () => {
+describe("RebootPort", { tags: ["unit"] }, () => {
 	it("set/get/clear and mirrors globalThis", async () => {
-		const requestRebuild = vi.fn(async () => {});
-		setRebuildPort({ requestRebuild });
-		expect(getRebuildPort()?.requestRebuild).toBe(requestRebuild);
-		await (globalThis as { alefRequestRebuild?: () => Promise<void> }).alefRequestRebuild?.();
-		expect(requestRebuild).toHaveBeenCalledOnce();
-		setRebuildPort(undefined);
-		expect(getRebuildPort()).toBeUndefined();
-		expect((globalThis as { alefRequestRebuild?: unknown }).alefRequestRebuild).toBeUndefined();
+		const reboot = vi.fn(async () => {});
+		setRebootPort({ reboot });
+		expect(getRebootPort()?.reboot).toBe(reboot);
+		await (globalThis as { alefReboot?: () => Promise<void> }).alefReboot?.();
+		expect(reboot).toHaveBeenCalledOnce();
+		setRebootPort(undefined);
+		expect(getRebootPort()).toBeUndefined();
+		expect((globalThis as { alefReboot?: unknown }).alefReboot).toBeUndefined();
 	});
 });
 
@@ -95,7 +101,7 @@ describe("setupSupervisorIpc", { tags: ["unit"] }, () => {
 		else process.env.ALEF_SUPERVISOR = prev;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- restore
 		(process as any).send = originalSend;
-		setRebuildPort(undefined);
+		setRebootPort(undefined);
 	});
 });
 
@@ -107,124 +113,147 @@ describe("shouldMirrorSessionToRouter", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("parseUpdateArgs / runUpdate / runRestart", { tags: ["unit"] }, () => {
-	function fakeShell(over: Partial<UpdateShell> = {}): UpdateShell {
+describe("parseUpdateArgs", { tags: ["unit"] }, () => {
+	it("parses flags", () => {
+		expect(parseUpdateArgs([])).toEqual({ pull: false, force: false, checkOnly: false });
+		expect(parseUpdateArgs(["--force", "--check"])).toEqual({ pull: false, force: true, checkOnly: true });
+		expect(parseUpdateArgs(["--pull"])).toEqual({ pull: true, force: false, checkOnly: false });
+	});
+});
+
+describe("runDevUpdate", { tags: ["unit"] }, () => {
+	function fakeGit(over: Partial<GitOps> = {}): GitOps {
 		return {
-			gitStatusPorcelain: () => "",
-			gitPull: vi.fn(),
-			gitCheckStatus: () => "up to date",
-			npmInstall: vi.fn(),
-			npmInstallGlobal: vi.fn(),
-			build: vi.fn(),
-			checkRelease: async () => null,
+			statusPorcelain: () => "",
+			pull: vi.fn(),
+			checkStatus: () => "up to date",
+			installDeps: vi.fn(),
 			...over,
 		};
 	}
 
-	it("parses flags", () => {
-		expect(parseUpdateArgs([])).toEqual({ force: false, checkOnly: false });
-		expect(parseUpdateArgs(["--force", "--check"])).toEqual({ force: true, checkOnly: true });
-	});
-
-	it("aborts on dirty tree without --force", async () => {
-		const result = await runUpdate({
-			channel: "dev",
-			force: false,
-			checkOnly: false,
-			version: "0.1.0",
-			shell: fakeShell({ gitStatusPorcelain: () => " M file.ts" }),
-			respawn: vi.fn(),
-		});
-		expect(result).toEqual({ kind: "aborted-dirty" });
-	});
-
-	it("force continues on dirty tree and prefers rebuild", async () => {
+	it("builds locally and prefers rebuild (no --pull)", async () => {
 		const rebuild = vi.fn(async () => {});
 		const respawn = vi.fn(async () => {});
-		const shell = fakeShell({ gitStatusPorcelain: () => " M file.ts" });
-		const result = await runUpdate({
-			channel: "dev",
-			force: true,
-			checkOnly: false,
-			version: "0.1.0",
-			shell,
-			rebuild,
-			respawn,
-		});
-		expect(result).toEqual({ kind: "reloaded" });
-		expect(shell.gitPull).toHaveBeenCalled();
-		expect(shell.npmInstall).toHaveBeenCalled();
-		expect(shell.build).toHaveBeenCalled();
+		const git = fakeGit();
+		const result = await runDevUpdate({ pull: false, force: false, checkOnly: false, git, rebuild, respawn });
+		expect(result).toEqual({ kind: "rebuilt" });
+		expect(git.pull).not.toHaveBeenCalled();
+		expect(git.installDeps).not.toHaveBeenCalled();
 		expect(rebuild).toHaveBeenCalled();
 		expect(respawn).not.toHaveBeenCalled();
 	});
 
-	it("checkOnly returns git detail without mutating", async () => {
-		const shell = fakeShell({ gitCheckStatus: () => "fetch would pull" });
-		const result = await runUpdate({
-			channel: "dev",
-			force: false,
-			checkOnly: true,
-			version: "0.1.0",
-			shell,
-			respawn: vi.fn(),
-		});
-		expect(result).toEqual({ kind: "check", detail: "fetch would pull" });
-		expect(shell.gitPull).not.toHaveBeenCalled();
+	it("with --pull does git pull + installDeps before build", async () => {
+		const rebuild = vi.fn(async () => {});
+		const git = fakeGit();
+		const result = await runDevUpdate({ pull: true, force: false, checkOnly: false, git, rebuild, respawn: vi.fn() });
+		expect(result).toEqual({ kind: "rebuilt" });
+		expect(git.pull).toHaveBeenCalled();
+		expect(git.installDeps).toHaveBeenCalled();
 	});
 
-	it("stable checkOnly returns available release", async () => {
-		const release = {
-			version: "9.9.9",
-			changelog: "notes",
-			publishedAt: "t",
-			htmlUrl: "u",
-		};
-		const result = await runUpdate({
-			channel: "stable",
+	it("--pull aborts on dirty tree without --force", async () => {
+		const git = fakeGit({ statusPorcelain: () => " M file.ts" });
+		const result = await runDevUpdate({ pull: true, force: false, checkOnly: false, git, respawn: vi.fn() });
+		expect(result).toEqual({ kind: "aborted-dirty" });
+	});
+
+	it("--pull --force continues on dirty tree", async () => {
+		const rebuild = vi.fn(async () => {});
+		const git = fakeGit({ statusPorcelain: () => " M file.ts" });
+		const result = await runDevUpdate({ pull: true, force: true, checkOnly: false, git, rebuild, respawn: vi.fn() });
+		expect(result).toEqual({ kind: "rebuilt" });
+		expect(git.pull).toHaveBeenCalled();
+	});
+
+	it("--check returns git detail without mutating", async () => {
+		const git = fakeGit({ checkStatus: () => "fetch would pull" });
+		const result = await runDevUpdate({ pull: false, force: false, checkOnly: true, git, respawn: vi.fn() });
+		expect(result).toEqual({ kind: "check", detail: "fetch would pull" });
+		expect(git.pull).not.toHaveBeenCalled();
+	});
+
+	it("skips rebuild when working tree is clean (no changes)", async () => {
+		const rebuild = vi.fn(async () => {});
+		const respawn = vi.fn(async () => {});
+		const git = fakeGit({ statusPorcelain: () => "" });
+		const result = await runDevUpdate({ pull: false, force: false, checkOnly: false, git, rebuild, respawn });
+		expect(result).toEqual({ kind: "up-to-date" });
+		expect(rebuild).not.toHaveBeenCalled();
+		expect(respawn).not.toHaveBeenCalled();
+	});
+
+	it("rebuilds when working tree has changes", async () => {
+		const rebuild = vi.fn(async () => {});
+		const git = fakeGit({ statusPorcelain: () => " M src/foo.ts" });
+		const result = await runDevUpdate({
+			pull: false,
 			force: false,
+			checkOnly: false,
+			git,
+			rebuild,
+			respawn: vi.fn(),
+		});
+		expect(result).toEqual({ kind: "rebuilt" });
+		expect(rebuild).toHaveBeenCalled();
+	});
+
+	it("--force rebuilds even when working tree is clean", async () => {
+		const rebuild = vi.fn(async () => {});
+		const git = fakeGit({ statusPorcelain: () => "" });
+		const result = await runDevUpdate({ pull: false, force: true, checkOnly: false, git, rebuild, respawn: vi.fn() });
+		expect(result).toEqual({ kind: "rebuilt" });
+		expect(rebuild).toHaveBeenCalled();
+	});
+});
+
+describe("runStableUpdate", { tags: ["unit"] }, () => {
+	function fakeReleases(over: Partial<ReleaseChecker> = {}): ReleaseChecker {
+		return { check: async () => null, ...over };
+	}
+
+	function fakePkgs(over: Partial<PackageInstaller> = {}): PackageInstaller {
+		return { installGlobal: vi.fn(), ...over };
+	}
+
+	it("--check returns available release", async () => {
+		const release = { version: "9.9.9", changelog: "notes", publishedAt: "t", htmlUrl: "u" };
+		const result = await runStableUpdate({
 			checkOnly: true,
 			version: "1.0.0",
-			shell: fakeShell({ checkRelease: async () => release }),
+			releases: fakeReleases({ check: async () => release }),
+			packages: fakePkgs(),
 			respawn: vi.fn(),
 		});
 		expect(result).toEqual({ kind: "available", release });
 	});
 
-	it("stable apply installs and respawns", async () => {
+	it("installs and respawns on available release", async () => {
 		const respawn = vi.fn(async () => {});
-		const shell = fakeShell({
-			checkRelease: async () => ({
-				version: "2.0.0",
-				changelog: "x",
-				publishedAt: "t",
-				htmlUrl: "u",
-			}),
-		});
-		const result = await runUpdate({
-			channel: "stable",
-			force: false,
+		const packages = fakePkgs();
+		const result = await runStableUpdate({
 			checkOnly: false,
 			version: "1.0.0",
-			shell,
+			releases: fakeReleases({
+				check: async () => ({ version: "2.0.0", changelog: "x", publishedAt: "t", htmlUrl: "u" }),
+			}),
+			packages,
 			respawn,
 		});
 		expect(result).toEqual({ kind: "respawn" });
-		expect(shell.npmInstallGlobal).toHaveBeenCalledWith("@dpopsuev/alef@2.0.0");
+		expect(packages.installGlobal).toHaveBeenCalledWith("@dpopsuev/alef@2.0.0");
 		expect(respawn).toHaveBeenCalled();
 	});
 
-	it("runRestart prefers rebuild", async () => {
-		const rebuild = vi.fn(async () => {});
-		const respawn = vi.fn(async () => {});
-		expect(await runRestart({ rebuild, respawn })).toEqual({ kind: "reloaded" });
-		expect(rebuild).toHaveBeenCalled();
-		expect(respawn).not.toHaveBeenCalled();
-	});
-
-	it("runRestart falls back to respawn", async () => {
-		const respawn = vi.fn(async () => {});
-		expect(await runRestart({ respawn })).toEqual({ kind: "respawn" });
-		expect(respawn).toHaveBeenCalled();
+	it("returns up-to-date when no release", async () => {
+		const result = await runStableUpdate({
+			checkOnly: false,
+			version: "1.0.0",
+			releases: fakeReleases(),
+			packages: fakePkgs(),
+			respawn: vi.fn(),
+		});
+		expect(result).toEqual({ kind: "up-to-date" });
 	});
 });

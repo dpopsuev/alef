@@ -1,5 +1,5 @@
 /**
- * Command registry — all TUI commands as named, dispatchable units.
+ * Command registry -- all TUI commands as named, dispatchable units.
  *
  * Domain modules: lifecycle, auth, adapters, meta, settings, notes.
  * The colon prefix is the TUI invoker convention, not part of the command.
@@ -14,7 +14,6 @@ import {
 	createHelpCommand,
 	detach,
 	exit,
-	restart,
 	session,
 	status,
 	tokens,
@@ -24,7 +23,7 @@ import { directive, meta } from "./meta-cmds.js";
 import { stickies, sticky } from "./notes-cmds.js";
 import { plan } from "./plan-cmds.js";
 import { rename, tag } from "./session-meta-cmds.js";
-import { model, profile, skills, theme, think } from "./settings-cmds.js";
+import { model, profile, settings, skills, theme, think } from "./settings-cmds.js";
 import { tasks } from "./task-cmds.js";
 import { CommandRegistry } from "./types.js";
 
@@ -49,7 +48,7 @@ export type {
 } from "./types.js";
 export { attempt, CommandRegistry } from "./types.js";
 
-/** Single source of truth for all TUI commands — tab-completion and help derive from this. */
+/** Single source of truth for all TUI commands -- tab-completion and help derive from this. */
 export const registry = new CommandRegistry();
 
 const help = createHelpCommand(
@@ -59,7 +58,6 @@ const help = createHelpCommand(
 
 registry
 	.register(exit, "quit", "exit")
-	.register(restart)
 	.register(update)
 	.register(tokens)
 	.register(status)
@@ -82,6 +80,7 @@ registry
 	.register(rollback)
 	.register(meta)
 	.register(directive)
+	.register(settings)
 	.register(theme)
 	.register(model)
 	.register(think)

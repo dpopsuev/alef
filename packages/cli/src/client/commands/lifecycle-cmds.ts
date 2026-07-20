@@ -1,117 +1,147 @@
 import { BUILD_INFO } from "../../boot/build-info.js";
+import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
 import {
-	createDefaultUpdateShell,
-	defaultRespawn,
+	createDefaultGitOps,
+	createDefaultPackageInstaller,
+	createDefaultReleaseChecker,
 	parseUpdateArgs,
-	resolveRebuild,
-	runRestart,
-	runUpdate,
+	runDevUpdate,
+	runStableUpdate,
 } from "./update-service.js";
 
 export { parseUpdateArgs } from "./update-service.js";
 
-/** Spawn a resumed process then dispose the current session UI. */
-async function respawnAndExit(ctx: LifecycleCmdCtx): Promise<void> {
-	await defaultRespawn(ctx.session.state.id);
+/** Clean up session and TUI, then exit with the restart code so the wrapper respawns us. */
+async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<void> {
 	await ctx.session.dispose();
 	ctx.tui.stop();
-	process.exit(0);
+	process.exit(RESTART_EXIT_CODE);
 }
 
-/**
- * Restart command: hot-reload in place when available, else respawn + resume.
- */
-export const restart: Command = {
-	name: "restart",
-	description: "Restart Alef (in-place hot-reload when available)",
-	run(ctx: LifecycleCmdCtx) {
-		attempt(ctx, async () => {
-			const rebuild = resolveRebuild();
-			if (rebuild) {
-				ctx.writer.addNotice("Hot-reloading session...");
-				ctx.tui.requestRender(true);
-			} else {
-				ctx.writer.addNotice("Restarting...");
-				ctx.tui.requestRender(true);
-			}
-			const result = await runRestart({
-				rebuild,
-				respawn: async () => {
-					await respawnAndExit(ctx);
-				},
-			});
-			if (result.kind === "reloaded") {
-				ctx.writer.addNotice("Reload complete — session swapped in place.");
-				ctx.tui.requestRender();
-			}
-		});
-	},
-};
+const SPINNER_FRAMES = [
+	"\u28cb",
+	"\u28d9",
+	"\u28f9",
+	"\u28f8",
+	"\u28fc",
+	"\u28f4",
+	"\u28e6",
+	"\u28e7",
+	"\u28c7",
+	"\u28cf",
+];
 
+/**
+ * Unified update command. Environment-aware:
+ *   dev (no flags):  build local code + restart
+ *   dev --pull:      git pull + npm install + build + restart
+ *   dev --check:     git fetch --dry-run status
+ *   prod (no flags): check release + npm install -g + restart
+ *   prod --check:    show available release without applying
+ */
 export const update: Command = {
 	name: "update",
-	description: "Update Alef [:update [--force] [--check]]",
+	description: "Build/update and restart [:update [--pull] [--force] [--check]]",
+	argumentHint: "--pull | --check | --force",
 	run(ctx: LifecycleCmdCtx, args: string[]) {
 		attempt(ctx, async () => {
-			const { force, checkOnly } = parseUpdateArgs(args);
-			const shell = createDefaultUpdateShell();
+			const { pull, force, checkOnly } = parseUpdateArgs(args);
+			const isDev = BUILD_INFO.channel === "dev";
 
-			if (BUILD_INFO.channel === "dev") {
-				ctx.writer.addNotice(checkOnly ? "Checking git remote..." : "Updating from git...");
+			if (checkOnly) {
+				ctx.writer.addNotice(isDev ? "Checking git remote..." : "Checking for updates...");
+				ctx.tui.requestRender(true);
+			} else if (isDev && !pull) {
+				ctx.writer.addNotice("Building...");
+				ctx.tui.requestRender(true);
+			} else if (isDev && pull) {
+				ctx.writer.addNotice("Pulling and rebuilding...");
+				ctx.tui.requestRender(true);
 			} else {
 				ctx.writer.addNotice("Checking for updates...");
+				ctx.tui.requestRender(true);
 			}
-			ctx.tui.requestRender(true);
 
-			if (force && BUILD_INFO.channel === "dev") {
-				const dirty = shell.gitStatusPorcelain().trim();
-				if (dirty) {
-					ctx.writer.addNotice("Warning: dirty tree — proceeding with --force");
-					ctx.tui.requestRender(true);
+			let frame = 0;
+			const spinnerNotice = ctx.writer.addLiveNotice("");
+			const tick = (phase: string): void => {
+				const f = SPINNER_FRAMES[frame % SPINNER_FRAMES.length]!;
+				spinnerNotice.setText(`${f}  ${phase}...`);
+				frame++;
+				ctx.tui.requestRender();
+			};
+
+			let timer: ReturnType<typeof setInterval> | undefined;
+			if (!checkOnly) {
+				const phase = isDev && !pull ? "Building" : "Updating";
+				tick(phase);
+				timer = setInterval(() => tick(phase), 100);
+				await new Promise<void>((r) => setTimeout(r, 50));
+			}
+
+			const respawn = async () => {
+				await cleanExitForRestart(ctx);
+			};
+
+			try {
+				const rebuild = ctx.rebootPort ? () => ctx.rebootPort!.reboot() : undefined;
+
+				const result = isDev
+					? await runDevUpdate({
+							pull,
+							force,
+							checkOnly,
+							git: createDefaultGitOps(),
+							rebuild,
+							respawn,
+						})
+					: await runStableUpdate({
+							checkOnly,
+							version: BUILD_INFO.version,
+							releases: createDefaultReleaseChecker(),
+							packages: createDefaultPackageInstaller(),
+							respawn,
+						});
+
+				if (timer) clearInterval(timer);
+
+				switch (result.kind) {
+					case "aborted-dirty":
+						spinnerNotice.setText(
+							"Update aborted: working tree is dirty. Commit/stash, or :update --pull --force",
+						);
+						break;
+					case "check":
+						spinnerNotice.setText(result.detail);
+						break;
+					case "up-to-date":
+						spinnerNotice.setText("Already on latest version.");
+						break;
+					case "available":
+						spinnerNotice.setText(
+							`Update available: ${BUILD_INFO.version} -> ${result.release.version}\n${result.release.changelog}\n\nTo apply: :update`,
+						);
+						break;
+					case "rebuilt":
+						spinnerNotice.setText("Build complete -- restarting...");
+						ctx.tui.requestRender();
+						await cleanExitForRestart(ctx);
+						break;
+					case "respawn":
+						break;
+					case "failed":
+						spinnerNotice.setText(`\u2717 Failed: ${result.message}`);
+						break;
 				}
+				ctx.tui.requestRender();
+			} catch (err) {
+				if (timer) clearInterval(timer);
+				spinnerNotice.setText(`\u2717 Failed: ${err instanceof Error ? err.message : String(err)}`);
+				ctx.tui.requestRender();
 			}
-
-			const result = await runUpdate({
-				channel: BUILD_INFO.channel,
-				force,
-				checkOnly,
-				version: BUILD_INFO.version,
-				shell,
-				rebuild: resolveRebuild(),
-				respawn: async () => {
-					await respawnAndExit(ctx);
-				},
-			});
-
-			switch (result.kind) {
-				case "aborted-dirty":
-					ctx.writer.addNotice("Update aborted: working tree is dirty. Commit/stash, or :update --force");
-					break;
-				case "check":
-					ctx.writer.addNotice(result.detail);
-					break;
-				case "up-to-date":
-					ctx.writer.addNotice("Already on latest version.");
-					break;
-				case "available":
-					ctx.writer.addNotice(`Update available: ${BUILD_INFO.version} → ${result.release.version}`);
-					ctx.writer.addNotice(`Changelog:\n${result.release.changelog}`);
-					ctx.writer.addNotice(`\nTo apply: :update`);
-					break;
-				case "reloaded":
-					ctx.writer.addNotice("Reload complete — session swapped in place.");
-					break;
-				case "respawn":
-					// process already exiting
-					break;
-				case "failed":
-					ctx.writer.addNotice(`Update failed: ${result.message}`);
-					break;
-			}
-			ctx.tui.requestRender();
 		});
 	},
 };
@@ -129,7 +159,7 @@ export const detach: Command = {
 	name: "detach",
 	description: "Detach from daemon (leave it running)",
 	run(ctx: LifecycleCmdCtx) {
-		ctx.writer.addNotice("(detached — daemon keeps running)");
+		ctx.writer.addNotice("(detached -- daemon keeps running)");
 		ctx.tui.requestRender(true);
 		void ctx.session.dispose();
 		ctx.tui.stop();
@@ -154,13 +184,13 @@ export const compact: Command = {
 		attempt(ctx, async () => {
 			const store = ctx.store;
 			if (!store) {
-				ctx.writer.addNotice("(compaction unavailable — no session store)");
+				ctx.writer.addNotice("(compaction unavailable -- no session store)");
 				ctx.tui.requestRender();
 				return;
 			}
 			const summarize = ctx.session.summarizeForCompaction ?? ctx.opts?.summarize;
 			if (!summarize && strategy === "summarize") {
-				ctx.writer.addNotice("(compaction unavailable — no LLM summarizer)");
+				ctx.writer.addNotice("(compaction unavailable -- no LLM summarizer)");
 				ctx.tui.requestRender();
 				return;
 			}
@@ -298,7 +328,7 @@ export const tokens: Command = {
 /** Dense session chrome formerly painted in the footer dashboard. */
 export const status: Command = {
 	name: "status",
-	description: "Show session status (model, tokens, context) — detail view",
+	description: "Show session status (model, tokens, context) -- detail view",
 	run(ctx: TuiHandlerContext) {
 		const lines = [
 			"Session status:",
@@ -311,7 +341,7 @@ export const status: Command = {
 		if (stats) {
 			lines.push("");
 			lines.push(
-				`  Tokens:    ↑${stats.input.toLocaleString()} ↓${stats.output.toLocaleString()} (total ${stats.total.toLocaleString()})`,
+				`  Tokens:    up${stats.input.toLocaleString()} down${stats.output.toLocaleString()} (total ${stats.total.toLocaleString()})`,
 			);
 			if (stats.costUsd > 0) lines.push(`  Cost:      $${stats.costUsd.toFixed(4)}`);
 			if (stats.contextWindow > 0) {
@@ -322,10 +352,10 @@ export const status: Command = {
 			}
 		} else {
 			lines.push("");
-			lines.push("  Tokens:    (unavailable — try :tokens after a turn)");
+			lines.push("  Tokens:    (unavailable -- try :tokens after a turn)");
 		}
 		lines.push("");
-		lines.push("Hints: :tokens · :plan · :help · Tab inspect (while tools active)");
+		lines.push("Hints: :tokens -- :plan -- :help -- Tab inspect (while tools active)");
 		ctx.writer.addNotice(lines.join("\n"));
 		ctx.tui.requestRender();
 	},

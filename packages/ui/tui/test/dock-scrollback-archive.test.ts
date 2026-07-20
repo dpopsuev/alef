@@ -1,5 +1,5 @@
 /**
- * Sticky-band growth must archive chat into terminal scrollback, not discard it.
+ * Dock-band growth must archive chat into terminal scrollback, not discard it.
  */
 
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ async function settle(ms = 30): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, ms));
 }
 
-describe("sticky scrollback archive", { tags: ["unit"] }, () => {
+describe("dock scrollback archive", { tags: ["unit"] }, () => {
 	it("archives overflow chat lines into the terminal scroll region when chat grows", async () => {
 		const terminal = new VirtualTerminal(40, 8);
 		const writes: string[] = [];
@@ -34,9 +34,9 @@ describe("sticky scrollback archive", { tags: ["unit"] }, () => {
 		tui.addChild(chat);
 		for (let i = 0; i < 4; i++) chat.addChild(new Text(`chat-${i}`, 0, 0));
 
-		const sticky = new DynamicText(() => "EDITOR");
-		tui.addChild(sticky);
-		tui.setStickyFrom(sticky);
+		const dock = new DynamicText(() => "EDITOR");
+		tui.addChild(dock);
+		tui.setDock(dock);
 
 		tui.requestRender(true);
 		await settle();
@@ -51,7 +51,7 @@ describe("sticky scrollback archive", { tags: ["unit"] }, () => {
 		const archiveWrites = writes.filter((w) => /\\x1b\[1;\d+r/.test(w) || /\x1b\[1;\d+r/.test(w));
 		expect(
 			archiveWrites.length,
-			"growing chat under sticky must push lines via scroll-region archive",
+			"growing chat under dock must push lines via scroll-region archive",
 		).toBeGreaterThan(0);
 		expect(writes.some((w) => w.includes("\x1b[3J"))).toBe(false);
 

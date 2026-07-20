@@ -356,9 +356,9 @@ describe("dispatchTuiEvent — token-usage", { tags: ["unit"] }, () => {
 		expect(state.sessionTokensTotal).toBe(450);
 	});
 
-	it("emits context warning above 90%", () => {
+	it("tracks contextFillTokens above 90% without scrollback notice", () => {
 		const ui = makeMockUi();
-		dispatchTuiEvent(
+		const state = dispatchTuiEvent(
 			initialTuiState(),
 			{
 				type: "token-usage",
@@ -366,7 +366,8 @@ describe("dispatchTuiEvent — token-usage", { tags: ["unit"] }, () => {
 			} as Parameters<typeof dispatchTuiEvent>[1],
 			ui,
 		);
-		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("context 92% full"));
+		expect(state.contextFillTokens).toBe(92_000);
+		expect(ui.writer.addNotice).not.toHaveBeenCalled();
 	});
 
 	it("advances contextFillTokens on successive mid-turn usage events", () => {

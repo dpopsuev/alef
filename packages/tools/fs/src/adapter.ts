@@ -258,7 +258,7 @@ export interface FsAdapterOptions {
 	runtime?: FsRuntime;
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
-	/** Directories the adapter is allowed to access (OCAP grant). Undefined = [cwd]. */
+	/** Directories the adapter is allowed to access (OCAP grant). Undefined = unrestricted. */
 	writableRoots?: readonly string[];
 	/** Declarative permission rules for filesystem operations. */
 	permissions?: FilesystemPermission[];
@@ -359,7 +359,7 @@ async function handleRead(
 	const { path: filePath, offset, limit, format } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, "read", opts.writableRoots ?? [opts.cwd], permissionGuard);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "read", opts.writableRoots, permissionGuard);
 
 	// Read as buffer first to detect binary/image files by magic bytes.
 	const rawBuf = await fsReadFile(absolutePath);
@@ -441,7 +441,7 @@ async function handleWrite(
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots, permissionGuard);
 	let prev: string | undefined;
 	try {
 		prev = await fsReadFile(absolutePath, "utf-8");
@@ -547,7 +547,7 @@ async function handleEdit(
 		editList = [{ oldText, newText }];
 	}
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots, permissionGuard);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
 	let fileStat: Stats;
@@ -657,7 +657,7 @@ async function handleHashlineEdit(
 		parseHashlineEdits,
 	} = await import("./hashline.js");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, "write", opts.writableRoots, permissionGuard);
 
 	let fileStat: Stats;
 	try {
@@ -791,7 +791,7 @@ async function handlePatch(
 	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
 
 	// Patch operations include add/update/delete/move - using write permission for all
-	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, "write", opts.writableRoots ?? [opts.cwd], permissionGuard);
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, "write", opts.writableRoots, permissionGuard);
 	const errors = await validateOps(ops, resolveAbs);
 	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
 
@@ -816,10 +816,9 @@ const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();
-	const allowedRoots = options.writableRoots ?? [options.cwd];
 	const permissionGuard = createPermissionGuard(options.permissions);
 	const resolve = (filePath: string, operation: "read" | "write" | "delete" = "read") =>
-		resolveFilePath(options.cwd, filePath, operation, allowedRoots, permissionGuard);
+		resolveFilePath(options.cwd, filePath, operation, options.writableRoots, permissionGuard);
 	
 	// Service state: watch manager and event store
 	const watchManager = new WatchManager();

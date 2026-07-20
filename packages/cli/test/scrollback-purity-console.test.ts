@@ -4,7 +4,7 @@
 
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
-import { extractArchivePayloads, stickyChromeHits } from "../../ui/tui/test/fixtures/scrollback-purity.js";
+import { dockChromeHits, extractArchivePayloads } from "../../ui/tui/test/fixtures/scrollback-purity.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
 import { PromptConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
@@ -14,9 +14,9 @@ async function settle(ms = 25): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, ms));
 }
 
-function assertNoStickyChrome(lines: string[], label: string): void {
-	const hits = stickyChromeHits(lines);
-	expect(hits, `${label} must not contain sticky chrome; hits=${hits.join(",")}`).toEqual([]);
+function assertNoDockChrome(lines: string[], label: string): void {
+	const hits = dockChromeHits(lines);
+	expect(hits, `${label} must not contain dock chrome; hits=${hits.join(",")}`).toEqual([]);
 }
 
 describe("scrollback purity — real PromptConsole", { tags: ["unit"] }, () => {
@@ -86,8 +86,8 @@ describe("scrollback purity — real PromptConsole", { tags: ["unit"] }, () => {
 
 		const archivePayloads = extractArchivePayloads(writes);
 		expect(archivePayloads.length, "real PromptConsole must archive overflow chat").toBeGreaterThan(0);
-		assertNoStickyChrome(archivePayloads, "archive payloads (real PromptConsole)");
-		assertNoStickyChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (real PromptConsole)");
+		assertNoDockChrome(archivePayloads, "archive payloads (real PromptConsole)");
+		assertNoDockChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (real PromptConsole)");
 
 		expect(archivePayloads.join("\n")).toMatch(/chat-(seed|line)-/);
 		const viewport = terminal.getViewport().join("\n");

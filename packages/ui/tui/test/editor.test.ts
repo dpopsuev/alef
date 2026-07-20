@@ -2858,7 +2858,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 		});
 	});
 
-	describe("Sticky column", () => {
+	describe("Dock column", () => {
 		// Helper: position cursor at a specific line and column
 		function positionCursor(editor: Editor, line: number, col: number): void {
 			// Go to line 0 first
@@ -2914,7 +2914,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 10 });
 		});
 
-		it("resets sticky column on horizontal movement (left arrow)", () => {
+		it("resets dock column on horizontal movement (left arrow)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -2926,20 +2926,20 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			// Move up through empty line
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
-			editor.handleInput("\x1b[A"); // Up - line 0, col 5 (sticky)
+			editor.handleInput("\x1b[A"); // Up - line 0, col 5 (dock)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 5 });
 
-			// Move left - resets sticky column
+			// Move left - resets dock column
 			editor.handleInput("\x1b[D"); // Left
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 4 });
 
 			// Move down twice
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 4 (new sticky from col 4)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 4 (new dock from col 4)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 4 });
 		});
 
-		it("resets sticky column on horizontal movement (right arrow)", () => {
+		it("resets dock column on horizontal movement (right arrow)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -2953,20 +2953,20 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			// Move down through empty line
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 5 (sticky)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 5 (dock)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 5 });
 
-			// Move right - resets sticky column
+			// Move right - resets dock column
 			editor.handleInput("\x1b[C"); // Right
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 6 });
 
 			// Move up twice
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
-			editor.handleInput("\x1b[A"); // Up - line 0, col 6 (new sticky from col 6)
+			editor.handleInput("\x1b[A"); // Up - line 0, col 6 (new dock from col 6)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 6 });
 		});
 
-		it("resets sticky column on typing", () => {
+		it("resets dock column on typing", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -2980,17 +2980,17 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x1b[A"); // Up - line 0, col 8
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 8 });
 
-			// Type a character - resets sticky column
+			// Type a character - resets dock column
 			editor.handleInput("X");
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 9 });
 
 			// Move down twice
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 9 (new sticky from col 9)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 9 (new dock from col 9)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 9 });
 		});
 
-		it("resets sticky column on backspace", () => {
+		it("resets dock column on backspace", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -3004,17 +3004,17 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x1b[A"); // Up - line 0, col 8
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 8 });
 
-			// Backspace - resets sticky column
+			// Backspace - resets dock column
 			editor.handleInput("\x7f"); // Backspace
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 7 });
 
 			// Move down twice
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 7 (new sticky from col 7)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 7 (new dock from col 7)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 7 });
 		});
 
-		it("resets sticky column on Ctrl+A (move to line start)", () => {
+		it("resets dock column on Ctrl+A (move to line start)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -3023,19 +3023,19 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x01"); // Ctrl+A
 			for (let i = 0; i < 8; i++) editor.handleInput("\x1b[C");
 
-			// Move up - establishes sticky col 8
+			// Move up - establishes dock col 8
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
 
-			// Ctrl+A - resets sticky column to 0
+			// Ctrl+A - resets dock column to 0
 			editor.handleInput("\x01"); // Ctrl+A
 			assert.deepStrictEqual(editor.getCursor(), { line: 1, col: 0 });
 
 			// Move up
-			editor.handleInput("\x1b[A"); // Up - line 0, col 0 (new sticky from col 0)
+			editor.handleInput("\x1b[A"); // Up - line 0, col 0 (new dock from col 0)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 0 });
 		});
 
-		it("resets sticky column on Ctrl+E (move to line end)", () => {
+		it("resets dock column on Ctrl+E (move to line end)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("12345\n\n1234567890");
@@ -3044,22 +3044,22 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x01"); // Ctrl+A
 			for (let i = 0; i < 3; i++) editor.handleInput("\x1b[C");
 
-			// Move up through empty line - establishes sticky col 3
+			// Move up through empty line - establishes dock col 3
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
 			editor.handleInput("\x1b[A"); // Up - line 0, col 3
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 3 });
 
-			// Ctrl+E - resets sticky column to end
+			// Ctrl+E - resets dock column to end
 			editor.handleInput("\x05"); // Ctrl+E
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 5 });
 
 			// Move down twice
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 5 (new sticky from col 5)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 5 (new dock from col 5)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 5 });
 		});
 
-		it("resets sticky column on word movement (Ctrl+Left)", () => {
+		it("resets dock column on word movement (Ctrl+Left)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("hello world\n\nhello world");
@@ -3067,22 +3067,22 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			// Start at end of line 2 (col 11)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 11 });
 
-			// Move up through empty line - establishes sticky col 11
+			// Move up through empty line - establishes dock col 11
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
 			editor.handleInput("\x1b[A"); // Up - line 0, col 11
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 11 });
 
-			// Ctrl+Left - word movement resets sticky column
+			// Ctrl+Left - word movement resets dock column
 			editor.handleInput("\x1b[1;5D"); // Ctrl+Left
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 6 }); // Before "world"
 
 			// Move down twice
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 6 (new sticky from col 6)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 6 (new dock from col 6)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 6 });
 		});
 
-		it("resets sticky column on word movement (Ctrl+Right)", () => {
+		it("resets dock column on word movement (Ctrl+Right)", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("hello world\n\nhello world");
@@ -3093,22 +3093,22 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x01"); // Ctrl+A
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 0 });
 
-			// Move down through empty line - establishes sticky col 0
+			// Move down through empty line - establishes dock col 0
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
 			editor.handleInput("\x1b[B"); // Down - line 2, col 0
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 0 });
 
-			// Ctrl+Right - word movement resets sticky column
+			// Ctrl+Right - word movement resets dock column
 			editor.handleInput("\x1b[1;5C"); // Ctrl+Right
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 5 }); // After "hello"
 
 			// Move up twice
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
-			editor.handleInput("\x1b[A"); // Up - line 0, col 5 (new sticky from col 5)
+			editor.handleInput("\x1b[A"); // Up - line 0, col 5 (new dock from col 5)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 5 });
 		});
 
-		it("resets sticky column on undo", () => {
+		it("resets dock column on undo", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
@@ -3120,29 +3120,29 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			for (let i = 0; i < 8; i++) editor.handleInput("\x1b[C");
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 8 });
 
-			// Move down through empty line - establishes sticky col 8
+			// Move down through empty line - establishes dock col 8
 			editor.handleInput("\x1b[B"); // Down - line 1, col 0
-			editor.handleInput("\x1b[B"); // Down - line 2, col 8 (sticky)
+			editor.handleInput("\x1b[B"); // Down - line 2, col 8 (dock)
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 8 });
 
-			// Type something to create undo state - this clears sticky and sets col to 9
+			// Type something to create undo state - this clears dock and sets col to 9
 			editor.handleInput("X");
 			assert.strictEqual(editor.getText(), "1234567890\n\n12345678X90");
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 9 });
 
-			// Move up - establishes new sticky col 9
+			// Move up - establishes new dock col 9
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
 			editor.handleInput("\x1b[A"); // Up - line 0, col 9
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 9 });
 
-			// Undo - resets sticky column and restores cursor to line 2, col 8
+			// Undo - resets dock column and restores cursor to line 2, col 8
 			editor.handleInput("\x1b[45;5u"); // Ctrl+- (undo)
 			assert.strictEqual(editor.getText(), "1234567890\n\n1234567890");
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 8 });
 
-			// Move up - should capture new sticky from restored col 8, not old col 9
+			// Move up - should capture new dock from restored col 8, not old col 9
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
-			editor.handleInput("\x1b[A"); // Up - line 0, col 8 (new sticky from restored position)
+			editor.handleInput("\x1b[A"); // Up - line 0, col 8 (new dock from restored position)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 8 });
 		});
 
@@ -3163,7 +3163,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x1b[A"); // Up - line 0, col 7 (restored)
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 7 });
 
-			// Move down multiple times - sticky should still be 7
+			// Move down multiple times - dock should still be 7
 			editor.handleInput("\x1b[B"); // Down - line 1, col 2
 			editor.handleInput("\x1b[B"); // Down - line 2, col 2
 			editor.handleInput("\x1b[B"); // Down - line 3, col 2
@@ -3195,21 +3195,21 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			assert.strictEqual(editor.getCursor().line, 0);
 		});
 
-		it("handles setText resetting sticky column", () => {
+		it("handles setText resetting dock column", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
 			editor.setText("1234567890\n\n1234567890");
 
-			// Establish sticky column
+			// Establish dock column
 			editor.handleInput("\x01"); // Ctrl+A
 			for (let i = 0; i < 8; i++) editor.handleInput("\x1b[C");
 			editor.handleInput("\x1b[A"); // Up
 
-			// setText should reset sticky column
+			// setText should reset dock column
 			editor.setText("abcdefghij\n\nabcdefghij");
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 10 }); // At end
 
-			// Move up - should capture new sticky from current position (10)
+			// Move up - should capture new dock from current position (10)
 			editor.handleInput("\x1b[A"); // Up - line 1, col 0
 			editor.handleInput("\x1b[A"); // Up - line 0, col 10
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 10 });
@@ -3255,7 +3255,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x01"); // Ctrl+A
 			for (let i = 0; i < 15; i++) editor.handleInput("\x1b[C");
 
-			// Move up through empty line - establishes sticky col 15
+			// Move up through empty line - establishes dock col 15
 			editor.handleInput("\x1b[A"); // Up
 			editor.handleInput("\x1b[A"); // Up - line 0, col 15
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 15 });
@@ -3263,7 +3263,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			// Render with narrower width to simulate resize
 			editor.render(12); // Width 12
 
-			// Move down - sticky should be clamped to new width
+			// Move down - dock should be clamped to new width
 			editor.handleInput("\x1b[B"); // Down - line 1
 			editor.handleInput("\x1b[B"); // Down - line 2, col should be clamped
 			assert.equal(editor.getCursor().col, 4);
@@ -3282,7 +3282,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			for (let i = 0; i < 15; i++) editor.handleInput("\x1b[C");
 			assert.deepStrictEqual(editor.getCursor(), { line: 1, col: 15 });
 
-			// Move up to establish sticky col 15
+			// Move up to establish dock col 15
 			editor.handleInput("\x1b[A"); // Up to line 0
 			// Line 0 has only 5 chars, so cursor at col 5
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 5 });
@@ -3662,7 +3662,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 		it("snaps to the paste marker start when navigating down into it", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);
 
-			// Line 0: long enough text to establish a sticky column
+			// Line 0: long enough text to establish a dock column
 			editor.setText("12345678901234567890\n\nhello ");
 
 			// Create a large paste to get a marker
@@ -3688,13 +3688,13 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x1b[B");
 			assert.deepStrictEqual(editor.getCursor(), { line: 1, col: 0 });
 
-			// Down to paste marker line - sticky col 10 falls inside marker (starts at col 6).
+			// Down to paste marker line - dock col 10 falls inside marker (starts at col 6).
 			// Cursor should snap to start of marker (col 6), not end (col 6 + marker.length).
 			editor.handleInput("\x1b[B");
 			assert.deepStrictEqual(editor.getCursor(), { line: 2, col: 6 });
 		});
 
-		it("preserves sticky column when navigating through paste marker line", () => {
+		it("preserves dock column when navigating through paste marker line", () => {
 			const tui = createTestTUI(30, 24);
 			const editor = new Editor(tui, defaultEditorTheme);
 
@@ -3719,7 +3719,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			for (let i = 0; i < 10; i++) editor.handleInput("\x1b[C");
 			assert.deepStrictEqual(editor.getCursor(), { line: 0, col: 10 });
 
-			// Down to empty line - sticky col 10 established
+			// Down to empty line - dock col 10 established
 			editor.handleInput("\x1b[B");
 			assert.deepStrictEqual(editor.getCursor(), { line: 1, col: 0 });
 
@@ -3731,7 +3731,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\x1b[B");
 			assert.deepStrictEqual(editor.getCursor(), { line: 3, col: 0 });
 
-			// Down to last line - should restore sticky col 10
+			// Down to last line - should restore dock col 10
 			editor.handleInput("\x1b[B");
 			assert.deepStrictEqual(editor.getCursor(), { line: 4, col: 10 });
 		});

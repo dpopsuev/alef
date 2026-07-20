@@ -10,6 +10,8 @@ import type { Component } from "../component.js";
 import { Collapsible } from "../components/collapsible.js";
 import { Markdown } from "../components/markdown.js";
 import { Pad } from "../components/pad.js";
+import { Spacer } from "../components/spacer.js";
+import { Text as TextComponent } from "../components/text.js";
 import type { Text as TuiText } from "../components/text.js";
 import type { ThemeTokens } from "../theme-types.js";
 import type { Container } from "../tui.js";
@@ -21,6 +23,7 @@ import {
 	appendTokenFooter,
 	appendUserMsg,
 } from "./chat-view.js";
+import { INDENT, SPACING } from "./layout-constants.js";
 import { makeMarkdownTheme } from "./markdown-themes.js";
 import { color } from "./theme.js";
 import { makeToolOutputComponent } from "./tool-view.js";
@@ -65,6 +68,19 @@ export class ChatLog {
 		appendNotice(this.chat, text, this.t);
 	}
 
+	/** Append a mutable notice whose text can be updated in place. */
+	addLiveNotice(text: string): { setText(text: string): void } {
+		const node = new TextComponent(color(text, this.t.mutedFg), INDENT.BLOCK, 0);
+		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
+		this.chat.addChild(node);
+		const t = this.t;
+		return {
+			setText(newText: string) {
+				node.setText(color(newText, t.mutedFg));
+			},
+		};
+	}
+
 	addCompletedToolBlock(
 		name: string,
 		keyArg: string,
@@ -81,13 +97,14 @@ export class ChatLog {
 	}
 
 	addSubagentReply(name: string, reply: string): void {
+		const indent = " ".repeat(INDENT.SUBAGENT);
 		const collapsible = new Collapsible({
 			header: `${name} reply`,
 			collapsed: true,
-			headerStyle: (s) => `    ${color(s, this.t.secondaryFg)}`,
+			headerStyle: (s) => `${indent}${color(s, this.t.secondaryFg)}`,
 		});
 		const md = new Markdown(reply, 0, 0, makeMarkdownTheme(this.t));
-		const padded = new Pad(6, 0);
+		const padded = new Pad(INDENT.SUBAGENT, 0);
 		padded.addChild(md);
 		collapsible.setContent(padded);
 		this.chat.addChild(collapsible);

@@ -93,8 +93,12 @@ tui, bugfix, picker
 	it("provisionalTitleFromText rejects short and slash commands", () => {
 		expect(provisionalTitleFromText("ok")).toBeUndefined();
 		expect(provisionalTitleFromText(":compact")).toBeUndefined();
-		expect(provisionalTitleFromText("Fix the session picker rendering")).toBe(
-			"Fix the session picker rendering",
+		expect(provisionalTitleFromText("Fix picker")).toBe("Fix picker");
+	});
+
+	it("provisionalTitleFromText clamps to five words", () => {
+		expect(provisionalTitleFromText("Explore the code base using multiple agents")).toBe(
+			"Explore the code base using",
 		);
 	});
 
@@ -103,9 +107,9 @@ tui, bugfix, picker
 			provisionalTitleFromMessages([
 				{ role: "system", content: "sys" },
 				{ role: "user", content: "hi" },
-				{ role: "user", content: "Implement cwd/all session picker scope" },
+				{ role: "user", content: "Implement cwd session picker scope" },
 			]),
-		).toBe("Implement cwd/all session picker scope");
+		).toBe("Implement cwd session picker scope");
 	});
 
 	it("buildSearchBlob concatenates fields", () => {

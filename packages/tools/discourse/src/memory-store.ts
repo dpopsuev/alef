@@ -5,7 +5,10 @@ import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.j
 /**
  *
  */
-function resolveReplyMeta(existing: readonly Post[], opts?: PostWriteOptions): Pick<Post, "replyToPostId" | "references"> {
+function resolveReplyMeta(
+	existing: readonly Post[],
+	opts?: PostWriteOptions,
+): Pick<Post, "replyToPostId" | "references"> {
 	if (!opts?.replyToPostId) return { replyToPostId: undefined, references: [] };
 	const parent = existing.find((post) => post.id === opts.replyToPostId);
 	return {

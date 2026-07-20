@@ -38,12 +38,12 @@ describe("streaming visual artifacts", { tags: ["unit"] }, () => {
 			snapshots.push(visible);
 		}
 
-		// Incomplete code blocks show raw backticks
-		const earlySnapshot = snapshots[5]; // "```js"
-		expect(earlySnapshot).toContain("`");
+		// Incomplete code blocks render with border chrome (no raw backticks)
+		const earlySnapshot = snapshots[5]!; // "```js" rendered as bordered block
+		expect(earlySnapshot).toContain("js");
 
-		// Complete code block has formatted borders
-		const finalSnapshot = snapshots[snapshots.length - 1];
+		// Complete code block has formatted borders and content
+		const finalSnapshot = snapshots[snapshots.length - 1]!;
 		expect(finalSnapshot).toContain("code");
 	});
 

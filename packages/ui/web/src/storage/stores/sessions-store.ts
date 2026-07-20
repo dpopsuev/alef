@@ -131,6 +131,6 @@ export class SessionsStore extends Store {
 
 		// Sort by lastModified descending
 		allMetadata.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
-		return allMetadata[0].id;
+		return allMetadata[0]!.id;
 	}
 }

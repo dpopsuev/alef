@@ -69,10 +69,10 @@ export async function createTuiHarness(opts: TuiHarnessOptions): Promise<TuiHarn
 		},
 	});
 
-	pty.onData((data) => {
+	pty.onData((data: string) => {
 		buf += data;
 	});
-	pty.onExit(({ exitCode: code }) => {
+	pty.onExit(({ exitCode: code }: { exitCode: number }) => {
 		exitCode = code;
 		exitResolve?.(code);
 	});

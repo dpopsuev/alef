@@ -21,9 +21,8 @@ import { createTokenTelemetry } from "@dpopsuev/alef-session/token-telemetry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import {
 	type DiscourseBackend,
-	InMemoryDiscourseStore,
-	maybeMirrorToScribe,
 	openDiscourseBackend,
+	openInMemoryDiscourseBackend,
 	scribeCallFromEnv,
 } from "@dpopsuev/alef-tool-discourse";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
@@ -229,7 +228,7 @@ export async function createLocalSession(
 					scribeCall: scribeCallFromEnv(),
 					logger: log,
 				})
-			: maybeMirrorToScribe(new InMemoryDiscourseStore(), {
+			: openInMemoryDiscourseBackend({
 					scribeCall: scribeCallFromEnv(),
 					logger: log,
 				}));
@@ -383,7 +382,7 @@ export async function createLocalSession(
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
 			const g = globalThis as Record<string, unknown>;
-			if (typeof g.alefRequestRebuild === "function") (g.alefRequestRebuild as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
+			if (typeof g.alefReboot === "function") (g.alefReboot as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
 		},
 	});
 	// Meta tools stay on the bus for :meta / prototype paths — hide from LLM tool schemas.

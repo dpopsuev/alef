@@ -1,4 +1,4 @@
-/** Shared assertions for sticky-chrome scrollback purity. */
+/** Shared assertions for dock-chrome scrollback purity. */
 
 export const STICKY_FINGERPRINTS = [
 	"STICKY_INSERT",
@@ -25,7 +25,7 @@ export function extractArchivePayloads(writes: string[]): string[] {
 	return payloads;
 }
 
-export function stickyChromeHits(lines: readonly string[]): string[] {
+export function dockChromeHits(lines: readonly string[]): string[] {
 	const joined = lines.join("\n");
 	return STICKY_FINGERPRINTS.filter((fingerprint) => joined.includes(fingerprint));
 }

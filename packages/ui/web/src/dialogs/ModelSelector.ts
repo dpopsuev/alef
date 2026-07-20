@@ -133,7 +133,7 @@ export class ModelSelector extends DialogBase {
 			} else if (e.key === "Enter") {
 				e.preventDefault();
 				if (filteredModels[this.selectedIndex]) {
-					this.handleSelect(filteredModels[this.selectedIndex].model);
+					this.handleSelect(filteredModels[this.selectedIndex]!.model);
 				}
 			}
 		});

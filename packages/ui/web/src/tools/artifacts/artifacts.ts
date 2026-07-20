@@ -115,7 +115,7 @@ export class ArtifactsPanel extends LitElement {
 			if (!container) return;
 			// Ensure we have an active filename
 			if (!this._activeFilename && this._artifacts.size > 0) {
-				this._activeFilename = Array.from(this._artifacts.keys())[0];
+				this._activeFilename = Array.from(this._artifacts.keys())[0] ?? null;
 			}
 			this.artifactElements.forEach((element, name) => {
 				if (!element.parentElement) container.appendChild(element);
@@ -406,7 +406,7 @@ export class ArtifactsPanel extends LitElement {
 
 		// 6) Show first artifact if any exist, and notify listeners once
 		if (!this._activeFilename && this._artifacts.size > 0) {
-			this.showArtifact(Array.from(this._artifacts.keys())[0]);
+			this.showArtifact(Array.from(this._artifacts.keys())[0]!);
 		}
 		this.onArtifactsChange?.();
 		this.requestUpdate();
@@ -622,7 +622,7 @@ export class ArtifactsPanel extends LitElement {
 		if (this._activeFilename === params.filename) {
 			const remaining = Array.from(this._artifacts.keys());
 			if (remaining.length > 0) {
-				this.showArtifact(remaining[0]);
+				this.showArtifact(remaining[0]!);
 			} else {
 				this._activeFilename = null;
 				this.requestUpdate();

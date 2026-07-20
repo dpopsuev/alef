@@ -27,6 +27,12 @@
 		"includes": [
 			"packages/*/src/**/*.ts",
 			"packages/*/test/**/*.ts",
+			"packages/core/discourse/src/**/*.ts",
+			"packages/core/discourse/test/**/*.ts",
+			"packages/hosts/pi-discourse/src/**/*.ts",
+			"packages/hosts/pi-discourse/test/**/*.ts",
+			"packages/tools/discourse/src/**/*.ts",
+			"packages/tools/discourse/test/**/*.ts",
 			"packages/coding-agent/examples/**/*.ts",
 			"packages/ui/web/src/**/*.ts",
 			"packages/ui/web/example/**/*.ts",
@@ -54,6 +60,9 @@
 				}
 			},
 			"includes": [
+				"packages/core/discourse/src/**/*.ts",
+				"packages/hosts/pi-discourse/src/**/*.ts",
+				"packages/tools/discourse/src/**/*.ts",
 				"packages/kernel/src/**/*.ts",
 				"packages/runtime/src/**/*.ts",
 				"packages/tools/*/src/**/*.ts",

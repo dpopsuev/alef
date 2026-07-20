@@ -12,6 +12,8 @@
     "./memory": "./src/memory/session.ts",
     "./sqlite/database": "./src/sqlite/database.ts",
     "./sqlite/session": "./src/sqlite/session.ts",
+    "./sqlite/event-load": "./src/sqlite/event-load.ts",
+    "./sqlite/size-stats": "./src/sqlite/size-stats.ts",
     "./sqlite/schema": "./src/sqlite/schema.ts",
     "./sqlite/summary": "./src/sqlite/summary.ts",
     "./sqlite/auth": "./src/sqlite/auth.ts",
@@ -26,7 +28,7 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "npx tsc -p tsconfig.build.json",
+    "build": "npx tsc -b tsconfig.build.json",
     "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run",
     "prepublishOnly": "npm run clean && npm run build"

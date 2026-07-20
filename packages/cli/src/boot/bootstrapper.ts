@@ -16,10 +16,16 @@
  *     '-- conversation mode (agent events -> TUI)
  */
 
-// Re-export BootEvent from the shared contract so both layers use one source
 export type { BootEvent } from "../client/boot-types.js";
 
-import type { BootEvent } from "../client/boot-types.js";
+import type {
+	BootEvent,
+	ResolvedSession,
+	SessionSelection,
+	TuiShell,
+	TuiShellContext,
+	WireSessionDeps,
+} from "../client/boot-types.js";
 
 // ---------------------------------------------------------------------------
 // Lifecycle event pub/sub
@@ -42,20 +48,117 @@ export interface BootHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Bootstrapper interface
+// Bootstrapper dependencies -- injected, never imported by the Bootstrapper
 // ---------------------------------------------------------------------------
 
-/** Subset of CLI args the Bootstrapper needs. */
-export interface BootstrapperArgs {
+/** Factory that creates and starts the TUI shell. */
+export type TuiShellFactory = (ctx: TuiShellContext) => Promise<TuiShell>;
+
+/** Factory that wires a resolved session into the TUI shell. */
+export type SessionWirer = (shell: TuiShell, resolved: ResolvedSession, deps: WireSessionDeps) => void;
+
+/**
+ * Pick or create a session.
+ * Receives the TUI shell (null when headless) for rendering the picker.
+ */
+export type SessionPicker = (shell: TuiShell | null) => Promise<SessionSelection>;
+
+/**
+ * Resolve a session selection into a fully wired agent session.
+ * Handles adapter loading, model resolution, agent assembly.
+ */
+export type SessionResolver = (selection: SessionSelection) => Promise<ResolvedSession>;
+
+/** Provider for the WireSessionDeps that the TUI needs. */
+export type DepsProvider = () => WireSessionDeps;
+
+/** Everything the Bootstrapper needs to coordinate the boot sequence. */
+export interface BootstrapperConfig {
 	cwd: string;
-	debug: boolean;
-	print: string;
-	json: boolean;
-	noTui: boolean;
-	modelId?: string;
-	resume?: string;
-	blueprint?: string;
-	serve?: number;
-	daemon?: boolean;
-	host?: string;
+	willUseTui: boolean;
+	createShell: TuiShellFactory;
+	wireSession: SessionWirer;
+	pickSession: SessionPicker;
+	resolveSession: SessionResolver;
+	getDeps: DepsProvider;
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrapper implementation
+// ---------------------------------------------------------------------------
+
+/**
+ * Create and run the boot sequence.
+ *
+ * Returns a BootHandle so callers can subscribe to lifecycle events
+ * and await completion.
+ */
+export function createBootstrapper(config: BootstrapperConfig): BootHandle {
+	const listeners = new Set<BootEventListener>();
+
+	const emit = (event: BootEvent): void => {
+		for (const listener of listeners) listener(event);
+	};
+
+	const done = runBootSequence(config, emit);
+
+	return {
+		subscribe(listener) {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+		done,
+	};
+}
+
+/**
+ * The sequential boot spine. Each phase emits lifecycle events.
+ *
+ *   1. Boot TUI shell (immediate, shows splash)
+ *   2. Pick session (inside TUI input area, or auto for headless)
+ *   3. Resolve session (adapters, model, agent assembly)
+ *   4. Wire session into TUI (subscribe, dispatch, submit)
+ *   5. Await TUI stop (or headless process lifetime)
+ */
+async function runBootSequence(config: BootstrapperConfig, emit: (event: BootEvent) => void): Promise<void> {
+	let shell: TuiShell | null = null;
+
+	try {
+		if (config.willUseTui) {
+			shell = await config.createShell({ cwd: config.cwd });
+			// Route lifecycle events to the TUI for progress rendering
+			const originalEmit = emit;
+			emit = (event: BootEvent): void => {
+				originalEmit(event);
+				shell?.handleBootEvent(event);
+			};
+		}
+
+		emit({ phase: "session", status: "picking" });
+		const selection = await config.pickSession(shell);
+		emit({ phase: "session", status: "ready", sessionId: selection.store.id, isNew: selection.isNew });
+
+		emit({ phase: "adapters", status: "loading" });
+		const resolved = await config.resolveSession(selection);
+		emit({
+			phase: "adapters",
+			status: "ready",
+			adapterCount: 0,
+			blueprintName: resolved.blueprintName ?? "",
+		});
+		emit({ phase: "model", status: "ready", modelId: resolved.modelId });
+
+		emit({ phase: "agent", status: "wiring" });
+		if (shell) {
+			config.wireSession(shell, resolved, config.getDeps());
+		}
+		emit({ phase: "agent", status: "ready" });
+
+		if (shell) {
+			await shell.stopped;
+		}
+	} catch (err) {
+		emit({ phase: "error", error: err instanceof Error ? err.message : String(err) });
+		throw err;
+	}
 }

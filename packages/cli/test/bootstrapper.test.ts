@@ -1,12 +1,15 @@
 /**
- * Bootstrapper lifecycle event contract tests.
+ * Bootstrapper lifecycle event contract and boot sequence tests.
  *
  * Validates the BootEvent discriminated union, BootHandle pub/sub,
- * and that the TuiShell.handleBootEvent interface can consume every variant.
+ * exhaustiveness of handleBootEvent, and the createBootstrapper
+ * sequencing through stub factories.
  */
 
 import { describe, expect, it } from "vitest";
 import type { BootEvent, BootEventListener, BootHandle } from "../src/boot/bootstrapper.js";
+import { type BootstrapperConfig, createBootstrapper } from "../src/boot/bootstrapper.js";
+import type { ResolvedSession, SessionSelection, TuiShell } from "../src/client/boot-types.js";
 
 /** Minimal BootHandle implementation for testing the pub/sub contract. */
 function createTestHandle(): BootHandle & { emit(event: BootEvent): void; resolve(): void } {
@@ -30,6 +33,63 @@ function createTestHandle(): BootHandle & { emit(event: BootEvent): void; resolv
 	};
 }
 
+/** Minimal TuiShell stub for testing the boot sequence. */
+function stubShell(): TuiShell & { bootEvents: BootEvent[]; resolve(): void } {
+	const bootEvents: BootEvent[] = [];
+	let resolveStop: () => void;
+	const stopped = new Promise<void>((r) => {
+		resolveStop = r;
+	});
+	return {
+		bootEvents,
+		resolve() {
+			resolveStop();
+		},
+		tui: {} as TuiShell["tui"],
+		t: {} as TuiShell["t"],
+		output: {} as TuiShell["output"],
+		input: {} as TuiShell["input"],
+		footer: {} as TuiShell["footer"],
+		writer: {} as TuiShell["writer"],
+		editor: {} as TuiShell["editor"],
+		chrome: {} as TuiShell["chrome"],
+		tuiStore: {} as TuiShell["tuiStore"],
+		cwd: "/test",
+		handleBootEvent(event: BootEvent) {
+			bootEvents.push(event);
+		},
+		stopped,
+	};
+}
+
+/** Minimal SessionSelection stub. */
+function stubSelection(): SessionSelection {
+	return { store: { id: "test-session" } as SessionSelection["store"], isNew: true };
+}
+
+/** Minimal ResolvedSession stub. */
+function stubResolved(): ResolvedSession {
+	return {
+		session: {} as ResolvedSession["session"],
+		store: { id: "test-session" } as ResolvedSession["store"],
+		sessionId: "test-session",
+		modelId: "test-model",
+		contextWindow: 128000,
+		isNew: true,
+		getModel: () => "test-model",
+		setModel: () => {},
+		getThinking: () => "",
+		setThinking: () => {},
+		humanAddress: "@you",
+		agentAddress: "@alef",
+		blueprintName: "coding",
+	};
+}
+
+// ---------------------------------------------------------------------------
+// BootEvent contract tests
+// ---------------------------------------------------------------------------
+
 describe("BootEvent discriminated union", { tags: ["unit"] }, () => {
 	it("every phase/status combination is distinguishable", () => {
 		const events: BootEvent[] = [
@@ -45,7 +105,6 @@ describe("BootEvent discriminated union", { tags: ["unit"] }, () => {
 			{ phase: "error", error: "storage init failed" },
 		];
 
-		// Each event is a unique phase+status pair
 		const keys = events.map((e) => `${e.phase}:${"status" in e ? e.status : e.error}`);
 		expect(new Set(keys).size).toBe(events.length);
 	});
@@ -53,7 +112,6 @@ describe("BootEvent discriminated union", { tags: ["unit"] }, () => {
 	it("narrowing works on phase field", () => {
 		const event: BootEvent = { phase: "session", status: "ready", sessionId: "abc", isNew: false };
 		if (event.phase === "session" && event.status === "ready") {
-			// TypeScript narrows to the specific variant
 			expect(event.sessionId).toBe("abc");
 			expect(event.isNew).toBe(false);
 		}
@@ -66,6 +124,10 @@ describe("BootEvent discriminated union", { tags: ["unit"] }, () => {
 		}
 	});
 });
+
+// ---------------------------------------------------------------------------
+// BootHandle pub/sub tests
+// ---------------------------------------------------------------------------
 
 describe("BootHandle pub/sub", { tags: ["unit"] }, () => {
 	it("delivers events to subscribers", () => {
@@ -120,11 +182,12 @@ describe("BootHandle pub/sub", { tags: ["unit"] }, () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// Exhaustiveness check
+// ---------------------------------------------------------------------------
+
 describe("handleBootEvent exhaustiveness", { tags: ["unit"] }, () => {
 	it("a switch over phase covers every variant without default", () => {
-		// This is a compile-time check disguised as a runtime test.
-		// If a new BootEvent variant is added, this function must be updated
-		// or TypeScript reports a type error on the exhaustive check.
 		function handleBootEvent(event: BootEvent): string {
 			switch (event.phase) {
 				case "storage":
@@ -140,8 +203,6 @@ describe("handleBootEvent exhaustiveness", { tags: ["unit"] }, () => {
 				case "error":
 					return `error:${event.error}`;
 			}
-			// If this line is reachable, the switch is not exhaustive.
-			// TypeScript ensures `event` is `never` here.
 			const _exhaustive: never = event;
 			return _exhaustive;
 		}
@@ -149,5 +210,141 @@ describe("handleBootEvent exhaustiveness", { tags: ["unit"] }, () => {
 		expect(handleBootEvent({ phase: "storage", status: "starting" })).toBe("storage:starting");
 		expect(handleBootEvent({ phase: "error", error: "x" })).toBe("error:x");
 		expect(handleBootEvent({ phase: "model", status: "ready", modelId: "m1" })).toBe("model:m1");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createBootstrapper sequence tests
+// ---------------------------------------------------------------------------
+
+describe("createBootstrapper", { tags: ["unit"] }, () => {
+	it("runs the full boot sequence in order with TUI", async () => {
+		const shell = stubShell();
+		const phases: string[] = [];
+		let wired = false;
+
+		const config: BootstrapperConfig = {
+			cwd: "/test",
+			willUseTui: true,
+			createShell: async () => shell,
+			wireSession: () => {
+				wired = true;
+			},
+			pickSession: async () => stubSelection(),
+			resolveSession: async () => stubResolved(),
+			getDeps: () => ({
+				signalHandlers: new Map(),
+				isCompacted: () => false,
+				checkForUpdate: async () => null,
+			}),
+		};
+
+		const handle = createBootstrapper(config);
+		handle.subscribe((e) => phases.push(`${e.phase}:${"status" in e ? e.status : e.error}`));
+
+		// Let the boot sequence run, then stop the TUI to unblock
+		setTimeout(() => shell.resolve(), 50);
+		await handle.done;
+
+		expect(phases).toEqual([
+			"session:picking",
+			"session:ready",
+			"adapters:loading",
+			"adapters:ready",
+			"model:ready",
+			"agent:wiring",
+			"agent:ready",
+		]);
+		expect(wired).toBe(true);
+	});
+
+	it("feeds lifecycle events to shell.handleBootEvent", async () => {
+		const shell = stubShell();
+
+		const config: BootstrapperConfig = {
+			cwd: "/test",
+			willUseTui: true,
+			createShell: async () => shell,
+			wireSession: () => {},
+			pickSession: async () => stubSelection(),
+			resolveSession: async () => stubResolved(),
+			getDeps: () => ({
+				signalHandlers: new Map(),
+				isCompacted: () => false,
+				checkForUpdate: async () => null,
+			}),
+		};
+
+		const handle = createBootstrapper(config);
+		setTimeout(() => shell.resolve(), 50);
+		await handle.done;
+
+		expect(shell.bootEvents.length).toBeGreaterThan(0);
+		expect(shell.bootEvents[0]!.phase).toBe("session");
+	});
+
+	it("runs without TUI in headless mode", async () => {
+		const phases: string[] = [];
+		let wired = false;
+
+		const config: BootstrapperConfig = {
+			cwd: "/test",
+			willUseTui: false,
+			createShell: async () => {
+				throw new Error("should not be called");
+			},
+			wireSession: () => {
+				wired = true;
+			},
+			pickSession: async () => stubSelection(),
+			resolveSession: async () => stubResolved(),
+			getDeps: () => ({
+				signalHandlers: new Map(),
+				isCompacted: () => false,
+				checkForUpdate: async () => null,
+			}),
+		};
+
+		const handle = createBootstrapper(config);
+		handle.subscribe((e) => phases.push(e.phase));
+		await handle.done;
+
+		expect(phases).toContain("session");
+		expect(phases).toContain("agent");
+		// wireSession is not called in headless (no shell)
+		expect(wired).toBe(false);
+	});
+
+	it("emits error event on failure", async () => {
+		const phases: BootEvent[] = [];
+
+		const config: BootstrapperConfig = {
+			cwd: "/test",
+			willUseTui: false,
+			createShell: async () => {
+				throw new Error("unused");
+			},
+			wireSession: () => {},
+			pickSession: async () => {
+				throw new Error("session pick failed");
+			},
+			resolveSession: async () => stubResolved(),
+			getDeps: () => ({
+				signalHandlers: new Map(),
+				isCompacted: () => false,
+				checkForUpdate: async () => null,
+			}),
+		};
+
+		const handle = createBootstrapper(config);
+		handle.subscribe((e) => phases.push(e));
+
+		await expect(handle.done).rejects.toThrow("session pick failed");
+
+		const errorEvent = phases.find((e) => e.phase === "error");
+		expect(errorEvent).toBeDefined();
+		if (errorEvent?.phase === "error") {
+			expect(errorEvent.error).toBe("session pick failed");
+		}
 	});
 });

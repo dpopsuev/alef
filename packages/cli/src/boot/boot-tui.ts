@@ -56,6 +56,11 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 		reloadAdapter(name: string, path: string): Promise<void>;
 	} | null = null;
 
+	const restartSupervisor = async (): Promise<void> => {
+		await runtime.stop();
+		await runtime.start();
+	};
+
 	const restartTui = async (): Promise<void> => {
 		if (!shellRef || !resolvedRef) return;
 		shellRef.tui.stop();
@@ -280,6 +285,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			restartStrategy: getRestartStrategy(),
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 			restartTui,
+			restartSupervisor,
 			reloadAdapters: async (_names: string[]) => {
 				if (!sessionHandleRef) return;
 				for (const name of _names) {

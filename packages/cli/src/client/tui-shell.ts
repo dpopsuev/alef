@@ -309,10 +309,12 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 						process.exit(75);
 					},
 					restartTui: () => deps.restartTui!(),
-					restartSupervisor: async () => {
-						if (deps.restartStrategy) return deps.restartStrategy.restart();
-						process.exit(75);
-					},
+					restartSupervisor:
+						deps.restartSupervisor ??
+						(async () => {
+							if (deps.restartStrategy) return deps.restartStrategy.restart();
+							process.exit(75);
+						}),
 					reloadAdapters:
 						deps.reloadAdapters ??
 						(async () => {

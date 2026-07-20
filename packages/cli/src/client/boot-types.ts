@@ -190,4 +190,6 @@ export interface WireSessionDeps {
 	restartTui?: () => Promise<void>;
 	/** Hot-reload adapters by name (unload + reload). */
 	reloadAdapters?: (names: string[]) => Promise<void>;
+	/** Drain and restart the supervisor service graph. */
+	restartSupervisor?: () => Promise<void>;
 }

@@ -80,7 +80,7 @@ alef: ## Run Alef
 debug: ## Run Alef in debug mode
 	@node scripts/check-native.mjs
 	@npm run build --silent
-	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 node packages/cli/bin/alef.js
+	@ALEF_DEBUG=1 node packages/cli/bin/alef.js
 
 .PHONY: adapter
 adapter: ## Create a new adapter scaffold: make adapter NAME=weather

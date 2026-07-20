@@ -64,3 +64,6 @@ packages/core/eval/benchmark.jsonl
 packages/core/eval/SCOREBOARD.md
 *.generated.ts
 .npmrc
+sbom.json
+sbom.test.json
+sbom.test.second.json

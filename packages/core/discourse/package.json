@@ -1,0 +1,27 @@
+{
+  "name": "@dpopsuev/discourse-capability",
+  "version": "0.1.0",
+  "description": "Host-neutral append-only forum capability",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./src/index.ts" },
+    "./conformance": "./test/conformance.ts"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "npx tsc -b tsconfig.build.json",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": { "zod": "^4.4.3" },
+  "devDependencies": {
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.6"
+  },
+  "engines": { "node": "^22.0.0" },
+  "license": "MIT"
+}

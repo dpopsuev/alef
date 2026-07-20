@@ -2,10 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import type { DiscourseService } from "../src/service.js";
 import type { AppendPostCommand, SubscriptionBatch } from "../src/types.js";
 
+export type DiscourseConformanceService = Pick<
+	DiscourseService,
+	| "post"
+	| "readThread"
+	| "listTopics"
+	| "listThreads"
+	| "findOpenQuestions"
+	| "subscribe"
+	| "acknowledge"
+	| "snapshot"
+	| "project"
+>;
 export interface DiscourseConformanceHarness {
-	readonly service: DiscourseService;
+	readonly service: DiscourseConformanceService;
 }
-export type DiscourseConformanceFactory = (options?: { eventRetention?: number }) => DiscourseConformanceHarness;
+export type DiscourseConformanceFactory = (options?: {
+	eventRetention?: number;
+}) => DiscourseConformanceHarness | Promise<DiscourseConformanceHarness>;
 let operationCounter = 0;
 function command(overrides: Partial<AppendPostCommand> = {}): AppendPostCommand {
 	return {
@@ -23,7 +37,7 @@ function command(overrides: Partial<AppendPostCommand> = {}): AppendPostCommand 
 export function discourseConformanceSuite(createHarness: DiscourseConformanceFactory): void {
 	describe("Discourse capability conformance", () => {
 		it("appends immutable posts and replies only within one thread", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			const root = await service.post(command());
 			const reply = await service.post(command({ authorId: "bob", content: "reply", replyToPostId: root.post.id }));
 			expect(reply.post.replyToPostId).toBe(root.post.id);
@@ -33,14 +47,14 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			await expect(service.post(command({ replyToPostId: "missing" }))).rejects.toThrow("not found");
 		});
 		it("replays duplicate operations and rejects conflicting reuse", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			const input = command();
 			const first = await service.post(input);
 			expect(await service.post(input)).toEqual({ post: first.post, replayed: true });
 			await expect(service.post({ ...input, content: "changed" })).rejects.toThrow("operation conflict");
 		});
 		it("orders and bounds thread, topic, and snapshot reads", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			for (let index = 0; index < 4; index += 1) await service.post(command({ content: `post-${index}` }));
 			const first = await service.readThread({
 				forumId: "engineering",
@@ -64,7 +78,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect((await service.snapshot({ forumId: "engineering", limit: 2 })).posts.truncated).toBe(true);
 		});
 		it("matches open questions with answers and optional targets", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			await service.post(
 				command({ content: { type: "question", responseId: "q-1", targetId: "bob", text: "why?" } }),
 			);
@@ -78,7 +92,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect((await service.findOpenQuestions({ targetId: "bob" })).items).toEqual([]);
 		});
 		it("pushes sequenced events, resumes acknowledgments, and signals replay gaps", async () => {
-			const { service } = createHarness({ eventRetention: 4 });
+			const { service } = await createHarness({ eventRetention: 4 });
 			const live: SubscriptionBatch[] = [];
 			const handle = await service.subscribe({ consumerId: "reviewer" }, (batch) => live.push(batch));
 			await service.post(command());
@@ -101,7 +115,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect(expired[0]?.events[0]?.type).toBe("subscription-resync-required");
 		});
 		it("allocates unique monotonic sequences for concurrent writers", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			const posts = await Promise.all(
 				Array.from({ length: 20 }, (_, index) => service.post(command({ content: index }))),
 			);
@@ -110,7 +124,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect([...sequences].sort((left, right) => left - right)).toEqual(sequences);
 		});
 		it("rejects malformed, oversized, and unverified external input", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			await expect(service.post(command({ forumId: "" }))).rejects.toThrow();
 			await expect(service.post(command({ content: "x".repeat(70_000) }))).rejects.toThrow("cannot exceed");
 			await expect(service.post(command({ references: [{ kind: "task", id: "unknown" }] }))).rejects.toThrow(
@@ -119,7 +133,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect(() => service.readThread({ forumId: "f", topicId: "t", threadId: "h", limit: 101 })).toThrow("limit");
 		});
 		it("checkpoints projection progress and exposes bounded failure", async () => {
-			const { service } = createHarness();
+			const { service } = await createHarness();
 			await service.post(command());
 			await service.post(command());
 			const projected: number[] = [];
@@ -142,7 +156,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			const failing = vi.fn(async () => {
 				throw new Error("offline");
 			});
-			const failedService = createHarness().service;
+			const failedService = (await createHarness()).service;
 			await failedService.post(command());
 			expect(await failedService.project({ id: "archive", project: failing })).toMatchObject({
 				state: "failed",

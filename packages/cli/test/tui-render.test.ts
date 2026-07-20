@@ -316,7 +316,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		);
 
 		const forumId = session.getDiscussion?.()?.forumId ?? "forum";
-		discourse.append(forumId, "review", "@reviewer", "review loaded");
+		await discourse.append(forumId, "review", "@reviewer", "review loaded");
 
 		const terminal = new MockTerminal(120, 40);
 		const { runTuiMode } = await import("../src/client/runner.js");

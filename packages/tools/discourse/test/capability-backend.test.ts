@@ -37,10 +37,12 @@ describe("capability-backed adapter facade", () => {
 	it("rejects replies across threads before committing", async () => {
 		const backend = new CapabilityDiscourseBackend();
 		const root = await backend.append("reviews", "nesting", "alice", "root", { operationId: "root" });
-		await expect(backend.append("reviews", "naming", "bob", "reply", {
-			operationId: "cross-thread",
-			replyToPostId: root.id,
-		})).rejects.toThrow("same thread");
+		await expect(
+			backend.append("reviews", "naming", "bob", "reply", {
+				operationId: "cross-thread",
+				replyToPostId: root.id,
+			}),
+		).rejects.toThrow("same thread");
 		expect(await backend.readThread("reviews", "naming")).toEqual([]);
 	});
 });

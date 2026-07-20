@@ -21,9 +21,8 @@ import { createTokenTelemetry } from "@dpopsuev/alef-session/token-telemetry";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import {
 	type DiscourseBackend,
-	InMemoryDiscourseStore,
-	maybeMirrorToScribe,
 	openDiscourseBackend,
+	openInMemoryDiscourseBackend,
 	scribeCallFromEnv,
 } from "@dpopsuev/alef-tool-discourse";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
@@ -229,7 +228,7 @@ export async function createLocalSession(
 					scribeCall: scribeCallFromEnv(),
 					logger: log,
 				})
-			: maybeMirrorToScribe(new InMemoryDiscourseStore(), {
+			: openInMemoryDiscourseBackend({
 					scribeCall: scribeCallFromEnv(),
 					logger: log,
 				}));

@@ -1,7 +1,7 @@
 /**
  * Thin Streamable-HTTP MCP client for Scribe artifact calls (SCRIBE_URL).
  */
-import type { ScribeArtifactCall } from "./scribe-backend.js";
+import type { ScribeArtifactCall } from "./scribe-projection.js";
 
 type JsonRpcResult = {
 	result?: {
@@ -15,10 +15,7 @@ type JsonRpcResult = {
  * Build a ScribeArtifactCall against a Streamable HTTP MCP endpoint.
  * Session is established on first use (initialize + tools/call).
  */
-export function createHttpScribeArtifactCall(
-	baseUrl: string,
-	opts: { authToken?: string } = {},
-): ScribeArtifactCall {
+export function createHttpScribeArtifactCall(baseUrl: string, opts: { authToken?: string } = {}): ScribeArtifactCall {
 	let sessionId = "";
 	let nextId = 1;
 	let initPromise: Promise<void> | null = null;

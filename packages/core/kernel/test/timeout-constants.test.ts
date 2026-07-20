@@ -32,18 +32,18 @@ describe("timeout constants", () => {
 
 describe("single source of truth — no inline timeout env reads outside execution.ts", () => {
 	it("ALEF_LLM_TIMEOUT_MS is only read in kernel/src/execution.ts", () => {
-		const violations = findEnvReads("ALEF_LLM_TIMEOUT_MS", "packages/reasoner/src");
+		const violations = findEnvReads("ALEF_LLM_TIMEOUT_MS", "packages/core/reasoner/src");
 		expect(violations, `Found inline ALEF_LLM_TIMEOUT_MS reads:\n${violations.join("\n")}`).toHaveLength(0);
 	});
 
 	it("ALEF_TOOL_TIMEOUT_MS is only read in kernel/src/execution.ts", () => {
-		const violations = findEnvReads("ALEF_TOOL_TIMEOUT_MS", "packages/reasoner/src");
+		const violations = findEnvReads("ALEF_TOOL_TIMEOUT_MS", "packages/core/reasoner/src");
 		expect(violations, `Found inline ALEF_TOOL_TIMEOUT_MS reads:\n${violations.join("\n")}`).toHaveLength(0);
 	});
 });
 
 function findEnvReads(envVar: string, searchDir: string): string[] {
-	const root = join(import.meta.dirname, "../../..");
+	const root = join(import.meta.dirname, "../../../..");
 	const dir = join(root, searchDir);
 	const violations: string[] = [];
 	for (const file of walkTs(dir)) {

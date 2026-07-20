@@ -1,33 +1,18 @@
 const MAX_LABEL_LENGTH = 60;
 
-import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import {
-	type Editor,
-	matchesKey,
-	ProcessTerminal,
-	type SelectItem,
-	SelectList,
-	setTraceSink,
-	type Terminal,
-	TUI,
-} from "@dpopsuev/alef-tui";
-import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
+import { type Editor, matchesKey, type SelectItem, type SelectList, type Terminal, type TUI } from "@dpopsuev/alef-tui";
+import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
-import { getRebootPort, getRestartStrategy } from "../boot/reboot-port.js";
+import { getRebootPort, getRestartStrategy, type RebootPort, type RestartStrategy } from "../boot/reboot-port.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
-import { checkForUpdate } from "../boot/version-check.js";
-import { displayActorName } from "./actor-label.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
-import { dispatchTuiEvent, type TuiEvent } from "./events.js";
-import { handleColonCommand, handleCtrlC } from "./handlers.js";
-import { buildLayout } from "./layout.js";
-import { ModalInputHandler } from "./modal.js";
-import { initialTuiState, type OverlayDescriptor, syncOverlays, type TuiState, type TuiUi } from "./state.js";
-import { createSubmitHandler } from "./submit.js";
-import { bold, boldColor, color, getTheme, selectListThemeFromTokens, type ThemeTokens } from "./theme.js";
+import type { TuiEvent } from "./events.js";
+import { handleCtrlC } from "./handlers.js";
+import type { OverlayDescriptor, TuiState } from "./state.js";
+import { type boldColor, type color, selectListThemeFromTokens, type ThemeTokens } from "./theme.js";
 
 export {
 	makeMarkdownTheme,
@@ -39,7 +24,8 @@ export {
 export type { TuiHandlerContext } from "./handlers.js";
 export { handleColonCommand, handleCtrlC, renderHeaderTopBorder } from "./handlers.js";
 
-interface DiscussionTimelineEntry {
+/** A renderable entry in the discussion timeline (message or tool call). */
+export interface DiscussionTimelineEntry {
 	timestamp: number;
 	render(): void;
 }
@@ -73,7 +59,7 @@ export type DiscussionTimelineRenderEntry =
 /**
  *
  */
-function toolSummary(payload: Record<string, unknown>): string {
+export function toolSummary(payload: Record<string, unknown>): string {
 	if (typeof payload.path === "string" && payload.path) return payload.path;
 	for (const value of Object.values(payload)) {
 		if (typeof value === "string" && value) return value;
@@ -98,252 +84,48 @@ export function buildDiscussionTimeline(
 	});
 }
 
-/** Boot the interactive TUI loop — wires layout, event dispatch, modal input, and session I/O. */
+/**
+ * Boot the interactive TUI loop.
+ * Composes bootTuiShell() + wireSession() to maintain backward compatibility
+ * with existing callers (TuiViewMode, tests) that pass a pre-built Session.
+ */
 export async function runTuiMode(
 	session: Session,
 	opts: InteractiveOptions & { terminal?: Terminal },
 	store?: SessionStore,
 ): Promise<void> {
-	setTraceSink(traceEvent);
-	const terminal = opts.terminal ?? new ProcessTerminal();
-	const tui = new TUI(terminal);
-	const t = getTheme();
+	const { bootTuiShell, wireSession } = await import("./tui-shell.js");
 
-	if (process.env.ALEF_DEBUG === "1") {
-		const frameStream = createWriteStream("/tmp/alef-frames.jsonl", { flags: "w" });
-		let frameBytes = 0;
-		const MAX_FRAME_BYTES = 50 * 1024 * 1024;
-		tui.onRender = (frame: string, width: number) => {
-			if (frameBytes > MAX_FRAME_BYTES) return;
-			const line = `${JSON.stringify({ frame, width, ...tui.renderMeta })}\n`;
-			frameBytes += line.length;
-			frameStream.write(line);
-		};
-	}
+	const shell = await bootTuiShell({ cwd: opts.cwd, terminal: opts.terminal });
 
-	let tuiState = initialTuiState();
-	const tuiStore = new TuiStateStore({
-		modelId: opts.modelId,
-		thinkingLevel: session.getThinking(),
-		inputTokens: 0,
-		outputTokens: 0,
-		contextWindow: session.state.contextWindow,
-		contextUsed: 0,
-		compacted: false,
-		costUsd: 0,
-	});
-	const isNewSession = !store;
-	const { output, input, footer } = await buildLayout(tui, t, opts, tuiStore, isNewSession);
-	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
-	const { promptConsole, historyProvider, editor } = input;
-	let discussionReloadSeq = 0;
-	let historyAbort: AbortController | undefined;
-	let activeDiscussionKey = opts.discussion ? `${opts.discussion.forumId}/${opts.discussion.topicId}` : "";
-	const DISCUSSION_PAINT_CHUNK = 8;
-
-	const loadDiscussion = async (topicId?: string): Promise<void> => {
-		if (!session.readDiscussionTopic) return;
-		historyAbort?.abort();
-		const reloadSeq = ++discussionReloadSeq;
-		footer.setStatus("history", "loading…");
-		const messages = await session.readDiscussionTopic(topicId);
-		const tools: RuntimeToolHistoryEntry[] = [];
-		const activeDiscussion = session.getDiscussion?.();
-		const homeDiscussion = session.getDiscussionState?.()?.home;
-		if (
-			store &&
-			activeDiscussion &&
-			homeDiscussion &&
-			activeDiscussion.forumId === homeDiscussion.forumId &&
-			(topicId ?? activeDiscussion.topicId) === homeDiscussion.topicId
-		) {
-			const events = await store.events();
-			for (const event of events) {
-				if (event.bus !== "command") continue;
-				if (event.type === "discourse.post" || event.type.startsWith("llm.") || event.type.startsWith("context."))
-					continue;
-				tools.push({ name: event.type, keyArg: toolSummary(event.payload), timestamp: event.timestamp });
-			}
-		}
-		if (reloadSeq !== discussionReloadSeq) return;
-		const entries: DiscussionTimelineEntry[] = buildDiscussionTimeline(messages, tools).map((entry) =>
-			entry.kind === "message"
-				? {
-						timestamp: entry.message.timestamp,
-						render: () => {
-							if (entry.message.role === "assistant") writer.addAgentReply(entry.message.text);
-							else if (entry.message.role === "user") writer.addUserMessage(entry.message.text);
-							else writer.addNotice(`${displayActorName(entry.message.author, "other")}: ${entry.message.text}`);
-						},
-					}
-				: {
-						timestamp: entry.tool.timestamp,
-						render: () =>
-							writer.addCompletedToolBlock(entry.tool.name, entry.tool.keyArg, {}, 0, true, null, null),
-					},
-		);
-		writer.clearAll();
-		tui.requestRender();
-		for (let offset = 0; offset < entries.length; offset += DISCUSSION_PAINT_CHUNK) {
-			if (reloadSeq !== discussionReloadSeq) return;
-			const slice = entries.slice(offset, offset + DISCUSSION_PAINT_CHUNK);
-			for (const entry of slice) entry.render();
-			tui.requestRender();
-			await yieldToEventLoop();
-		}
-		if (reloadSeq === discussionReloadSeq) footer.setStatus("history", undefined);
-	};
-
-	promptConsole.setTopicLabel(opts.discussion?.topicTitle ?? "");
-
-	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
-	const signalHandlers = getUiSignalHandlers();
-	let liveContextWindow = session.state.contextWindow;
-	const dispatch = (event: TuiEvent): void => {
-		if (event.type === "state-changed") liveContextWindow = event.contextWindow;
-		const prev = tuiState;
-		const prevContextUsed = tuiStore.get().contextUsed;
-		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
-		syncOverlays(tui, prev.overlays, tuiState.overlays);
-		if (event.type === "adapter-signal") {
-			if (event.signalType === "context.compacting") {
-				footer.setCompacting(event.payload.active === true);
-			} else if (event.signalType === "context.compacted") {
-				const before = Number(event.payload.estimatedBefore ?? prevContextUsed);
-				const after = Number(event.payload.estimatedAfter ?? tuiState.contextFillTokens);
-				footer.playDrain(before, after);
-			}
-		}
-		tuiStore.update({
-			modelId: session.getModel(),
-			inputTokens: tuiState.sessionInputTokens,
-			outputTokens: tuiState.sessionOutputTokens,
-			contextUsed: tuiState.contextFillTokens,
-			contextWindow: liveContextWindow,
-			thinkingLevel: session.getThinking(),
-			compacted: isCompacted(),
-			costUsd: tuiState.sessionCostUsd,
-		});
-		tui.requestRender();
-	};
-
-	session.subscribe((event) => {
-		traceEvent("tui:observer", { eventType: event.type });
-		dispatch(event);
-		if (event.type === "discussion-changed") {
-			const nextKey = `${event.discussion.active.forumId}/${event.discussion.active.topicId}`;
-			if (nextKey !== activeDiscussionKey) {
-				activeDiscussionKey = nextKey;
-				void loadDiscussion(event.discussion.active.topicId);
-			}
-		}
-	});
-
-	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store, editor);
-
-	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);
-	const historyPickerToggle = (): boolean =>
-		openHistoryPicker(historyProvider, historyPickerTheme, (text) => editor.setText(text), dispatch, SelectList);
-
-	tui.onRawInput = (data) => {
-		const handled = handleRawInput(data, tuiState, dispatch, ctx, historyPickerToggle);
-		if (handled) {
-			tui.requestRender();
-		}
-		return handled;
-	};
-
-	const actorRoutes = opts.actorRoutes;
-
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
-	editor.onSubmit = createSubmitHandler({
-		actorRoutes,
-		session,
-		writer,
-		forums:
-			session.getDiscussion && session.setDiscussion && session.listDiscussionTopics
-				? {
-						switchTo: (name: string) => {
-							session.setDiscussion?.({ topicId: name, topicTitle: name });
-						},
-						list: () => session.listDiscussionTopics?.() ?? [],
-						getActive: () => session.getDiscussion?.()?.topicId ?? "",
-					}
-				: {
-						switchTo: (name: string) => forums.switchTo(name),
-						list: () => forums.list(),
-						getActive: () => forums.active,
-					},
-		addToHistory: (text) => {
-			editor.addToHistory(text);
-			editor.clearAttachments();
+	wireSession(
+		shell,
+		{
+			session,
+			store,
+			sessionId: opts.sessionId,
+			modelId: opts.modelId,
+			contextWindow: opts.contextWindow ?? session.state.contextWindow,
+			isNew: !store,
+			getModel: opts.getModel ?? (() => opts.modelId),
+			setModel: opts.setModel ?? (() => {}),
+			getThinking: opts.getThinking ?? (() => session.getThinking()),
+			setThinking: opts.setThinking ?? (() => {}),
+			humanAddress: opts.humanAddress ?? "@you",
+			agentAddress: opts.agentAddress ?? "@alef",
+			blueprintName: opts.blueprintName,
 		},
-		addHistoryEntry: (text) => historyProvider.addEntry(text),
-		clearEditor: () => editor.setText(""),
-		dispatch,
-		ctx,
-		onThinkingStop: () => {
-			if (promptConsole.isThinking) promptConsole.stopThinking();
+		{
+			signalHandlers: getUiSignalHandlers(),
+			isCompacted,
+			rebootPort: getRebootPort(),
+			restartStrategy: getRestartStrategy(),
+			checkForUpdate: () => import("../boot/version-check.js").then((m) => m.checkForUpdate()),
 		},
-		isTurnActive: () => promptConsole.isThinking,
-	});
-
-	tui.addInputListener(
-		new ModalInputHandler(
-			editor,
-			(mode) => {
-				if (!promptConsole.isThinking)
-					promptConsole.setStatus(
-						mode === "normal" ? color(bold("NORMAL"), t.mutedFg) : color(bold("INSERT"), t.accentFg),
-					);
-				tui.requestRender();
-			},
-			(hint) => {
-				if (!promptConsole.isThinking) promptConsole.setHint(hint ? color(hint, t.mutedFg) : "");
-				tui.requestRender();
-			},
-			(colonCmd) => {
-				handleColonCommand(colonCmd, ctx());
-			},
-		).handle,
 	);
 
-	tui.start();
-	tui.setFocus(editor);
-	promptConsole.setStatus(color(bold("INSERT"), t.accentFg));
-	tui.requestRender();
-	traceEvent("tui:start");
-	// History/discussion paint after start so resume never blocks scroll or input.
-	if (session.readDiscussionTopic) {
-		void loadDiscussion();
-	} else if (store) {
-		historyAbort = new AbortController();
-		footer.setStatus("history", "loading…");
-		void output
-			.loadHistory(store, tui, opts.cwd, historyAbort.signal)
-			.finally(() => footer.setStatus("history", undefined));
-	}
-	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
-	checkForUpdate()
-		.then((n) => {
-			if (n) {
-				writer.addNotice(n);
-				const match = n.match(/New version (\S+)/);
-				if (match?.[1]) footer.setUpdateAvailable(match[1]);
-				tui.requestRender();
-			}
-		})
-		.catch(() => {
-			// Update check is best-effort — network failures are expected.
-		});
-
-	await new Promise<void>((resolve) => {
-		tui.onStop = () => {
-			traceEvent("tui:stop:resolve");
-			resolve();
-		};
-	});
-	if (promptConsole.isThinking) promptConsole.stopThinking();
+	await shell.stopped;
+	if (shell.input.promptConsole.isThinking) shell.input.promptConsole.stopThinking();
 	traceEvent("tui:stopped");
 }
 
@@ -358,6 +140,8 @@ export function createContextFactory(
 	dispatch: (event: TuiEvent) => void,
 	store?: SessionStore,
 	editorRef?: Editor,
+	rebootPort?: RebootPort,
+	restartStrategy?: RestartStrategy,
 ): () => TuiHandlerContext {
 	return () => {
 		const state = getState();
@@ -382,8 +166,8 @@ export function createContextFactory(
 			},
 			taskLedger: [...state.taskLedger.values()],
 			editor: editorRef,
-			rebootPort: getRebootPort(),
-			restartStrategy: getRestartStrategy(),
+			rebootPort: rebootPort ?? getRebootPort(),
+			restartStrategy: restartStrategy ?? getRestartStrategy(),
 		};
 	};
 }

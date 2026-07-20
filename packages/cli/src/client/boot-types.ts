@@ -1,9 +1,9 @@
 /**
  * Boot phase types for the unified TUI lifecycle.
  *
- * The Bootstrapper starts the TUI immediately, then drives the boot spine
- * (storage -> session pick -> adapters -> agent) while emitting lifecycle
- * events that the TUI renders as progress.
+ * These interfaces define the contract between the TUI layer (client/)
+ * and the Bootstrapper/Supervisor layer (boot/). Runtime dependencies
+ * flow through injection -- the TUI never imports boot/ modules directly.
  *
  * Phase flow:
  *   1. Shell   -- TUI layout visible, splash rendered, input area available
@@ -12,14 +12,31 @@
  *   4. Live    -- agent wired, conversation input enabled, history loaded
  */
 
+import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 import type { Editor, Terminal, ThemeTokens, TUI } from "@dpopsuev/alef-tui";
-import type { ChatLog, FooterPanel, OutputPanel } from "@dpopsuev/alef-tui/views";
-import type { BootEvent } from "../boot/bootstrapper.js";
+import type { ChatLog, FooterPanel, OutputPanel, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { TuiChrome } from "./chrome.js";
 import type { InputPanel } from "./panel.js";
+
+// ---------------------------------------------------------------------------
+// Boot lifecycle events -- shared contract between Bootstrapper and TUI
+// ---------------------------------------------------------------------------
+
+/** Discriminated union of boot lifecycle events emitted by the Bootstrapper. */
+export type BootEvent =
+	| { phase: "storage"; status: "starting" }
+	| { phase: "storage"; status: "ready" }
+	| { phase: "session"; status: "picking" }
+	| { phase: "session"; status: "ready"; sessionId: string; isNew: boolean }
+	| { phase: "adapters"; status: "loading" }
+	| { phase: "adapters"; status: "ready"; adapterCount: number; blueprintName: string }
+	| { phase: "model"; status: "ready"; modelId: string }
+	| { phase: "agent"; status: "wiring" }
+	| { phase: "agent"; status: "ready" }
+	| { phase: "error"; error: string };
 
 // ---------------------------------------------------------------------------
 // Shell phase -- TUI visible, no session yet
@@ -47,6 +64,8 @@ export interface TuiShell {
 	readonly writer: ChatLog;
 	readonly editor: Editor;
 	readonly chrome: TuiChrome;
+	readonly tuiStore: TuiStateStore;
+	readonly cwd: string;
 
 	/** Render a boot lifecycle event as progress in the TUI. */
 	handleBootEvent(event: BootEvent): void;
@@ -79,7 +98,7 @@ export interface SessionPickerDeps {
 /** Everything the TUI needs to enter conversation mode. */
 export interface ResolvedSession {
 	session: Session;
-	store: SessionStore;
+	store?: SessionStore;
 	sessionId: string;
 	modelId: string;
 	contextWindow: number;
@@ -101,3 +120,35 @@ export interface ResolvedSession {
  * everything between session selection and conversation mode.
  */
 export type SessionResolver = (selection: SessionSelection) => Promise<ResolvedSession>;
+
+// ---------------------------------------------------------------------------
+// Injected dependencies -- services the TUI receives, never imports
+// ---------------------------------------------------------------------------
+
+/** Port for triggering a warm reboot (build + restart). */
+export interface RebootPort {
+	reboot(): Promise<void>;
+}
+
+/** Strategy for full process restart. */
+export interface RestartStrategy {
+	restart(): Promise<never>;
+}
+
+/**
+ * Dependencies injected into wireSession by the Bootstrapper.
+ * These replace the module-level singleton imports that previously
+ * coupled the TUI directly to the boot layer.
+ */
+export interface WireSessionDeps {
+	/** UI signal handlers contributed by adapters. */
+	signalHandlers: ReadonlyMap<string, UiSignalHandler>;
+	/** Whether the context window has been compacted this session. */
+	isCompacted: () => boolean;
+	/** Port for triggering warm reboot. */
+	rebootPort?: RebootPort;
+	/** Strategy for full process restart. */
+	restartStrategy?: RestartStrategy;
+	/** Check for newer version (async, best-effort). */
+	checkForUpdate: () => Promise<string | null>;
+}

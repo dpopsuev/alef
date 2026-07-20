@@ -1130,29 +1130,13 @@ export class TUI extends Container {
 			return;
 		}
 
-		// Always full-render in dock mode. Differential painting accumulates
-		// cursor drift causing dock content to leak into the scroll region.
-		// Full-frame cost is negligible for viewport-sized frames (24-40 rows).
-		this.renderMeta = {
-			renderPath: "dock-full",
-			firstChanged: 0,
-			prevViewportTop: 0,
-			totalLines: frame.length,
-			height,
-			ts: Date.now(),
-		};
-		paintFrame(false);
-		return;
-
-		// --- Dead code below: kept for reference if differential is re-enabled ---
-		// Viewport-sized frames — differential never hits the scrollback path.
+		// Differential render for dock mode. Uses absolute cursor positioning
+		// (\x1b[row;1H) per changed line to avoid the cursor drift that caused
+		// the earlier full-render fallback.
 		let firstChanged = -1;
 		let lastChanged = -1;
-		const maxLines = Math.max(frame.length, this.previousLines.length);
-		for (let i = 0; i < maxLines; i++) {
-			const oldLine = i < this.previousLines.length ? this.previousLines[i] : "";
-			const newLine = i < frame.length ? frame[i] : "";
-			if (oldLine !== newLine) {
+		for (let i = 0; i < frame.length; i++) {
+			if ((this.previousLines[i] ?? "") !== frame[i]) {
 				if (firstChanged === -1) firstChanged = i;
 				lastChanged = i;
 			}
@@ -1168,7 +1152,9 @@ export class TUI extends Container {
 				ts: Date.now(),
 			};
 			this.positionHardwareCursor(cursorPos, frame.length);
+			this.previousLines = frame;
 			this.previousHeight = height;
+			this.onRender?.(frame.join("\n"), width, height);
 			return;
 		}
 
@@ -1184,31 +1170,17 @@ export class TUI extends Container {
 		let buffer = useDec2026 ? "\x1b[?2026h" : "";
 		buffer += "\x1b[?25l";
 		buffer += this.deleteChangedKittyImages(firstChanged, lastChanged);
-		// Position cursor at firstChanged row using absolute positioning
-		// to avoid drift from accumulated relative moves.
-		buffer += `\x1b[${firstChanged + 1};1H`;
-		const renderEnd = Math.min(lastChanged, frame.length - 1);
-		for (let i = firstChanged; i <= renderEnd; i++) {
-			if (i > firstChanged) buffer += "\r\n";
-			buffer += "\x1b[2K";
+		for (let i = firstChanged; i <= lastChanged; i++) {
+			if ((this.previousLines[i] ?? "") === frame[i]) continue;
+			buffer += `\x1b[${i + 1};1H\x1b[2K`;
 			const line = frame[i]!;
 			buffer += visibleWidth(line) > width ? truncateToWidth(line, width, "\u2026") : line;
-		}
-		const finalCursorRow = renderEnd;
-		if (this.previousLines.length > frame.length) {
-			const extra = this.previousLines.length - frame.length;
-			buffer += "\x1b[1B";
-			for (let i = 0; i < extra; i++) {
-				buffer += "\r\x1b[2K";
-				if (i < extra - 1) buffer += "\x1b[1B";
-			}
-			buffer += `\x1b[${extra}A`;
 		}
 		buffer += "\x1b[?25h";
 		if (useDec2026) buffer += "\x1b[?2026l";
 		this.terminal.write(buffer);
 		this.cursorRow = Math.max(0, frame.length - 1);
-		this.hardwareCursorRow = finalCursorRow;
+		this.hardwareCursorRow = lastChanged;
 		this.maxLinesRendered = height;
 		this.previousViewportTop = 0;
 		this.positionHardwareCursor(cursorPos, frame.length);

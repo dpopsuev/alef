@@ -1,20 +1,37 @@
 import { execSync } from "node:child_process";
-import { getRebootPort, RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
+import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import type { Release } from "../../update/release-checker.js";
 import { checkLatestRelease } from "../../update/release-checker.js";
 
-/** Injectable shell side-effects for :update. */
-export interface UpdateShell {
-	gitStatusPorcelain(): string;
-	gitPull(): void;
-	gitCheckStatus(): string;
-	npmInstall(): void;
-	npmInstallGlobal(spec: string): void;
-	build(): void;
-	checkRelease(currentVersion: string): Promise<Release | null>;
+// ---------------------------------------------------------------------------
+// ISP: segregated interfaces -- each consumer depends only on what it calls
+// ---------------------------------------------------------------------------
+
+/** Git working-tree operations (dev channel only). */
+export interface GitOps {
+	statusPorcelain(): string;
+	pull(): void;
+	checkStatus(): string;
+	installDeps(): void;
 }
 
-/** Discriminated result of runUpdate for UI adapters. */
+/** Global package installation (stable channel only). */
+export interface PackageInstaller {
+	installGlobal(spec: string): void;
+}
+
+/** Release availability check (stable channel only). */
+export interface ReleaseChecker {
+	check(currentVersion: string): Promise<Release | null>;
+}
+
+// ---------------------------------------------------------------------------
+// Result types
+// ---------------------------------------------------------------------------
+
+/**
+ *
+ */
 export type UpdateResult =
 	| { kind: "aborted-dirty" }
 	| { kind: "check"; detail: string }
@@ -24,17 +41,82 @@ export type UpdateResult =
 	| { kind: "available"; release: Release }
 	| { kind: "failed"; message: string };
 
-/** Inputs for pure update orchestration. */
-export interface RunUpdateInput {
-	channel: "dev" | "stable";
+// ---------------------------------------------------------------------------
+// Dev channel update
+// ---------------------------------------------------------------------------
+
+/**
+ *
+ */
+export interface DevUpdateInput {
 	pull: boolean;
 	force: boolean;
 	checkOnly: boolean;
-	version: string;
-	shell: UpdateShell;
+	git: GitOps;
 	rebuild?: () => Promise<void>;
 	respawn: () => Promise<void>;
 }
+
+/** Dev update: build local code, optionally pull upstream first. */
+export async function runDevUpdate(input: DevUpdateInput): Promise<UpdateResult> {
+	const { pull, force, checkOnly, git, rebuild, respawn } = input;
+	try {
+		if (checkOnly) {
+			return { kind: "check", detail: git.checkStatus().trim() || "git check complete" };
+		}
+
+		if (pull) {
+			const dirty = git.statusPorcelain().trim();
+			if (dirty && !force) return { kind: "aborted-dirty" };
+			git.pull();
+			git.installDeps();
+		}
+
+		if (rebuild) {
+			await rebuild();
+			return { kind: "rebuilt" };
+		}
+		await respawn();
+		return { kind: "respawn" };
+	} catch (error) {
+		return { kind: "failed", message: error instanceof Error ? error.message : "unknown error" };
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Stable channel update
+// ---------------------------------------------------------------------------
+
+/**
+ *
+ */
+export interface StableUpdateInput {
+	checkOnly: boolean;
+	version: string;
+	releases: ReleaseChecker;
+	packages: PackageInstaller;
+	respawn: () => Promise<void>;
+}
+
+/** Stable update: check release, install globally, respawn. */
+export async function runStableUpdate(input: StableUpdateInput): Promise<UpdateResult> {
+	const { checkOnly, version, releases, packages, respawn } = input;
+	try {
+		const release = await releases.check(version);
+		if (!release) return { kind: "up-to-date" };
+		if (checkOnly) return { kind: "available", release };
+
+		packages.installGlobal(`@dpopsuev/alef@${release.version}`);
+		await respawn();
+		return { kind: "respawn" };
+	} catch (error) {
+		return { kind: "failed", message: error instanceof Error ? error.message : "unknown error" };
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Argument parsing
+// ---------------------------------------------------------------------------
 
 /** Parse :update flags. */
 export function parseUpdateArgs(args: readonly string[]): { pull: boolean; force: boolean; checkOnly: boolean } {
@@ -45,89 +127,57 @@ export function parseUpdateArgs(args: readonly string[]): { pull: boolean; force
 	};
 }
 
-/**
- * Unified update orchestration.
- *
- * Dev mode (no --pull): build local code + restart.
- * Dev mode (--pull):    git pull + npm install + build + restart.
- * Prod mode:            check release + npm install -g + restart.
- */
-export async function runUpdate(input: RunUpdateInput): Promise<UpdateResult> {
-	const { channel, pull, force, checkOnly, version, shell, rebuild, respawn } = input;
+// ---------------------------------------------------------------------------
+// Default implementations (factories)
+// ---------------------------------------------------------------------------
 
-	try {
-		if (channel === "dev") {
-			if (checkOnly) {
-				return { kind: "check", detail: shell.gitCheckStatus().trim() || "git check complete" };
-			}
-
-			if (pull) {
-				const dirty = shell.gitStatusPorcelain().trim();
-				if (dirty && !force) return { kind: "aborted-dirty" };
-				shell.gitPull();
-				shell.npmInstall();
-			}
-
-			if (rebuild) {
-				await rebuild();
-				return { kind: "rebuilt" };
-			}
-			shell.build();
-			await respawn();
-			return { kind: "respawn" };
-		}
-
-		const release = await shell.checkRelease(version);
-		if (!release) return { kind: "up-to-date" };
-
-		if (checkOnly) return { kind: "available", release };
-
-		shell.npmInstallGlobal(`@dpopsuev/alef@${release.version}`);
-		await respawn();
-		return { kind: "respawn" };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "unknown error";
-		return { kind: "failed", message };
-	}
-}
-
-/** True while a rebuild is in progress. Suppresses false "session ended" errors. */
-export const rebootInProgress = false;
-
-/** Default shell backed by execSync / GitHub releases. */
-export function createDefaultUpdateShell(): UpdateShell {
+/** Default git ops backed by execSync. */
+export function createDefaultGitOps(): GitOps {
 	return {
-		gitStatusPorcelain: () => execSync("git status --porcelain", { encoding: "utf-8" }),
-		gitPull: () => {
+		statusPorcelain: () => execSync("git status --porcelain", { encoding: "utf-8" }),
+		pull: () => {
 			execSync("git pull", { stdio: "inherit" });
 		},
-		gitCheckStatus: () => {
+		checkStatus: () => {
 			try {
 				return execSync("git fetch --dry-run 2>&1 || git status -sb", { encoding: "utf-8" });
 			} catch (error) {
 				return error instanceof Error ? error.message : String(error);
 			}
 		},
-		npmInstall: () => {
+		installDeps: () => {
 			execSync("npm install", { stdio: "inherit" });
 		},
-		npmInstallGlobal: (spec) => {
-			const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
-			execSync(`${npmCmd} install -g ${spec}`, { stdio: "inherit" });
-		},
-		build: () => {
-			execSync("npm run build", { stdio: "inherit" });
-		},
-		checkRelease: (current) => checkLatestRelease("dpopsuev", "alef", current),
 	};
 }
 
-/** Resolve reboot callback from the bootloader's RebootPort when present. */
-export function resolveReboot(): (() => Promise<void>) | undefined {
-	const port = getRebootPort();
-	if (!port) return undefined;
-	return () => port.reboot();
+/** Default package installer backed by execSync. */
+export function createDefaultPackageInstaller(): PackageInstaller {
+	return {
+		installGlobal: (spec) => {
+			const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
+			execSync(`${npmCmd} install -g ${spec}`, { stdio: "inherit" });
+		},
+	};
 }
+
+/** Default release checker backed by GitHub API. */
+export function createDefaultReleaseChecker(): ReleaseChecker {
+	return {
+		check: (current) => checkLatestRelease("dpopsuev", "alef", current),
+	};
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+/** True while a rebuild is in progress. Suppresses false session-ended errors. */
+export const rebootInProgress = false;
+
+// ---------------------------------------------------------------------------
+// Misc
+// ---------------------------------------------------------------------------
 
 /**
  * Signal the wrapper to respawn us by exiting with RESTART_EXIT_CODE.

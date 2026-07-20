@@ -15,6 +15,7 @@ import {
 } from "@dpopsuev/alef-tui";
 import { type ChatLog, TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../boot/interactive.js";
+import { getRebootPort } from "../boot/reboot-port.js";
 import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import { checkForUpdate } from "../boot/version-check.js";
 import { displayActorName } from "./actor-label.js";
@@ -412,6 +413,7 @@ export function createContextFactory(
 			},
 			taskLedger: [...state.taskLedger.values()],
 			editor: editorRef,
+			rebootPort: getRebootPort(),
 		};
 	};
 }

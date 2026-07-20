@@ -3,7 +3,14 @@ import { RESTART_EXIT_CODE } from "../../boot/reboot-port.js";
 import { parseCompactArgs, runManualCompact } from "./manual-compact.js";
 import type { Command, LifecycleCmdCtx, TuiHandlerContext } from "./types.js";
 import { attempt } from "./types.js";
-import { createDefaultUpdateShell, parseUpdateArgs, resolveReboot, runUpdate } from "./update-service.js";
+import {
+	createDefaultGitOps,
+	createDefaultPackageInstaller,
+	createDefaultReleaseChecker,
+	parseUpdateArgs,
+	runDevUpdate,
+	runStableUpdate,
+} from "./update-service.js";
 
 export { parseUpdateArgs } from "./update-service.js";
 
@@ -14,7 +21,18 @@ async function cleanExitForRestart(ctx: LifecycleCmdCtx): Promise<void> {
 	process.exit(RESTART_EXIT_CODE);
 }
 
-const SPINNER_FRAMES = ["⣋", "⣙", "⣹", "⣸", "⣼", "⣴", "⣦", "⣧", "⣇", "⣏"];
+const SPINNER_FRAMES = [
+	"\u28cb",
+	"\u28d9",
+	"\u28f9",
+	"\u28f8",
+	"\u28fc",
+	"\u28f4",
+	"\u28e6",
+	"\u28e7",
+	"\u28c7",
+	"\u28cf",
+];
 
 /**
  * Unified update command. Environment-aware:
@@ -23,8 +41,6 @@ const SPINNER_FRAMES = ["⣋", "⣙", "⣹", "⣸", "⣼", "⣴", "⣦", "⣧", 
  *   dev --check:     git fetch --dry-run status
  *   prod (no flags): check release + npm install -g + restart
  *   prod --check:    show available release without applying
- *
- * :restart is registered as an alias.
  */
 export const update: Command = {
 	name: "update",
@@ -33,20 +49,15 @@ export const update: Command = {
 	run(ctx: LifecycleCmdCtx, args: string[]) {
 		attempt(ctx, async () => {
 			const { pull, force, checkOnly } = parseUpdateArgs(args);
-			const reboot = resolveReboot();
-			const shell = createDefaultUpdateShell();
+			const isDev = BUILD_INFO.channel === "dev";
 
 			if (checkOnly) {
-				if (BUILD_INFO.channel === "dev") {
-					ctx.writer.addNotice("Checking git remote...");
-				} else {
-					ctx.writer.addNotice("Checking for updates...");
-				}
+				ctx.writer.addNotice(isDev ? "Checking git remote..." : "Checking for updates...");
 				ctx.tui.requestRender(true);
-			} else if (BUILD_INFO.channel === "dev" && !pull) {
+			} else if (isDev && !pull) {
 				ctx.writer.addNotice("Building...");
 				ctx.tui.requestRender(true);
-			} else if (BUILD_INFO.channel === "dev" && pull) {
+			} else if (isDev && pull) {
 				ctx.writer.addNotice("Pulling and rebuilding...");
 				ctx.tui.requestRender(true);
 			} else {
@@ -65,34 +76,35 @@ export const update: Command = {
 
 			let timer: ReturnType<typeof setInterval> | undefined;
 			if (!checkOnly) {
-				const phase = BUILD_INFO.channel === "dev" && !pull ? "Building" : "Updating";
+				const phase = isDev && !pull ? "Building" : "Updating";
 				tick(phase);
 				timer = setInterval(() => tick(phase), 100);
-
-				if (force && BUILD_INFO.channel === "dev") {
-					const dirty = shell.gitStatusPorcelain().trim();
-					if (dirty) {
-						spinnerNotice.setText("Warning: dirty tree -- proceeding with --force");
-						ctx.tui.requestRender(true);
-					}
-				}
-
 				await new Promise<void>((r) => setTimeout(r, 50));
 			}
 
+			const respawn = async () => {
+				await cleanExitForRestart(ctx);
+			};
+
 			try {
-				const result = await runUpdate({
-					channel: BUILD_INFO.channel,
-					pull,
-					force,
-					checkOnly,
-					version: BUILD_INFO.version,
-					shell,
-					rebuild: reboot,
-					respawn: async () => {
-						await cleanExitForRestart(ctx);
-					},
-				});
+				const rebuild = ctx.rebootPort ? () => ctx.rebootPort!.reboot() : undefined;
+
+				const result = isDev
+					? await runDevUpdate({
+							pull,
+							force,
+							checkOnly,
+							git: createDefaultGitOps(),
+							rebuild,
+							respawn,
+						})
+					: await runStableUpdate({
+							checkOnly,
+							version: BUILD_INFO.version,
+							releases: createDefaultReleaseChecker(),
+							packages: createDefaultPackageInstaller(),
+							respawn,
+						});
 
 				if (timer) clearInterval(timer);
 

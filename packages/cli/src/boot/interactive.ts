@@ -1,5 +1,5 @@
 /**
- * Interactive mode — read lines from stdin, send each to the agent, print replies.
+ * Interactive mode -- read lines from stdin, send each to the agent, print replies.
  *
  * The caller owns agent lifecycle. This function only drives the dialog loop.
  *
@@ -8,40 +8,14 @@
  */
 
 import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
-import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { readStdinLines } from "./readline.js";
 
+export type { InteractiveOptions } from "../client/boot-types.js";
+
+import type { InteractiveOptions } from "../client/boot-types.js";
+
 const EXIT_COMMAND = "/exit";
-
-import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
-
-/** Configuration for the readline-based interactive dialog loop. */
-export interface InteractiveOptions {
-	cwd: string;
-	modelId: string;
-	sessionId: string;
-	contextWindow?: number;
-	getModel?: () => string;
-	setModel?: (id: string) => void;
-	getThinking?: () => string;
-	setThinking?: (level: string) => void;
-	/** Human's @ address for pill label. Default: "@you". */
-	humanAddress?: string;
-	/** Agent's @ address for pill label and @-routing. Default: "@alef". */
-	agentAddress?: string;
-	/** Route table for @-mention routing. */
-	actorRoutes?: ActorRouteTable;
-	/** Blueprint/profile name for display */
-	blueprintName?: string;
-	/** Active discourse forum/topic shown in the UI. */
-	discussion?: DiscussionRef;
-	/** Optional LLM summarizer override for :compact (tests / headless). */
-	summarize?: (
-		messages: readonly unknown[],
-		opts?: { instructions?: string; priorSummary?: string },
-	) => Promise<string> | string;
-}
 
 /** Drive a read-eval-print loop over stdin, sending each line to the session. */
 export async function runInteractive(session: Session, opts: InteractiveOptions): Promise<void> {

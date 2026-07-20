@@ -6,8 +6,7 @@ import type { AdapterManagementSession, Session } from "@dpopsuev/alef-session/c
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions } from "../../boot/interactive.js";
-import type { RebootPort, RestartStrategy } from "../../boot/reboot-port.js";
+import type { InteractiveOptions, RebootPort, RestartStrategy } from "../boot-types.js";
 import type { TuiEvent } from "../events.js";
 import type { TaskLedgerEntry } from "../state.js";
 import type { ThemeTokens } from "../theme.js";

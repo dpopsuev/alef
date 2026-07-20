@@ -12,7 +12,9 @@
  *   4. Live    -- agent wired, conversation input enabled, history loaded
  */
 
+import type { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
 import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
+import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
@@ -20,6 +22,31 @@ import type { Editor, Terminal, ThemeTokens, TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog, FooterPanel, OutputPanel, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { TuiChrome } from "./chrome.js";
 import type { InputPanel } from "./panel.js";
+
+// ---------------------------------------------------------------------------
+// InteractiveOptions -- shared between TUI and non-TUI view modes
+// ---------------------------------------------------------------------------
+
+/** Configuration for interactive dialog modes (TUI, readline, JSON stream). */
+export interface InteractiveOptions {
+	cwd: string;
+	modelId: string;
+	sessionId: string;
+	contextWindow?: number;
+	getModel?: () => string;
+	setModel?: (id: string) => void;
+	getThinking?: () => string;
+	setThinking?: (level: string) => void;
+	humanAddress?: string;
+	agentAddress?: string;
+	actorRoutes?: ActorRouteTable;
+	blueprintName?: string;
+	discussion?: DiscussionRef;
+	summarize?: (
+		messages: readonly unknown[],
+		opts?: { instructions?: string; priorSummary?: string },
+	) => Promise<string> | string;
+}
 
 // ---------------------------------------------------------------------------
 // Boot lifecycle events -- shared contract between Bootstrapper and TUI

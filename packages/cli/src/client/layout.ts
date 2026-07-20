@@ -1,8 +1,8 @@
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions } from "../boot/interactive.js";
 import { displayActorName } from "./actor-label.js";
+import type { InteractiveOptions } from "./boot-types.js";
 import { createTuiChrome } from "./chrome.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";

@@ -3,7 +3,7 @@ import { InputPatternRegistry } from "@dpopsuev/alef-agent/input-patterns";
 import { isCompacting } from "@dpopsuev/alef-session/compaction";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { ImageAttachment } from "@dpopsuev/alef-tui";
-import type { InteractiveOptions } from "../boot/interactive.js";
+import type { InteractiveOptions } from "./boot-types.js";
 import type { TuiEvent } from "./events.js";
 import type { TuiHandlerContext } from "./handlers.js";
 import { handleColonCommand } from "./handlers.js";

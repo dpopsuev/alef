@@ -1,8 +1,7 @@
 import type { Terminal } from "./terminal.js";
 
-/**
- *
- */
+/** String-collecting Terminal stub for tests that inspect raw output. */
+/** In-memory Terminal for unit tests — collects write() output as string[]. */
 export class MockTerminal implements Terminal {
 	readonly output: string[] = [];
 	private _columns: number;
@@ -28,10 +27,6 @@ export class MockTerminal implements Terminal {
 		this._onResize = null;
 	}
 
-	drainInput(): Promise<void> {
-		return Promise.resolve();
-	}
-
 	write(data: string): void {
 		this.output.push(data);
 	}
@@ -42,21 +37,12 @@ export class MockTerminal implements Terminal {
 	get rows(): number {
 		return this._rows;
 	}
-	get kittyProtocolActive(): boolean {
-		return false;
-	}
 	get dec2026Active(): boolean {
 		return false;
 	}
 
-	moveBy(_lines: number): void {}
 	hideCursor(): void {}
 	showCursor(): void {}
-	clearLine(): void {}
-	clearFromCursor(): void {}
-	clearScreen(): void {}
-	setTitle(_title: string): void {}
-	setProgress(_active: boolean): void {}
 
 	get started(): boolean {
 		return this._started;

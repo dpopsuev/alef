@@ -1064,8 +1064,7 @@ export class TUI extends Container {
 		this.previousScrollable = scrollRegion;
 		this.previousDockBodyRows = bodyRows;
 
-		const useDec2026 =
-			"dec2026Active" in this.terminal ? (this.terminal as { dec2026Active: boolean }).dec2026Active : true;
+		const useDec2026 = this.terminal.dec2026Active;
 
 		const paintFrame = (clear: boolean): void => {
 			this.fullRedrawCount += 1;
@@ -1226,10 +1225,7 @@ export class TUI extends Container {
 		newLines = this.applyLineResets(newLines);
 
 		// Helper to clear scrollback and viewport and render all new lines
-		// Gate: use DEC 2026 sync brackets only when the terminal supports it and
-		// we are not inside a multiplexer. Fall back to cursor-hide/show alone.
-		const useDec2026 =
-			"dec2026Active" in this.terminal ? (this.terminal as { dec2026Active: boolean }).dec2026Active : true; // VirtualTerminal and other test doubles: assume supported
+		const useDec2026 = this.terminal.dec2026Active;
 
 		const fullRender = (clear: boolean): void => {
 			this.fullRedrawCount += 1;

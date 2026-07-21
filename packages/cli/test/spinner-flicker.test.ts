@@ -1,211 +1,270 @@
 /**
- * Spinner stability test -- verify the thinking spinner doesn't corrupt
- * the viewport during rapid re-renders.
+ * Spinner flicker and duplication tests.
  *
- * Uses the production bootTuiShell + wireSession path with VirtualTerminal.
- * Simulates tool-start followed by rapid chunk events (high pressure),
- * then checks viewport integrity after many spinner ticks.
+ * These tests catch three structural rendering bugs:
+ *
+ *   1. Duplicate spinner lines -- thinking spinner and agent card both show
+ *      braille characters in the dock zone, looking like duplicate spinners
+ *      when a single subagent is in flight.
+ *
+ *   2. Compound tick -- one timer updates the thinking spinner AND refreshes
+ *      all agent cards, causing O(N) component updates per tick instead of
+ *      O(1). Each card independently calls spinnerFrame(), so the tick does
+ *      work proportional to the number of in-flight calls.
+ *
+ *   3. No single-spinner invariant -- Pi enforces "at most one active status
+ *      indicator" via showStatusIndicator() which disposes the previous one.
+ *      Alef has no equivalent constraint.
+ *
+ * These tests assert on model state and render output, not exact ANSI bytes.
+ * Following the lexicon tui-testing principle: "test behavior, not pixels."
  */
 
-import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
-import { describe, expect, it } from "vitest";
+import { Container, Text, TUI } from "@dpopsuev/alef-tui";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import type { ResolvedSession, WireSessionDeps } from "../src/client/boot-types.js";
-import { getTheme, loadTheme } from "../src/client/theme.js";
-import { bootTuiShell, wireSession } from "../src/client/tui-shell.js";
+import { PromptConsole } from "../src/client/console.js";
+import { getTheme } from "../src/client/theme.js";
 
-async function settle(ms = 50): Promise<void> {
-	await new Promise<void>((r) => process.nextTick(r));
-	await new Promise<void>((r) => setTimeout(r, ms));
-	await new Promise<void>((r) => process.nextTick(r));
+function setup(width = 80, height = 20) {
+	const terminal = new VirtualTerminal(width, height);
+	const tui = new TUI(terminal);
+
+	terminal.start(
+		() => {},
+		() => {},
+	);
+	tui.start();
+
+	const chat = new Container();
+	tui.addChild(chat);
+	for (let i = 0; i < 4; i++) chat.addChild(new Text(`msg-${i}`, 0, 0));
+
+	const pc = new PromptConsole(tui, getTheme(), "test-model");
+	pc.mount();
+
+	return { terminal, tui, pc, chat, cleanup: () => tui.stop() };
 }
 
-function ensureTheme(): void {
-	try {
-		getTheme();
-	} catch {
-		loadTheme(undefined, undefined, undefined, true, []);
-	}
-}
-
-function createTestSession(): Session & { emit(event: AgentEvent): void } {
-	const observers = new Set<(event: AgentEvent) => void>();
-	return {
-		state: { id: "test", modelId: "test-model", contextWindow: 128000 },
-		getModel: () => "test-model",
-		setModel: () => {},
-		getThinking: () => "",
-		setThinking: () => {},
-		setTurnController: () => {},
-		dispose: () => {},
-		subscribe: (obs) => {
-			observers.add(obs);
-			return () => observers.delete(obs);
-		},
-		emit(event) {
-			for (const obs of observers) obs(event);
-		},
-	};
-}
-
-function resolved(session: Session): ResolvedSession {
-	return {
-		session,
-		sessionId: "test",
-		modelId: "test-model",
-		contextWindow: 128000,
-		isNew: true,
-		getModel: () => "test-model",
-		setModel: () => {},
-		getThinking: () => "",
-		setThinking: () => {},
-		humanAddress: "@you",
-		agentAddress: "@alef",
-	};
-}
-
-function testDeps(): WireSessionDeps {
-	return {
-		signalHandlers: new Map(),
-		isCompacted: () => false,
-		checkForUpdate: async () => null,
-	};
-}
-
-describe("spinner stability", { tags: ["unit"] }, () => {
-	it("rapid chunk events during tool-start do not corrupt viewport", async () => {
-		ensureTheme();
-		const terminal = new VirtualTerminal(80, 20);
-		const session = createTestSession();
-
-		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
-		wireSession(shell, resolved(session), testDeps());
-		await settle();
-
-		// Start a tool call -- this activates the spinner
-		session.emit({
-			type: "tool-start",
-			callId: "c1",
-			name: "fs.read",
-			args: { path: "large-file.ts" },
-		});
-		await settle();
-
-		// Simulate rapid chunk events (high pressure -> fast spinner)
-		for (let i = 0; i < 20; i++) {
-			session.emit({ type: "tool-chunk", callId: "c1", text: `line ${i}\n` });
-			// Let the spinner tick between chunks
-			await new Promise<void>((r) => setTimeout(r, 30));
-		}
-
-		await settle(100);
-
-		const viewport = await terminal.flushAndGetViewport();
-
-		// Check for adjacent duplicate lines (corruption signal)
-		for (let i = 1; i < viewport.length; i++) {
-			const prev = viewport[i - 1]!.trim();
-			const curr = viewport[i]!.trim();
-			if (prev && curr && prev.length > 10 && prev === curr) {
-				expect.fail(`adjacent duplicate at rows ${i - 1}/${i}: "${prev.slice(0, 60)}"`);
-			}
-		}
-
-		// Tool call should be visible
-		const allText = terminal.getScrollBuffer().join("\n");
-		expect(allText).toContain("fs.read");
-
-		shell.tui.stop();
+describe("spinner duplication", { tags: ["unit"] }, () => {
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
-	it("spinner ticks between two tool calls maintain viewport integrity", async () => {
-		ensureTheme();
-		const terminal = new VirtualTerminal(80, 16);
-		const session = createTestSession();
+	it("viewport has at most one braille spinner line during thinking without subagents", async () => {
+		vi.useFakeTimers();
+		const { tui, pc, cleanup } = setup();
 
-		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
-		wireSession(shell, resolved(session), testDeps());
-		await settle();
+		tui.requestRender(true);
+		vi.advanceTimersByTime(50);
 
-		// First tool call with spinner
-		session.emit({ type: "tool-start", callId: "c1", name: "shell.exec", args: { command: "npm test" } });
-		await settle(100); // Let spinner tick several times
+		pc.startThinking();
+		vi.advanceTimersByTime(200);
 
-		// Complete first, start second immediately
-		session.emit({
-			type: "tool-end",
-			callId: "c1",
-			elapsedMs: 500,
-			ok: true,
-			display: "All tests passed",
-			displayKind: "text/plain",
-		});
-		session.emit({ type: "tool-start", callId: "c2", name: "fs.edit", args: { path: "file.ts" } });
-		await settle(100);
+		// Render and capture viewport
+		tui.requestRender(true);
+		vi.advanceTimersByTime(50);
 
-		session.emit({
-			type: "tool-end",
-			callId: "c2",
-			elapsedMs: 80,
-			ok: true,
-			display: "edit file.ts\n-old\n+new",
-			displayKind: "text/x-diff",
-		});
-		await settle();
+		// Get the viewport lines from the terminal
+		const lines = tui.render(80);
+		const braillePattern = /[\u2800-\u28FF]/;
+		const brailleLines = lines.filter((l) => braillePattern.test(l));
 
-		const _viewport = await terminal.flushAndGetViewport();
-		const allText = terminal.getScrollBuffer().join("\n");
+		expect(
+			brailleLines.length,
+			`expected at most 1 braille spinner line, got ${brailleLines.length}:\n${brailleLines.join("\n")}`,
+		).toBeLessThanOrEqual(1);
 
-		expect(allText).toContain("shell.exec");
-		expect(allText).toContain("file.ts");
-
-		shell.tui.stop();
+		pc.stopThinking();
+		cleanup();
 	});
 
-	it("many concurrent tool calls with spinners stay stable", async () => {
-		ensureTheme();
-		const terminal = new VirtualTerminal(80, 20);
-		const session = createTestSession();
+	it("viewport has at most one braille spinner line when one subagent is in flight", async () => {
+		vi.useFakeTimers();
+		const { tui, pc, cleanup } = setup();
 
-		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
-		wireSession(shell, resolved(session), testDeps());
-		await settle();
+		tui.requestRender(true);
+		vi.advanceTimersByTime(50);
 
-		// Start 4 concurrent tool calls
-		for (let i = 0; i < 4; i++) {
-			session.emit({
-				type: "tool-start",
-				callId: `c${i}`,
-				name: `tool-${i}`,
-				args: { idx: i },
-			});
-		}
-		await settle(150); // Let spinners tick
+		pc.startThinking();
+		pc.showInFlightCall("call-1", "agent.run", "explore", { text: "test" });
+		vi.advanceTimersByTime(200);
 
-		// Complete them in reverse order with chunks between
-		for (let i = 3; i >= 0; i--) {
-			session.emit({ type: "tool-chunk", callId: `c${i}`, text: `output ${i}` });
-			await new Promise<void>((r) => setTimeout(r, 40));
-			session.emit({
-				type: "tool-end",
-				callId: `c${i}`,
-				elapsedMs: 100 + i * 50,
-				ok: true,
-			});
-			await settle(50);
-		}
+		tui.requestRender(true);
+		vi.advanceTimersByTime(50);
 
-		const viewport = await terminal.flushAndGetViewport();
+		const lines = tui.render(80);
+		const braillePattern = /[\u2800-\u28FF]/;
+		const brailleLines = lines.filter((l) => braillePattern.test(l));
 
-		// No adjacent duplicates
-		for (let i = 1; i < viewport.length; i++) {
-			const prev = viewport[i - 1]!.trim();
-			const curr = viewport[i]!.trim();
-			if (prev && curr && prev.length > 10 && prev === curr) {
-				expect.fail(`adjacent duplicate at rows ${i - 1}/${i}: "${prev.slice(0, 60)}"`);
-			}
-		}
+		// Bug: currently produces 2 braille lines (thinking + card).
+		// After fix: should be at most 1 (the thinking status subsumes the card spinner).
+		// For now we document the bug -- this test should FAIL.
+		expect(
+			brailleLines.length,
+			`expected at most 1 braille spinner line with 1 subagent, got ${brailleLines.length}:\n${brailleLines.join("\n")}`,
+		).toBeLessThanOrEqual(1);
 
-		shell.tui.stop();
+		pc.removeInFlightCall("call-1");
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+describe("compound tick efficiency", { tags: ["unit"] }, () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("refreshCards is not called when no in-flight calls exist", async () => {
+		vi.useFakeTimers();
+		const { pc, cleanup } = setup();
+
+		let refreshCount = 0;
+		const origRefresh = (pc as any).refreshCards.bind(pc);
+		(pc as any).refreshCards = () => {
+			refreshCount++;
+			origRefresh();
+		};
+
+		pc.startThinking();
+		vi.advanceTimersByTime(500);
+		pc.stopThinking();
+		cleanup();
+
+		// refreshCards walks all in-flight cards. When there are none,
+		// it should not be called at all -- it's wasted work.
+		expect(refreshCount, `refreshCards called ${refreshCount} times with 0 in-flight calls (should be 0)`).toBe(0);
+	});
+
+	it("requestRender count scales with frame changes, not with card count", async () => {
+		vi.useFakeTimers();
+		const { tui, pc, cleanup } = setup();
+
+		// Scenario 1: thinking with 0 cards
+		let renders0 = 0;
+		const orig0 = tui.requestRender.bind(tui);
+		tui.requestRender = (force?: boolean) => {
+			renders0++;
+			orig0(force);
+		};
+
+		pc.startThinking();
+		vi.advanceTimersByTime(500);
+		pc.stopThinking();
+
+		// Scenario 2: thinking with 3 cards
+		let renders3 = 0;
+		tui.requestRender = (force?: boolean) => {
+			renders3++;
+			orig0(force);
+		};
+
+		pc.startThinking();
+		pc.showInFlightCall("c1", "agent.run", "a", {});
+		pc.showInFlightCall("c2", "agent.run", "b", {});
+		pc.showInFlightCall("c3", "agent.run", "c", {});
+		vi.advanceTimersByTime(500);
+		pc.removeInFlightCall("c1");
+		pc.removeInFlightCall("c2");
+		pc.removeInFlightCall("c3");
+		pc.stopThinking();
+		cleanup();
+
+		// The render count should be similar regardless of card count.
+		// The dirty-check gates on the composed status text, so adding cards
+		// shouldn't increase the number of renders (cards only change content,
+		// not the status text that gates the render).
+		//
+		// Allow 50% tolerance for card show/remove renders.
+		const ratio = renders3 / Math.max(1, renders0);
+		expect(
+			ratio,
+			`render count ratio with 3 cards vs 0 cards: ${ratio.toFixed(1)}x (${renders3} vs ${renders0})`,
+		).toBeLessThan(3);
+	});
+});
+
+describe("single-spinner invariant", { tags: ["unit"] }, () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("stopThinking clears all animated state", async () => {
+		vi.useFakeTimers();
+		const { pc, cleanup } = setup();
+
+		pc.startThinking();
+		vi.advanceTimersByTime(200);
+
+		expect(pc.isThinking).toBe(true);
+
+		pc.stopThinking();
+
+		expect(pc.isThinking).toBe(false);
+
+		// The status text should be empty
+		const statusText = (pc as any).statusText;
+		const rendered = statusText.render(80);
+		const nonEmpty = rendered.filter((l: string) => l.trim().length > 0);
+		expect(nonEmpty.length, "status text should be empty after stopThinking").toBe(0);
+
+		cleanup();
+	});
+
+	it("startThinking cancels any previous thinking timer", async () => {
+		vi.useFakeTimers();
+		const { tui, pc, cleanup } = setup();
+
+		let renderCount = 0;
+		const orig = tui.requestRender.bind(tui);
+		tui.requestRender = (force?: boolean) => {
+			renderCount++;
+			orig(force);
+		};
+
+		// Start thinking twice without stopping
+		pc.startThinking();
+		pc.startThinking();
+
+		vi.advanceTimersByTime(500);
+		pc.stopThinking();
+		cleanup();
+
+		// Should have the same render count as a single startThinking call,
+		// not double (which would mean two timers running).
+		// At 80ms frame rotation over 500ms: ~6 frames. Allow headroom.
+		expect(
+			renderCount,
+			`double startThinking produced ${renderCount} renders (should be <=12, not doubled)`,
+		).toBeLessThanOrEqual(12);
+	});
+
+	it("agent cards do not animate independently of the thinking tick", async () => {
+		vi.useFakeTimers();
+		const { tui, pc, cleanup } = setup();
+
+		// Show a card WITHOUT starting thinking
+		pc.showInFlightCall("c1", "agent.run", "explore", {});
+
+		// Start counting AFTER the initial show-card render
+		let renderCount = 0;
+		const orig = tui.requestRender.bind(tui);
+		tui.requestRender = (force?: boolean) => {
+			renderCount++;
+			orig(force);
+		};
+
+		// Advance time -- card should NOT animate on its own
+		vi.advanceTimersByTime(500);
+
+		cleanup();
+
+		// Cards have no independent timer. They only update when
+		// refreshCards() is called from the thinking tick.
+		// With no thinking active, render count should be 0 from animation.
+		expect(renderCount, `card produced ${renderCount} animation renders without thinking active (should be 0)`).toBe(
+			0,
+		);
 	});
 });

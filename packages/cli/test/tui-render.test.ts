@@ -50,7 +50,7 @@ async function startTui(
 	const { getUiSignalHandlers, isCompacted } = await import("../src/boot/session.js");
 	const { getRebootPort, getRestartStrategy } = await import("../src/boot/reboot-port.js");
 
-	const shell = await bootTuiShell({ cwd: opts.cwd, terminal: opts.terminal });
+	const shell = bootTuiShell({ cwd: opts.cwd, terminal: opts.terminal });
 
 	wireSession(
 		shell,

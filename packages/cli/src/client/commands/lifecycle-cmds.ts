@@ -1,4 +1,3 @@
-import { BUILD_INFO } from "../../boot/build-info.js";
 import { applyRestartPolicy } from "../../boot/restart-policy.js";
 import { generateSbom, SBOM } from "../../boot/sbom.js";
 import type { RestartExecutor } from "../boot-types.js";
@@ -54,7 +53,9 @@ export const update: Command = {
 	run(ctx: LifecycleCmdCtx, args: string[]) {
 		attempt(ctx, async () => {
 			const { pull, force, checkOnly } = parseUpdateArgs(args);
-			const isDev = BUILD_INFO.channel === "dev";
+			const channel = ctx.buildInfo?.channel ?? "dev";
+			const version = ctx.buildInfo?.version ?? "0.0.0";
+			const isDev = channel === "dev";
 
 			if (checkOnly) {
 				ctx.writer.addNotice(isDev ? "Checking git remote..." : "Checking for updates...");
@@ -105,7 +106,7 @@ export const update: Command = {
 						})
 					: await runStableUpdate({
 							checkOnly,
-							version: BUILD_INFO.version,
+							version,
 							releases: createDefaultReleaseChecker(),
 							packages: createDefaultPackageInstaller(),
 							respawn,
@@ -127,7 +128,7 @@ export const update: Command = {
 						break;
 					case "available":
 						spinnerNotice.setText(
-							`Update available: ${BUILD_INFO.version} -> ${result.release.version}\n${result.release.changelog}\n\nTo apply: :update`,
+							`Update available: ${version} -> ${result.release.version}\n${result.release.changelog}\n\nTo apply: :update`,
 						);
 						break;
 					case "rebuilt": {

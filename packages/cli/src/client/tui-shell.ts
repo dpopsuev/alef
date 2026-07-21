@@ -41,7 +41,7 @@ import { bold, boldColor, color, getTheme } from "./theme.js";
  * Boot the TUI shell: layout, input handling, modal handler.
  * No Session required. Returns a TuiShell that wireSession() connects later.
  */
-export async function bootTuiShell(ctx: TuiShellContext): Promise<TuiShell> {
+export function bootTuiShell(ctx: TuiShellContext): TuiShell {
 	setTraceSink(traceEvent);
 	const terminal = ctx.terminal ?? new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -73,7 +73,7 @@ export async function bootTuiShell(ctx: TuiShellContext): Promise<TuiShell> {
 	// Minimal options for shell phase -- only cwd is real
 	const shellOpts = { cwd: ctx.cwd, modelId: "", sessionId: "" };
 
-	const { output, input, footer, chrome } = await buildLayout(tui, t, shellOpts, tuiStore, true);
+	const { output, input, footer, chrome } = buildLayout(tui, t, shellOpts, tuiStore, true, ctx.buildInfo);
 	const { writer } = output;
 	const { promptConsole, editor } = input;
 
@@ -323,6 +323,7 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 						}),
 				}
 			: undefined,
+		deps.buildInfo,
 	);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);

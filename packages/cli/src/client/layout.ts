@@ -3,7 +3,7 @@ import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import { displayActorName } from "./actor-label.js";
 import { renderAlefLogo } from "./alef-logo.js";
-import type { InteractiveOptions } from "./boot-types.js";
+import type { BuildInfo, InteractiveOptions } from "./boot-types.js";
 import { createTuiChrome } from "./chrome.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";
@@ -44,14 +44,14 @@ const MAX_LIGHTEN = 0.18;
 const ROW_PHASE_STEP = 0.12;
 
 /** Compose the output panel, input panel, and hint footer into a ready TUI layout. */
-export async function buildLayout(
+export function buildLayout(
 	tui: TUI,
 	t: ThemeTokens,
 	opts: InteractiveOptions,
 	tuiStore: TuiStateStore,
 	isNewSession = false,
-): Promise<TuiLayout> {
-	const { BUILD_INFO } = await import("../boot/build-info.js");
+	buildInfo?: BuildInfo,
+): TuiLayout {
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
 		cwd: opts.cwd,
@@ -62,7 +62,7 @@ export async function buildLayout(
 		dimStyle: (s) => color(s, t.mutedFg),
 		warnStyle: (s) => color(s, t.warnFg),
 		errorStyle: (s) => color(s, t.errFg),
-		buildInfo: BUILD_INFO,
+		buildInfo,
 	});
 
 	const humanLabel = displayActorName(opts.humanAddress, "you");

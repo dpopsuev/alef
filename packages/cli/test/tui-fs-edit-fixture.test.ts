@@ -85,7 +85,7 @@ describe("TUI fs.edit fixture (production path)", { tags: ["unit"] }, () => {
 		const terminal = new VirtualTerminal(80, 20);
 		const session = createTestSession();
 
-		const shell = await bootTuiShell({ cwd: "/tmp/test", terminal });
+		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
 		wireSession(shell, resolved(session), testDeps());
 		await settle();
 
@@ -145,7 +145,7 @@ describe("TUI fs.edit fixture (production path)", { tags: ["unit"] }, () => {
 		const terminal = new VirtualTerminal(80, 18);
 		const session = createTestSession();
 
-		const shell = await bootTuiShell({ cwd: "/tmp/test", terminal });
+		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
 		wireSession(shell, resolved(session), testDeps());
 		await settle();
 
@@ -193,7 +193,7 @@ describe("TUI fs.edit fixture (production path)", { tags: ["unit"] }, () => {
 		const terminal = new VirtualTerminal(80, 10);
 		const session = createTestSession();
 
-		const shell = await bootTuiShell({ cwd: "/tmp/test", terminal });
+		const shell = bootTuiShell({ cwd: "/tmp/test", terminal });
 		wireSession(shell, resolved(session), testDeps());
 		await settle();
 

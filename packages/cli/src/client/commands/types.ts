@@ -6,7 +6,7 @@ import type { AdapterManagementSession, Session } from "@dpopsuev/alef-session/c
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
-import type { InteractiveOptions, RebootPort, RestartExecutor, RestartStrategy } from "../boot-types.js";
+import type { BuildInfo, InteractiveOptions, RebootPort, RestartExecutor, RestartStrategy } from "../boot-types.js";
 import type { TuiEvent } from "../events.js";
 import type { TaskLedgerEntry } from "../state.js";
 import type { ThemeTokens } from "../theme.js";
@@ -39,12 +39,13 @@ export interface TuiHandlerContext {
 	rebootPort?: RebootPort;
 	restartStrategy?: RestartStrategy;
 	restartExecutor?: RestartExecutor;
+	buildInfo?: BuildInfo;
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */
 export type LifecycleCmdCtx = Pick<
 	TuiHandlerContext,
-	"session" | "writer" | "tui" | "rebootPort" | "restartStrategy" | "restartExecutor"
+	"session" | "writer" | "tui" | "rebootPort" | "restartStrategy" | "restartExecutor" | "buildInfo"
 >;
 
 /** Auth commands: login, logout. */
@@ -142,7 +143,7 @@ export class CommandRegistry {
 		return [...new Set(this._commands.values())];
 	}
 
-	/** Canonical name plus every alias — for :autocomplete and which-key. */
+	/** Canonical name plus every alias -- for :autocomplete and which-key. */
 	listCompletions(): ReadonlyArray<CommandCompletion> {
 		const out: CommandCompletion[] = [];
 		for (const cmd of this.list()) {

@@ -20,6 +20,7 @@ export type { BootEvent } from "../client/boot-types.js";
 
 import type {
 	BootEvent,
+	BuildInfo,
 	ResolvedSession,
 	SessionSelection,
 	TuiShell,
@@ -52,7 +53,7 @@ export interface BootHandle {
 // ---------------------------------------------------------------------------
 
 /** Factory that creates and starts the TUI shell. */
-export type TuiShellFactory = (ctx: TuiShellContext) => Promise<TuiShell>;
+export type TuiShellFactory = (ctx: TuiShellContext) => TuiShell | Promise<TuiShell>;
 
 /** Factory that wires a resolved session into the TUI shell. */
 export type SessionWirer = (shell: TuiShell, resolved: ResolvedSession, deps: WireSessionDeps) => void;
@@ -81,6 +82,7 @@ export interface BootstrapperConfig {
 	pickSession: SessionPicker;
 	resolveSession: SessionResolver;
 	getDeps: DepsProvider;
+	buildInfo?: BuildInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +127,7 @@ async function runBootSequence(config: BootstrapperConfig, emit: (event: BootEve
 
 	try {
 		if (config.willUseTui) {
-			shell = await config.createShell({ cwd: config.cwd });
+			shell = await config.createShell({ cwd: config.cwd, buildInfo: config.buildInfo });
 			// Route lifecycle events to the TUI for progress rendering
 			const originalEmit = emit;
 			emit = (event: BootEvent): void => {

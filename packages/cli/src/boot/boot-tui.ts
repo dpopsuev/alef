@@ -61,10 +61,10 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 		await runtime.start();
 	};
 
-	const restartTui = async (): Promise<void> => {
-		if (!shellRef || !resolvedRef) return;
+	const restartTui = (): Promise<void> => {
+		if (!shellRef || !resolvedRef) return Promise.resolve();
 		shellRef.tui.stop();
-		const newShell = await bootTuiShell({ cwd: args.cwd });
+		const newShell = bootTuiShell({ cwd: args.cwd, buildInfo: BUILD_INFO });
 		shellRef = newShell;
 		const wireDeps: WireSessionDeps = {
 			signalHandlers: getUiSignalHandlers(),
@@ -73,16 +73,19 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			restartStrategy: getRestartStrategy(),
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 			restartTui,
+			buildInfo: BUILD_INFO,
 		};
 		wireSession(newShell, resolvedRef, wireDeps);
+		return Promise.resolve();
 	};
 
 	const handle = createBootstrapper({
 		cwd: args.cwd,
 		willUseTui: true,
+		buildInfo: BUILD_INFO,
 
-		async createShell(ctx) {
-			const s = await bootTuiShell(ctx);
+		createShell(ctx) {
+			const s = bootTuiShell(ctx);
 			shellRef = s;
 			return s;
 		},
@@ -286,6 +289,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 			restartTui,
 			restartSupervisor,
+			buildInfo: BUILD_INFO,
 			reloadAdapters: async (_names: string[]) => {
 				if (!sessionHandleRef) return;
 				for (const name of _names) {

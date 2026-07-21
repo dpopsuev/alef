@@ -6,7 +6,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { type Editor, matchesKey, type SelectItem, type SelectList, type TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import { getRebootPort, getRestartStrategy, type RebootPort, type RestartStrategy } from "../boot/reboot-port.js";
-import type { InteractiveOptions, RestartExecutor } from "./boot-types.js";
+import type { BuildInfo, InteractiveOptions, RestartExecutor } from "./boot-types.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
 import type { TuiEvent } from "./events.js";
 import { handleCtrlC } from "./handlers.js";
@@ -97,6 +97,7 @@ export function createContextFactory(
 	rebootPort?: RebootPort,
 	restartStrategy?: RestartStrategy,
 	restartExecutor?: RestartExecutor,
+	buildInfo?: BuildInfo,
 ): () => TuiHandlerContext {
 	return () => {
 		const state = getState();
@@ -124,6 +125,7 @@ export function createContextFactory(
 			rebootPort: rebootPort ?? getRebootPort(),
 			restartStrategy: restartStrategy ?? getRestartStrategy(),
 			restartExecutor,
+			buildInfo,
 		};
 	};
 }

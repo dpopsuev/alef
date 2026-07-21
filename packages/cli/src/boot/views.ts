@@ -123,7 +123,8 @@ export class TuiViewMode implements ViewMode {
 		const { getRebootPort, getRestartStrategy } = await import("./reboot-port.js");
 		const { traceEvent } = await import("@dpopsuev/alef-kernel/log");
 
-		const shell = await bootTuiShell({ cwd: this.opts.cwd, terminal: this.opts.terminal });
+		const { BUILD_INFO } = await import("./build-info.js");
+		const shell = bootTuiShell({ cwd: this.opts.cwd, terminal: this.opts.terminal, buildInfo: BUILD_INFO });
 
 		wireSession(
 			shell,
@@ -148,6 +149,7 @@ export class TuiViewMode implements ViewMode {
 				rebootPort: getRebootPort(),
 				restartStrategy: getRestartStrategy(),
 				checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
+				buildInfo: (await import("./build-info.js")).BUILD_INFO,
 			},
 		);
 

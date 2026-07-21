@@ -49,6 +49,20 @@ export interface InteractiveOptions {
 }
 
 // ---------------------------------------------------------------------------
+// BuildInfo -- compile-time metadata injected from boot layer
+// ---------------------------------------------------------------------------
+
+/** Compile-time metadata passed down from the boot layer. */
+export interface BuildInfo {
+	version: string;
+	gitHash: string;
+	gitBranch: string;
+	gitCommitTimestamp: string;
+	buildTimestamp: string;
+	channel: string;
+}
+
+// ---------------------------------------------------------------------------
 // Boot lifecycle events -- shared contract between Bootstrapper and TUI
 // ---------------------------------------------------------------------------
 
@@ -73,6 +87,7 @@ export type BootEvent =
 export interface TuiShellContext {
 	cwd: string;
 	terminal?: Terminal;
+	buildInfo?: BuildInfo;
 }
 
 /**
@@ -192,4 +207,6 @@ export interface WireSessionDeps {
 	reloadAdapters?: (names: string[]) => Promise<void>;
 	/** Drain and restart the supervisor service graph. */
 	restartSupervisor?: () => Promise<void>;
+	/** Build metadata injected from boot layer. */
+	buildInfo?: BuildInfo;
 }

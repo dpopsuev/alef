@@ -4,10 +4,13 @@ import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
+import { applyIntents } from "./apply-intents.js";
+import type { RenderIntent } from "./render-intent.js";
 import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
 import { flushCompactionPark } from "./submit.js";
+import type { ThemeTokens } from "./theme.js";
 
-/** TUI input events — dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
+/** TUI input events -- dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
@@ -32,21 +35,29 @@ export type TuiEvent = AgentEvent | TuiInputEvent;
 // ---------------------------------------------------------------------------
 
 const TASK_CHUNK_TAIL_LIMIT = 20;
+const TASK_TOAST_DURATION_MS = 5000;
+const INSPECTOR_LINES = 12;
+const INSPECTOR_SCROLL_STEP = 3;
 
 // ---------------------------------------------------------------------------
-// Helper functions
+// DispatchContext -- data the pure function needs beyond state + event
 // ---------------------------------------------------------------------------
 
-/** Flush pending text writers and reset the reply block between turn outputs. */
-function resetUIComponents(ui: TuiUi): void {
-	ui.replyTW.flush();
-	ui.thinkingTW.flush();
-	ui.replyBlock.reset();
+/** Context values the pure dispatch function reads but never mutates. */
+export interface DispatchContext {
+	/** Theme tokens (needed for agentFg color and formatTokenUsage). */
+	readonly t: ThemeTokens;
+	/** Current hideThinking toggle value from replyBlock. */
+	readonly hideThinking: boolean;
+	/** Signal handler map for adapter-signal events (unused in pure path). */
+	readonly signalHandlers?: ReadonlyMap<string, UiSignalHandler>;
 }
 
-/**
- *
- */
+// ---------------------------------------------------------------------------
+// Helper -- task entry
+// ---------------------------------------------------------------------------
+
+/** Build a ledger entry from a task lifecycle snapshot. */
 function taskEntryFromEvent(task: TaskSnapshot): TaskLedgerEntry {
 	return {
 		taskId: task.descriptor.taskId,
@@ -69,11 +80,52 @@ function taskEntryFromEvent(task: TaskSnapshot): TaskLedgerEntry {
 	};
 }
 
-/** Process a tool-end event: remove the in-flight card, display output, and update batch state. */
-function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool-end" }>, ui: TuiUi): TuiState {
-	const { callId, elapsedMs, ok, display, displayKind } = event;
-	const { writer, promptConsole } = ui;
+// ---------------------------------------------------------------------------
+// Render helpers -- pure functions producing intents
+// ---------------------------------------------------------------------------
 
+/** Render a scrollable window of tool output chunks for the inspector detail view. */
+export function renderChunkWindow(chunks: string[], scrollOffset: number): string {
+	const all = chunks.join("").split("\n");
+	const end = Math.max(0, all.length - scrollOffset);
+	const start = Math.max(0, end - INSPECTOR_LINES);
+	return all.slice(start, end).join("\n");
+}
+
+/** Emit intents to flush typewriters and reset the reply block. */
+function emitResetUI(intents: RenderIntent[]): void {
+	intents.push({ kind: "flush-reply-tw" });
+	intents.push({ kind: "flush-thinking-tw" });
+	intents.push({ kind: "reset-reply-block" });
+}
+
+/** Emit intents for setting the focused call in the inspector and rendering its chunk window. */
+function emitUpdateInspectorView(
+	intents: RenderIntent[],
+	state: TuiState,
+	callId: string | null,
+	scrollOffset = 0,
+): void {
+	intents.push({ kind: "set-focused-call", callId });
+	if (callId && state.callChunks.has(callId)) {
+		const chunks = state.callChunks.get(callId) ?? [];
+		intents.push({ kind: "set-chunk-text", text: renderChunkWindow(chunks, scrollOffset) });
+	} else {
+		intents.push({ kind: "set-chunk-text", text: "" });
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Pure helper dispatchers
+// ---------------------------------------------------------------------------
+
+/** Process a tool-end event: compute state changes and emit intents. */
+function handleToolEndPure(
+	state: TuiState,
+	event: Extract<AgentEvent, { type: "tool-end" }>,
+	intents: RenderIntent[],
+): TuiState {
+	const { callId, elapsedMs, ok, display, displayKind } = event;
 	const entry = state.activeCalls.get(callId);
 	if (!entry) return state;
 
@@ -85,10 +137,8 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		remainingActive: state.activeCalls.size - 1,
 	});
 
-	promptConsole.removeInFlightCall(callId);
+	intents.push({ kind: "remove-in-flight-call", callId });
 
-	// Each tool-end paints its own display — parallel batches must not drop
-	// earlier results (only the last call used to show output).
 	const validationErrs = state.validationErrors.get(callId) ?? [];
 	let enhancedDisplay = display?.trim() ? display : null;
 	if (validationErrs.length > 0) {
@@ -96,19 +146,20 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		enhancedDisplay = enhancedDisplay ? `${errSection}\n\n${enhancedDisplay}` : errSection;
 	}
 
-	writer.addCompletedToolBlock(
-		entry.name,
-		entry.keyArg,
-		entry.args,
+	intents.push({
+		kind: "append-tool-result",
+		name: entry.name,
+		keyArg: entry.keyArg,
+		args: entry.args,
 		elapsedMs,
 		ok,
-		enhancedDisplay,
-		display?.trim() ? (displayKind ?? null) : null,
-	);
+		display: enhancedDisplay,
+		displayKind: display?.trim() ? (displayKind ?? null) : null,
+	});
 
 	const innerReply = state.innerReplies.get(callId);
 	if (innerReply?.trim()) {
-		writer.addSubagentReply(entry.name, innerReply);
+		intents.push({ kind: "append-subagent-reply", name: entry.name, reply: innerReply });
 	}
 
 	const activeCalls = new Map(state.activeCalls);
@@ -117,23 +168,18 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	const callChunks = new Map(state.callChunks);
 	callChunks.delete(callId);
 
-	// Clean up validation errors for completed call
 	const validationErrors = new Map(state.validationErrors);
 	validationErrors.delete(callId);
 
-	// Clean up exit codes for completed call
 	const exitCodes = new Map(state.exitCodes);
 	exitCodes.delete(callId);
 
-	// Clean up inner replies for completed call
 	const innerReplies = new Map(state.innerReplies);
 	innerReplies.delete(callId);
 
 	const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
-	// Per-tool elapsedMs is already on each completed block; batch timing is
-	// only useful when several tools finished together.
 	if (batchDone && state.batchCallCount > 1) {
-		writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
+		intents.push({ kind: "append-batch-timing", elapsedMs: Date.now() - (state.batchStartedAt ?? 0) });
 	}
 
 	const focusLost = state.focusedCallId === callId;
@@ -149,11 +195,11 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	}
 
 	if (focusLost) {
-		updateInspectorView(state, ui, nextFocus, 0);
+		emitUpdateInspectorView(intents, state, nextFocus, 0);
 	}
 
 	if (batchDone) {
-		updateInspectorView(state, ui, null);
+		emitUpdateInspectorView(intents, state, null);
 	}
 
 	return {
@@ -169,23 +215,34 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	};
 }
 
-/** Handle a turn error by stopping spinners, clearing in-flight calls, and showing the error. */
-function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: "turn.error" }>, ui: TuiUi): TuiState {
-	const { promptConsole, replyTW, thinkingTW, replyBlock, writer } = ui;
-
-	promptConsole.stopThinking();
-	promptConsole.hidePendingFooter();
-	replyTW.reset();
-	thinkingTW.reset();
-	replyBlock.clear();
+/** Handle a turn error: emit cleanup intents and reset active state. */
+function handleTurnErrorPure(
+	state: TuiState,
+	event: Extract<TuiInputEvent, { type: "turn.error" }>,
+	intents: RenderIntent[],
+): TuiState {
+	intents.push({ kind: "stop-thinking" });
+	intents.push({ kind: "hide-pending-footer" });
+	intents.push({ kind: "reset-reply-tw" });
+	intents.push({ kind: "reset-thinking-tw" });
+	intents.push({ kind: "clear-reply-block" });
 
 	for (const [callId, entry] of state.activeCalls) {
-		promptConsole.removeInFlightCall(callId);
-		writer.addCompletedToolBlock(entry.name, entry.keyArg, entry.args, 0, false, null, null);
+		intents.push({ kind: "remove-in-flight-call", callId });
+		intents.push({
+			kind: "append-tool-result",
+			name: entry.name,
+			keyArg: entry.keyArg,
+			args: entry.args,
+			elapsedMs: 0,
+			ok: false,
+			display: null,
+			displayKind: null,
+		});
 	}
 
 	if (!event.aborted) {
-		writer.addNotice(`[error] ${formatErrorForUser(event.error)}`);
+		intents.push({ kind: "append-notice", text: `[error] ${formatErrorForUser(event.error)}` });
 	}
 
 	return {
@@ -198,6 +255,433 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 	};
 }
 
+/** Cycle inspector focus to the next active tool call (pure). */
+function handleInspectorCyclePure(state: TuiState, intents: RenderIntent[]): TuiState {
+	if (state.activeCalls.size === 0) return state;
+	const ids = [...state.activeCalls.keys()];
+	const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
+	const nextId = ids[(idx + 1) % ids.length]!;
+	emitUpdateInspectorView(intents, state, nextId, state.inspectorScrollOffset);
+	return { ...state, focusedCallId: nextId };
+}
+
+/** Close the inspector and clear focus (pure). */
+function handleInspectorClosePure(state: TuiState, intents: RenderIntent[]): TuiState {
+	emitUpdateInspectorView(intents, state, null);
+	return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
+}
+
+/** Scroll the inspector chunk detail view (pure). */
+function handleInspectorScrollPure(state: TuiState, intents: RenderIntent[], direction: -1 | 1): TuiState {
+	if (!state.focusedCallId) return state;
+	const chunks = state.callChunks.get(state.focusedCallId) ?? [];
+	const totalLines = chunks.join("").split("\n").length;
+	const maxScroll = Math.max(0, totalLines - INSPECTOR_LINES);
+	const next = Math.max(0, Math.min(maxScroll, state.inspectorScrollOffset + direction * INSPECTOR_SCROLL_STEP));
+	intents.push({ kind: "set-chunk-text", text: renderChunkWindow(chunks, next) });
+	return { ...state, inspectorScrollOffset: next };
+}
+
+/** Cancel the currently focused tool call (pure). */
+function handleInspectorCancelPure(state: TuiState, intents: RenderIntent[]): TuiState {
+	if (!state.focusedCallId) return state;
+	const entry = state.activeCalls.get(state.focusedCallId);
+	if (!entry) return state;
+	intents.push({ kind: "cancel-tool-call", callId: state.focusedCallId, name: entry.name });
+	return state;
+}
+
+// ---------------------------------------------------------------------------
+// computeDispatch -- pure state + intents function
+// ---------------------------------------------------------------------------
+
+/** Pure dispatch: compute new state and render intents without touching UI components. */
+export function computeDispatch(
+	state: TuiState,
+	event: TuiEvent,
+	ctx: DispatchContext,
+): { state: TuiState; intents: RenderIntent[] } {
+	traceEvent("tui:dispatch", { eventType: event.type });
+	const intents: RenderIntent[] = [];
+
+	if (event.type === "state-changed") {
+		return { state, intents };
+	}
+
+	if (event.type === "discussion-changed") {
+		intents.push({ kind: "set-topic-label", text: event.discussion.active.topicTitle });
+		return { state, intents };
+	}
+
+	// adapter-signal is handled by the outer dispatchTuiEvent -- not here.
+	if (event.type === "adapter-signal") {
+		return { state, intents };
+	}
+
+	// -- Input event handlers ------------------------------------------------
+
+	if (event.type === "overlay.show") {
+		return { state: { ...state, overlays: [...state.overlays, event.descriptor] }, intents };
+	}
+
+	if (event.type === "overlay.hide") {
+		return { state: { ...state, overlays: state.overlays.filter((o) => o.id !== event.id) }, intents };
+	}
+
+	if (event.type === "turn.start") {
+		intents.push({ kind: "hide-pending-footer" });
+		intents.push({ kind: "start-thinking" });
+		return { state: { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp }, intents };
+	}
+
+	if (event.type === "turn.complete") {
+		emitResetUI(intents);
+		intents.push({ kind: "stop-thinking" });
+		intents.push({ kind: "hide-pending-footer" });
+		intents.push({ kind: "on-turn-complete" });
+		return { state: { ...state, pendingFooterShown: false, pendingTokenFooter: event.tokenFooter }, intents };
+	}
+
+	if (event.type === "turn-complete") {
+		emitResetUI(intents);
+		intents.push({ kind: "stop-thinking" });
+		intents.push({ kind: "hide-pending-footer" });
+		intents.push({ kind: "on-turn-complete" });
+		return { state: { ...state, pendingFooterShown: false }, intents };
+	}
+
+	if (event.type === "turn.abort") {
+		return { state: { ...state, abortCurrentTurn: undefined }, intents };
+	}
+
+	if (event.type === "turn.interrupt") {
+		if (!state.abortCurrentTurn) return { state, intents };
+		state.abortCurrentTurn();
+		emitResetUI(intents);
+		intents.push({ kind: "stop-thinking" });
+		intents.push({ kind: "hide-pending-footer" });
+		for (const [callId] of state.activeCalls) {
+			intents.push({ kind: "remove-in-flight-call", callId });
+		}
+		intents.push({ kind: "append-notice", text: "(interrupted)" });
+		return {
+			state: {
+				...state,
+				activeCalls: new Map(),
+				pendingFooterShown: false,
+				abortCurrentTurn: undefined,
+			},
+			intents,
+		};
+	}
+
+	if (event.type === "turn.error") {
+		return { state: handleTurnErrorPure(state, event, intents), intents };
+	}
+
+	if (event.type === "abort.set") {
+		return { state: { ...state, abortCurrentTurn: event.fn }, intents };
+	}
+
+	if (event.type === "abort.clear") {
+		return { state: { ...state, abortCurrentTurn: undefined }, intents };
+	}
+
+	if (event.type === "thinking.toggle") {
+		const next = !ctx.hideThinking;
+		intents.push({ kind: "set-hide-thinking", hide: next });
+		intents.push({ kind: "append-notice", text: next ? "Thinking: hidden" : "Thinking: visible" });
+		return { state, intents };
+	}
+
+	if (event.type === "inspector.cycle") {
+		return { state: handleInspectorCyclePure(state, intents), intents };
+	}
+
+	if (event.type === "inspector.close") {
+		return { state: handleInspectorClosePure(state, intents), intents };
+	}
+
+	if (event.type === "inspector.cancel") {
+		return { state: handleInspectorCancelPure(state, intents), intents };
+	}
+
+	if (event.type === "inspector.scroll") {
+		return { state: handleInspectorScrollPure(state, intents, event.direction), intents };
+	}
+
+	// -- Agent event handlers ------------------------------------------------
+
+	if (event.type === "tool-start") {
+		const { callId, name, args } = event;
+		const keyArg = formatToolArgs(args);
+		traceEvent("tool:start", {
+			callId: callId.slice(0, 8),
+			name,
+			keyArg,
+			activeCount: state.activeCalls.size + 1,
+		});
+		intents.push({ kind: "pulse" });
+		emitResetUI(intents);
+		intents.push({ kind: "show-in-flight-call", callId, name, keyArg, args });
+		if (!state.pendingFooterShown) intents.push({ kind: "show-pending-footer", fg: ctx.t.agentFg });
+		const activeCalls = new Map(state.activeCalls);
+		activeCalls.set(callId, { name, keyArg, args, children: new Map(), depth: 0 });
+		const startingBatch = state.batchStartedAt === null;
+		return {
+			state: {
+				...state,
+				activeCalls,
+				batchStartedAt: state.batchStartedAt ?? Date.now(),
+				batchCallCount: startingBatch ? 1 : state.batchCallCount + 1,
+				pendingFooterShown: true,
+			},
+			intents,
+		};
+	}
+
+	if (event.type === "tool-end") {
+		return { state: handleToolEndPure(state, event, intents), intents };
+	}
+
+	if (event.type === "inner-tool-start") {
+		const parent = state.activeCalls.get(event.parentCallId);
+		if (!parent) return { state, intents };
+		const childKeyArg = formatToolArgs(event.args);
+		parent.children.set(event.callId, {
+			name: event.name,
+			keyArg: childKeyArg,
+			args: event.args,
+			parentCallId: event.parentCallId,
+			children: new Map(),
+			depth: parent.depth + 1,
+		});
+		intents.push({
+			kind: "add-child-call",
+			parentCallId: event.parentCallId,
+			callId: event.callId,
+			name: event.name,
+			keyArg: childKeyArg,
+			args: event.args,
+			depth: parent.depth + 1,
+		});
+		return { state, intents };
+	}
+
+	if (event.type === "inner-tool-end") {
+		const parent = state.activeCalls.get(event.parentCallId);
+		if (!parent) return { state, intents };
+		parent.children.delete(event.callId);
+		intents.push({ kind: "remove-child-call", parentCallId: event.parentCallId, callId: event.callId });
+		return { state, intents };
+	}
+
+	if (event.type === "inner-chunk") {
+		const existing = state.innerReplies.get(event.parentCallId) ?? "";
+		const innerReplies = new Map(state.innerReplies);
+		innerReplies.set(event.parentCallId, existing + event.text);
+		return { state: { ...state, innerReplies }, intents };
+	}
+
+	if (event.type === "token-usage") {
+		const { input, output, totalTokens, costUsd } = event.usage;
+		const sessionTokensTotal = state.sessionTokensTotal + input + output;
+		const sessionInputTokens = state.sessionInputTokens + input;
+		const sessionOutputTokens = state.sessionOutputTokens + output;
+		const sessionCostUsd = state.sessionCostUsd + (costUsd ?? 0);
+		const contextFillTokens = totalTokens > 0 ? totalTokens : state.contextFillTokens;
+		if (state.pendingTokenFooter) {
+			intents.push({
+				kind: "set-token-footer-text",
+				text: formatTokenUsage(input, output, ctx.t, Date.now() - state.turnStartedAt, sessionTokensTotal),
+			});
+		}
+		return {
+			state: {
+				...state,
+				sessionTokensTotal,
+				sessionInputTokens,
+				sessionOutputTokens,
+				sessionCostUsd,
+				contextFillTokens,
+				pendingTokenFooter: null,
+			},
+			intents,
+		};
+	}
+
+	if (event.type === "chunk") {
+		intents.push({ kind: "pulse" });
+		intents.push({ kind: "reply-chunk", text: event.text });
+		if (!state.pendingFooterShown) {
+			intents.push({ kind: "show-pending-footer", fg: ctx.t.agentFg });
+			return { state: { ...state, pendingFooterShown: true }, intents };
+		}
+		return { state, intents };
+	}
+
+	if (event.type === "thinking") {
+		intents.push({ kind: "pulse" });
+		intents.push({ kind: "thinking-chunk", text: event.text });
+		return { state, intents };
+	}
+
+	if (event.type === "subagent-identity") {
+		intents.push({
+			kind: "set-call-identity",
+			callId: event.callId,
+			colorName: event.color,
+			address: event.address,
+			modelId: event.modelId,
+		});
+		return { state, intents };
+	}
+
+	if (event.type === "subagent-token-usage") {
+		intents.push({ kind: "update-call-tokens", callId: event.callId, input: event.input, output: event.output });
+		return { state, intents };
+	}
+
+	if (event.type === "tool-chunk") {
+		intents.push({ kind: "pulse" });
+		intents.push({ kind: "update-in-flight-call-chunk", callId: event.callId, text: event.text });
+		const chunks = state.callChunks.get(event.callId) ?? [];
+		chunks.push(event.text);
+		const callChunks = new Map(state.callChunks);
+		callChunks.set(event.callId, chunks);
+		if (state.focusedCallId === event.callId) {
+			const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
+			intents.push({ kind: "set-chunk-text", text: tail });
+		}
+		return { state: { ...state, callChunks }, intents };
+	}
+
+	if (event.type === "tool-stall") {
+		intents.push({ kind: "pulse" });
+		intents.push({
+			kind: "update-in-flight-call-chunk",
+			callId: event.callId,
+			text: `${event.name}: running for ${Math.round(event.elapsedMs / 1_000)}s...`,
+		});
+		return { state, intents };
+	}
+
+	if (event.type === "tool-validation-error") {
+		intents.push({ kind: "pulse" });
+		const errorMsg = `\u26A0 invalid arg '${event.field}': ${event.message}`;
+		intents.push({ kind: "update-in-flight-call-chunk", callId: event.callId, text: errorMsg });
+		const errors = state.validationErrors.get(event.callId) ?? [];
+		errors.push(errorMsg);
+		const validationErrors = new Map(state.validationErrors);
+		validationErrors.set(event.callId, errors);
+		return { state: { ...state, validationErrors }, intents };
+	}
+
+	if (event.type === "turn-error") {
+		intents.push({ kind: "pulse" });
+		intents.push({ kind: "append-notice", text: `LLM error: ${event.message}` });
+		return { state, intents };
+	}
+
+	if (event.type === "message-queued") {
+		intents.push({
+			kind: "sync-pending-queue",
+			queueLength: event.queueLength,
+			text: event.text,
+			mode: event.mode,
+		});
+		return { state, intents };
+	}
+
+	if (event.type === "task-started") {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskEntryFromEvent(event.task);
+		taskLedger.set(task.taskId, task);
+		intents.push({ kind: "show-background-task", taskId: task.taskId, profile: task.profile });
+		return { state: { ...state, taskLedger }, intents };
+	}
+
+	if (event.type === "task-progress") {
+		const taskLedger = new Map(state.taskLedger);
+		let task = taskLedger.get(event.task.descriptor.taskId);
+		if (!task) {
+			task = taskEntryFromEvent(event.task);
+			taskLedger.set(task.taskId, task);
+			intents.push({ kind: "show-background-task", taskId: task.taskId, profile: task.profile });
+		}
+		task.status = event.task.status;
+		task.lastActivityAt = event.task.lastActivityAt;
+		task.completedAt = event.task.completedAt;
+		task.reply = event.task.reply;
+		task.error = event.task.error;
+		task.chunkTail.push(event.chunk);
+		if (task.chunkTail.length > TASK_CHUNK_TAIL_LIMIT) {
+			task.chunkTail.splice(0, task.chunkTail.length - TASK_CHUNK_TAIL_LIMIT);
+		}
+		return { state: { ...state, taskLedger }, intents };
+	}
+
+	if (event.type === "task-completed") {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(event.task.descriptor.taskId) ?? taskEntryFromEvent(event.task);
+		task.status = "completed";
+		task.completedAt = event.task.completedAt ?? Date.now();
+		task.lastActivityAt = event.task.lastActivityAt;
+		task.reply = event.reply;
+		task.error = event.task.error;
+		taskLedger.set(task.taskId, task);
+		intents.push({ kind: "update-background-task", taskId: task.taskId, status: "completed" });
+		intents.push({
+			kind: "show-toast",
+			message: `Task ${task.taskId} completed (${task.profile})`,
+			durationMs: TASK_TOAST_DURATION_MS,
+		});
+		return { state: { ...state, taskLedger }, intents };
+	}
+
+	if (event.type === "task-failed") {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(event.task.descriptor.taskId) ?? taskEntryFromEvent(event.task);
+		task.status = "failed";
+		task.completedAt = event.task.completedAt ?? Date.now();
+		task.lastActivityAt = event.task.lastActivityAt;
+		task.error = event.error;
+		task.reply = event.task.reply;
+		taskLedger.set(task.taskId, task);
+		intents.push({ kind: "update-background-task", taskId: task.taskId, status: "failed", detail: event.error });
+		intents.push({
+			kind: "show-toast",
+			message: `Task ${task.taskId} failed: ${event.error}`,
+			durationMs: TASK_TOAST_DURATION_MS,
+		});
+		return { state: { ...state, taskLedger }, intents };
+	}
+
+	if (event.type === "task-cancelled") {
+		const taskLedger = new Map(state.taskLedger);
+		const task = taskLedger.get(event.task.descriptor.taskId) ?? taskEntryFromEvent(event.task);
+		task.status = "cancelled";
+		task.completedAt = event.task.completedAt ?? Date.now();
+		task.lastActivityAt = event.task.lastActivityAt;
+		task.error = event.error ?? event.task.error;
+		taskLedger.set(task.taskId, task);
+		intents.push({ kind: "update-background-task", taskId: task.taskId, status: "failed", detail: task.error });
+		intents.push({
+			kind: "show-toast",
+			message: `Task ${task.taskId} cancelled`,
+			durationMs: TASK_TOAST_DURATION_MS,
+		});
+		return { state: { ...state, taskLedger }, intents };
+	}
+
+	// Unknown event type -- return state unchanged.
+	return { state, intents };
+}
+
+// ---------------------------------------------------------------------------
+// dispatchTuiEvent -- backward-compatible wrapper
+// ---------------------------------------------------------------------------
+
 /** Route TuiEvent through adapter signal handlers (OCP extension), then built-in transitions. */
 export function dispatchTuiEvent(
 	state: TuiState,
@@ -205,18 +689,10 @@ export function dispatchTuiEvent(
 	ui: TuiUi,
 	signalHandlers?: ReadonlyMap<string, UiSignalHandler>,
 ): TuiState {
-	traceEvent("tui:dispatch", { eventType: event.type });
-	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
+	const { promptConsole, session, writer, t } = ui;
 
-	if (event.type === "state-changed") {
-		return state;
-	}
-
-	if (event.type === "discussion-changed") {
-		promptConsole.setTopicLabel(event.discussion.active.topicTitle);
-		return state;
-	}
-
+	// adapter-signal is the one event type that requires direct ui mutation
+	// because UiSignalHandler callbacks receive a surface object.
 	if (event.type === "adapter-signal" && signalHandlers) {
 		const handler = signalHandlers.get(event.signalType);
 		if (handler) {
@@ -241,7 +717,6 @@ export function dispatchTuiEvent(
 		if (event.signalType === "context.compacting" && event.payload.active === false) {
 			const flushed = flushCompactionPark(session);
 			for (const text of flushed) {
-				// Pending panel already holds them; promote to scrollback on flush.
 				writer.addUserMessage(text);
 			}
 			if (flushed.length > 0) {
@@ -254,420 +729,21 @@ export function dispatchTuiEvent(
 		return state;
 	}
 
-	// ── Input event handlers ────────────────────────────────────────────
-
-	/** Handle overlay show event. */
-	function onOverlayShow(e: Extract<TuiEvent, { type: "overlay.show" }>): TuiState {
-		return { ...state, overlays: [...state.overlays, e.descriptor] };
-	}
-
-	/** Handle overlay hide event. */
-	function onOverlayHide(e: Extract<TuiEvent, { type: "overlay.hide" }>): TuiState {
-		return { ...state, overlays: state.overlays.filter((o) => o.id !== e.id) };
-	}
-
-	/** Handle turn start event. */
-	function onTurnStart(e: Extract<TuiEvent, { type: "turn.start" }>): TuiState {
-		promptConsole.hidePendingFooter();
-		promptConsole.startThinking();
-		return { ...state, pendingFooterShown: false, turnStartedAt: e.timestamp };
-	}
-
-	/** Handle turn complete event (from submit handler — dot notation). */
-	function onTurnComplete(e: Extract<TuiEvent, { type: "turn.complete" }>): TuiState {
-		resetUIComponents(ui);
-		promptConsole.stopThinking();
-		promptConsole.hidePendingFooter();
-		promptConsole.onTurnComplete();
-		return { ...state, pendingFooterShown: false, pendingTokenFooter: e.tokenFooter };
-	}
-
-	/** Handle turn-complete AgentEvent (from bus observer — hyphen notation). */
-	function onBusTurnComplete(): TuiState {
-		resetUIComponents(ui);
-		promptConsole.stopThinking();
-		promptConsole.hidePendingFooter();
-		promptConsole.onTurnComplete();
-		return { ...state, pendingFooterShown: false };
-	}
-
-	/** Handle turn abort event. */
-	function onTurnAbort(): TuiState {
-		return { ...state, abortCurrentTurn: undefined };
-	}
-
-	/** Handle Ctrl+C mid-turn: abort the current turn, reset UI, add notice. */
-	function onTurnInterrupt(): TuiState {
-		if (!state.abortCurrentTurn) return state;
-		state.abortCurrentTurn();
-		resetUIComponents(ui);
-		promptConsole.stopThinking();
-		promptConsole.hidePendingFooter();
-		for (const [callId] of state.activeCalls) {
-			promptConsole.removeInFlightCall(callId);
-		}
-		writer.addNotice("(interrupted)");
-		return {
-			...state,
-			activeCalls: new Map(),
-			pendingFooterShown: false,
-			abortCurrentTurn: undefined,
-		};
-	}
-
-	/** Handle turn error event. */
-	function onTurnError(e: Extract<TuiEvent, { type: "turn.error" }>): TuiState {
-		return handleTurnError(state, e, ui);
-	}
-
-	/** Set the abort callback. */
-	function onAbortSet(e: Extract<TuiEvent, { type: "abort.set" }>): TuiState {
-		return { ...state, abortCurrentTurn: e.fn };
-	}
-
-	/** Clear the abort callback. */
-	function onAbortClear(): TuiState {
-		return { ...state, abortCurrentTurn: undefined };
-	}
-
-	/** Toggle thinking visibility. */
-	function onThinkingToggle(): TuiState {
-		const next = !replyBlock.hideThinking;
-		replyBlock.setHideThinking(next);
-		writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
-		return state;
-	}
-
-	/** Cycle inspector focus. */
-	function onInspectorCycle(): TuiState {
-		return handleInspectorCycle(state, ui);
-	}
-
-	/** Close inspector. */
-	function onInspectorClose(): TuiState {
-		return handleInspectorClose(state, ui);
-	}
-
-	/** Cancel inspector. */
-	function onInspectorCancel(): TuiState {
-		return handleInspectorCancel(state, ui);
-	}
-
-	/** Scroll inspector view. */
-	function onInspectorScroll(e: Extract<TuiEvent, { type: "inspector.scroll" }>): TuiState {
-		return handleInspectorScroll(state, ui, e.direction);
-	}
-
-	// ── Agent event handlers ────────────────────────────────────────────
-
-	/** Handle tool execution start. */
-	function onToolStart(e: Extract<TuiEvent, { type: "tool-start" }>): TuiState {
-		const { callId, name, args } = e;
-		const keyArg = formatToolArgs(args);
-		traceEvent("tool:start", {
-			callId: callId.slice(0, 8),
-			name,
-			keyArg,
-			activeCount: state.activeCalls.size + 1,
-		});
-		promptConsole.pulse();
-		resetUIComponents(ui);
-		promptConsole.showInFlightCall(callId, name, keyArg, args);
-		if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
-		const activeCalls = new Map(state.activeCalls);
-		activeCalls.set(callId, { name, keyArg, args, children: new Map(), depth: 0 });
-		const startingBatch = state.batchStartedAt === null;
-		return {
-			...state,
-			activeCalls,
-			batchStartedAt: state.batchStartedAt ?? Date.now(),
-			batchCallCount: startingBatch ? 1 : state.batchCallCount + 1,
-			pendingFooterShown: true,
-		};
-	}
-
-	/** Handle tool execution end. */
-	function onToolEnd(e: Extract<TuiEvent, { type: "tool-end" }>): TuiState {
-		return handleToolEnd(state, e, ui);
-	}
-
-	/** Handle nested tool start. */
-	function onInnerToolStart(e: Extract<TuiEvent, { type: "inner-tool-start" }>): TuiState {
-		const parent = state.activeCalls.get(e.parentCallId);
-		if (!parent) return state;
-		const childKeyArg = formatToolArgs(e.args);
-		parent.children.set(e.callId, {
-			name: e.name,
-			keyArg: childKeyArg,
-			args: e.args,
-			parentCallId: e.parentCallId,
-			children: new Map(),
-			depth: parent.depth + 1,
-		});
-		promptConsole.addChildCall(e.parentCallId, e.callId, e.name, childKeyArg, e.args, parent.depth + 1);
-		return state;
-	}
-
-	/** Handle nested tool end. */
-	function onInnerToolEnd(e: Extract<TuiEvent, { type: "inner-tool-end" }>): TuiState {
-		const parent = state.activeCalls.get(e.parentCallId);
-		if (!parent) return state;
-		parent.children.delete(e.callId);
-		promptConsole.removeChildCall(e.parentCallId, e.callId);
-		return state;
-	}
-
-	/** Accumulate inner agent text chunk. */
-	function onInnerChunk(e: Extract<TuiEvent, { type: "inner-chunk" }>): TuiState {
-		const existing = state.innerReplies.get(e.parentCallId) ?? "";
-		const innerReplies = new Map(state.innerReplies);
-		innerReplies.set(e.parentCallId, existing + e.text);
-		return { ...state, innerReplies };
-	}
-
-	/** Process token usage report. */
-	function onTokenUsage(e: Extract<TuiEvent, { type: "token-usage" }>): TuiState {
-		const { input, output, totalTokens, costUsd } = e.usage;
-		const sessionTokensTotal = state.sessionTokensTotal + input + output;
-		const sessionInputTokens = state.sessionInputTokens + input;
-		const sessionOutputTokens = state.sessionOutputTokens + output;
-		const sessionCostUsd = state.sessionCostUsd + (costUsd ?? 0);
-		const contextFillTokens = totalTokens > 0 ? totalTokens : state.contextFillTokens;
-		if (state.pendingTokenFooter) {
-			state.pendingTokenFooter.setText(
-				formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
-			);
-		}
-		// Context pressure is shown on the footer context bar (warn/error colors), not scrollback.
-		return {
-			...state,
-			sessionTokensTotal,
-			sessionInputTokens,
-			sessionOutputTokens,
-			sessionCostUsd,
-			contextFillTokens,
-			pendingTokenFooter: null,
-		};
-	}
-
-	/** Process streaming text chunk. */
-	function onChunk(e: Extract<TuiEvent, { type: "chunk" }>): TuiState {
-		promptConsole.pulse();
-		replyTW.receive(e.text);
-		if (!state.pendingFooterShown) {
-			promptConsole.showPendingFooter(t.agentFg);
-			return { ...state, pendingFooterShown: true };
-		}
-		return state;
-	}
-
-	/** Process thinking text chunk. */
-	function onThinking(e: Extract<TuiEvent, { type: "thinking" }>): TuiState {
-		promptConsole.pulse();
-		thinkingTW.receive(e.text);
-		return state;
-	}
-
-	/** Set subagent identity display. */
-	function onSubagentIdentity(e: Extract<TuiEvent, { type: "subagent-identity" }>): TuiState {
-		promptConsole.setCallIdentity(e.callId, e.color, e.address, e.modelId);
-		return state;
-	}
-
-	/** Update subagent token display. */
-	function onSubagentTokenUsage(e: Extract<TuiEvent, { type: "subagent-token-usage" }>): TuiState {
-		promptConsole.updateCallTokens(e.callId, e.input, e.output);
-		return state;
-	}
-
-	/** Process tool output chunk. */
-	function onToolChunk(e: Extract<TuiEvent, { type: "tool-chunk" }>): TuiState {
-		promptConsole.pulse();
-		promptConsole.updateInFlightCallChunk(e.callId, e.text);
-		const chunks = state.callChunks.get(e.callId) ?? [];
-		chunks.push(e.text);
-		const callChunks = new Map(state.callChunks);
-		callChunks.set(e.callId, chunks);
-		if (state.focusedCallId === e.callId) {
-			const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
-			promptConsole.setChunkText(tail);
-		}
-		return { ...state, callChunks };
-	}
-
-	/** Handle tool stall warning. */
-	function onToolStall(e: Extract<TuiEvent, { type: "tool-stall" }>): TuiState {
-		promptConsole.pulse();
-		promptConsole.updateInFlightCallChunk(e.callId, `${e.name}: running for ${Math.round(e.elapsedMs / 1_000)}s...`);
-		return state;
-	}
-
-	/** Handle tool validation error. */
-	function onToolValidationError(e: Extract<TuiEvent, { type: "tool-validation-error" }>): TuiState {
-		promptConsole.pulse();
-		const errorMsg = `⚠ invalid arg '${e.field}': ${e.message}`;
-		promptConsole.updateInFlightCallChunk(e.callId, errorMsg);
-
-		// Store validation error to display when tool completes
-		const errors = state.validationErrors.get(e.callId) ?? [];
-		errors.push(errorMsg);
-		const validationErrors = new Map(state.validationErrors);
-		validationErrors.set(e.callId, errors);
-
-		return { ...state, validationErrors };
-	}
-
-	/** Handle LLM turn error. */
-	function onLlmTurnError(e: Extract<TuiEvent, { type: "turn-error" }>): TuiState {
-		promptConsole.pulse();
-		writer.addNotice(`LLM error: ${e.message}`);
-		return state;
-	}
-
-	/** Handle queued message notification. */
-	function onMessageQueued(e: Extract<TuiEvent, { type: "message-queued" }>): TuiState {
-		const promoted = promptConsole.syncPendingQueue({
-			queueLength: e.queueLength,
-			text: e.text,
-			mode: e.mode,
-		});
-		for (const text of promoted) {
-			writer.addUserMessage(text);
-		}
-		return state;
-	}
-
-	/** Track background task creation. */
-	function onTaskStarted(e: Extract<TuiEvent, { type: "task-started" }>): TuiState {
-		const taskLedger = new Map(state.taskLedger);
-		const task = taskEntryFromEvent(e.task);
-		taskLedger.set(task.taskId, task);
-		promptConsole.showBackgroundTask(task.taskId, task.profile);
-		return { ...state, taskLedger };
-	}
-
-	/** Track background task progress. */
-	function onTaskProgress(e: Extract<TuiEvent, { type: "task-progress" }>): TuiState {
-		const taskLedger = new Map(state.taskLedger);
-		let task = taskLedger.get(e.task.descriptor.taskId);
-		if (!task) {
-			task = taskEntryFromEvent(e.task);
-			taskLedger.set(task.taskId, task);
-			promptConsole.showBackgroundTask(task.taskId, task.profile);
-		}
-		task.status = e.task.status;
-		task.lastActivityAt = e.task.lastActivityAt;
-		task.completedAt = e.task.completedAt;
-		task.reply = e.task.reply;
-		task.error = e.task.error;
-		task.chunkTail.push(e.chunk);
-		if (task.chunkTail.length > TASK_CHUNK_TAIL_LIMIT) {
-			task.chunkTail.splice(0, task.chunkTail.length - TASK_CHUNK_TAIL_LIMIT);
-		}
-		return { ...state, taskLedger };
-	}
-
-	/** Handle background task completion. */
-	function onTaskCompleted(e: Extract<TuiEvent, { type: "task-completed" }>): TuiState {
-		const taskLedger = new Map(state.taskLedger);
-		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
-		task.status = "completed";
-		task.completedAt = e.task.completedAt ?? Date.now();
-		task.lastActivityAt = e.task.lastActivityAt;
-		task.reply = e.reply;
-		task.error = e.task.error;
-		taskLedger.set(task.taskId, task);
-		promptConsole.updateBackgroundTask(task.taskId, "completed");
-		promptConsole.showToast(`Task ${task.taskId} completed (${task.profile})`, TASK_TOAST_DURATION_MS);
-		return { ...state, taskLedger };
-	}
-
-	/** Handle background task failure. */
-	function onTaskFailed(e: Extract<TuiEvent, { type: "task-failed" }>): TuiState {
-		const taskLedger = new Map(state.taskLedger);
-		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
-		task.status = "failed";
-		task.completedAt = e.task.completedAt ?? Date.now();
-		task.lastActivityAt = e.task.lastActivityAt;
-		task.error = e.error;
-		task.reply = e.task.reply;
-		taskLedger.set(task.taskId, task);
-		promptConsole.updateBackgroundTask(task.taskId, "failed", e.error);
-		promptConsole.showToast(`Task ${task.taskId} failed: ${e.error}`, TASK_TOAST_DURATION_MS);
-		return { ...state, taskLedger };
-	}
-
-	/** Handle background task cancellation. */
-	function onTaskCancelled(e: Extract<TuiEvent, { type: "task-cancelled" }>): TuiState {
-		const taskLedger = new Map(state.taskLedger);
-		const task = taskLedger.get(e.task.descriptor.taskId) ?? taskEntryFromEvent(e.task);
-		task.status = "cancelled";
-		task.completedAt = e.task.completedAt ?? Date.now();
-		task.lastActivityAt = e.task.lastActivityAt;
-		task.error = e.error ?? e.task.error;
-		taskLedger.set(task.taskId, task);
-		promptConsole.updateBackgroundTask(task.taskId, "failed", task.error);
-		promptConsole.showToast(`Task ${task.taskId} cancelled`, TASK_TOAST_DURATION_MS);
-		return { ...state, taskLedger };
-	}
-
-	// ── Dispatch table ──────────────────────────────────────────────────
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const handlers: Partial<Record<string, (e: any) => TuiState>> = {
-		"overlay.show": onOverlayShow,
-		"overlay.hide": onOverlayHide,
-		"turn.start": onTurnStart,
-		"turn.complete": onTurnComplete,
-		"turn.abort": onTurnAbort,
-		"turn.interrupt": onTurnInterrupt,
-		"turn.error": onTurnError,
-		"abort.set": onAbortSet,
-		"abort.clear": onAbortClear,
-		"thinking.toggle": onThinkingToggle,
-		"inspector.cycle": onInspectorCycle,
-		"inspector.close": onInspectorClose,
-		"inspector.cancel": onInspectorCancel,
-		"inspector.scroll": onInspectorScroll,
-		"tool-start": onToolStart,
-		"tool-end": onToolEnd,
-		"inner-tool-start": onInnerToolStart,
-		"inner-tool-end": onInnerToolEnd,
-		"inner-chunk": onInnerChunk,
-		"token-usage": onTokenUsage,
-		chunk: onChunk,
-		thinking: onThinking,
-		"subagent-identity": onSubagentIdentity,
-		"subagent-token-usage": onSubagentTokenUsage,
-		"tool-chunk": onToolChunk,
-		"tool-stall": onToolStall,
-		"tool-validation-error": onToolValidationError,
-		"turn-complete": onBusTurnComplete,
-		"turn-error": onLlmTurnError,
-		"message-queued": onMessageQueued,
-		"task-started": onTaskStarted,
-		"task-progress": onTaskProgress,
-		"task-completed": onTaskCompleted,
-		"task-failed": onTaskFailed,
-		"task-cancelled": onTaskCancelled,
+	const ctx: DispatchContext = {
+		t,
+		hideThinking: ui.replyBlock.hideThinking,
+		signalHandlers,
 	};
 
-	const handle = handlers[event.type];
-	return handle?.(event) ?? state;
+	const savedFooter = state.pendingTokenFooter;
+	const result = computeDispatch(state, event, ctx);
+	applyIntents(ui, result.intents, savedFooter);
+	return result.state;
 }
 
-const TASK_TOAST_DURATION_MS = 5000;
-
-const INSPECTOR_LINES = 12;
-const INSPECTOR_SCROLL_STEP = 3;
-
-/** Render a scrollable window of tool output chunks for the inspector detail view. */
-export function renderChunkWindow(chunks: string[], scrollOffset: number): string {
-	const all = chunks.join("").split("\n");
-	const end = Math.max(0, all.length - scrollOffset);
-	const start = Math.max(0, end - INSPECTOR_LINES);
-	return all.slice(start, end).join("\n");
-}
+// ---------------------------------------------------------------------------
+// Exported helpers -- kept for backward compatibility
+// ---------------------------------------------------------------------------
 
 /** Set the focused call in the inspector and render its chunk window. */
 export function updateInspectorView(state: TuiState, ui: TuiUi, callId: string | null, scrollOffset = 0): void {

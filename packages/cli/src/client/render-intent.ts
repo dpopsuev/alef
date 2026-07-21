@@ -277,6 +277,19 @@ export interface SyncPendingQueue {
 	readonly mode?: "steer" | "followUp" | "nextTurn";
 }
 
+/** Set the text on a pending token-usage footer handle. */
+export interface SetTokenFooterText {
+	readonly kind: "set-token-footer-text";
+	readonly text: string;
+}
+
+/** Cancel a currently focused tool call via the session. */
+export interface CancelToolCall {
+	readonly kind: "cancel-tool-call";
+	readonly callId: string;
+	readonly name: string;
+}
+
 // ---------------------------------------------------------------------------
 // Union type
 // ---------------------------------------------------------------------------
@@ -324,4 +337,6 @@ export type RenderIntent =
 	| ShowToast
 	| ShowBackgroundTask
 	| UpdateBackgroundTask
-	| SyncPendingQueue;
+	| SyncPendingQueue
+	| SetTokenFooterText
+	| CancelToolCall;

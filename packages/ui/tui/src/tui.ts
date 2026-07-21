@@ -9,6 +9,7 @@ import { performance } from "node:perf_hooks";
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
 import { type Component, CURSOR_MARKER, isFocusable, type RenderMeta } from "./component.js";
 import { isKeyRelease, matchesKey } from "./keys.js";
+import { type OverlayAnchor, type OverlayHandle, type OverlayOptions, parseSizeValue } from "./overlay-types.js";
 import { traceEvent } from "./trace-bridge.js";
 import type { Terminal } from "./terminal.js";
 import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
@@ -56,115 +57,16 @@ function extractKittyImageIds(line: string): number[] {
 
 export type { Component, Focusable, RenderMeta, RenderHandle } from "./component.js";
 export { CURSOR_MARKER, isFocusable } from "./component.js";
+export type { OverlayAnchor, OverlayHandle, OverlayMargin, OverlayOptions, SizeValue } from "./overlay-types.js";
 export { visibleWidth };
 
 type InputListenerResult = { consume?: boolean; data?: string } | undefined;
 type InputListener = (data: string) => InputListenerResult;
 
-/**
- * Anchor position for overlays
- */
-export type OverlayAnchor =
-	| "center"
-	| "top-left"
-	| "top-right"
-	| "bottom-left"
-	| "bottom-right"
-	| "top-center"
-	| "bottom-center"
-	| "left-center"
-	| "right-center";
-
-/**
- * Margin configuration for overlays
- */
-export interface OverlayMargin {
-	top?: number;
-	right?: number;
-	bottom?: number;
-	left?: number;
-}
-
-/** Value that can be absolute (number) or percentage (string like "50%") */
-export type SizeValue = number | `${number}%`;
-
-/** Parse a SizeValue into absolute value given a reference size */
-function parseSizeValue(value: SizeValue | undefined, referenceSize: number): number | undefined {
-	if (value === undefined) return undefined;
-	if (typeof value === "number") return value;
-	// Parse percentage string like "50%"
-	const match = value.match(/^(\d+(?:\.\d+)?)%$/);
-	if (match) {
-		return Math.floor((referenceSize * parseFloat(match[1]!)) / 100);
-	}
-	return undefined;
-}
-
-/**
- *
- */
+/** Detect Termux environment (Android terminal emulator). */
+/** Detect Termux environment (Android terminal emulator). */
 function isTermuxSession(): boolean {
 	return Boolean(process.env.TERMUX_VERSION);
-}
-
-/**
- * Options for overlay positioning and sizing.
- * Values can be absolute numbers or percentage strings (e.g., "50%").
- */
-export interface OverlayOptions {
-	// === Sizing ===
-	/** Width in columns, or percentage of terminal width (e.g., "50%") */
-	width?: SizeValue;
-	/** Minimum width in columns */
-	minWidth?: number;
-	/** Maximum height in rows, or percentage of terminal height (e.g., "50%") */
-	maxHeight?: SizeValue;
-
-	// === Positioning - anchor-based ===
-	/** Anchor point for positioning (default: 'center') */
-	anchor?: OverlayAnchor;
-	/** Horizontal offset from anchor position (positive = right) */
-	offsetX?: number;
-	/** Vertical offset from anchor position (positive = down) */
-	offsetY?: number;
-
-	// === Positioning - percentage or absolute ===
-	/** Row position: absolute number, or percentage (e.g., "25%" = 25% from top) */
-	row?: SizeValue;
-	/** Column position: absolute number, or percentage (e.g., "50%" = centered horizontally) */
-	col?: SizeValue;
-
-	// === Margin from terminal edges ===
-	/** Margin from terminal edges. Number applies to all sides. */
-	margin?: OverlayMargin | number;
-
-	// === Visibility ===
-	/**
-	 * Control overlay visibility based on terminal dimensions.
-	 * If provided, overlay is only rendered when this returns true.
-	 * Called each render cycle with current terminal dimensions.
-	 */
-	visible?: (termWidth: number, termHeight: number) => boolean;
-	/** If true, don't capture keyboard focus when shown */
-	nonCapturing?: boolean;
-}
-
-/**
- * Handle returned by showOverlay for controlling the overlay
- */
-export interface OverlayHandle {
-	/** Permanently remove the overlay (cannot be shown again) */
-	hide(): void;
-	/** Temporarily hide or show the overlay */
-	setHidden(hidden: boolean): void;
-	/** Check if overlay is temporarily hidden */
-	isHidden(): boolean;
-	/** Focus this overlay and bring it to the visual front */
-	focus(): void;
-	/** Release focus to the previous target */
-	unfocus(): void;
-	/** Check if this overlay currently has focus */
-	isFocused(): boolean;
 }
 
 /**

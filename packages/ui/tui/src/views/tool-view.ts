@@ -31,7 +31,7 @@ export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, ela
  * A live-updating tool call row.
  *
  * While in-flight: re-renders on every TUI frame showing a spinner + live
- * elapsed time (driven by PromptConsole.startThinking's requestRender loop).
+ * elapsed time (driven by DockConsole.startThinking's requestRender loop).
  * After seal(): renders the static completed line — no more Date.now() calls.
  */
 export class ToolCallRow implements Component {

@@ -8,7 +8,7 @@ import {
 } from "@dpopsuev/alef-tui";
 import { HistoryAutocompleteProvider } from "./commands/autocomplete.js";
 import { registry } from "./commands/commands.js";
-import { PromptConsole } from "./console.js";
+import { DockConsole } from "./console.js";
 import type { ThemeTokens } from "./theme.js";
 
 /** Configuration for constructing the input panel and its autocomplete providers. */
@@ -22,7 +22,7 @@ export interface InputPanelOptions {
 
 /** Wires the prompt editor, history autocomplete, and application registry into the input zone. */
 export class InputPanel {
-	readonly promptConsole: PromptConsole;
+	readonly promptConsole: DockConsole;
 	readonly historyProvider: HistoryAutocompleteProvider;
 	readonly applications: InputApplicationRegistry;
 	readonly editor: Editor;
@@ -30,7 +30,7 @@ export class InputPanel {
 	constructor(opts: InputPanelOptions) {
 		const { tui, t, modelId, cwd } = opts;
 
-		this.promptConsole = new PromptConsole(tui, t, modelId);
+		this.promptConsole = new DockConsole(tui, t, modelId);
 		this.promptConsole.mount();
 		this.editor = this.promptConsole.editor;
 		this.historyProvider = new HistoryAutocompleteProvider();

@@ -1,12 +1,12 @@
 /**
- * Scrollback purity against the real PromptConsole mount order + EditorWrapper.
+ * Scrollback purity against the real DockConsole mount order + EditorChrome.
  */
 
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { dockChromeHits, extractArchivePayloads } from "../../ui/tui/test/fixtures/scrollback-purity.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
 
 async function settle(ms = 25): Promise<void> {
@@ -19,7 +19,7 @@ function assertNoDockChrome(lines: string[], label: string): void {
 	expect(hits, `${label} must not contain dock chrome; hits=${hits.join(",")}`).toEqual([]);
 }
 
-describe("scrollback purity — real PromptConsole", { tags: ["unit"] }, () => {
+describe("scrollback purity — real DockConsole", { tags: ["unit"] }, () => {
 	it("archive payloads stay free of INSERT/topic/editor chrome under agent.run churn", async () => {
 		const terminal = new VirtualTerminal(72, 18);
 		const writes: string[] = [];
@@ -40,7 +40,7 @@ describe("scrollback purity — real PromptConsole", { tags: ["unit"] }, () => {
 		tui.addChild(chat);
 		for (let i = 0; i < 4; i++) chat.addChild(new Text(`chat-seed-${i}`, 0, 0));
 
-		const console = new PromptConsole(tui, getTheme(), "test-model");
+		const console = new DockConsole(tui, getTheme(), "test-model");
 		console.mount();
 		console.setStatus("INSERT");
 		console.setTopicLabel("STICKY_TOPIC Explore the code base");
@@ -85,9 +85,9 @@ describe("scrollback purity — real PromptConsole", { tags: ["unit"] }, () => {
 		}
 
 		const archivePayloads = extractArchivePayloads(writes);
-		expect(archivePayloads.length, "real PromptConsole must archive overflow chat").toBeGreaterThan(0);
-		assertNoDockChrome(archivePayloads, "archive payloads (real PromptConsole)");
-		assertNoDockChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (real PromptConsole)");
+		expect(archivePayloads.length, "real DockConsole must archive overflow chat").toBeGreaterThan(0);
+		assertNoDockChrome(archivePayloads, "archive payloads (real DockConsole)");
+		assertNoDockChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (real DockConsole)");
 
 		expect(archivePayloads.join("\n")).toMatch(/chat-(seed|line)-/);
 		const viewport = terminal.getViewport().join("\n");

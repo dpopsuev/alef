@@ -1,7 +1,7 @@
 /**
  * Thinking-tick render rate tests.
  *
- * Original bug: PromptConsole.startThinking() called requestRender() on
+ * Original bug: DockConsole.startThinking() called requestRender() on
  * every 28-80ms tick because the status string was unique each time --
  * raw millisecond elapsed display changed every tick, braille frame
  * rotated every tick, and hue shifted every tick.
@@ -15,7 +15,7 @@
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
 
 function setup(width = 72, height = 18) {
@@ -39,7 +39,7 @@ function setup(width = 72, height = 18) {
 	tui.addChild(chat);
 	for (let i = 0; i < 6; i++) chat.addChild(new Text(`msg-${i}`, 0, 0));
 
-	const pc = new PromptConsole(tui, getTheme(), "test-model");
+	const pc = new DockConsole(tui, getTheme(), "test-model");
 	pc.mount();
 
 	return {
@@ -142,7 +142,7 @@ describe("thinking tick rate", { tags: ["unit"] }, () => {
 		cleanup();
 
 		// Extract braille characters
-		const braillePattern = /[\u2800-\u28FF]/;
+		const braillePattern = /[⠀-⣿]/;
 		const frames = statusTexts.map((t) => t.match(braillePattern)?.[0]).filter((f): f is string => f !== undefined);
 
 		const uniqueFrames = new Set(frames);

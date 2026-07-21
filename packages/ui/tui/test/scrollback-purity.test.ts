@@ -137,7 +137,7 @@ describe("scrollback purity — dock chrome never archives", { tags: ["unit"] },
 		tui.stop();
 	});
 
-	it("PromptConsole-shaped dock tree keeps archive paint pure under multi-agent churn", async () => {
+	it("DockConsole-shaped dock tree keeps archive paint pure under multi-agent churn", async () => {
 		const terminal = new VirtualTerminal(72, 16);
 		const writes: string[] = [];
 		const originalWrite = terminal.write.bind(terminal);
@@ -203,9 +203,9 @@ describe("scrollback purity — dock chrome never archives", { tags: ["unit"] },
 		}
 
 		const archivePayloads = extractArchivePayloads(writes);
-		expect(archivePayloads.length, "PromptConsole dock must still archive chat").toBeGreaterThan(0);
-		assertNoDockChrome(archivePayloads, "archive payloads (PromptConsole shape)");
-		assertNoDockChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (PromptConsole shape)");
+		expect(archivePayloads.length, "DockConsole dock must still archive chat").toBeGreaterThan(0);
+		assertNoDockChrome(archivePayloads, "archive payloads (DockConsole shape)");
+		assertNoDockChrome(terminal.getScrollbackAboveViewport(), "scrollback above viewport (DockConsole shape)");
 
 		expect(archivePayloads.join("\n")).toMatch(/chat-(seed|line)-/);
 		expect(terminal.getViewport().join("\n")).toContain("STICKY_EDITOR");

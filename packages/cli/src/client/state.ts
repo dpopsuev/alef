@@ -49,7 +49,7 @@ export interface TaskLedgerEntry {
 }
 
 /** Immutable snapshot of the TUI's runtime state — active calls, overlays, token usage. */
-export interface TuiState {
+export interface DispatchState {
 	activeCalls: Map<string, ActiveCall>;
 	/** null means no tool batch is in progress. */
 	batchStartedAt: number | null;
@@ -82,8 +82,8 @@ export interface TuiState {
 	taskLedger: Map<string, TaskLedgerEntry>;
 }
 
-/** Create a fresh TuiState with all counters zeroed and collections empty. */
-export function initialTuiState(): TuiState {
+/** Create a fresh DispatchState with all counters zeroed and collections empty. */
+export function initialDispatchState(): DispatchState {
 	return {
 		activeCalls: new Map(),
 		batchStartedAt: null,
@@ -123,7 +123,7 @@ export function syncOverlays(
 
 // Structural interfaces — allow unit tests to inject mocks without concrete classes.
 /** Structural interface for the chat log writer, enabling mock injection in tests. */
-export interface TuiWriter {
+export interface ChatWriter {
 	addCompletedToolBlock(
 		name: string,
 		keyArg: string,
@@ -143,7 +143,7 @@ export interface TuiWriter {
 }
 
 /** Structural interface for the streaming reply block component. */
-export interface TuiReplyBlock {
+export interface ReplyBlockPort {
 	reset(): void;
 	clear(): void;
 	hideThinking: boolean;
@@ -151,14 +151,14 @@ export interface TuiReplyBlock {
 }
 
 /** Structural interface for a typewriter that accumulates streaming text chunks. */
-export interface TuiTypewriter {
+export interface TypewriterPort {
 	receive(text: string): void;
 	flush(): void;
 	reset(): void;
 }
 
 /** Structural interface for the prompt console, enabling mock injection in tests. */
-export interface TuiPromptConsole {
+export interface DockConsolePort {
 	pulse(): void;
 	showPendingFooter(fg: ColorToken): void;
 	hidePendingFooter(): void;
@@ -197,12 +197,12 @@ export interface TuiPromptConsole {
 }
 
 /** Composite of all UI components needed by the TUI event dispatcher. */
-export interface TuiUi {
-	writer: TuiWriter;
-	replyBlock: TuiReplyBlock;
-	replyTW: TuiTypewriter;
-	thinkingTW: TuiTypewriter;
-	promptConsole: TuiPromptConsole;
+export interface DispatchPorts {
+	writer: ChatWriter;
+	replyBlock: ReplyBlockPort;
+	replyTW: TypewriterPort;
+	thinkingTW: TypewriterPort;
+	promptConsole: DockConsolePort;
 	tui: Pick<TUI, "requestRender">;
 	t: ThemeTokens;
 	session: Pick<Session, "state" | "cancelToolCall" | "receive" | "send" | "getDiscussion" | "setDiscussion">;

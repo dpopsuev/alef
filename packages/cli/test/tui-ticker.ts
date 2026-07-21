@@ -23,9 +23,9 @@ import { OutputPanel } from "@dpopsuev/alef-tui/views";
 import { vi } from "vitest";
 import { RenderRecorder } from "../../ui/tui/test/render-recorder.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState, type TuiState, type TuiUi } from "../src/client/state.js";
+import { DockConsole } from "../src/client/console.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { type DispatchPorts, type DispatchState, initialDispatchState } from "../src/client/state.js";
 import { getTheme } from "../src/client/theme.js";
 
 function stripAnsi(s: string): string {
@@ -49,8 +49,8 @@ export interface Snapshot {
 export interface Ticker {
 	/** The TUI instance. */
 	tui: TUI;
-	/** The PromptConsole. */
-	pc: PromptConsole;
+	/** The DockConsole. */
+	pc: DockConsole;
 	/** The RenderRecorder capturing every frame. */
 	recorder: RenderRecorder;
 	/** The VirtualTerminal. */
@@ -101,7 +101,7 @@ export function createTicker(opts: TickerOptions = {}): Ticker {
 	tui.addChild(chat);
 	const output = new OutputPanel({ tui, t, labels: { humanLabel: "you", agentLabel: "alef" } });
 
-	const pc = new PromptConsole(tui, t, "test-model");
+	const pc = new DockConsole(tui, t, "test-model");
 	pc.mount();
 	pc.setStatus("INSERT");
 
@@ -110,9 +110,9 @@ export function createTicker(opts: TickerOptions = {}): Ticker {
 
 	const recorder = new RenderRecorder(tui);
 
-	let tuiState: TuiState = initialTuiState();
+	let tuiState: DispatchState = initialDispatchState();
 
-	const ui: TuiUi = {
+	const ui: DispatchPorts = {
 		writer: output.writer,
 		replyBlock: output.replyBlock,
 		replyTW: output.replyTW,
@@ -137,7 +137,7 @@ export function createTicker(opts: TickerOptions = {}): Ticker {
 		chat,
 
 		inject(event: AgentEvent): void {
-			tuiState = dispatchTuiEvent(tuiState, event, ui);
+			tuiState = dispatchEvent(tuiState, event, ui);
 		},
 
 		addChat(text: string): void {

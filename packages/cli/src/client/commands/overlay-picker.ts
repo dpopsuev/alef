@@ -3,7 +3,7 @@
  */
 
 import { type SelectItem, SelectList, type SelectListTheme } from "@dpopsuev/alef-tui";
-import type { TuiEvent } from "../events.js";
+import type { DispatchEvent } from "../events.js";
 import { selectListThemeFromTokens, type ThemeTokens } from "../theme.js";
 
 const SETTINGS_MAX_VISIBLE = 10;
@@ -20,7 +20,7 @@ export interface ConfigPickerOptions<T> {
 /** Open a typed overlay picker that maps domain objects to selectable items. */
 export function openConfigPicker<T>(
 	t: ThemeTokens,
-	dispatch: (event: TuiEvent) => void,
+	dispatch: (event: DispatchEvent) => void,
 	requestRender: () => void,
 	opts: ConfigPickerOptions<T>,
 ): void {
@@ -55,7 +55,7 @@ export interface EnumPickerOptions {
 /** Open an overlay picker for choosing among a fixed set of string values. */
 export function openEnumPicker(
 	t: ThemeTokens,
-	dispatch: (event: TuiEvent) => void,
+	dispatch: (event: DispatchEvent) => void,
 	requestRender: () => void,
 	opts: EnumPickerOptions,
 ): void {
@@ -88,7 +88,7 @@ export function buildPickerTheme(t: ThemeTokens): SelectListTheme {
 /** Open a searchable overlay picker and dispatch show/hide events on select or cancel. */
 export function openPicker(
 	t: ThemeTokens,
-	dispatch: (event: TuiEvent) => void,
+	dispatch: (event: DispatchEvent) => void,
 	requestRender: () => void,
 	opts: PickerOptions,
 ): void {

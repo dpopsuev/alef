@@ -23,7 +23,7 @@
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
 
 function setup(width = 80, height = 20) {
@@ -40,7 +40,7 @@ function setup(width = 80, height = 20) {
 	tui.addChild(chat);
 	for (let i = 0; i < 4; i++) chat.addChild(new Text(`msg-${i}`, 0, 0));
 
-	const pc = new PromptConsole(tui, getTheme(), "test-model");
+	const pc = new DockConsole(tui, getTheme(), "test-model");
 	pc.mount();
 
 	return { terminal, tui, pc, chat, cleanup: () => tui.stop() };
@@ -67,7 +67,7 @@ describe("spinner duplication", { tags: ["unit"] }, () => {
 
 		// Get the viewport lines from the terminal
 		const lines = tui.render(80);
-		const braillePattern = /[\u2800-\u28FF]/;
+		const braillePattern = /[⠀-⣿]/;
 		const brailleLines = lines.filter((l) => braillePattern.test(l));
 
 		expect(
@@ -94,7 +94,7 @@ describe("spinner duplication", { tags: ["unit"] }, () => {
 		vi.advanceTimersByTime(50);
 
 		const lines = tui.render(80);
-		const braillePattern = /[\u2800-\u28FF]/;
+		const braillePattern = /[⠀-⣿]/;
 		const brailleLines = lines.filter((l) => braillePattern.test(l));
 
 		// Bug: currently produces 2 braille lines (thinking + card).

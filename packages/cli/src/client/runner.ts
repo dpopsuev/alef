@@ -8,9 +8,9 @@ import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import { getRebootPort, getRestartStrategy, type RebootPort, type RestartStrategy } from "../boot/reboot-port.js";
 import type { BuildInfo, InteractiveOptions, RestartExecutor } from "./boot-types.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
-import type { TuiEvent } from "./events.js";
+import type { DispatchEvent } from "./events.js";
 import { handleCtrlC } from "./handlers.js";
-import type { OverlayDescriptor, TuiState } from "./state.js";
+import type { DispatchState, OverlayDescriptor } from "./state.js";
 import { type boldColor, type color, selectListThemeFromTokens, type ThemeTokens } from "./theme.js";
 
 export {
@@ -90,8 +90,8 @@ export function createContextFactory(
 	tui: TUI,
 	opts: InteractiveOptions,
 	session: Session,
-	getState: () => TuiState,
-	dispatch: (event: TuiEvent) => void,
+	getState: () => DispatchState,
+	dispatch: (event: DispatchEvent) => void,
 	store?: SessionStore,
 	editorRef?: Editor,
 	rebootPort?: RebootPort,
@@ -133,8 +133,8 @@ export function createContextFactory(
 /** Route raw terminal input to overlays, inspector, or global shortcuts before the editor sees it. */
 export function handleRawInput(
 	data: string,
-	tuiState: TuiState,
-	dispatch: (event: TuiEvent) => void,
+	tuiState: DispatchState,
+	dispatch: (event: DispatchEvent) => void,
 	ctx: () => TuiHandlerContext,
 	historyPickerToggle: () => boolean,
 ): boolean {
@@ -277,7 +277,7 @@ export function openHistoryPicker(
 	historyProvider: HistoryProvider,
 	theme: HistoryPickerTheme,
 	onSelect: (text: string) => void,
-	dispatch: (event: TuiEvent) => void,
+	dispatch: (event: DispatchEvent) => void,
 	SelectListConstructor: new (items: SelectItem[], maxVisible: number, theme: HistoryPickerTheme) => SelectList,
 ): boolean {
 	const closeHistoryPicker = () => dispatch({ type: "overlay.hide", id: HISTORY_PICKER_ID });

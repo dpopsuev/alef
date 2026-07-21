@@ -1,16 +1,16 @@
 /**
- * applyIntents -- execute RenderIntent[] against TuiUi components.
+ * applyIntents -- execute RenderIntent[] against DispatchPorts components.
  *
  * This is the imperative half of the event dispatch split.
  * Each intent maps to exactly one component method call.
  */
 
 import type { RenderIntent } from "./render-intent.js";
-import type { TokenFooterHandle, TuiUi } from "./state.js";
+import type { DispatchPorts, TokenFooterHandle } from "./state.js";
 
 /** Apply a list of render intents to the TUI components. */
 export function applyIntents(
-	ui: TuiUi,
+	ui: DispatchPorts,
 	intents: readonly RenderIntent[],
 	pendingTokenFooter?: TokenFooterHandle | null,
 ): void {

@@ -113,7 +113,7 @@ describe.todo("RC-1 — cursor hidden before cursor-up movement (T-1 not yet imp
 });
 
 // ---------------------------------------------------------------------------
-// RC-2 — no clear screen in differential or PromptConsole renders
+// RC-2 — no clear screen in differential or DockConsole renders
 // ---------------------------------------------------------------------------
 
 describe("RC-2 — no \\x1b[2J in differential renders", { tags: ["unit"] }, () => {
@@ -136,7 +136,7 @@ describe("RC-2 — no \\x1b[2J in differential renders", { tags: ["unit"] }, () 
 		tui.stop();
 	});
 
-	it("PromptConsole-style DynamicText (always in viewport) never emits clear screen", async () => {
+	it("DockConsole-style DynamicText (always in viewport) never emits clear screen", async () => {
 		// Content fills 8 lines, viewport is 10. DynamicText at bottom — always in viewport.
 		const { terminal, tui, chat } = makeEnv(40, 10);
 

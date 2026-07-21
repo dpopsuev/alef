@@ -1,5 +1,5 @@
 import type { AutocompleteProvider, AutocompleteSuggestions } from "../autocomplete.js";
-import { type Component, CURSOR_MARKER, type Focusable, type TuiHandle } from "../component.js";
+import { type Component, CURSOR_MARKER, type Focusable, type RenderHandle } from "../component.js";
 import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { decodePrintableKey, matchesKey } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
@@ -256,7 +256,7 @@ export class Editor implements Component, Focusable {
 	private blinkVisible = true;
 	private blinkTimer: ReturnType<typeof setInterval> | null = null;
 
-	protected tui: TuiHandle;
+	protected tui: RenderHandle;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
 
@@ -355,7 +355,7 @@ export class Editor implements Component, Focusable {
 		["tui.editor.jumpBackward", () => { this.jumpMode = "backward"; }],
 	];
 
-	constructor(tui: TuiHandle, theme: EditorTheme, options: EditorOptions = {}) {
+	constructor(tui: RenderHandle, theme: EditorTheme, options: EditorOptions = {}) {
 		this.tui = tui;
 		this.theme = theme;
 		this.borderColor = theme.borderColor;

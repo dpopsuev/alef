@@ -2,8 +2,8 @@
  * RenderIntent -- declarative rendering commands produced by the pure
  * event dispatch function.
  *
- * Each intent maps to one imperative mutation on TuiUi components.
- * The dispatch function produces TuiState + RenderIntent[]; the apply
+ * Each intent maps to one imperative mutation on DispatchPorts components.
+ * The dispatch function produces DispatchState + RenderIntent[]; the apply
  * function executes them against the concrete UI surface.
  *
  * This separation enables:

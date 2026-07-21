@@ -17,7 +17,7 @@ import { INDENT } from "@dpopsuev/alef-tui/views";
 export type { Component };
 
 /** Wraps the Editor component with top and bottom separator borders. */
-class EditorWrapper implements Component {
+class EditorChrome implements Component {
 	private readonly topBorder = new SeparatorLine({ labelAlign: "right" });
 	private readonly bottomBorder = new SeparatorLine();
 
@@ -120,11 +120,11 @@ export function prioritizeWidgetLines(lines: readonly string[], maxLines: number
  * but never call requestRender(). The caller (applyIntents or the thinking
  * timer) is responsible for requesting a render after mutations complete.
  */
-export class PromptConsole {
+export class DockConsole {
 	readonly editor: Editor;
 
 	private readonly statusText: Text;
-	private editorWrapper!: EditorWrapper;
+	private editorWrapper!: EditorChrome;
 	private thinkingStart = 0;
 	private lastThinkingText = "";
 	private thinkingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -204,7 +204,7 @@ export class PromptConsole {
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(this.widgetSlotAbove);
 		this.tui.addChild(this.pendingQueue);
-		this.editorWrapper = new EditorWrapper(this.editor);
+		this.editorWrapper = new EditorChrome(this.editor);
 		this.tui.addChild(this.editorWrapper);
 		this.tui.addChild(this.widgetSlotBelow);
 

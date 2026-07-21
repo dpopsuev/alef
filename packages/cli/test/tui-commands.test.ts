@@ -251,7 +251,7 @@ describe("handleColonCommand :reload — with reloadAdapter callback", { tags: [
 });
 
 // ---------------------------------------------------------------------------
-// EditorWrapper — content lines must never exceed terminal width ( regression)
+// EditorChrome — content lines must never exceed terminal width ( regression)
 //
 // RED: written before the fix. The bug: render(width) then prepend a space
 // → width+1 chars → TUI crash "Rendered line exceeds terminal width".
@@ -259,11 +259,11 @@ describe("handleColonCommand :reload — with reloadAdapter callback", { tags: [
 
 import type { Component, TUI as TUIClass } from "@dpopsuev/alef-tui";
 
-// Reach into prompt-console via its Component array after mount() to test EditorWrapper.
-// Since EditorWrapper is not exported, we test it through PromptConsole.mount().
-import { PromptConsole } from "../src/client/console.js";
+// Reach into prompt-console via its Component array after mount() to test EditorChrome.
+// Since EditorChrome is not exported, we test it through DockConsole.mount().
+import { DockConsole } from "../src/client/console.js";
 
-describe("EditorWrapper — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
+describe("EditorChrome — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
 	for (const width of [40, 80, 120, 179, 180, 200]) {
 		it(`all lines fit within ${width} columns`, () => {
 			const children: Component[] = [];
@@ -280,11 +280,11 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 			} as unknown as TUIClass;
 
 			const t = getTheme();
-			const zone = new PromptConsole(fakeTui, t, "test-model");
+			const zone = new DockConsole(fakeTui, t, "test-model");
 			zone.mount();
 
 			const arcWrapper = children.find((child) => child.render(width).length > 1);
-			if (!arcWrapper) throw new Error("EditorWrapper not found");
+			if (!arcWrapper) throw new Error("EditorChrome not found");
 
 			const rendered = arcWrapper.render(width);
 			for (const line of rendered) {
@@ -308,12 +308,12 @@ describe("EditorWrapper — rendered lines must not exceed terminal width", { ta
 		} as unknown as TUIClass;
 
 		const t = getTheme();
-		const zone = new PromptConsole(fakeTui, t, "test-model");
+		const zone = new DockConsole(fakeTui, t, "test-model");
 		zone.mount();
 		zone.setStatus("INSERT");
 
 		const wrapper = children.find((child) => child.render(width).some((line) => line.includes("INSERT")));
-		if (!wrapper) throw new Error("EditorWrapper with mode label not found");
+		if (!wrapper) throw new Error("EditorChrome with mode label not found");
 
 		const visible = wrapper
 			.render(width)

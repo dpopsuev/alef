@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState } from "../src/client/state.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { initialDispatchState } from "../src/client/state.js";
 
 function noopUi() {
 	const calls: string[] = [];
@@ -76,9 +76,9 @@ function noopUi() {
 describe("nested inner-tool events", { tags: ["unit"] }, () => {
 	it("inner-tool-start creates a child in the parent ActiveCall", () => {
 		const ui = noopUi();
-		let state = initialTuiState();
+		let state = initialDispatchState();
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "tool-start",
@@ -91,7 +91,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 
 		expect(state.activeCalls.has("parent-1")).toBe(true);
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "inner-tool-start",
@@ -112,9 +112,9 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 
 	it("inner-tool-end removes the child", () => {
 		const ui = noopUi();
-		let state = initialTuiState();
+		let state = initialDispatchState();
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "tool-start",
@@ -125,7 +125,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 			ui,
 		);
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "inner-tool-start",
@@ -137,7 +137,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 			ui,
 		);
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "inner-tool-end",
@@ -154,9 +154,9 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 
 	it("orphaned inner-tool-start is ignored", () => {
 		const ui = noopUi();
-		let state = initialTuiState();
+		let state = initialDispatchState();
 
-		state = dispatchTuiEvent(
+		state = dispatchEvent(
 			state,
 			{
 				type: "inner-tool-start",

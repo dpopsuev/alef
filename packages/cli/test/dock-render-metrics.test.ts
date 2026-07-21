@@ -10,7 +10,7 @@ import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { RenderRecorder } from "../../ui/tui/test/render-recorder.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
 
 async function settle(ms = 30): Promise<void> {
@@ -18,7 +18,7 @@ async function settle(ms = 30): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, ms));
 }
 
-const BRAILLE_RE = /[\u2800-\u28FF]/;
+const BRAILLE_RE = /[⠀-⣿]/;
 
 function setup(width = 80, height = 20) {
 	const terminal = new VirtualTerminal(width, height);
@@ -32,7 +32,7 @@ function setup(width = 80, height = 20) {
 	const chat = new Container();
 	tui.addChild(chat);
 
-	const pc = new PromptConsole(tui, getTheme(), "test-model");
+	const pc = new DockConsole(tui, getTheme(), "test-model");
 	pc.mount();
 
 	const footer = new Text("~/test (main)", 0, 0);

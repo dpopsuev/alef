@@ -7,7 +7,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import type { BuildInfo, InteractiveOptions, RebootPort, RestartExecutor, RestartStrategy } from "../boot-types.js";
-import type { TuiEvent } from "../events.js";
+import type { DispatchEvent } from "../events.js";
 import type { TaskLedgerEntry } from "../state.js";
 import type { ThemeTokens } from "../theme.js";
 
@@ -22,7 +22,7 @@ export interface TuiHandlerContext {
 	};
 	session: Session;
 	store?: SessionStore;
-	dispatch: (event: TuiEvent) => void;
+	dispatch: (event: DispatchEvent) => void;
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 	/** Live session token counters from TUI state (snapshot per command). */

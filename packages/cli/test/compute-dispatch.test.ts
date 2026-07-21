@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { computeDispatch, type DispatchContext } from "../src/client/events.js";
 import type { RenderIntent } from "../src/client/render-intent.js";
-import { initialTuiState } from "../src/client/state.js";
+import { initialDispatchState } from "../src/client/state.js";
 
 const W = { ansi16: 37 };
 
@@ -39,7 +39,7 @@ function intentKinds(intents: RenderIntent[]): string[] {
 
 describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	it("chunk event produces reply-chunk + pulse intents", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(state, { type: "chunk", text: "hello" }, ctx());
 
 		expect(intentKinds(result.intents)).toContain("pulse");
@@ -53,7 +53,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("chunk event shows pending footer on first chunk", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(state, { type: "chunk", text: "x" }, ctx());
 
 		expect(intentKinds(result.intents)).toContain("show-pending-footer");
@@ -61,14 +61,14 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("chunk event does not show pending footer if already shown", () => {
-		const state = { ...initialTuiState(), pendingFooterShown: true };
+		const state = { ...initialDispatchState(), pendingFooterShown: true };
 		const result = computeDispatch(state, { type: "chunk", text: "x" }, ctx());
 
 		expect(intentKinds(result.intents)).not.toContain("show-pending-footer");
 	});
 
 	it("thinking event produces thinking-chunk + pulse", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(state, { type: "thinking", text: "hmm" }, ctx());
 
 		expect(intentKinds(result.intents)).toContain("pulse");
@@ -76,7 +76,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("tool-start produces show-in-flight-call + pulse", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(
 			state,
 			{
@@ -95,7 +95,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 
 	it("tool-end produces remove-in-flight-call + append-tool-result", () => {
 		const state = {
-			...initialTuiState(),
+			...initialDispatchState(),
 			activeCalls: new Map([
 				["c1", { name: "fs.edit", keyArg: "f.ts", args: { path: "f.ts" }, children: new Map(), depth: 0 }],
 			]),
@@ -129,7 +129,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("turn-complete resets UI components and stops thinking", () => {
-		const state = { ...initialTuiState(), pendingFooterShown: true };
+		const state = { ...initialDispatchState(), pendingFooterShown: true };
 		const result = computeDispatch(state, { type: "turn-complete", reply: "done" }, ctx());
 
 		const kinds = intentKinds(result.intents);
@@ -144,7 +144,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 
 	it("turn-error produces error notice and clears active calls", () => {
 		const state = {
-			...initialTuiState(),
+			...initialDispatchState(),
 			activeCalls: new Map([["c1", { name: "fs.read", keyArg: "x", args: {}, children: new Map(), depth: 0 }]]),
 		};
 		const result = computeDispatch(
@@ -165,7 +165,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("thinking.toggle produces set-hide-thinking + notice", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(state, { type: "thinking.toggle" }, ctx({ hideThinking: false }));
 
 		const kinds = intentKinds(result.intents);
@@ -179,7 +179,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("state-changed is a no-op", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(state, { type: "state-changed", contextWindow: 128000 } as any, ctx());
 
 		expect(result.intents).toHaveLength(0);
@@ -188,7 +188,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 
 	it("tool-chunk updates call chunks and produces pulse + update-in-flight-call-chunk", () => {
 		const state = {
-			...initialTuiState(),
+			...initialDispatchState(),
 			activeCalls: new Map([["c1", { name: "fs.read", keyArg: "x", args: {}, children: new Map(), depth: 0 }]]),
 		};
 		const result = computeDispatch(
@@ -207,7 +207,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("turn-error with aborted=true does not add error notice", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(
 			state,
 			{
@@ -223,7 +223,7 @@ describe("computeDispatch (pure)", { tags: ["unit"] }, () => {
 	});
 
 	it("discussion-changed produces set-topic-label", () => {
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const result = computeDispatch(
 			state,
 			{

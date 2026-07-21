@@ -141,7 +141,7 @@ export class RenderRecorder {
 	 * This catches the "shell.exec output bleeding into separator" bug.
 	 */
 	framesWithContentOnSeparator(contentPattern: RegExp): { frame: CapturedFrame; line: number; text: string }[] {
-		const sepRe = /[─\u2500]{3,}/;
+		const sepRe = /─{3,}/;
 		const hits: { frame: CapturedFrame; line: number; text: string }[] = [];
 		for (const frame of this._frames) {
 			for (let i = 0; i < frame.stripped.length; i++) {
@@ -197,7 +197,7 @@ export class RenderRecorder {
 		modePattern?: RegExp;
 		footerPattern?: RegExp;
 	}): { frame: CapturedFrame; element: string; fromRow: number; toRow: number }[] {
-		const sepRe = opts.separatorPattern ?? /[─\u2500]{3,}/;
+		const sepRe = opts.separatorPattern ?? /─{3,}/;
 		const modeRe = opts.modePattern ?? /INSERT|NORMAL/;
 		const footerRe = opts.footerPattern ?? /~/;
 

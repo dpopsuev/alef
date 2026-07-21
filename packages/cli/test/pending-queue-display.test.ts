@@ -9,8 +9,8 @@
 
 import { PendingQueuePanel } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState, type TuiUi } from "../src/client/state.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { type DispatchPorts, initialDispatchState } from "../src/client/state.js";
 import { createSubmitHandler } from "../src/client/submit.js";
 
 const theme = {
@@ -165,17 +165,17 @@ describe("queued message display exclusivity", { tags: ["unit"] }, () => {
 			tui: { requestRender: vi.fn() },
 			t: { mutedFg: "#888" },
 			session: { state: { contextWindow: 100_000 } },
-		} as unknown as TuiUi;
+		} as unknown as DispatchPorts;
 
 		// Mid-turn queue signal (as reasoner emits when turnActive).
-		dispatchTuiEvent(initialTuiState(), { type: "message-queued", queueLength: 1, text }, ui);
+		dispatchEvent(initialDispatchState(), { type: "message-queued", queueLength: 1, text }, ui);
 
 		expect(surfaces(text, userMessages, panel).inPanel).toBe(true);
 		expect(surfaces(text, userMessages, panel).inScrollback).toBe(false);
 		expect(surfaces(text, userMessages, panel).both).toBe(false);
 
 		// Drain: panel clears, text moves to scrollback.
-		dispatchTuiEvent(initialTuiState(), { type: "message-queued", queueLength: 0 }, ui);
+		dispatchEvent(initialDispatchState(), { type: "message-queued", queueLength: 0 }, ui);
 
 		expect(surfaces(text, userMessages, panel).inPanel).toBe(false);
 		expect(surfaces(text, userMessages, panel).inScrollback).toBe(true);

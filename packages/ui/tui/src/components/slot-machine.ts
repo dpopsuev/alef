@@ -1,4 +1,4 @@
-import type { Component, TuiHandle } from "../component.js";
+import type { Component, RenderHandle } from "../component.js";
 
 /**
  *
@@ -46,9 +46,9 @@ export class SlotMachine<T> implements Component {
 	private readonly totalFrames: number;
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private readonly opts: Required<SlotMachineOptions<T>>;
-	private readonly ui: TuiHandle;
+	private readonly ui: RenderHandle;
 
-	constructor(ui: TuiHandle, initial: T, opts: SlotMachineOptions<T>) {
+	constructor(ui: RenderHandle, initial: T, opts: SlotMachineOptions<T>) {
 		this.ui = ui;
 		this.value = initial;
 		this.targetValue = initial;

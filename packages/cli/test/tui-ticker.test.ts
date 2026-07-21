@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import { createTicker } from "./tui-ticker.js";
 
-const BRAILLE_RE = /[\u2800-\u28FF]/;
-const SEPARATOR_RE = /[─\u2500]{3,}/;
+const BRAILLE_RE = /[⠀-⣿]/;
+const SEPARATOR_RE = /─{3,}/;
 
 describe("mechanical TUI ticker", { tags: ["unit"] }, () => {
 	it("initial render has dock structure", async () => {

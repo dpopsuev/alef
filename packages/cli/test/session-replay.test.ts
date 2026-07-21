@@ -11,9 +11,9 @@ import { OutputPanel } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
 import { RenderRecorder } from "../../ui/tui/test/render-recorder.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState, type TuiState, type TuiUi } from "../src/client/state.js";
+import { DockConsole } from "../src/client/console.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { type DispatchPorts, type DispatchState, initialDispatchState } from "../src/client/state.js";
 import { getTheme } from "../src/client/theme.js";
 import {
 	buildCardCycleRecording,
@@ -22,8 +22,8 @@ import {
 	replaySession,
 } from "./session-replay.js";
 
-const BRAILLE_RE = /[\u2800-\u28FF]/;
-const SEPARATOR_RE = /[─\u2500]{3,}/;
+const BRAILLE_RE = /[⠀-⣿]/;
+const SEPARATOR_RE = /─{3,}/;
 
 function stripAnsi(s: string): string {
 	return s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
@@ -45,7 +45,7 @@ function setupTui(width = 80, height = 20) {
 
 	const t = getTheme();
 	const output = new OutputPanel({ tui, t, labels: { humanLabel: "you", agentLabel: "alef" } });
-	const pc = new PromptConsole(tui, t, "test-model");
+	const pc = new DockConsole(tui, t, "test-model");
 	pc.mount();
 	pc.setStatus("INSERT");
 
@@ -54,9 +54,9 @@ function setupTui(width = 80, height = 20) {
 
 	const recorder = new RenderRecorder(tui);
 
-	let tuiState: TuiState = initialTuiState();
+	let tuiState: DispatchState = initialDispatchState();
 
-	const ui: TuiUi = {
+	const ui: DispatchPorts = {
 		writer: output.writer,
 		replyBlock: output.replyBlock,
 		replyTW: output.replyTW,
@@ -72,7 +72,7 @@ function setupTui(width = 80, height = 20) {
 	};
 
 	const dispatch = (event: any) => {
-		tuiState = dispatchTuiEvent(tuiState, event, ui);
+		tuiState = dispatchEvent(tuiState, event, ui);
 	};
 
 	tui.requestRender(true);

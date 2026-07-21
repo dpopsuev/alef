@@ -1,5 +1,5 @@
 /**
- * PromptConsole-shaped dock band for scrollback purity tests.
+ * DockConsole-shaped dock band for scrollback purity tests.
  *
  * Mirrors packages/cli/src/client/console.ts mount() child order:
  *   pendingFooter (dock anchor) → inFlight → chunkDetail → inspectorHint →
@@ -15,7 +15,7 @@ import { Container, type TUI } from "../../src/tui.js";
 import { DynamicText } from "../../src/views/index.js";
 import { defaultEditorTheme } from "../test-themes.js";
 
-/** Editor + upper/lower SeparatorLine — same role as private EditorWrapper. */
+/** Editor + upper/lower SeparatorLine — same role as private EditorChrome. */
 class EditorChrome implements Component {
 	readonly topBorder = new SeparatorLine({ labelAlign: "right" });
 	readonly bottomBorder = new SeparatorLine();
@@ -62,7 +62,7 @@ export interface PromptConsoleDockFixture {
 }
 
 /**
- * Mount scrollable chat + PromptConsole-ordered dock band on `tui`.
+ * Mount scrollable chat + DockConsole-ordered dock band on `tui`.
  * Caller owns TUI lifecycle (start/stop) and terminal.
  */
 export function mountPromptConsoleDock(tui: TUI): PromptConsoleDockFixture {

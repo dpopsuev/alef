@@ -100,7 +100,7 @@ export interface RenderMeta {
  * Using this interface instead of the concrete TUI class keeps components
  * decoupled from the full TUI implementation.
  */
-export interface TuiHandle {
+export interface RenderHandle {
 	requestRender(): void;
 	readonly terminal: { readonly rows: number };
 }

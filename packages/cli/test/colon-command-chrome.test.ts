@@ -3,7 +3,7 @@
  */
 import type { TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { bold, color } from "../src/client/theme.js";
 
 function stripAnsi(s: string): string {
@@ -42,7 +42,7 @@ describe("colon command chrome", { tags: ["unit"] }, () => {
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
-		const zone = new PromptConsole(fakeTui, getTheme(), "test-model");
+		const zone = new DockConsole(fakeTui, getTheme(), "test-model");
 		zone.mount();
 		zone.setStatus(color(bold("INSERT"), getTheme().accentFg));
 

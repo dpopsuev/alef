@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { color, getTheme } from "../src/client/theme.js";
 
-// Simulate what PromptConsole.pendingFooter renders based on active state.
+// Simulate what DockConsole.pendingFooter renders based on active state.
 function makePendingFooterRenderer() {
 	let active = false;
 	let fg = getTheme().accentFg;
@@ -33,7 +33,7 @@ function makePendingFooterRenderer() {
 	};
 }
 
-describe("PromptConsole — pending footer lifecycle", { tags: ["unit"] }, () => {
+describe("DockConsole — pending footer lifecycle", { tags: ["unit"] }, () => {
 	it("renders footer when shown, empty when hidden", () => {
 		const footer = makePendingFooterRenderer();
 

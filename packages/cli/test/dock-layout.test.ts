@@ -15,7 +15,7 @@ import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { extractArchivePayloads } from "../../ui/tui/test/fixtures/scrollback-purity.js";
 import { VirtualTerminal } from "../../ui/tui/test/virtual-terminal.js";
-import { PromptConsole } from "../src/client/console.js";
+import { DockConsole } from "../src/client/console.js";
 import { getTheme } from "../src/client/theme.js";
 
 async function settle(ms = 30): Promise<void> {
@@ -37,7 +37,7 @@ const STATUS_TAG = "DOCK_STATUS_TAG";
 
 /**
  * Replicate TUI.partitionChildren() logic against the public children array.
- * The dock boundary is the first component added by PromptConsole.mount()
+ * The dock boundary is the first component added by DockConsole.mount()
  * (the pendingFooter DynamicText), identifiable by being the first child
  * after the chat container.
  */
@@ -74,7 +74,7 @@ function setup(width = 80, height = 20) {
 	const chat = new Container();
 	tui.addChild(chat);
 
-	const pc = new PromptConsole(tui, getTheme(), "test-model");
+	const pc = new DockConsole(tui, getTheme(), "test-model");
 	pc.mount();
 
 	const footer = new Text(FOOTER_TAG, 0, 0);

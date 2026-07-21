@@ -5,7 +5,7 @@
  *
  *   1. SessionRecorder captures TuiEvents with timestamps during a live or
  *      synthetic session run.
- *   2. SessionReplayer feeds those events back through dispatchTuiEvent at
+ *   2. SessionReplayer feeds those events back through dispatchEvent at
  *      recorded timing, driving the real TUI render pipeline.
  *   3. RenderRecorder (from tui/test/) captures every emitted frame.
  *   4. Tests assert invariants across the full frame history.
@@ -17,14 +17,14 @@
  */
 
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
-import type { TuiEvent } from "../src/client/events.js";
+import type { DispatchEvent } from "../src/client/events.js";
 
 /** A recorded event with a relative timestamp (ms from session start). */
 export interface RecordedEvent {
 	/** Milliseconds since session start. */
 	offsetMs: number;
 	/** The event payload. */
-	event: TuiEvent;
+	event: DispatchEvent;
 }
 
 /** A complete recording that can be replayed. */
@@ -49,7 +49,7 @@ export class SessionRecorder {
 	}
 
 	/** Record an event at the current time. */
-	record(event: TuiEvent): void {
+	record(event: DispatchEvent): void {
 		this.events.push({
 			offsetMs: Date.now() - this.startedAt,
 			event,
@@ -72,7 +72,7 @@ export interface ReplayOptions {
 	/** Maximum delay between events in ms (caps long pauses). Default: 500 */
 	maxDelayMs?: number;
 	/** Called for each event before dispatch. */
-	onEvent?: (event: TuiEvent, offsetMs: number) => void;
+	onEvent?: (event: DispatchEvent, offsetMs: number) => void;
 }
 
 /**
@@ -81,7 +81,7 @@ export interface ReplayOptions {
  */
 export async function replaySession(
 	recording: SessionRecording,
-	dispatch: (event: TuiEvent) => void,
+	dispatch: (event: DispatchEvent) => void,
 	opts: ReplayOptions = {},
 ): Promise<void> {
 	const timeScale = opts.timeScale ?? 0;

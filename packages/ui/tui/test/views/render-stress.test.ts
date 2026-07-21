@@ -187,9 +187,9 @@ describe("Scenario C — fullRender path under viewport overflow", { tags: ["uni
 		tui.stop();
 	});
 
-	it("PromptConsole-style DynamicText (always in viewport) never triggers fullRender", async () => {
+	it("DockConsole-style DynamicText (always in viewport) never triggers fullRender", async () => {
 		// Viewport: 5 rows. Fill chat with 8 static lines (overflow).
-		// But the DynamicText is added AFTER the static lines — simulating PromptConsole
+		// But the DynamicText is added AFTER the static lines — simulating DockConsole
 		// which is mounted at the bottom, always visible.
 		const { tui, chat } = makeEnv(40, 5);
 		const renders = collectRenders(tui);
@@ -216,7 +216,7 @@ describe("Scenario C — fullRender path under viewport overflow", { tags: ["uni
 		const afterCount = renders.metas.filter((m) => m.renderPath === "scrollback").length;
 
 		// The bottom DynamicText is always in viewport — should not cause scrollback renders
-		// This is the invariant PromptConsole relies on.
+		// This is the invariant DockConsole relies on.
 		expect(afterCount - beforeCount).toBe(0);
 		tui.stop();
 	});

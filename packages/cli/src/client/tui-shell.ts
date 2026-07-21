@@ -15,7 +15,7 @@ import { ProcessTerminal, SelectList, setTraceSink, TUI } from "@dpopsuev/alef-t
 import { TuiStateStore, yieldToEventLoop } from "@dpopsuev/alef-tui/views";
 import { displayActorName } from "./actor-label.js";
 import type { InteractiveOptions, ResolvedSession, TuiShell, TuiShellContext, WireSessionDeps } from "./boot-types.js";
-import { dispatchTuiEvent, type TuiEvent } from "./events.js";
+import { type DispatchEvent, dispatchEvent } from "./events.js";
 import { handleColonCommand } from "./handlers.js";
 import { buildLayout } from "./layout.js";
 import { ModalInputHandler } from "./modal.js";
@@ -29,7 +29,7 @@ import {
 	type RuntimeToolHistoryEntry,
 	toolSummary,
 } from "./runner.js";
-import { initialTuiState, syncOverlays, type TuiUi } from "./state.js";
+import { type DispatchPorts, initialDispatchState, syncOverlays } from "./state.js";
 import { createSubmitHandler } from "./submit.js";
 import { bold, boldColor, color, getTheme } from "./theme.js";
 
@@ -185,15 +185,15 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 		discussion: session.state.discussion?.active,
 	};
 
-	let tuiState = initialTuiState();
-	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
+	let tuiState = initialDispatchState();
+	const tuiUi: DispatchPorts = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	let liveContextWindow = resolved.contextWindow;
 
 	const eventStream =
 		process.env.ALEF_DEBUG === "1" ? createWriteStream("/tmp/alef-events.jsonl", { flags: "w" }) : null;
 	const sessionStartedAt = Date.now();
 
-	const dispatch = (event: TuiEvent): void => {
+	const dispatch = (event: DispatchEvent): void => {
 		if (eventStream) {
 			const entry = { offsetMs: Date.now() - sessionStartedAt, event };
 			eventStream.write(`${JSON.stringify(entry)}\n`);
@@ -201,7 +201,7 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 		if (event.type === "state-changed") liveContextWindow = event.contextWindow;
 		const prev = tuiState;
 		const prevContextUsed = tuiStore.get().contextUsed;
-		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, deps.signalHandlers);
+		tuiState = dispatchEvent(tuiState, event, tuiUi, deps.signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		if (event.type === "adapter-signal") {
 			if (event.signalType === "context.compacting") {

@@ -1,7 +1,7 @@
 import type { TaskSnapshot } from "@dpopsuev/alef-kernel/execution";
 import { describe, expect, it } from "vitest";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState } from "../src/client/state.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { initialDispatchState } from "../src/client/state.js";
 
 function noopUi() {
 	return {
@@ -94,7 +94,7 @@ function snapshot(overrides: Partial<TaskSnapshot> = {}): TaskSnapshot {
 describe("task ledger reducer", { tags: ["unit"] }, () => {
 	it("task-started creates a durable ledger entry", () => {
 		const ui = noopUi();
-		const state = dispatchTuiEvent(initialTuiState(), { type: "task-started", task: snapshot() }, ui);
+		const state = dispatchEvent(initialDispatchState(), { type: "task-started", task: snapshot() }, ui);
 		const task = state.taskLedger.get("task-1");
 		expect(task?.profile).toBe("explore");
 		expect(task?.ownerAddress).toBe("@planner");
@@ -105,8 +105,8 @@ describe("task ledger reducer", { tags: ["unit"] }, () => {
 
 	it("task-progress creates the entry if the start signal was missed", () => {
 		const ui = noopUi();
-		const state = dispatchTuiEvent(
-			initialTuiState(),
+		const state = dispatchEvent(
+			initialDispatchState(),
 			{ type: "task-progress", task: snapshot(), chunk: "searching..." },
 			ui,
 		);
@@ -123,8 +123,8 @@ describe("task ledger reducer", { tags: ["unit"] }, () => {
 			lastActivityAt: 3000,
 			reply: "done",
 		});
-		const state = dispatchTuiEvent(
-			initialTuiState(),
+		const state = dispatchEvent(
+			initialDispatchState(),
 			{ type: "task-completed", task: completed, reply: "done", elapsedMs: 2000 },
 			ui,
 		);
@@ -136,14 +136,14 @@ describe("task ledger reducer", { tags: ["unit"] }, () => {
 
 	it("task-cancelled keeps the ledger entry and error", () => {
 		const ui = noopUi();
-		const started = dispatchTuiEvent(initialTuiState(), { type: "task-started", task: snapshot() }, ui);
+		const started = dispatchEvent(initialDispatchState(), { type: "task-started", task: snapshot() }, ui);
 		const cancelled = snapshot({
 			status: "cancelled",
 			completedAt: 2500,
 			lastActivityAt: 2500,
 			error: "Task cancelled",
 		});
-		const state = dispatchTuiEvent(
+		const state = dispatchEvent(
 			started,
 			{ type: "task-cancelled", task: cancelled, error: "Task cancelled", elapsedMs: 1500 },
 			ui,

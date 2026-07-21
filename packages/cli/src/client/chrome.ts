@@ -3,7 +3,7 @@
  */
 
 import type { DashboardFooter } from "@dpopsuev/alef-tui/views";
-import type { PromptConsole } from "./console.js";
+import type { DockConsole } from "./console.js";
 import type { InputApplicationFactory, InputApplicationRegistry } from "./panel.js";
 
 /** Pi-shaped chrome contributions used by interactive mode and adapters. */
@@ -17,7 +17,7 @@ export interface TuiChrome {
 /** Inputs required to host Pi-shaped chrome contributions. */
 export interface TuiChromeOptions {
 	footer: DashboardFooter;
-	console: PromptConsole;
+	console: DockConsole;
 	applications: InputApplicationRegistry;
 }
 

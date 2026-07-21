@@ -1,4 +1,4 @@
-import type { TuiHandle } from "../component.js";
+import type { RenderHandle } from "../component.js";
 import { Text } from "./text.js";
 
 /**
@@ -22,11 +22,11 @@ export class Loader extends Text {
 	private intervalMs = DEFAULT_INTERVAL_MS;
 	private currentFrame = 0;
 	private intervalId: NodeJS.Timeout | null = null;
-	private ui: TuiHandle | null = null;
+	private ui: RenderHandle | null = null;
 	private renderIndicatorVerbatim = false;
 
 	constructor(
-		ui: TuiHandle,
+		ui: RenderHandle,
 		private spinnerColorFn: (str: string) => string,
 		private messageColorFn: (str: string) => string,
 		private message: string = "Loading...",

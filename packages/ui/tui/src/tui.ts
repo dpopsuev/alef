@@ -54,7 +54,7 @@ function extractKittyImageIds(line: string): number[] {
 	return [];
 }
 
-export type { Component, Focusable, RenderMeta, TuiHandle } from "./component.js";
+export type { Component, Focusable, RenderMeta, RenderHandle } from "./component.js";
 export { CURSOR_MARKER, isFocusable } from "./component.js";
 export { visibleWidth };
 

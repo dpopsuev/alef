@@ -6,12 +6,12 @@ import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { formatTokenUsage, formatToolArgs } from "@dpopsuev/alef-tui/views";
 import { applyIntents } from "./apply-intents.js";
 import type { RenderIntent } from "./render-intent.js";
-import type { OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle, TuiState, TuiUi } from "./state.js";
+import type { DispatchPorts, DispatchState, OverlayDescriptor, TaskLedgerEntry, TokenFooterHandle } from "./state.js";
 import { flushCompactionPark } from "./submit.js";
 import type { ThemeTokens } from "./theme.js";
 
 /** TUI input events -- dot convention (turn.start) vs AgentEvent hyphens (tool-start). */
-export type TuiInputEvent =
+export type InputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
 	| { type: "turn.start"; timestamp: number }
@@ -28,7 +28,7 @@ export type TuiInputEvent =
 	| { type: "inspector.cancel" };
 
 /** Union of agent-emitted events and TUI input events dispatched through the TUI state machine. */
-export type TuiEvent = AgentEvent | TuiInputEvent;
+export type DispatchEvent = AgentEvent | InputEvent;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -102,7 +102,7 @@ function emitResetUI(intents: RenderIntent[]): void {
 /** Emit intents for setting the focused call in the inspector and rendering its chunk window. */
 function emitUpdateInspectorView(
 	intents: RenderIntent[],
-	state: TuiState,
+	state: DispatchState,
 	callId: string | null,
 	scrollOffset = 0,
 ): void {
@@ -121,10 +121,10 @@ function emitUpdateInspectorView(
 
 /** Process a tool-end event: compute state changes and emit intents. */
 function handleToolEndPure(
-	state: TuiState,
+	state: DispatchState,
 	event: Extract<AgentEvent, { type: "tool-end" }>,
 	intents: RenderIntent[],
-): TuiState {
+): DispatchState {
 	const { callId, elapsedMs, ok, display, displayKind } = event;
 	const entry = state.activeCalls.get(callId);
 	if (!entry) return state;
@@ -217,10 +217,10 @@ function handleToolEndPure(
 
 /** Handle a turn error: emit cleanup intents and reset active state. */
 function handleTurnErrorPure(
-	state: TuiState,
-	event: Extract<TuiInputEvent, { type: "turn.error" }>,
+	state: DispatchState,
+	event: Extract<InputEvent, { type: "turn.error" }>,
 	intents: RenderIntent[],
-): TuiState {
+): DispatchState {
 	intents.push({ kind: "stop-thinking" });
 	intents.push({ kind: "hide-pending-footer" });
 	intents.push({ kind: "reset-reply-tw" });
@@ -256,7 +256,7 @@ function handleTurnErrorPure(
 }
 
 /** Cycle inspector focus to the next active tool call (pure). */
-function handleInspectorCyclePure(state: TuiState, intents: RenderIntent[]): TuiState {
+function handleInspectorCyclePure(state: DispatchState, intents: RenderIntent[]): DispatchState {
 	if (state.activeCalls.size === 0) return state;
 	const ids = [...state.activeCalls.keys()];
 	const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
@@ -266,13 +266,13 @@ function handleInspectorCyclePure(state: TuiState, intents: RenderIntent[]): Tui
 }
 
 /** Close the inspector and clear focus (pure). */
-function handleInspectorClosePure(state: TuiState, intents: RenderIntent[]): TuiState {
+function handleInspectorClosePure(state: DispatchState, intents: RenderIntent[]): DispatchState {
 	emitUpdateInspectorView(intents, state, null);
 	return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
 }
 
 /** Scroll the inspector chunk detail view (pure). */
-function handleInspectorScrollPure(state: TuiState, intents: RenderIntent[], direction: -1 | 1): TuiState {
+function handleInspectorScrollPure(state: DispatchState, intents: RenderIntent[], direction: -1 | 1): DispatchState {
 	if (!state.focusedCallId) return state;
 	const chunks = state.callChunks.get(state.focusedCallId) ?? [];
 	const totalLines = chunks.join("").split("\n").length;
@@ -283,7 +283,7 @@ function handleInspectorScrollPure(state: TuiState, intents: RenderIntent[], dir
 }
 
 /** Cancel the currently focused tool call (pure). */
-function handleInspectorCancelPure(state: TuiState, intents: RenderIntent[]): TuiState {
+function handleInspectorCancelPure(state: DispatchState, intents: RenderIntent[]): DispatchState {
 	if (!state.focusedCallId) return state;
 	const entry = state.activeCalls.get(state.focusedCallId);
 	if (!entry) return state;
@@ -297,10 +297,10 @@ function handleInspectorCancelPure(state: TuiState, intents: RenderIntent[]): Tu
 
 /** Pure dispatch: compute new state and render intents without touching UI components. */
 export function computeDispatch(
-	state: TuiState,
-	event: TuiEvent,
+	state: DispatchState,
+	event: DispatchEvent,
 	ctx: DispatchContext,
-): { state: TuiState; intents: RenderIntent[] } {
+): { state: DispatchState; intents: RenderIntent[] } {
 	traceEvent("tui:dispatch", { eventType: event.type });
 	const intents: RenderIntent[] = [];
 
@@ -313,7 +313,7 @@ export function computeDispatch(
 		return { state, intents };
 	}
 
-	// adapter-signal is handled by the outer dispatchTuiEvent -- not here.
+	// adapter-signal is handled by the outer dispatchEvent -- not here.
 	if (event.type === "adapter-signal") {
 		return { state, intents };
 	}
@@ -679,16 +679,16 @@ export function computeDispatch(
 }
 
 // ---------------------------------------------------------------------------
-// dispatchTuiEvent -- backward-compatible wrapper
+// dispatchEvent -- backward-compatible wrapper
 // ---------------------------------------------------------------------------
 
-/** Route TuiEvent through adapter signal handlers (OCP extension), then built-in transitions. */
-export function dispatchTuiEvent(
-	state: TuiState,
-	event: TuiEvent,
-	ui: TuiUi,
+/** Route DispatchEvent through adapter signal handlers (OCP extension), then built-in transitions. */
+export function dispatchEvent(
+	state: DispatchState,
+	event: DispatchEvent,
+	ui: DispatchPorts,
 	signalHandlers?: ReadonlyMap<string, UiSignalHandler>,
-): TuiState {
+): DispatchState {
 	const { promptConsole, session, writer, t } = ui;
 
 	// adapter-signal is the one event type that requires direct ui mutation
@@ -746,7 +746,12 @@ export function dispatchTuiEvent(
 // ---------------------------------------------------------------------------
 
 /** Set the focused call in the inspector and render its chunk window. */
-export function updateInspectorView(state: TuiState, ui: TuiUi, callId: string | null, scrollOffset = 0): void {
+export function updateInspectorView(
+	state: DispatchState,
+	ui: DispatchPorts,
+	callId: string | null,
+	scrollOffset = 0,
+): void {
 	ui.promptConsole.setFocusedCall(callId);
 	if (callId && state.callChunks.has(callId)) {
 		const chunks = state.callChunks.get(callId) ?? [];
@@ -757,7 +762,7 @@ export function updateInspectorView(state: TuiState, ui: TuiUi, callId: string |
 }
 
 /** Cycle inspector focus to the next active tool call. */
-export function handleInspectorCycle(state: TuiState, ui: TuiUi): TuiState {
+export function handleInspectorCycle(state: DispatchState, ui: DispatchPorts): DispatchState {
 	if (state.activeCalls.size === 0) return state;
 	const ids = [...state.activeCalls.keys()];
 	const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
@@ -767,13 +772,13 @@ export function handleInspectorCycle(state: TuiState, ui: TuiUi): TuiState {
 }
 
 /** Close the inspector and clear focus from all tool calls. */
-export function handleInspectorClose(state: TuiState, ui: TuiUi): TuiState {
+export function handleInspectorClose(state: DispatchState, ui: DispatchPorts): DispatchState {
 	updateInspectorView(state, ui, null);
 	return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
 }
 
 /** Scroll the inspector chunk detail view up or down by a fixed step. */
-export function handleInspectorScroll(state: TuiState, ui: TuiUi, direction: -1 | 1): TuiState {
+export function handleInspectorScroll(state: DispatchState, ui: DispatchPorts, direction: -1 | 1): DispatchState {
 	if (!state.focusedCallId) return state;
 	const chunks = state.callChunks.get(state.focusedCallId) ?? [];
 	const totalLines = chunks.join("").split("\n").length;
@@ -784,7 +789,7 @@ export function handleInspectorScroll(state: TuiState, ui: TuiUi, direction: -1 
 }
 
 /** Cancel the currently focused tool call via the session. */
-export function handleInspectorCancel(state: TuiState, ui: TuiUi): TuiState {
+export function handleInspectorCancel(state: DispatchState, ui: DispatchPorts): DispatchState {
 	if (!state.focusedCallId) return state;
 	const entry = state.activeCalls.get(state.focusedCallId);
 	if (!entry) return state;

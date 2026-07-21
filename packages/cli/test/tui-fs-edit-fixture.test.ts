@@ -119,7 +119,7 @@ describe("TUI fs.edit fixture (production path)", { tags: ["unit"] }, () => {
 		const viewport = await terminal.flushAndGetViewport();
 
 		// The docked input area must be at the bottom of the viewport
-		// (PromptConsole docks pendingFooter via buildLayout -> InputPanel)
+		// (DockConsole docks pendingFooter via buildLayout -> InputPanel)
 		const _lastLine = viewport[viewport.length - 1]!;
 		// The dock footer is a DynamicText("") -- it renders as empty, but the
 		// editor and status are above it. Check the content is in the buffer.

@@ -184,7 +184,7 @@ export {
 	type RenderMeta,
 	type SizeValue,
 	TUI,
-	type TuiHandle,
+	type RenderHandle,
 } from "./tui.js";
 // Utilities
 export { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "./utils.js";

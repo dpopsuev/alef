@@ -12,17 +12,17 @@
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { ChatLog } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it, vi } from "vitest";
-import { dispatchTuiEvent } from "../src/client/events.js";
+import { dispatchEvent } from "../src/client/events.js";
 import { handleCtrlC } from "../src/client/handlers.js";
 import { handleRawInput } from "../src/client/runner.js";
-import { initialTuiState, type TuiUi } from "../src/client/state.js";
+import { type DispatchPorts, initialDispatchState } from "../src/client/state.js";
 import { getTheme } from "../src/client/theme.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeMockUi(): TuiUi {
+function makeMockUi(): DispatchPorts {
 	return {
 		writer: {
 			addCompletedToolBlock: vi.fn(),
@@ -66,9 +66,9 @@ function makeMockUi(): TuiUi {
 			updateBackgroundTask: vi.fn(),
 			syncPendingQueue: vi.fn(() => []),
 		},
-		tui: { requestRender: vi.fn() } as unknown as TuiUi["tui"],
-		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as TuiUi["t"],
-		session: { state: { contextWindow: 100_000 } } as unknown as TuiUi["session"],
+		tui: { requestRender: vi.fn() } as unknown as DispatchPorts["tui"],
+		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as DispatchPorts["t"],
+		session: { state: { contextWindow: 100_000 } } as unknown as DispatchPorts["session"],
 	};
 }
 
@@ -104,16 +104,16 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// dispatchTuiEvent — turn.interrupt
+// dispatchEvent — turn.interrupt
 // ---------------------------------------------------------------------------
 
-describe("dispatchTuiEvent -- turn.interrupt", { tags: ["unit"] }, () => {
+describe("dispatchEvent -- turn.interrupt", { tags: ["unit"] }, () => {
 	it("calls abortCurrentTurn and clears it from state", () => {
 		const ui = makeMockUi();
 		const abort = vi.fn();
-		const state = { ...initialTuiState(), abortCurrentTurn: abort };
+		const state = { ...initialDispatchState(), abortCurrentTurn: abort };
 
-		const next = dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		const next = dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(abort).toHaveBeenCalledOnce();
 		expect(next.abortCurrentTurn).toBeUndefined();
@@ -121,27 +121,27 @@ describe("dispatchTuiEvent -- turn.interrupt", { tags: ["unit"] }, () => {
 
 	it("adds '(interrupted)' notice", () => {
 		const ui = makeMockUi();
-		const state = { ...initialTuiState(), abortCurrentTurn: vi.fn() };
+		const state = { ...initialDispatchState(), abortCurrentTurn: vi.fn() };
 
-		dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(ui.writer.addNotice).toHaveBeenCalledWith("(interrupted)");
 	});
 
 	it("stops thinking spinner", () => {
 		const ui = makeMockUi();
-		const state = { ...initialTuiState(), abortCurrentTurn: vi.fn() };
+		const state = { ...initialDispatchState(), abortCurrentTurn: vi.fn() };
 
-		dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(ui.promptConsole.stopThinking).toHaveBeenCalled();
 	});
 
 	it("resets reply block and typewriters", () => {
 		const ui = makeMockUi();
-		const state = { ...initialTuiState(), abortCurrentTurn: vi.fn() };
+		const state = { ...initialDispatchState(), abortCurrentTurn: vi.fn() };
 
-		dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(ui.replyTW.flush).toHaveBeenCalled();
 		expect(ui.thinkingTW.flush).toHaveBeenCalled();
@@ -154,9 +154,9 @@ describe("dispatchTuiEvent -- turn.interrupt", { tags: ["unit"] }, () => {
 			["c1", { name: "fs.read", keyArg: "a.ts", args: { path: "a.ts" }, children: new Map(), depth: 0 }],
 			["c2", { name: "shell.exec", keyArg: "ls", args: { command: "ls" }, children: new Map(), depth: 0 }],
 		]);
-		const state = { ...initialTuiState(), activeCalls, abortCurrentTurn: vi.fn() };
+		const state = { ...initialDispatchState(), activeCalls, abortCurrentTurn: vi.fn() };
 
-		const next = dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		const next = dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(next.activeCalls.size).toBe(0);
 		expect(ui.promptConsole.removeInFlightCall).toHaveBeenCalledTimes(2);
@@ -164,18 +164,18 @@ describe("dispatchTuiEvent -- turn.interrupt", { tags: ["unit"] }, () => {
 
 	it("requests a render", () => {
 		const ui = makeMockUi();
-		const state = { ...initialTuiState(), abortCurrentTurn: vi.fn() };
+		const state = { ...initialDispatchState(), abortCurrentTurn: vi.fn() };
 
-		dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(ui.tui.requestRender).toHaveBeenCalled();
 	});
 
 	it("is a no-op when no turn is active (no abortCurrentTurn)", () => {
 		const ui = makeMockUi();
-		const state = initialTuiState();
+		const state = initialDispatchState();
 
-		const next = dispatchTuiEvent(state, { type: "turn.interrupt" }, ui);
+		const next = dispatchEvent(state, { type: "turn.interrupt" }, ui);
 
 		expect(next).toBe(state);
 		expect(ui.writer.addNotice).not.toHaveBeenCalled();
@@ -190,7 +190,7 @@ describe("handleRawInput -- Ctrl+C dispatches turn.interrupt", { tags: ["unit"] 
 	it("dispatches turn.interrupt when abortCurrentTurn is set", () => {
 		const dispatch = vi.fn();
 		const abort = vi.fn();
-		const state = { ...initialTuiState(), abortCurrentTurn: abort };
+		const state = { ...initialDispatchState(), abortCurrentTurn: abort };
 		const ctx = makeCtx({ abortCurrentTurn: abort });
 
 		const handled = handleRawInput(
@@ -208,7 +208,7 @@ describe("handleRawInput -- Ctrl+C dispatches turn.interrupt", { tags: ["unit"] 
 	it("dispatches turn.interrupt for Kitty protocol Ctrl+C (\\x1b[99;5u)", () => {
 		const dispatch = vi.fn();
 		const abort = vi.fn();
-		const state = { ...initialTuiState(), abortCurrentTurn: abort };
+		const state = { ...initialDispatchState(), abortCurrentTurn: abort };
 		const ctx = makeCtx({ abortCurrentTurn: abort });
 
 		const handled = handleRawInput(
@@ -225,7 +225,7 @@ describe("handleRawInput -- Ctrl+C dispatches turn.interrupt", { tags: ["unit"] 
 
 	it("calls handleCtrlC for idle exit (no abortCurrentTurn)", () => {
 		const dispatch = vi.fn();
-		const state = initialTuiState();
+		const state = initialDispatchState();
 		const ctx = makeCtx();
 
 		const handled = handleRawInput(

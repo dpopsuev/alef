@@ -11,9 +11,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { computeDispatch, type DispatchContext, type TuiEvent } from "../src/client/events.js";
+import { computeDispatch, type DispatchContext, type DispatchEvent } from "../src/client/events.js";
 import type { RenderIntent } from "../src/client/render-intent.js";
-import { initialTuiState, type TuiState } from "../src/client/state.js";
+import { type DispatchState, initialDispatchState } from "../src/client/state.js";
 import { getTheme } from "../src/client/theme.js";
 
 const THEME = getTheme();
@@ -28,10 +28,10 @@ function ctx(overrides: Partial<DispatchContext> = {}): DispatchContext {
 
 /** Feed a sequence of events through computeDispatch, collecting all intents. */
 function dispatchSequence(
-	events: TuiEvent[],
+	events: DispatchEvent[],
 	context?: DispatchContext,
-): { state: TuiState; allIntents: RenderIntent[][]; finalIntents: RenderIntent[] } {
-	let state = initialTuiState();
+): { state: DispatchState; allIntents: RenderIntent[][]; finalIntents: RenderIntent[] } {
+	let state = initialDispatchState();
 	const allIntents: RenderIntent[][] = [];
 	for (const event of events) {
 		const result = computeDispatch(state, event, context ?? ctx());
@@ -59,7 +59,7 @@ describe("tool-start intent sequence", { tags: ["unit"] }, () => {
 	it("tool-start emits reset-reply-block, destroying accumulated text (BUG)", () => {
 		// Scenario: LLM streams text, then a tool call starts.
 		// The reply block should NOT be reset -- the streamed text should persist.
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "chunk", text: "Here is some analysis..." },
 			{ type: "chunk", text: " and more text continues" },
@@ -87,7 +87,7 @@ describe("tool-start intent sequence", { tags: ["unit"] }, () => {
 	});
 
 	it("tool-start always flushes typewriter (correct behavior)", () => {
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "chunk", text: "streaming text" },
 			{
@@ -105,7 +105,7 @@ describe("tool-start intent sequence", { tags: ["unit"] }, () => {
 	});
 
 	it("multiple tool-starts emit multiple reset-reply-blocks (compounding bug)", () => {
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "chunk", text: "analysis text" },
 			{ type: "tool-start", callId: "c1", name: "fs.read", args: { path: "a.ts" } },
@@ -135,7 +135,7 @@ describe("chunk after tool-start", { tags: ["unit"] }, () => {
 	it("chunk arriving after tool-start still emits reply-chunk intent", () => {
 		// This is the "text restarts" scenario: tool starts, then more chunks arrive
 		// (e.g., from a queued assistant message or streaming continuation).
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "chunk", text: "before tool" },
 			{ type: "tool-start", callId: "c1", name: "shell.exec", args: { command: "test" } },
@@ -158,10 +158,10 @@ describe("chunk after tool-start", { tags: ["unit"] }, () => {
 
 describe("turn-complete cleanup", { tags: ["unit"] }, () => {
 	it("turn-complete flushes typewriters and resets reply block", () => {
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "chunk", text: "reply text" },
-			{ type: "turn-complete" } as TuiEvent,
+			{ type: "turn-complete" } as DispatchEvent,
 		];
 
 		const { finalIntents } = dispatchSequence(events);
@@ -179,7 +179,7 @@ describe("turn-complete cleanup", { tags: ["unit"] }, () => {
 
 describe("tool lifecycle intents", { tags: ["unit"] }, () => {
 	it("tool-start adds show-in-flight-call, tool-end removes it", () => {
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{
 				type: "tool-start",
@@ -192,7 +192,7 @@ describe("tool lifecycle intents", { tags: ["unit"] }, () => {
 				callId: "c1",
 				elapsedMs: 100,
 				ok: true,
-			} as TuiEvent,
+			} as DispatchEvent,
 		];
 
 		const { allIntents } = dispatchSequence(events);
@@ -205,7 +205,7 @@ describe("tool lifecycle intents", { tags: ["unit"] }, () => {
 	});
 
 	it("active calls are tracked in state across tool lifecycle", () => {
-		const events: TuiEvent[] = [
+		const events: DispatchEvent[] = [
 			{ type: "turn.start", timestamp: Date.now() },
 			{ type: "tool-start", callId: "c1", name: "shell.exec", args: { command: "test" } },
 			{ type: "tool-start", callId: "c2", name: "fs.read", args: { path: "f.ts" } },

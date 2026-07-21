@@ -4,10 +4,10 @@ import { isCompacting } from "@dpopsuev/alef-session/compaction";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { ImageAttachment } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./boot-types.js";
-import type { TuiEvent } from "./events.js";
+import type { DispatchEvent } from "./events.js";
 import type { TuiHandlerContext } from "./handlers.js";
 import { handleColonCommand } from "./handlers.js";
-import type { TokenFooterHandle, TuiWriter } from "./state.js";
+import type { ChatWriter, TokenFooterHandle } from "./state.js";
 
 /**
  * Configuration for message submission.
@@ -47,11 +47,11 @@ export function flushCompactionPark(session: Pick<Session, "receive" | "send">):
 export interface SubmitConfig {
 	actorRoutes: InteractiveOptions["actorRoutes"];
 	session: Session;
-	writer: TuiWriter;
+	writer: ChatWriter;
 	addToHistory: (text: string) => void;
 	addHistoryEntry: (text: string) => void;
 	clearEditor: () => void;
-	dispatch: (event: TuiEvent) => void;
+	dispatch: (event: DispatchEvent) => void;
 	ctx: () => TuiHandlerContext;
 	onThinkingStop: () => void;
 	/** True while a turn is in flight — mid-turn prompts are queued, not scrollbacked yet. */
@@ -218,11 +218,11 @@ interface ExecuteMessageConfig {
 	message: string;
 	executor?: () => Promise<void>;
 	session: Session;
-	writer: TuiWriter;
+	writer: ChatWriter;
 	addToHistory: (text: string) => void;
 	addHistoryEntry: (text: string) => void;
 	clearEditor: () => void;
-	dispatch: (event: TuiEvent) => void;
+	dispatch: (event: DispatchEvent) => void;
 	onThinkingStop: () => void;
 	isTurnActive?: () => boolean;
 	delivery?: "steer" | "followUp" | "nextTurn";

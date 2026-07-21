@@ -8,9 +8,9 @@
 
 import type { TUI } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PromptConsole } from "../src/client/console.js";
-import { dispatchTuiEvent } from "../src/client/events.js";
-import { initialTuiState, type TuiUi } from "../src/client/state.js";
+import { DockConsole } from "../src/client/console.js";
+import { dispatchEvent } from "../src/client/events.js";
+import { type DispatchPorts, initialDispatchState } from "../src/client/state.js";
 import { createSubmitHandler, flushCompactionPark, parkCompactionMessage } from "../src/client/submit.js";
 import { bold, color } from "../src/client/theme.js";
 
@@ -62,13 +62,13 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
-		const zone = new PromptConsole(fakeTui, getTheme(), "test-model");
+		const zone = new DockConsole(fakeTui, getTheme(), "test-model");
 		zone.mount();
 		zone.setStatus(color(bold("INSERT"), getTheme().accentFg));
 		zone.setNotice("compacted 356 turns, recovered ~178k tokens", 2);
 
 		const wrapper = children.find((child) => child.render(width).some((line) => stripAnsi(line).includes("INSERT")));
-		if (!wrapper) throw new Error("EditorWrapper not found");
+		if (!wrapper) throw new Error("EditorChrome not found");
 		const bottom = stripAnsi(wrapper.render(width).at(-1)!);
 		expect(bottom.startsWith("─ INSERT ")).toBe(true);
 		expect(bottom).toContain("compacted 356 turns");
@@ -89,14 +89,14 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 		} as unknown as TUI;
 
 		const theme = { ...getTheme(), accentFg: { ansi16: 95 } };
-		const zone = new PromptConsole(fakeTui, theme, "test-model");
+		const zone = new DockConsole(fakeTui, theme, "test-model");
 		zone.mount();
 		zone.setTopicLabel("review-session");
 
 		const wrapper = children.find((child) =>
 			child.render(width).some((line) => stripAnsi(line).includes("review-session")),
 		);
-		if (!wrapper) throw new Error("EditorWrapper not found");
+		if (!wrapper) throw new Error("EditorChrome not found");
 		const top = wrapper.render(width)[0]!;
 		const plain = stripAnsi(top);
 		expect(plain.startsWith("─")).toBe(true);
@@ -118,7 +118,7 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			terminal: { rows: 40, cols: width },
 		} as unknown as TUI;
 
-		const zone = new PromptConsole(fakeTui, getTheme(), "test-model");
+		const zone = new DockConsole(fakeTui, getTheme(), "test-model");
 		zone.mount();
 		zone.setStatus("INSERT");
 		zone.setNotice("compacted 10 turns, recovered ~1k tokens", 1);
@@ -179,7 +179,7 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			tui: { requestRender: vi.fn() },
 			t: { mutedFg: "#888", accentFg: "#0ff" },
 			session: { state: { contextWindow: 100_000 } },
-		} as unknown as TuiUi;
+		} as unknown as DispatchPorts;
 
 		const handlers = new Map([
 			[
@@ -196,8 +196,8 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 			],
 		]);
 
-		dispatchTuiEvent(
-			initialTuiState(),
+		dispatchEvent(
+			initialDispatchState(),
 			{ type: "adapter-signal", signalType: "context.compacting", payload: { active: true } },
 			ui,
 			handlers,
@@ -205,8 +205,8 @@ describe("compaction delimiter notices", { tags: ["unit"] }, () => {
 		expect(setNotice).toHaveBeenCalledWith("Compacting context...", undefined);
 		expect(setStatus).not.toHaveBeenCalled();
 
-		dispatchTuiEvent(
-			initialTuiState(),
+		dispatchEvent(
+			initialDispatchState(),
 			{
 				type: "adapter-signal",
 				signalType: "context.compacted",
@@ -387,10 +387,10 @@ describe("submit during compaction parks instead of dropping", { tags: ["unit"] 
 				},
 				send: async () => "done",
 			},
-		} as unknown as TuiUi;
+		} as unknown as DispatchPorts;
 
-		dispatchTuiEvent(
-			initialTuiState(),
+		dispatchEvent(
+			initialDispatchState(),
 			{ type: "adapter-signal", signalType: "context.compacting", payload: { active: false } },
 			ui,
 			new Map(),

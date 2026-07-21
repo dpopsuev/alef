@@ -70,7 +70,7 @@ export async function buildLayout(
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
 
 	if (isNewSession) {
-		const logoLines = renderAlefLogo(5, 0, 0);
+		const logoLines = renderAlefLogo(5, 1, 2);
 		const accent = resolveAccentRgb(t);
 		const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
 		const styled = logoLines.map((line, i) => gradientLine(line, palette, i * ROW_PHASE_STEP)).join("\n");

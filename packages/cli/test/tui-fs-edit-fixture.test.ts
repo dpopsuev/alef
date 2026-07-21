@@ -126,11 +126,13 @@ describe("TUI fs.edit fixture (production path)", { tags: ["unit"] }, () => {
 		const allText = terminal.getScrollBuffer().join("\n");
 		expect(allText).toContain("logger.ts");
 
-		// No adjacent duplicate non-empty lines (the corruption signature)
+		// No adjacent duplicate non-empty lines (the corruption signature).
+		// Skip lines containing block characters (logo has legitimately repeated rows).
+		const isLogoLine = (line: string): boolean => /[\u2580-\u259F]/.test(line);
 		for (let i = 1; i < viewport.length; i++) {
 			const prev = viewport[i - 1]!.trim();
 			const curr = viewport[i]!.trim();
-			if (prev && curr && prev.length > 5 && prev === curr) {
+			if (prev && curr && prev.length > 5 && prev === curr && !isLogoLine(prev)) {
 				expect.fail(`adjacent duplicate at rows ${i - 1}/${i}: "${prev.slice(0, 60)}"`);
 			}
 		}

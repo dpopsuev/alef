@@ -90,18 +90,27 @@ export function renderHalfBlocks(grid: number[][]): string[] {
 
 			if (t === b) {
 				line += charMap[t] ?? " ";
+			} else if (t === 1 && b === 1) {
+				line += "\u2588";
 			} else if (t === 1 && b === 0) {
 				line += "\u2580";
 			} else if (t === 0 && b === 1) {
 				line += "\u2584";
-			} else if (t === 1) {
+			} else if (t === 1 && b > 1) {
+				// foreground top, shade/shadow bottom: show as upper half
 				line += "\u2580";
-			} else if (b === 1) {
+			} else if (t > 1 && b === 1) {
+				// shade/shadow top, foreground bottom: show as lower half
 				line += "\u2584";
-			} else if (t === 2 || b === 2) {
-				line += "\u2593";
-			} else if (t === 3 || b === 3) {
-				line += "\u2591";
+			} else if (t > 1 && b > 1) {
+				// both shade/shadow: use the denser one
+				line += charMap[Math.min(t, b)] ?? "\u2593";
+			} else if (t > 1 && b === 0) {
+				// shade/shadow top, empty bottom: half-weight shade
+				line += t === 2 ? "\u2592" : "\u2591";
+			} else if (t === 0 && b > 1) {
+				// empty top, shade/shadow bottom: half-weight shade
+				line += b === 2 ? "\u2592" : "\u2591";
 			} else {
 				line += " ";
 			}

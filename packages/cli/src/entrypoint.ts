@@ -220,6 +220,11 @@ await warmAuthCache();
 // TUI path: delegate to Bootstrapper for unified boot
 // ---------------------------------------------------------------------------
 if (willUseTui) {
+	const [isDark, terminalPalette] = await Promise.all([
+		isTermDark().then((r: boolean | null | undefined) => r ?? true),
+		queryPalette([...TERMINAL_PALETTE_SLOTS]),
+	]);
+	loadTheme(undefined, cfg.theme?.name, cfg.theme?.colors, isDark, terminalPalette);
 	const { bootWithBootstrapper } = await import("./boot/boot-tui.js");
 	await bootWithBootstrapper({ args, cfg, log, runtime, storage });
 	await runtime.stop();

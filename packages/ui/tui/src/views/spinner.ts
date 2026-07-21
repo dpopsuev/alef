@@ -75,7 +75,8 @@ function hueToAnsi256(hue: number): number {
 export function spinnerFrame(id: string, elapsedMs: number): string {
 	const idx = indexFor(id);
 	const frameIdx = (Math.floor(elapsedMs / 80) + idx) % BRAILLE_FRAMES.length;
-	const hue = ((idx * 137) % 360) + ((elapsedMs / 50) % 360);
+	const quantizedMs = Math.floor(elapsedMs / 200) * 200;
+	const hue = ((idx * 137) % 360) + ((quantizedMs / 50) % 360);
 	return chalk.ansi256(hueToAnsi256(hue))(BRAILLE_FRAMES[frameIdx]!);
 }
 
@@ -83,5 +84,6 @@ export function spinnerFrame(id: string, elapsedMs: number): string {
  *
  */
 export function accentColorize(token: ColorToken, elapsedMs: number): (text: string) => string {
-	return hueShiftColorize(token, (elapsedMs / 20) % 360);
+	const quantized = Math.floor(elapsedMs / 200) * 200;
+	return hueShiftColorize(token, (quantized / 20) % 360);
 }

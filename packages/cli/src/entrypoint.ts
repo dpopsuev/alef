@@ -24,6 +24,7 @@ import { deriveDiscussionRef } from "./boot/discussion.js";
 import { createCliFoundryRuntime } from "./boot/foundry-runtime.js";
 import { initPmBlueprints } from "./boot/init-pm-blueprints.js";
 import { createRunnerLogger } from "./boot/logger.js";
+import { preferIpv4IfUnreachable } from "./boot/network.js";
 import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
 import { buildIdentityContext, loadSession } from "./boot/session.js";
@@ -44,6 +45,7 @@ import { createExitRestartStrategy, setRestartStrategy } from "./boot/reboot-por
 process.title = "alef";
 setupSupervisorIpc();
 setRestartStrategy(createExitRestartStrategy());
+await preferIpv4IfUnreachable();
 updateNotifier({ pkg: { name: "@dpopsuev/alef", version: BUILD_INFO.version } }).notify();
 ensureDirectories();
 

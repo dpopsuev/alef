@@ -125,8 +125,7 @@ describe("dock layout integrity", { tags: ["unit"] }, () => {
 		expect(separatorLines.length, "should have separator lines").toBeGreaterThanOrEqual(1);
 
 		for (const si of separatorLines) {
-			const line = stripped[si]!;
-			expect(line, `separator line ${si} contains chat text`).not.toMatch(/streaming reply chunk/);
+			expect(stripped[si], `separator line ${si} contains chat text`).not.toMatch(/streaming reply chunk/);
 		}
 
 		const firstSep = separatorLines[0]!;
@@ -259,11 +258,153 @@ describe("dock layout integrity", { tags: ["unit"] }, () => {
 		const viewportAfter = await terminal.flushAndGetViewport();
 		const insertAfter = findLines(viewportAfter, (s) => /INSERT/.test(s) && SEPARATOR_RE.test(s));
 		expect(insertAfter.length, "INSERT line must still exist after streaming").toBeGreaterThanOrEqual(1);
+		expect(insertAfter[0], `INSERT moved from ${insertRowBefore} to ${insertAfter[0]}`).toBe(insertRowBefore);
 
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("rapid shell.exec chunk streaming does not corrupt dock layout", async () => {
+		const { terminal, tui, pc, chat, cleanup } = setup(80, 20);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`msg ${i}`, 0, 0));
+		pc.setStatus("INSERT");
+		pc.editor.setText("prompt");
+		pc.startThinking();
+		pc.showInFlightCall("exec-1", "shell.exec", "npm test", { command: "npm test" });
+
+		tui.requestRender(true);
+		await settle();
+
+		for (let i = 0; i < 50; i++) {
+			pc.updateInFlightCallChunk("exec-1", `stdout line ${i}: PASS some/test.ts (${i}ms)\n`);
+			tui.requestRender();
+			if (i % 5 === 0) await settle(5);
+		}
+
+		await settle(200);
+		const viewport = await terminal.flushAndGetViewport();
+		const stripped = viewport.map(stripAnsi);
+
+		const separatorLines = findLines(viewport, (s) => SEPARATOR_RE.test(s.trim()));
+		expect(separatorLines.length, `no separators found:\n${stripped.join("\n")}`).toBeGreaterThanOrEqual(1);
+
+		for (const si of separatorLines) {
+			expect(stripped[si], `separator ${si} has stdout`).not.toMatch(/stdout line|PASS some/);
+		}
+
+		const cardLines = findLines(viewport, (s) => s.includes("shell.exec"));
+		for (const ci of cardLines) {
+			expect(separatorLines.includes(ci), `card shares separator line ${ci}`).toBe(false);
+		}
+
+		const insertLines = findLines(viewport, (s) => /INSERT/.test(s) && SEPARATOR_RE.test(s));
+		expect(insertLines.length, "INSERT gone after streaming").toBeGreaterThanOrEqual(1);
+		expect(stripped[stripped.length - 1], "footer missing").toContain("~/test");
+
+		pc.removeInFlightCall("exec-1");
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("concurrent thinking tick and chunk update do not produce ghost lines", async () => {
+		const { terminal, tui, pc, chat, cleanup } = setup(80, 20);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`msg ${i}`, 0, 0));
+		pc.setStatus("INSERT");
+		pc.startThinking();
+		pc.showInFlightCall("exec-1", "shell.exec", "ls", { command: "ls" });
+
+		await settle(400);
+
+		for (let batch = 0; batch < 10; batch++) {
+			pc.updateInFlightCallChunk("exec-1", `output-${batch}\n`);
+			chat.addChild(new Text(`concurrent-chat-${batch}`, 0, 0));
+			tui.requestRender();
+			await settle(10);
+		}
+
+		await settle(100);
+		const viewport = await terminal.flushAndGetViewport();
+		const stripped = viewport.map(stripAnsi);
+
+		for (let i = 0; i < stripped.length; i++) {
+			const line = stripped[i]!;
+			if (SEPARATOR_RE.test(line) && line.includes("output-")) {
+				throw new Error(`line ${i} mixes separator and shell output: "${line}"`);
+			}
+		}
+
+		const shellLines = findLines(viewport, (s) => s.includes("shell.exec"));
+		expect(shellLines.length, `shell.exec on ${shellLines.length} lines, want 1`).toBe(1);
+
+		for (const sl of shellLines) {
+			expect(SEPARATOR_RE.test(stripped[sl]!), `card line ${sl} has separator chars`).toBe(false);
+		}
+
+		pc.removeInFlightCall("exec-1");
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("shell.exec card with long output does not push separator off-screen", async () => {
+		const { terminal, tui, pc, chat, cleanup } = setup(80, 16);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`msg ${i}`, 0, 0));
+		pc.setStatus("INSERT");
+		pc.editor.setText("test");
+		pc.startThinking();
+		pc.showInFlightCall("exec-1", "shell.exec", "npm test", { command: "npm test" });
+
+		const longOutput = Array.from({ length: 100 }, (_, i) => `line-${i}: test result`).join("\n");
+		pc.updateInFlightCallChunk("exec-1", longOutput);
+
+		tui.requestRender(true);
+		await settle(200);
+
+		const viewport = await terminal.flushAndGetViewport();
+		const stripped = viewport.map(stripAnsi);
+
+		const insertLines = findLines(viewport, (s) => /INSERT/.test(s) && SEPARATOR_RE.test(s));
+		expect(insertLines.length, `INSERT missing:\n${stripped.join("\n")}`).toBeGreaterThanOrEqual(1);
+		expect(stripped[stripped.length - 1], "footer pushed off-screen").toContain("~/test");
+
+		pc.removeInFlightCall("exec-1");
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("no ghost card line after card removal (dock-reflow path)", async () => {
+		const { terminal, tui, pc, chat, cleanup } = setup(80, 20);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`msg ${i}`, 0, 0));
+		pc.setStatus("INSERT");
+		pc.editor.setText("prompt");
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+
+		pc.showInFlightCall("c1", "shell.exec", "npm test", { command: "npm test" });
+		tui.requestRender();
+		await settle(200);
+
+		const withCard = (await terminal.flushAndGetViewport()).map(stripAnsi);
 		expect(
-			insertAfter[0],
-			`INSERT line moved from row ${insertRowBefore} to ${insertAfter[0]} during streaming`,
-		).toBe(insertRowBefore);
+			withCard.some((l) => l.includes("shell.exec")),
+			"card should appear",
+		).toBe(true);
+
+		pc.removeInFlightCall("c1");
+		tui.requestRender();
+		await settle(200);
+
+		const afterRemove = (await terminal.flushAndGetViewport()).map(stripAnsi);
+		const ghostIdx = afterRemove.findIndex((l) => l.includes("shell.exec"));
+		expect(ghostIdx, `ghost card at line ${ghostIdx}:\n${afterRemove.join("\n")}`).toBe(-1);
+
+		const insertLines = findLines(afterRemove, (s) => /INSERT/.test(s));
+		expect(insertLines.length, "INSERT missing after card removal").toBeGreaterThanOrEqual(1);
+		expect(afterRemove[afterRemove.length - 1], "footer missing").toContain("~/test");
 
 		pc.stopThinking();
 		cleanup();

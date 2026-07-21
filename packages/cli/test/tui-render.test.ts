@@ -1,16 +1,19 @@
 /**
  * TUI render pipeline E2E test with MockTerminal.
  *
- * Tests the ACTUAL render path: session events → TUI dispatch →
- * requestRender() → doRender() → terminal.write().
+ * Tests the ACTUAL render path: session events -> TUI dispatch ->
+ * requestRender() -> doRender() -> terminal.write().
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
+import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
+import type { Terminal } from "@dpopsuev/alef-tui";
 import { TUI } from "@dpopsuev/alef-tui";
 import { MockTerminal } from "@dpopsuev/alef-tui/mock-terminal";
 import pino from "pino";
@@ -22,6 +25,7 @@ import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { parseArgs } from "../src/boot/args.js";
 import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
+import type { InteractiveOptions } from "../src/client/boot-types.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
@@ -35,6 +39,48 @@ const EMPTY_LOADED = {
 	blueprintPath: undefined,
 	writableRoots: undefined,
 };
+
+/** Boot TUI shell + wire session (replaces runTuiMode). Returns a promise that resolves when the TUI stops. */
+async function startTui(
+	session: Session,
+	opts: InteractiveOptions & { terminal?: Terminal },
+	store?: SessionStore,
+): Promise<void> {
+	const { bootTuiShell, wireSession } = await import("../src/client/tui-shell.js");
+	const { getUiSignalHandlers, isCompacted } = await import("../src/boot/session.js");
+	const { getRebootPort, getRestartStrategy } = await import("../src/boot/reboot-port.js");
+
+	const shell = await bootTuiShell({ cwd: opts.cwd, terminal: opts.terminal });
+
+	wireSession(
+		shell,
+		{
+			session,
+			store,
+			sessionId: opts.sessionId,
+			modelId: opts.modelId,
+			contextWindow: opts.contextWindow ?? session.state.contextWindow,
+			isNew: !store,
+			getModel: opts.getModel ?? (() => opts.modelId),
+			setModel: opts.setModel ?? (() => {}),
+			getThinking: opts.getThinking ?? (() => session.getThinking()),
+			setThinking: opts.setThinking ?? (() => {}),
+			humanAddress: opts.humanAddress ?? "@you",
+			agentAddress: opts.agentAddress ?? "@alef",
+			blueprintName: opts.blueprintName,
+		},
+		{
+			signalHandlers: getUiSignalHandlers(),
+			isCompacted,
+			rebootPort: getRebootPort(),
+			restartStrategy: getRestartStrategy(),
+			checkForUpdate: () => Promise.resolve(null),
+		},
+	);
+
+	await shell.stopped;
+	if (shell.input.promptConsole.isThinking) shell.input.promptConsole.stopThinking();
+}
 
 describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 	const tmpDirs: string[] = [];
@@ -56,26 +102,22 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		tui.start();
 		tui.requestRender();
 
-		// Wait for process.nextTick → scheduleRender → setTimeout(doRender)
 		await new Promise((r) => setTimeout(r, 100));
 
-		// TUI should have rendered SOMETHING (even an empty frame writes cursor positioning)
 		expect(terminal.output.length).toBeGreaterThan(0);
 
 		tui.stop();
 	});
 
-	it("TUI.requestRender works inside an async function (like runTuiMode)", async () => {
+	it("TUI.requestRender works inside an async function (like bootTuiShell)", async () => {
 		const terminal = new MockTerminal(80, 24);
 		const tui = new TUI(terminal);
 
-		// Simulate what runTuiMode does: async setup, then start + requestRender
-		await new Promise((r) => setTimeout(r, 10)); // simulate async buildLayout
+		await new Promise((r) => setTimeout(r, 10));
 
 		tui.start();
 		tui.requestRender();
 
-		// Wait for render
 		await new Promise((r) => setTimeout(r, 100));
 
 		expect(terminal.output.length).toBeGreaterThan(0);
@@ -83,7 +125,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		tui.stop();
 	});
 
-	it("diagnoses the TUI hang — observer chain delivers events", async () => {
+	it("diagnoses the TUI hang -- observer chain delivers events", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("diag-reply-text")]);
 
@@ -116,7 +158,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		expect(events).toContain("turn-complete");
 	}, 15_000);
 
-	it("diagnoses the TUI hang — keyboard-driven submit through MockTerminal", async () => {
+	it("diagnoses the TUI hang -- keyboard-driven submit through MockTerminal", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("render-test-marker")]);
 
@@ -137,8 +179,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		);
 
 		const terminal = new MockTerminal(120, 40);
-		const { runTuiMode } = await import("../src/client/runner.js");
-		const tuiDone = runTuiMode(session, {
+		const tuiDone = startTui(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",
 			sessionId: store.id,
@@ -196,18 +237,21 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		);
 
 		const terminal = new MockTerminal(120, 40);
-		const { runTuiMode } = await import("../src/client/runner.js");
-		const tuiDone = runTuiMode(session, {
-			cwd: args.cwd,
-			modelId: "faux/test",
-			sessionId: store.id,
-			contextWindow: model.contextWindow,
-			getModel: () => model.id,
-			setModel: () => {},
-			getThinking: () => "off",
-			setThinking: () => {},
-			terminal,
-		});
+		const tuiDone = startTui(
+			session,
+			{
+				cwd: args.cwd,
+				modelId: "faux/test",
+				sessionId: store.id,
+				contextWindow: model.contextWindow,
+				getModel: () => model.id,
+				setModel: () => {},
+				getThinking: () => "off",
+				setThinking: () => {},
+				terminal,
+			},
+			store,
+		);
 
 		for (let i = 0; i < 40; i++) {
 			await new Promise((r) => setTimeout(r, 100));
@@ -253,8 +297,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 
 		const terminal = new MockTerminal(120, 40);
 
-		const { runTuiMode } = await import("../src/client/runner.js");
-		const tuiDone = runTuiMode(session, {
+		const tuiDone = startTui(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",
 			sessionId: store.id,
@@ -266,8 +309,6 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 			terminal,
 		});
 
-		// Wait for buildLayout + splash render + initial render
-		// buildLayout is async (font rasterization), may take >200ms
 		for (let i = 0; i < 20; i++) {
 			await new Promise((r) => setTimeout(r, 100));
 			if (terminal.output.length > 0) break;
@@ -285,8 +326,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 
 			expect(terminal.stripAnsi()).toContain("mock terminal reply");
 		} else {
-			// Initial render didn't fire — this IS the bug
-			expect.fail("BUG: terminal.output is empty after runTuiMode + 200ms — doRender never wrote to terminal");
+			expect.fail("BUG: terminal.output is empty after startTui + 200ms -- doRender never wrote to terminal");
 		}
 
 		session.dispose();
@@ -319,8 +359,7 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		discourse.append(forumId, "review", "@reviewer", "review loaded");
 
 		const terminal = new MockTerminal(120, 40);
-		const { runTuiMode } = await import("../src/client/runner.js");
-		const tuiDone = runTuiMode(session, {
+		const tuiDone = startTui(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",
 			sessionId: store.id,

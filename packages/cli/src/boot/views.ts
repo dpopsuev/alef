@@ -1,25 +1,26 @@
 /**
- * ViewMode — Strategy interface for all UI surfaces that attach to a Session.
+ * ViewMode -- Strategy interface for all UI surfaces that attach to a Session.
  *
  * A viewer does two things:
  *   1. Subscribes to session.subscribe to receive AgentEvents (output side)
  *   2. Drives session.send / session.receive to deliver user input (input side)
  *
- * The Dialog Adapter sits between the viewer and the bus — the viewer never
- * touches the bus directly. session.send() → AgentController → event/llm.input.
+ * The Dialog Adapter sits between the viewer and the bus -- the viewer never
+ * touches the bus directly. session.send() -> AgentController -> event/llm.input.
  *
  * Implementations:
- *   HeadlessViewMode  — in-process, records events, exposes typed assertions
- *   TuiViewMode       — ANSI terminal, keyboard-driven
- *   PrintViewMode     — single prompt → stdout reply → exit
- *   ServeViewMode     — HTTP/SSE only; parks until stop (never disposes session)
- *   JsonViewMode      — JSONL event stream on stdout
+ *   HeadlessViewMode  -- in-process, records events, exposes typed assertions
+ *   TuiViewMode       -- ANSI terminal, keyboard-driven
+ *   PrintViewMode     -- single prompt -> stdout reply -> exit
+ *   ServeViewMode     -- HTTP/SSE only; parks until stop (never disposes session)
+ *   JsonViewMode      -- JSONL event stream on stdout
  */
 
 import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { Terminal } from "@dpopsuev/alef-tui";
 import type { Args } from "../boot/args.js";
-import type { InteractiveOptions } from "./interactive.js";
+import type { InteractiveOptions } from "../client/boot-types.js";
 
 // ---------------------------------------------------------------------------
 // Core interface
@@ -30,7 +31,7 @@ export interface ViewMode {
 	run(session: Session): Promise<void>;
 }
 
-/** In-process viewer for tests — records events, exposes typed query methods, no TTY needed. */
+/** In-process viewer for tests -- records events, exposes typed query methods, no TTY needed. */
 export class HeadlessViewMode implements ViewMode {
 	private readonly _events: AgentEvent[] = [];
 	private _session: Session | null = null;
@@ -57,7 +58,7 @@ export class HeadlessViewMode implements ViewMode {
 		this._session?.receive?.(text);
 	}
 
-	/** Resolve run() — call when the test is done with the session. */
+	/** Resolve run() -- call when the test is done with the session. */
 	complete(): void {
 		this._unsubscribe?.();
 		this._resolve?.();
@@ -106,24 +107,58 @@ export class HeadlessViewMode implements ViewMode {
 }
 
 // ---------------------------------------------------------------------------
-// TuiViewMode — wraps runTuiMode
+// TuiViewMode -- calls bootTuiShell + wireSession directly
 // ---------------------------------------------------------------------------
 
-/** ANSI terminal view mode backed by the full TUI renderer. */
+/** ANSI terminal view mode backed by the full TUI renderer (bootTuiShell + wireSession). */
 export class TuiViewMode implements ViewMode {
 	constructor(
-		private readonly opts: Omit<InteractiveOptions, never>,
+		private readonly opts: InteractiveOptions & { terminal?: Terminal },
 		private readonly store?: SessionStore,
 	) {}
 
 	async run(session: Session): Promise<void> {
-		const { runTuiMode } = await import("../client/runner.js");
-		await runTuiMode(session, this.opts, this.store);
+		const { bootTuiShell, wireSession } = await import("../client/tui-shell.js");
+		const { getUiSignalHandlers, isCompacted } = await import("./session.js");
+		const { getRebootPort, getRestartStrategy } = await import("./reboot-port.js");
+		const { traceEvent } = await import("@dpopsuev/alef-kernel/log");
+
+		const shell = await bootTuiShell({ cwd: this.opts.cwd, terminal: this.opts.terminal });
+
+		wireSession(
+			shell,
+			{
+				session,
+				store: this.store,
+				sessionId: this.opts.sessionId,
+				modelId: this.opts.modelId,
+				contextWindow: this.opts.contextWindow ?? session.state.contextWindow,
+				isNew: !this.store,
+				getModel: this.opts.getModel ?? (() => this.opts.modelId),
+				setModel: this.opts.setModel ?? (() => {}),
+				getThinking: this.opts.getThinking ?? (() => session.getThinking()),
+				setThinking: this.opts.setThinking ?? (() => {}),
+				humanAddress: this.opts.humanAddress ?? "@you",
+				agentAddress: this.opts.agentAddress ?? "@alef",
+				blueprintName: this.opts.blueprintName,
+			},
+			{
+				signalHandlers: getUiSignalHandlers(),
+				isCompacted,
+				rebootPort: getRebootPort(),
+				restartStrategy: getRestartStrategy(),
+				checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
+			},
+		);
+
+		await shell.stopped;
+		if (shell.input.promptConsole.isThinking) shell.input.promptConsole.stopThinking();
+		traceEvent("tui:stopped");
 	}
 }
 
 // ---------------------------------------------------------------------------
-// PrintViewMode — wraps runPrintMode
+// PrintViewMode -- wraps runPrintMode
 // ---------------------------------------------------------------------------
 
 /** Single-prompt view mode that sends one message, prints the reply, and exits. */
@@ -137,11 +172,11 @@ export class PrintViewMode implements ViewMode {
 }
 
 // ---------------------------------------------------------------------------
-// ServeViewMode — HTTP/SSE only; never disposes the session
+// ServeViewMode -- HTTP/SSE only; never disposes the session
 // ---------------------------------------------------------------------------
 
 /**
- * Parks until stop() — used for --serve / --daemon headless mode.
+ * Parks until stop() -- used for --serve / --daemon headless mode.
  * Must not call session.dispose(); the supervisor owns session lifetime.
  */
 export class ServeViewMode implements ViewMode {
@@ -161,7 +196,7 @@ export class ServeViewMode implements ViewMode {
 }
 
 // ---------------------------------------------------------------------------
-// JsonViewMode — wraps runInteractive in json/headless mode
+// JsonViewMode -- wraps runInteractive in json/headless mode
 // ---------------------------------------------------------------------------
 
 /** JSONL event stream view mode for machine-readable stdout output. */

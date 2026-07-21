@@ -3,10 +3,9 @@ const MAX_LABEL_LENGTH = 60;
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { type Editor, matchesKey, type SelectItem, type SelectList, type Terminal, type TUI } from "@dpopsuev/alef-tui";
+import { type Editor, matchesKey, type SelectItem, type SelectList, type TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
 import { getRebootPort, getRestartStrategy, type RebootPort, type RestartStrategy } from "../boot/reboot-port.js";
-import { getUiSignalHandlers, isCompacted } from "../boot/session.js";
 import type { InteractiveOptions, RestartExecutor } from "./boot-types.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
 import type { TuiEvent } from "./events.js";
@@ -84,51 +83,6 @@ export function buildDiscussionTimeline(
 	});
 }
 
-/**
- * Boot the interactive TUI loop.
- * Composes bootTuiShell() + wireSession() to maintain backward compatibility
- * with existing callers (TuiViewMode, tests) that pass a pre-built Session.
- */
-export async function runTuiMode(
-	session: Session,
-	opts: InteractiveOptions & { terminal?: Terminal },
-	store?: SessionStore,
-): Promise<void> {
-	const { bootTuiShell, wireSession } = await import("./tui-shell.js");
-
-	const shell = await bootTuiShell({ cwd: opts.cwd, terminal: opts.terminal });
-
-	wireSession(
-		shell,
-		{
-			session,
-			store,
-			sessionId: opts.sessionId,
-			modelId: opts.modelId,
-			contextWindow: opts.contextWindow ?? session.state.contextWindow,
-			isNew: !store,
-			getModel: opts.getModel ?? (() => opts.modelId),
-			setModel: opts.setModel ?? (() => {}),
-			getThinking: opts.getThinking ?? (() => session.getThinking()),
-			setThinking: opts.setThinking ?? (() => {}),
-			humanAddress: opts.humanAddress ?? "@you",
-			agentAddress: opts.agentAddress ?? "@alef",
-			blueprintName: opts.blueprintName,
-		},
-		{
-			signalHandlers: getUiSignalHandlers(),
-			isCompacted,
-			rebootPort: getRebootPort(),
-			restartStrategy: getRestartStrategy(),
-			checkForUpdate: () => import("../boot/version-check.js").then((m) => m.checkForUpdate()),
-		},
-	);
-
-	await shell.stopped;
-	if (shell.input.promptConsole.isThinking) shell.input.promptConsole.stopThinking();
-	traceEvent("tui:stopped");
-}
-
 /** Build a factory that produces a fresh TuiHandlerContext snapshot on each call. */
 export function createContextFactory(
 	t: ThemeTokens,
@@ -182,7 +136,6 @@ export function handleRawInput(
 	ctx: () => TuiHandlerContext,
 	historyPickerToggle: () => boolean,
 ): boolean {
-	// Ctrl+R: Toggle history picker
 	if (matchesKey(data, "ctrl+r")) {
 		const picker = tuiState.overlays.find((o) => o.id === "history-picker");
 		if (picker) picker.handleInput?.(data);
@@ -190,14 +143,12 @@ export function handleRawInput(
 		return true;
 	}
 
-	// Check if any overlay wants to handle the input
 	const overlay = tuiState.overlays.find((o) => o.handleInput);
 	if (overlay?.handleInput) {
 		overlay.handleInput(data);
 		return true;
 	}
 
-	// Ctrl+C: interrupt active turn, or exit when idle
 	if (matchesKey(data, "ctrl+c")) {
 		traceEvent("raw:ctrl+c");
 		if (tuiState.abortCurrentTurn) {
@@ -208,37 +159,30 @@ export function handleRawInput(
 		return true;
 	}
 
-	// Ctrl+T: Toggle thinking visibility
 	if (matchesKey(data, "ctrl+t")) {
 		dispatch({ type: "thinking.toggle" });
 		return true;
 	}
 
-	// Tab: Cycle through tool inspector when tools are active
 	if (matchesKey(data, "tab") && tuiState.activeCalls.size > 0) {
 		dispatch({ type: "inspector.cycle" });
 		return true;
 	}
 
-	// Escape: Close tool inspector
 	if (matchesKey(data, "escape") && tuiState.focusedCallId) {
 		dispatch({ type: "inspector.close" });
 		return true;
 	}
 
-	// Tool inspector navigation and control
 	if (tuiState.focusedCallId) {
-		// Ctrl+X: Cancel focused tool call
 		if (matchesKey(data, "ctrl+x")) {
 			dispatch({ type: "inspector.cancel" });
 			return true;
 		}
-		// K or Up: Scroll up
 		if (matchesKey(data, "k") || matchesKey(data, "up")) {
 			dispatch({ type: "inspector.scroll", direction: 1 });
 			return true;
 		}
-		// J or Down: Scroll down
 		if (matchesKey(data, "j") || matchesKey(data, "down")) {
 			dispatch({ type: "inspector.scroll", direction: -1 });
 			return true;

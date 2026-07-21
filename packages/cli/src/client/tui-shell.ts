@@ -189,7 +189,15 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	let liveContextWindow = resolved.contextWindow;
 
+	const eventStream =
+		process.env.ALEF_DEBUG === "1" ? createWriteStream("/tmp/alef-events.jsonl", { flags: "w" }) : null;
+	const sessionStartedAt = Date.now();
+
 	const dispatch = (event: TuiEvent): void => {
+		if (eventStream) {
+			const entry = { offsetMs: Date.now() - sessionStartedAt, event };
+			eventStream.write(`${JSON.stringify(entry)}\n`);
+		}
 		if (event.type === "state-changed") liveContextWindow = event.contextWindow;
 		const prev = tuiState;
 		const prevContextUsed = tuiStore.get().contextUsed;

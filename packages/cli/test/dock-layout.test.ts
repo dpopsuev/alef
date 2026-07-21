@@ -351,6 +351,33 @@ describe("single-spinner invariant", { tags: ["unit"] }, () => {
 		cleanup();
 	});
 
+	it("statusText is cleared immediately when first card is added (no tick delay)", async () => {
+		const { pc, cleanup } = setup();
+
+		pc.startThinking();
+		await settle(200);
+
+		// Spinner is running -- statusText has braille content
+		const statusBefore = (pc as any).statusText.render(80) as string[];
+		const hasBraille = statusBefore.some((l: string) => /[\u2800-\u28FF]/.test(l));
+		expect(hasBraille, "statusText should have braille before cards").toBe(true);
+
+		// Add a card -- statusText must be cleared IMMEDIATELY, not on next tick
+		pc.showInFlightCall("c1", "shell.exec", "test", {});
+
+		// Check SYNCHRONOUSLY -- no settle, no tick
+		const statusAfter = (pc as any).statusText.render(80) as string[];
+		const statusBrailleAfter = statusAfter.filter((l: string) => /[\u2800-\u28FF]/.test(l));
+		expect(
+			statusBrailleAfter.length,
+			"statusText must be cleared immediately on first card add, not wait for next tick",
+		).toBe(0);
+
+		pc.removeInFlightCall("c1");
+		pc.stopThinking();
+		cleanup();
+	});
+
 	it("statusText is suppressed when in-flight cards exist", async () => {
 		const { tui, pc, chat, cleanup } = setup();
 

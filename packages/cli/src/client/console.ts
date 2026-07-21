@@ -381,6 +381,8 @@ export class PromptConsole {
 		this.inFlightCalls.set(callId, entry);
 		this.inFlightQueue.addChild(card);
 		if (this.inFlightCalls.size === 1 && this.isThinking) {
+			this.statusText.setText("");
+			this.lastThinkingText = "";
 			this.editor.showGhostHint("Tab to inspect subagents");
 		}
 	}

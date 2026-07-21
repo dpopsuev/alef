@@ -12,6 +12,18 @@ const SETTINGS_MAX_VISIBLE = 10;
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 const THEMES = ["terminal", "terminal-light", "akko", "mono", "matrix"] as const;
 
+let activeProfileOverride: string | undefined;
+
+/** Get the active profile name (runtime override or config default). */
+export function getActiveProfile(): string | undefined {
+	return activeProfileOverride ?? getConfig().profile;
+}
+
+/** Set the active profile at runtime (used by :profile command). */
+export function setActiveProfile(name: string | undefined): void {
+	activeProfileOverride = name;
+}
+
 /** Detect whether Anthropic API calls are routed through Google Vertex AI. */
 function isAnthropicViaVertex(): boolean {
 	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from trim() must fall through */
@@ -38,7 +50,8 @@ export function buildSettingsTheme(ctx: SettingsCmdCtx): SettingsListTheme {
 /** Build the list of selectable model items from the active profile or all providers. */
 function buildModelItems(): SelectItem[] {
 	const cfg = getConfig();
-	const profile = resolveProfile(cfg);
+	const activeName = getActiveProfile();
+	const profile = activeName ? resolveProfile({ ...cfg, profile: activeName }) : null;
 	const viaVertex = isAnthropicViaVertex();
 	const items: SelectItem[] = [];
 
@@ -125,9 +138,10 @@ function buildProfileSubmenu(_currentValue: string, done: (value?: string) => vo
 			invalidate() {}
 		})();
 	}
+	const currentProfile = getActiveProfile();
 	const items: SelectItem[] = names.map((n) => {
 		const p = cfg.profiles?.[n];
-		const active = n === cfg.profile;
+		const active = n === currentProfile;
 		return {
 			value: n,
 			label: active ? `${n} *` : n,
@@ -137,6 +151,7 @@ function buildProfileSubmenu(_currentValue: string, done: (value?: string) => vo
 	const pickerTheme = buildPickerTheme(ctx.t);
 	const list = new SelectList(items, 6, pickerTheme);
 	list.onSelect = (item: SelectItem) => {
+		setActiveProfile(item.value);
 		const resolved = resolveProfile({ ...cfg, profile: item.value });
 		const defaultModel = resolved?.defaultModel;
 		if (defaultModel) {
@@ -433,12 +448,19 @@ export const profile: Command = {
 			return;
 		}
 
-		const applyProfile = (name: string) => {
+		const applyProfileByName = (name: string) => {
+			if (name === "(none)") {
+				setActiveProfile(undefined);
+				ctx.writer.addNotice("Profile cleared -- all models available.");
+				ctx.tui.requestRender();
+				return;
+			}
 			if (!cfg.profiles?.[name]) {
 				ctx.writer.addNotice(`Unknown profile: ${name}. Available: ${names.join(", ")}`);
 				ctx.tui.requestRender();
 				return;
 			}
+			setActiveProfile(name);
 			const resolved = resolveProfile({ ...cfg, profile: name });
 			const count = resolved?.models.length ?? 0;
 			const defaultModel = resolved?.defaultModel;
@@ -447,7 +469,7 @@ export const profile: Command = {
 					buildModel(defaultModel);
 					ctx.session.setModel(defaultModel);
 				} catch {
-					// default model not valid -- ignore
+					// default model not valid
 				}
 			}
 			ctx.writer.addNotice(
@@ -458,26 +480,30 @@ export const profile: Command = {
 
 		const [name] = args;
 		if (name) {
-			applyProfile(name);
+			applyProfileByName(name);
 			return;
 		}
 
-		const items: SelectItem[] = names.map((n) => {
-			const p = cfg.profiles?.[n];
-			const active = n === cfg.profile;
-			return {
-				value: n,
-				label: active ? `${n} *` : n,
-				description: p ? `${p.providers.join(", ")}${p.default ? ` > ${p.default}` : ""}` : "",
-			};
-		});
+		const currentProfile = getActiveProfile();
+		const items: SelectItem[] = [
+			{ value: "(none)", label: currentProfile ? "(none)" : "(none) *", description: "Show all models" },
+			...names.map((n) => {
+				const p = cfg.profiles?.[n];
+				const active = n === currentProfile;
+				return {
+					value: n,
+					label: active ? `${n} *` : n,
+					description: p ? `${p.providers.join(", ")}${p.default ? ` > ${p.default}` : ""}` : "",
+				};
+			}),
+		];
 
 		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "profile-picker",
 			items,
-			maxVisible: 6,
+			maxVisible: Math.min(8, items.length),
 			onSelect: (item) => {
-				applyProfile(item.value);
+				applyProfileByName(item.value);
 			},
 		});
 	},

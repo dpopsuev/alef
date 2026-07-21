@@ -58,11 +58,12 @@ import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef
 
 /** Braille frames for the thinking line — never greeter script-letter pools. */
 const THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+const THINKING_TICK_MS = 200;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
 const TOAST_DURATION_MS = 3000;
 
-import { EventPressure, pressureToInterval } from "@dpopsuev/alef-agent/event-pressure";
+import { EventPressure } from "@dpopsuev/alef-agent/event-pressure";
 import { lookupColor } from "@dpopsuev/alef-agent/identity/palette";
 import { type ColorToken, color, glyph, selectListThemeFromTokens, statusGlyph, type ThemeTokens } from "./theme.js";
 
@@ -107,7 +108,6 @@ export class PromptConsole {
 
 	private readonly statusText: Text;
 	private editorWrapper!: EditorWrapper;
-	private frameIdx = 0;
 	private thinkingStart = 0;
 	private thinkingTimer: ReturnType<typeof setTimeout> | undefined;
 	private readonly pressure = new EventPressure();
@@ -207,22 +207,21 @@ export class PromptConsole {
 			this.thinkingTimer = undefined;
 		}
 		this.thinkingStart = Date.now();
-		this.frameIdx = 0;
 		const tick = (): void => {
-			this.frameIdx = (this.frameIdx + 1) % THINKING_FRAMES.length;
 			const elapsedMs = Date.now() - this.thinkingStart;
-			const elapsedS = fmtMs(elapsedMs);
-			const frame = THINKING_FRAMES[this.frameIdx] ?? glyph("state:active");
-			const level = this.pressure.level();
+			const quantizedMs = Math.floor(elapsedMs / THINKING_TICK_MS) * THINKING_TICK_MS;
+			const elapsedS = fmtMs(quantizedMs);
+			const frameIdx = Math.floor(elapsedMs / THINKING_TICK_MS) % THINKING_FRAMES.length;
+			const frame = THINKING_FRAMES[frameIdx] ?? glyph("state:active");
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
 			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
 			const pad = " ".repeat(INDENT.BLOCK);
 			this.statusText.setText(`${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`);
 			this.refreshCards();
 			this.tui.requestRender();
-			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
+			this.thinkingTimer = setTimeout(tick, THINKING_TICK_MS);
 		};
-		this.thinkingTimer = setTimeout(tick, pressureToInterval(0));
+		this.thinkingTimer = setTimeout(tick, THINKING_TICK_MS);
 		if (this.inFlightCalls.size > 0) this.editor.showGhostHint("Tab to inspect subagents");
 		else this.editor.clearGhostHint();
 	}

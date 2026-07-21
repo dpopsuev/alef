@@ -2,11 +2,11 @@ import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import { displayActorName } from "./actor-label.js";
+import { renderAlefLogo } from "./alef-logo.js";
 import type { InteractiveOptions } from "./boot-types.js";
 import { createTuiChrome } from "./chrome.js";
 import { AtAddressProvider } from "./commands/autocomplete.js";
 import { buildPalette, gradientLine, hexToRgb, type Rgb } from "./gradient.js";
-import { renderSplash } from "./greeter.js";
 import { InputPanel } from "./panel.js";
 import { boldColor, color, type ThemeTokens } from "./theme.js";
 
@@ -69,14 +69,12 @@ export async function buildLayout(
 	const agentLabel = displayActorName(opts.agentAddress, "alef");
 	const output = new OutputPanel({ tui, t, labels: { humanLabel, agentLabel } });
 
-	// Render splash glyph into the conversation for new sessions only
-	const splash = await renderSplash();
-	if (isNewSession && splash) {
+	if (isNewSession) {
+		const logoLines = renderAlefLogo(5, 1, 2);
 		const accent = resolveAccentRgb(t);
 		const palette = buildPalette(accent, PALETTE_STEPS, MAX_DARKEN, MAX_LIGHTEN);
-		const styled = splash.lines.map((line, i) => gradientLine(line, palette, i * ROW_PHASE_STEP)).join("\n");
-		const label = color(`${splash.glyph}  ${splash.script}`, t.mutedFg);
-		output.writer.container.addChild(new Text(`${styled}\n${label}`, 2, 1));
+		const styled = logoLines.map((line, i) => gradientLine(line, palette, i * ROW_PHASE_STEP)).join("\n");
+		output.writer.container.addChild(new Text(styled, 2, 1));
 	}
 
 	const input = new InputPanel({

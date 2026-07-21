@@ -1,4 +1,4 @@
-import type { Component } from "@dpopsuev/alef-tui";
+import type { Component, RenderHandle } from "@dpopsuev/alef-tui";
 import {
 	AgentCard,
 	type AgentCardTheme,
@@ -11,7 +11,6 @@ import {
 	SlotMachine,
 	Text,
 	Toast,
-	type TUI,
 } from "@dpopsuev/alef-tui";
 import { INDENT } from "@dpopsuev/alef-tui/views";
 export type { Component };
@@ -129,7 +128,7 @@ export class DockConsole {
 	private lastThinkingText = "";
 	private thinkingTimer: ReturnType<typeof setTimeout> | undefined;
 	private readonly pressure = new EventPressure();
-	private readonly tui: TUI;
+	private readonly tui: RenderHandle;
 	private readonly t: ThemeTokens;
 
 	private readonly pendingFooter: DynamicText;
@@ -168,7 +167,7 @@ export class DockConsole {
 	readonly widgetSlotBelow = new Container();
 	private widgetAboveText: Text | null = null;
 
-	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
+	constructor(tui: RenderHandle, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
 		this.t = t;
 

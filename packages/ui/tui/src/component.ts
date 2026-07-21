@@ -101,6 +101,9 @@ export interface RenderMeta {
  * decoupled from the full TUI implementation.
  */
 export interface RenderHandle {
-	requestRender(): void;
+	requestRender(force?: boolean): void;
+	addChild(component: Component): void;
+	removeChild(component: Component): void;
+	setDock(component: Component | null): void;
 	readonly terminal: { readonly rows: number };
 }

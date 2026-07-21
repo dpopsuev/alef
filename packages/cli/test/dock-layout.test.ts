@@ -236,7 +236,247 @@ describe("containment invariant", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Dock stability
+// 2b. Card removal render purity — separator line must never contain card content
+// ---------------------------------------------------------------------------
+describe("card removal render purity", { tags: ["unit"] }, () => {
+	it("separator line contains no agent card content after card removal", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.showInFlightCall("c1", "agent.run", "explore", { text: "AGENT_CARD_FINGERPRINT" });
+		await settle(200);
+
+		// Verify card content appears in dock before removal
+		const beforePartition = partition(tui, chat, 80);
+		const dockTextBefore = beforePartition.dock.map(stripAnsi).join("\n");
+		expect(dockTextBefore).toContain("agent.run");
+
+		// Remove the card
+		pc.removeInFlightCall("c1");
+		tui.requestRender();
+		await settle(100);
+
+		// Get the rendered frame from the partition
+		const afterPartition = partition(tui, chat, 80);
+		const dockLines = afterPartition.dock.map(stripAnsi);
+
+		// Find the separator line(s) — they consist entirely of box-drawing characters and labels
+		const separatorPattern = /^[\u2500-\u257F\s-]+/;
+		for (const line of dockLines) {
+			const trimmed = line.trim();
+			if (trimmed.length === 0) continue;
+			if (separatorPattern.test(trimmed)) {
+				expect(trimmed).not.toContain("agent.run");
+				expect(trimmed).not.toContain("AGENT_CARD_FINGERPRINT");
+			}
+		}
+
+		// Also verify the card content is completely gone from the dock
+		const dockTextAfter = dockLines.join("\n");
+		expect(dockTextAfter).not.toContain("AGENT_CARD_FINGERPRINT");
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("dock height monotonicity across rapid card add/remove cycles", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.editor.setText(EDITOR_TAG);
+		await settle(200);
+
+		const baseline = partition(tui, chat, 80).dock.length;
+
+		// Rapid add/remove cycles — dock must return to baseline each time
+		for (let cycle = 0; cycle < 5; cycle++) {
+			pc.showInFlightCall(`c${cycle}`, "shell.exec", `cmd${cycle}`, {});
+			tui.requestRender();
+			await settle(50);
+
+			const withCard = partition(tui, chat, 80).dock.length;
+			expect(withCard).toBeGreaterThanOrEqual(baseline);
+
+			pc.removeInFlightCall(`c${cycle}`);
+			tui.requestRender();
+			await settle(200);
+
+			const afterRemove = partition(tui, chat, 80).dock.length;
+			expect(afterRemove, `dock should return to baseline after cycle ${cycle}`).toBe(baseline);
+		}
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("frame rendered to terminal has no stale card lines after removal", async () => {
+		const { tui, pc, chat, writes, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.showInFlightCall("c1", "fs.read", "UNIQUE_CARD_TEXT", { path: "UNIQUE_CARD_TEXT" });
+
+		tui.requestRender(true);
+		await settle(200);
+
+		// Verify card appears in rendered output
+		const frameWithCard = writes.join("");
+		expect(frameWithCard).toContain("UNIQUE_CARD_TEXT");
+
+		writes.length = 0;
+
+		// Remove and re-render
+		pc.removeInFlightCall("c1");
+		tui.requestRender(true);
+		await settle(200);
+
+		// The frame after removal must not contain the card's fingerprint
+		const frameAfter = writes.join("");
+		expect(frameAfter).not.toContain("UNIQUE_CARD_TEXT");
+
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 3. Dock reflow monotonicity — no content bleed across dock height changes
+// ---------------------------------------------------------------------------
+describe("dock reflow monotonicity", { tags: ["unit"] }, () => {
+	it("separator line never contains agent card content after card removal", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.editor.setText(EDITOR_TAG);
+
+		const CARD_FINGERPRINT = "bleed_detector";
+		pc.showInFlightCall("c1", CARD_FINGERPRINT, "key", { text: "test" });
+		tui.requestRender(true);
+		await settle(100);
+
+		// Verify card is in dock
+		const withCard = partition(tui, chat, 80);
+		const withCardText = withCard.dock.map(stripAnsi).join("\n");
+		expect(withCardText).toContain(CARD_FINGERPRINT);
+
+		// Remove card
+		pc.removeInFlightCall("c1");
+		tui.requestRender();
+		await settle(100);
+
+		// After removal: no dock line should contain the card fingerprint
+		const afterRemoval = partition(tui, chat, 80);
+		for (const line of afterRemoval.dock) {
+			expect(stripAnsi(line)).not.toContain(CARD_FINGERPRINT);
+		}
+
+		// Separator lines (rendered by EditorChrome) must be pure separator content
+		const separatorLines = afterRemoval.dock.filter((l) => {
+			const plain = stripAnsi(l);
+			return (
+				/^[\u2500\u2501\u2502\u2503\u250C\u2510\u2514\u2518\u251C\u2524\u252C\u2534\u253C\u2574\u2576\u2578\u257A─━]+/.test(
+					plain,
+				) || /^[-─━═]+/.test(plain)
+			);
+		});
+		for (const sep of separatorLines) {
+			expect(stripAnsi(sep)).not.toContain(CARD_FINGERPRINT);
+		}
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("dock height monotonically transitions during card add/remove", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.editor.setText(EDITOR_TAG);
+		tui.requestRender(true);
+		await settle(100);
+
+		const heights: number[] = [];
+		const baseline = partition(tui, chat, 80).dock.length;
+		heights.push(baseline);
+
+		// Add three cards one by one
+		for (let i = 1; i <= 3; i++) {
+			pc.showInFlightCall(`c${i}`, "shell.exec", `cmd${i}`, {});
+			tui.requestRender();
+			await settle(50);
+			heights.push(partition(tui, chat, 80).dock.length);
+		}
+
+		// Each add should grow dock (or keep same)
+		for (let i = 1; i < heights.length; i++) {
+			expect(heights[i]!).toBeGreaterThanOrEqual(heights[i - 1]!);
+		}
+
+		// Remove cards one by one — dock should shrink monotonically
+		const shrinkHeights: number[] = [heights[heights.length - 1]!];
+		for (let i = 3; i >= 1; i--) {
+			pc.removeInFlightCall(`c${i}`);
+			tui.requestRender();
+			await settle(50);
+			shrinkHeights.push(partition(tui, chat, 80).dock.length);
+		}
+
+		for (let i = 1; i < shrinkHeights.length; i++) {
+			expect(shrinkHeights[i]!).toBeLessThanOrEqual(shrinkHeights[i - 1]!);
+		}
+
+		// Final height should equal baseline
+		expect(shrinkHeights[shrinkHeights.length - 1]).toBe(baseline);
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("rendered frame has no stale card lines after dock-reflow", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 10; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.startThinking();
+		pc.editor.setText(EDITOR_TAG);
+
+		// Add cards with distinct fingerprints
+		pc.showInFlightCall("c1", "STALE_CARD_A", "key", { path: "/a" });
+		pc.showInFlightCall("c2", "STALE_CARD_B", "key", { command: "ls" });
+		tui.requestRender(true);
+		await settle(100);
+
+		// Remove one card
+		pc.removeInFlightCall("c1");
+		tui.requestRender();
+		await settle(100);
+
+		// Full frame should not contain removed card's fingerprint
+		const afterOne = partition(tui, chat, 80);
+		const allText = [...afterOne.scrollRegion, ...afterOne.dock].map(stripAnsi).join("\n");
+		expect(allText).not.toContain("STALE_CARD_A");
+		expect(allText).toContain("STALE_CARD_B");
+
+		// Remove second card
+		pc.removeInFlightCall("c2");
+		tui.requestRender();
+		await settle(100);
+
+		const afterBoth = partition(tui, chat, 80);
+		const finalText = [...afterBoth.scrollRegion, ...afterBoth.dock].map(stripAnsi).join("\n");
+		expect(finalText).not.toContain("STALE_CARD_A");
+		expect(finalText).not.toContain("STALE_CARD_B");
+
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 4. Dock stability
 // ---------------------------------------------------------------------------
 describe("dock stability", { tags: ["unit"] }, () => {
 	it("dock line count does not change when only chat grows", async () => {

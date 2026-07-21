@@ -1,0 +1,19 @@
+{
+	"name": "@danypops/alef-tool-discourse",
+	"version": "0.1.0",
+	"description": "Native Alef adapter for the Discourse forum capability",
+	"type": "module",
+	"exports": { ".": "./src/index.ts" },
+	"files": ["src", "README.md"],
+	"scripts": { "test": "vitest --run" },
+	"dependencies": {
+		"@danypops/discourse": "workspace:*",
+		"@dpopsuev/alef-kernel": "workspace:*",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@dpopsuev/alef-testkit": "workspace:*",
+		"vitest": "^4.1.6"
+	},
+	"license": "MIT"
+}

@@ -18,6 +18,7 @@ import type {
 } from "../types.js";
 import { headersToRecord } from "../utils/headers.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+import { serializeError } from "../utils/serialize-error.js";
 
 interface OpenRouterGeneratedImage {
 	image_url?: string | { url?: string };
@@ -99,7 +100,7 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 		return output;
 	} catch (error) {
 		output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-		output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+		output.errorMessage = serializeError(error);
 		return output;
 	}
 };

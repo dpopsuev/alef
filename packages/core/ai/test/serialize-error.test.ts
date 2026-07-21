@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serializeError } from "../src/providers/anthropic.js";
+import { serializeError } from "../src/utils/serialize-error.js";
 
 describe("serializeError", { tags: ["unit"] }, () => {
 	it("returns a plain error's message", () => {

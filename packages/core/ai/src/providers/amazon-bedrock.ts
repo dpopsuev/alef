@@ -44,6 +44,7 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+import { serializeError } from "../utils/serialize-error.js";
 import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./base-options.js";
 import { transformMessages } from "./normalize-messages.js";
 
@@ -333,7 +334,7 @@ const BEDROCK_ERROR_PREFIXES: Record<string, string> = {
  * detection) can distinguish error categories via simple string matching.
  */
 function formatBedrockError(error: unknown): string {
-	const message = error instanceof Error ? error.message : JSON.stringify(error);
+	const message = serializeError(error);
 	if (error instanceof BedrockRuntimeServiceException) {
 		const prefix = BEDROCK_ERROR_PREFIXES[error.name] ?? error.name;
 		return `${prefix}: ${message}`;

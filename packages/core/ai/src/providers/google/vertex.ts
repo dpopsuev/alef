@@ -25,6 +25,7 @@ import type {
 } from "../../types.js";
 import { AssistantMessageEventStream } from "../../utils/event-stream.js";
 import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
+import { serializeError } from "../../utils/serialize-error.js";
 import type { GoogleThinkingLevel } from "./shared.js";
 import {
 	convertMessages,
@@ -270,7 +271,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 				}
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+			output.errorMessage = serializeError(error);
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}

@@ -26,6 +26,7 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { shortHash } from "../utils/hash.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+import { serializeError } from "../utils/serialize-error.js";
 import { buildBaseOptions } from "./base-options.js";
 import { transformMessages } from "./normalize-messages.js";
 
@@ -210,8 +211,8 @@ function formatMistralError(error: unknown): string {
 		if (statusCode !== undefined && bodyText) {
 			return `Mistral API error (${statusCode}): ${truncateErrorText(bodyText, MAX_MISTRAL_ERROR_BODY_CHARS)}`;
 		}
-		if (statusCode !== undefined) return `Mistral API error (${statusCode}): ${error.message}`;
-		return error.message;
+		if (statusCode !== undefined) return `Mistral API error (${statusCode}): ${serializeError(error)}`;
+		return serializeError(error);
 	}
 	return safeJsonStringify(error);
 }

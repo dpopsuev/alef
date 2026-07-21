@@ -170,4 +170,8 @@ export function applyIntents(
 				break;
 		}
 	}
+
+	if (intents.length > 0) {
+		ui.tui.requestRender();
+	}
 }

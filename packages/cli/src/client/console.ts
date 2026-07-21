@@ -23,12 +23,12 @@ class EditorWrapper implements Component {
 
 	constructor(private readonly inner: Editor) {}
 
-	/** Lower delimiter left — INSERT / NORMAL. */
+	/** Lower delimiter left -- INSERT / NORMAL. */
 	setModeLabel(label: string): void {
 		this.bottomBorder.setLeftLabel(label);
 	}
 
-	/** Lower delimiter right — compacting / compacted notices. */
+	/** Lower delimiter right -- compacting / compacted notices. */
 	setNoticeLabel(label: string): void {
 		this.bottomBorder.setRightLabel(label);
 	}
@@ -41,7 +41,6 @@ class EditorWrapper implements Component {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
 		lines[0] = this.topBorder.render(width)[0]!;
-		// Autocomplete trails below the lower delimiter — stamp INSERT on that rule, not the last hint line.
 		const bottomIndex = lines.length - 1 - this.inner.autocompleteLineCount();
 		if (bottomIndex >= 1) {
 			lines[bottomIndex] = this.bottomBorder.render(width)[0]!;
@@ -56,8 +55,19 @@ class EditorWrapper implements Component {
 
 import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef-tui/views";
 
-/** Braille frames for the thinking line — never greeter script-letter pools. */
-const THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+/** Braille frames for the thinking line -- never greeter script-letter pools. */
+const THINKING_FRAMES = [
+	"\u280B",
+	"\u2819",
+	"\u2839",
+	"\u2838",
+	"\u283C",
+	"\u2834",
+	"\u2826",
+	"\u2827",
+	"\u2807",
+	"\u280F",
+] as const;
 const THINKING_FRAME_MS = 80;
 const THINKING_ELAPSED_STEP_MS = 1000;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
@@ -73,7 +83,7 @@ export function prioritizeWidgetLines(lines: readonly string[], maxLines: number
 	if (lines.length <= maxLines) return [...lines];
 	const header = lines[0] ?? "";
 	const body = lines.slice(1);
-	const activeIdx = body.findIndex((line) => line.includes("◄") || /^\s*●/.test(line));
+	const activeIdx = body.findIndex((line) => line.includes("\u25C4") || /^\s*\u25CF/.test(line));
 
 	let block: string[] = [];
 	let rest: string[] = body;
@@ -81,7 +91,7 @@ export function prioritizeWidgetLines(lines: readonly string[], maxLines: number
 		let end = activeIdx + 1;
 		while (
 			end < body.length &&
-			(/^\s{4,}/.test(body[end]!) || body[end]!.includes("gate ·") || body[end]!.includes("inspect ·"))
+			(/^\s{4,}/.test(body[end]!) || body[end]!.includes("gate \u00B7") || body[end]!.includes("inspect \u00B7"))
 		) {
 			end++;
 		}
@@ -98,12 +108,18 @@ export function prioritizeWidgetLines(lines: readonly string[], maxLines: number
 	const result = [header, ...selected];
 	if (omitted > 0) {
 		while (result.length >= maxLines) result.pop();
-		result.push(`  … ${omitted} more`);
+		result.push(`  \u2026 ${omitted} more`);
 	}
 	return result.slice(0, maxLines);
 }
 
-/** Manages the input-zone UI: editor, spinner, in-flight tool cards, and status widgets. */
+/**
+ * Manages the input-zone UI: editor, spinner, in-flight tool cards, and status widgets.
+ *
+ * All public methods are pure data mutations -- they update component state
+ * but never call requestRender(). The caller (applyIntents or the thinking
+ * timer) is responsible for requesting a render after mutations complete.
+ */
 export class PromptConsole {
 	readonly editor: Editor;
 
@@ -175,7 +191,6 @@ export class PromptConsole {
 		this.chunkDetail = new Text("", 2, 0);
 		this.inspectorHint = new Text("", 0, 0);
 
-		// Dock anchor only — never paint a bare mid-run delimiter (Scribe: hide-full-width-delimiter…).
 		this.pendingFooter = new DynamicText(() => "");
 	}
 
@@ -252,18 +267,14 @@ export class PromptConsole {
 		this.intentText = "";
 	}
 
-	/** Lower-delimiter left: INSERT / NORMAL (never used for compaction notices). */
 	setStatus(text: string, _clearAfterTurns?: number): void {
 		this.editorWrapper.setModeLabel(text);
 	}
 
-	/** Lower-delimiter right: compacting / compacted. Does not move the mode label. */
 	setNotice(text: string, clearAfterTurns?: number): void {
 		this.editorWrapper.setNoticeLabel(text);
 		if (clearAfterTurns !== undefined && clearAfterTurns > 0) {
 			this.noticeClearAfterTurns = clearAfterTurns;
-		} else if (!text) {
-			this.noticeClearAfterTurns = null;
 		} else {
 			this.noticeClearAfterTurns = null;
 		}
@@ -306,9 +317,8 @@ export class PromptConsole {
 			this.widgetAboveText = null;
 			return;
 		}
-		// Prefer a single status line; multi-line dock trees are collapsed to the header.
 		const firstLine = text.split("\n").find((line) => line.trim()) ?? text;
-		const display = firstLine.startsWith("Plan ·")
+		const display = firstLine.startsWith("Plan \u00B7")
 			? color(firstLine, this.t.mutedFg)
 			: color(firstLine, this.t.secondaryFg);
 		this.widgetAboveText.setText(display);
@@ -361,8 +371,8 @@ export class PromptConsole {
 			startedAt,
 			lastChunk: "",
 			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
-			inputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↑" }),
-			outputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↓" }),
+			inputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "\u2191" }),
+			outputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "\u2193" }),
 			children: new Map<
 				string,
 				{ name: string; keyArg: string; args: Record<string, unknown>; startedAt: number; depth: number }
@@ -373,7 +383,6 @@ export class PromptConsole {
 		if (this.inFlightCalls.size === 1 && this.isThinking) {
 			this.editor.showGhostHint("Tab to inspect subagents");
 		}
-		this.tui.requestRender();
 	}
 
 	private readonly chunkAccumulators = new Map<string, string>();
@@ -400,13 +409,10 @@ export class PromptConsole {
 				this.editor.clearGhostHint();
 			}
 			this.refreshCards();
-			this.tui.requestRender();
 		}
 	}
 
-	showPendingFooter(_fg: ColorToken): void {
-		// Dock anchor stays mounted; never paint a mid-run full-width delimiter.
-	}
+	showPendingFooter(_fg: ColorToken): void {}
 
 	hidePendingFooter(): void {}
 
@@ -419,12 +425,10 @@ export class PromptConsole {
 			this.inspectorHint.setText("");
 		}
 		this.refreshCards();
-		this.tui.requestRender();
 	}
 
 	setChunkText(text: string): void {
 		this.chunkDetail.setText(text);
-		this.tui.requestRender();
 	}
 
 	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void {
@@ -434,7 +438,6 @@ export class PromptConsole {
 		const token = paletteColor ? { truecolor: paletteColor.hex } : this.t.accentFg;
 		entry.identity = { color: colorName, address, token, modelId };
 		entry.card.update({ address, modelId });
-		this.tui.requestRender();
 	}
 
 	updateCallTokens(callId: string, input: number, output: number): void {
@@ -455,14 +458,12 @@ export class PromptConsole {
 		const entry = this.inFlightCalls.get(parentCallId);
 		if (!entry) return;
 		entry.children.set(callId, { name, keyArg, args, startedAt: Date.now(), depth });
-		this.tui.requestRender();
 	}
 
 	removeChildCall(parentCallId: string, callId: string): void {
 		const entry = this.inFlightCalls.get(parentCallId);
 		if (!entry) return;
 		entry.children.delete(callId);
-		this.tui.requestRender();
 	}
 
 	showToast(message: string, durationMs = TOAST_DURATION_MS): void {
@@ -479,7 +480,6 @@ export class PromptConsole {
 			},
 		});
 		this.widgetSlotBelow.addChild(toast);
-		this.tui.requestRender();
 	}
 
 	showBackgroundTask(taskId: string, profile: string): void {
@@ -493,11 +493,6 @@ export class PromptConsole {
 		this.refreshBackgroundTaskPanel();
 	}
 
-	/**
-	 * Sync the dock pending-queue panel from a message-queued signal.
-	 * Enqueue notifications carry `text`; drain notifications only carry `queueLength`.
-	 * Returns texts shifted off the panel head (promote those to chat scrollback).
-	 */
 	syncPendingQueue(opts: { queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" }): string[] {
 		const promoted: string[] = [];
 		if (opts.text) {
@@ -520,7 +515,6 @@ export class PromptConsole {
 			}
 			this.pendingQueue.setLength(keep);
 		}
-		this.tui.requestRender();
 		return promoted;
 	}
 
@@ -537,7 +531,6 @@ export class PromptConsole {
 	private refreshBackgroundTaskPanel(): void {
 		if (this.backgroundTasks.size === 0) {
 			this.backgroundTaskPanel.setText("");
-			this.tui.requestRender();
 			return;
 		}
 		const tasks = [...this.backgroundTasks.values()];
@@ -552,9 +545,11 @@ export class PromptConsole {
 		].filter(Boolean);
 		const latestText = latest ? `  ${latest.taskId} ${latest.profile} ${fmtMs(Date.now() - latest.startedAt)}` : "";
 		this.backgroundTaskPanel.setText(
-			color(`  Tasks · ${summaryParts.join("  ")}${latestText}`, running > 0 ? this.t.accentFg : this.t.mutedFg),
+			color(
+				`  Tasks \u00B7 ${summaryParts.join("  ")}${latestText}`,
+				running > 0 ? this.t.accentFg : this.t.mutedFg,
+			),
 		);
-		this.tui.requestRender();
 	}
 
 	private refreshCards(): void {

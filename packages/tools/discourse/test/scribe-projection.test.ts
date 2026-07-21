@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { InMemoryDiscourseSubscriptions } from "@dpopsuev/discourse-capability/memory-store";
-import type { ProjectionStatus } from "@dpopsuev/discourse-capability/types";
+import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
+import type { ProjectionStatus } from "@danypops/discourse/types";
 import { createClient } from "@libsql/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CapabilityDiscourseBackend } from "../src/capability-backend.js";

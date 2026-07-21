@@ -1,7 +1,7 @@
+import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
+import type { DiscourseProjection } from "@danypops/discourse/ports";
+import type { ProjectionStatus } from "@danypops/discourse/types";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import { InMemoryDiscourseSubscriptions } from "@dpopsuev/discourse-capability/memory-store";
-import type { DiscourseProjection } from "@dpopsuev/discourse-capability/ports";
-import type { ProjectionStatus } from "@dpopsuev/discourse-capability/types";
 import type { Client } from "@libsql/client";
 import { CapabilityDiscourseBackend } from "./capability-backend.js";
 import { ensureDiscourseSchema } from "./ensure-schema.js";

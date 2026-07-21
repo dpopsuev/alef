@@ -1,4 +1,4 @@
-import { EVENT_RETENTION_DEFAULT } from "@dpopsuev/discourse-capability/constants";
+import { EVENT_RETENTION_DEFAULT } from "@danypops/discourse/constants";
 import type {
 	DiscourseStore,
 	EventReplay,
@@ -8,7 +8,7 @@ import type {
 	ReadThreadQuery,
 	SnapshotQuery,
 	StoredAppendResult,
-} from "@dpopsuev/discourse-capability/ports";
+} from "@danypops/discourse/ports";
 import type {
 	AppendPostCommand,
 	DiscourseEvent,
@@ -20,7 +20,7 @@ import type {
 	ProjectionRecord,
 	ThreadSummary,
 	TopicSummary,
-} from "@dpopsuev/discourse-capability/types";
+} from "@danypops/discourse/types";
 import type { Client, Row, Transaction } from "@libsql/client";
 import { z } from "zod";
 

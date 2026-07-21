@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@dpopsuev/discourse-capability/memory-store";
-import { DiscourseService } from "@dpopsuev/discourse-capability/service";
-import type { DiscourseEvent, Post } from "@dpopsuev/discourse-capability/types";
+import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
+import { DiscourseService } from "@danypops/discourse/service";
+import type { DiscourseEvent, Post } from "@danypops/discourse/types";
 import { Type } from "typebox";
 import { DEFAULT_AUTHOR_ID, DEFAULT_FORUM_ID, NATIVE_EVENT_LIMIT, NATIVE_QUERY_LIMIT } from "./constants.js";
 import type { NativeExtensionApi, NativeToolResult } from "./contracts.js";

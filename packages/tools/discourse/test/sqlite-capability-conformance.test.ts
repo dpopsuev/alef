@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discourseConformanceSuite } from "@dpopsuev/discourse-capability/conformance";
-import { InMemoryDiscourseSubscriptions } from "@dpopsuev/discourse-capability/memory-store";
-import { DiscourseService } from "@dpopsuev/discourse-capability/service";
+import { discourseConformanceSuite } from "@danypops/discourse/conformance";
+import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
+import { DiscourseService } from "@danypops/discourse/service";
 import { createClient } from "@libsql/client";
 import { afterAll } from "vitest";
 import { ensureDiscourseSchema } from "../src/ensure-schema.js";

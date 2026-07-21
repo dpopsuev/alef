@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@dpopsuev/discourse-capability/memory-store";
-import type { DiscourseProjection, DiscourseStore, DiscourseSubscription } from "@dpopsuev/discourse-capability/ports";
-import { DiscourseService } from "@dpopsuev/discourse-capability/service";
-import type { Post as CapabilityPost, DiscourseEvent, ProjectionStatus } from "@dpopsuev/discourse-capability/types";
+import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
+import type { DiscourseProjection, DiscourseStore, DiscourseSubscription } from "@danypops/discourse/ports";
+import { DiscourseService } from "@danypops/discourse/service";
+import type { Post as CapabilityPost, DiscourseEvent, ProjectionStatus } from "@danypops/discourse/types";
 import type { DiscourseBackend } from "./backend.js";
 import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 

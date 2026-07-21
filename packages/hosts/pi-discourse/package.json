@@ -9,7 +9,7 @@
   "files": ["src", "README.md"],
   "scripts": { "test": "vitest --run" },
   "dependencies": {
-    "@dpopsuev/discourse-capability": "workspace:*",
+    "@danypops/discourse": "workspace:*",
     "typebox": "^1.1.24"
   },
   "license": "MIT"

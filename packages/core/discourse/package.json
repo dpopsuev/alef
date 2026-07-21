@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/discourse-capability",
+  "name": "@danypops/discourse",
   "version": "0.1.0",
   "description": "Host-neutral append-only forum capability",
   "type": "module",

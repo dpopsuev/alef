@@ -1,6 +1,6 @@
+import type { DiscourseProjection } from "@danypops/discourse/ports";
+import type { Post, ProjectionRecord } from "@danypops/discourse/types";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import type { DiscourseProjection } from "@dpopsuev/discourse-capability/ports";
-import type { Post, ProjectionRecord } from "@dpopsuev/discourse-capability/types";
 
 /** Adapter-owned call into the external artifact projection API. */
 export type ScribeArtifactCall = (action: string, params: Record<string, unknown>) => Promise<string>;

@@ -8,7 +8,7 @@ import type {
 	ReadThreadQuery,
 	SnapshotQuery,
 	StoredAppendResult,
-} from "@dpopsuev/discourse-capability/ports";
+} from "@danypops/discourse/ports";
 import type {
 	AppendPostCommand,
 	ArtifactReference,
@@ -18,7 +18,7 @@ import type {
 	ProjectionRecord,
 	ThreadSummary,
 	TopicSummary,
-} from "@dpopsuev/discourse-capability/types";
+} from "@danypops/discourse/types";
 
 /** Authenticated operation boundary exposed by the durable Context Mesh service. */
 export interface PapyrusOperationCall {

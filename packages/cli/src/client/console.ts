@@ -212,18 +212,27 @@ export class PromptConsole {
 		this.lastThinkingText = "";
 		const tick = (): void => {
 			const elapsedMs = Date.now() - this.thinkingStart;
-			const elapsedS = fmtMs(Math.floor(elapsedMs / THINKING_ELAPSED_STEP_MS) * THINKING_ELAPSED_STEP_MS);
-			const frameIdx = Math.floor(elapsedMs / THINKING_FRAME_MS) % THINKING_FRAMES.length;
-			const frame = THINKING_FRAMES[frameIdx] ?? glyph("state:active");
-			const colorize = accentColorize(this.t.accentFg, elapsedMs);
-			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
-			const pad = " ".repeat(INDENT.BLOCK);
-			const text = `${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`;
-			if (text !== this.lastThinkingText) {
-				this.lastThinkingText = text;
-				this.statusText.setText(text);
+			const hasCards = this.inFlightCalls.size > 0;
+			if (hasCards) {
+				if (this.lastThinkingText !== "") {
+					this.lastThinkingText = "";
+					this.statusText.setText("");
+				}
 				this.refreshCards();
 				this.tui.requestRender();
+			} else {
+				const elapsedS = fmtMs(Math.floor(elapsedMs / THINKING_ELAPSED_STEP_MS) * THINKING_ELAPSED_STEP_MS);
+				const frameIdx = Math.floor(elapsedMs / THINKING_FRAME_MS) % THINKING_FRAMES.length;
+				const frame = THINKING_FRAMES[frameIdx] ?? glyph("state:active");
+				const colorize = accentColorize(this.t.accentFg, elapsedMs);
+				const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
+				const pad = " ".repeat(INDENT.BLOCK);
+				const text = `${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`;
+				if (text !== this.lastThinkingText) {
+					this.lastThinkingText = text;
+					this.statusText.setText(text);
+					this.tui.requestRender();
+				}
 			}
 			const level = this.pressure.level();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));

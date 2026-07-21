@@ -137,51 +137,46 @@ describe("compound tick efficiency", { tags: ["unit"] }, () => {
 		expect(refreshCount, `refreshCards called ${refreshCount} times with 0 in-flight calls (should be 0)`).toBe(0);
 	});
 
-	it("requestRender count scales with frame changes, not with card count", async () => {
+	it("render count does not grow with the number of in-flight cards", async () => {
 		vi.useFakeTimers();
 		const { tui, pc, cleanup } = setup();
 
-		// Scenario 1: thinking with 0 cards
-		let renders0 = 0;
+		// Scenario 1: thinking with 1 card
+		let renders1 = 0;
 		const orig0 = tui.requestRender.bind(tui);
 		tui.requestRender = (force?: boolean) => {
-			renders0++;
+			renders1++;
 			orig0(force);
 		};
 
 		pc.startThinking();
+		pc.showInFlightCall("a1", "agent.run", "a", {});
 		vi.advanceTimersByTime(500);
+		pc.removeInFlightCall("a1");
 		pc.stopThinking();
 
-		// Scenario 2: thinking with 3 cards
-		let renders3 = 0;
+		// Scenario 2: thinking with 5 cards
+		let renders5 = 0;
 		tui.requestRender = (force?: boolean) => {
-			renders3++;
+			renders5++;
 			orig0(force);
 		};
 
 		pc.startThinking();
-		pc.showInFlightCall("c1", "agent.run", "a", {});
-		pc.showInFlightCall("c2", "agent.run", "b", {});
-		pc.showInFlightCall("c3", "agent.run", "c", {});
+		for (let i = 0; i < 5; i++) pc.showInFlightCall(`b${i}`, "agent.run", String(i), {});
 		vi.advanceTimersByTime(500);
-		pc.removeInFlightCall("c1");
-		pc.removeInFlightCall("c2");
-		pc.removeInFlightCall("c3");
+		for (let i = 0; i < 5; i++) pc.removeInFlightCall(`b${i}`);
 		pc.stopThinking();
 		cleanup();
 
-		// The render count should be similar regardless of card count.
-		// The dirty-check gates on the composed status text, so adding cards
-		// shouldn't increase the number of renders (cards only change content,
-		// not the status text that gates the render).
-		//
-		// Allow 50% tolerance for card show/remove renders.
-		const ratio = renders3 / Math.max(1, renders0);
+		// Adding more cards should not multiply the render count.
+		// The tick fires at a fixed rate; more cards just means more work
+		// per tick, not more ticks. Allow headroom for show/remove renders.
+		const ratio = renders5 / Math.max(1, renders1);
 		expect(
 			ratio,
-			`render count ratio with 3 cards vs 0 cards: ${ratio.toFixed(1)}x (${renders3} vs ${renders0})`,
-		).toBeLessThan(3);
+			`render count ratio with 5 cards vs 1 card: ${ratio.toFixed(1)}x (${renders5} vs ${renders1})`,
+		).toBeLessThan(2);
 	});
 });
 

@@ -285,6 +285,7 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 	};
 
 	promptConsole.setTopicLabel(opts.discussion?.topicTitle ?? "");
+	promptConsole.onDispatch = (type) => dispatch({ type });
 
 	session.subscribe((event) => {
 		traceEvent("tui:observer", { eventType: event.type });

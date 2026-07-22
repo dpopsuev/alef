@@ -168,6 +168,12 @@ export function applyIntents(
 			case "cancel-tool-call":
 				ui.session.cancelToolCall?.(intent.callId, intent.name);
 				break;
+			case "thinking-tick":
+				promptConsole.tickThinking();
+				break;
+			case "toast-expired":
+				promptConsole.expireToast();
+				break;
 		}
 	}
 

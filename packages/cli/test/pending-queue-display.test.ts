@@ -132,6 +132,8 @@ describe("queued message display exclusivity", { tags: ["unit"] }, () => {
 					panel.setLength(keep);
 					return promoted;
 				},
+				tickThinking: vi.fn(),
+				expireToast: vi.fn(),
 				pulse: vi.fn(),
 				showPendingFooter: vi.fn(),
 				hidePendingFooter: vi.fn(),

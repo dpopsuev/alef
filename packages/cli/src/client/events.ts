@@ -25,7 +25,9 @@ export type InputEvent =
 	| { type: "inspector.cycle" }
 	| { type: "inspector.close" }
 	| { type: "inspector.scroll"; direction: -1 | 1 }
-	| { type: "inspector.cancel" };
+	| { type: "inspector.cancel" }
+	| { type: "thinking.tick" }
+	| { type: "toast.expired" };
 
 /** Union of agent-emitted events and TUI input events dispatched through the TUI state machine. */
 export type DispatchEvent = AgentEvent | InputEvent;
@@ -408,6 +410,16 @@ export function computeDispatch(
 
 	if (event.type === "inspector.scroll") {
 		return { state: handleInspectorScrollPure(state, intents, event.direction), intents };
+	}
+
+	if (event.type === "thinking.tick") {
+		intents.push({ kind: "thinking-tick" });
+		return { state, intents };
+	}
+
+	if (event.type === "toast.expired") {
+		intents.push({ kind: "toast-expired" });
+		return { state, intents };
 	}
 
 	// -- Agent event handlers ------------------------------------------------

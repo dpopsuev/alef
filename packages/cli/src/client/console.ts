@@ -122,6 +122,10 @@ export function prioritizeWidgetLines(lines: readonly string[], maxLines: number
 export class DockConsole {
 	readonly editor: Editor;
 
+	/** Callback invoked by timers to dispatch events through the intent system.
+	 *  Set by the wiring layer. Receives the event type to dispatch. */
+	onDispatch?: (type: "thinking.tick" | "toast.expired") => void;
+
 	private readonly statusText: Text;
 	private editorWrapper!: EditorChrome;
 	private thinkingStart = 0;
@@ -130,6 +134,11 @@ export class DockConsole {
 	private readonly pressure = new EventPressure();
 	private readonly tui: RenderHandle;
 	private readonly t: ThemeTokens;
+
+	/** Called by the timer instead of doing work directly. Set by wiring code to dispatch through the intent system. */
+	onTick?: () => void;
+	/** Called by toast expiry instead of calling requestRender directly. */
+	onToastExpired?: () => void;
 
 	private readonly pendingFooter: DynamicText;
 
@@ -157,6 +166,7 @@ export class DockConsole {
 	private focusedId: string | null = null;
 	private hintBar!: Text;
 	private intentText = "";
+	private pendingToastExpiry: Toast | null = null;
 	private readonly backgroundTaskPanel = new Text("", 0, 0);
 	private readonly backgroundTasks = new Map<
 		string,
@@ -225,20 +235,11 @@ export class DockConsole {
 		this.thinkingStart = Date.now();
 		this.lastThinkingText = "";
 		const tick = (): void => {
-			const hasCards = this.inFlightCalls.size > 0;
-			if (hasCards) {
-				if (this.lastThinkingText !== "") {
-					this.lastThinkingText = "";
-					this.statusText.setText("");
-				}
-				this.refreshCards();
-				this.tui.requestRender();
+			if (this.onDispatch) {
+				this.onDispatch("thinking.tick");
 			} else {
-				const prevText = this.lastThinkingText;
-				this.renderThinkingSpinner();
-				if (this.lastThinkingText !== prevText) {
-					this.tui.requestRender();
-				}
+				this.tickThinking();
+				this.tui.requestRender();
 			}
 			const level = this.pressure.level();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
@@ -469,11 +470,23 @@ export class DockConsole {
 				dim: (s) => color(s, this.t.mutedFg),
 			},
 			onExpire: () => {
-				this.widgetSlotBelow.removeChild(toast);
-				this.tui.requestRender();
+				this.pendingToastExpiry = toast;
+				if (this.onDispatch) {
+					this.onDispatch("toast.expired");
+				} else {
+					this.expireToast();
+					this.tui.requestRender();
+				}
 			},
 		});
 		this.widgetSlotBelow.addChild(toast);
+	}
+
+	expireToast(): void {
+		if (this.pendingToastExpiry) {
+			this.widgetSlotBelow.removeChild(this.pendingToastExpiry);
+			this.pendingToastExpiry = null;
+		}
 	}
 
 	showBackgroundTask(taskId: string, profile: string): void {
@@ -544,6 +557,20 @@ export class DockConsole {
 				running > 0 ? this.t.accentFg : this.t.mutedFg,
 			),
 		);
+	}
+
+	tickThinking(): void {
+		if (!this.isThinking) return;
+		const hasCards = this.inFlightCalls.size > 0;
+		if (hasCards) {
+			if (this.lastThinkingText !== "") {
+				this.lastThinkingText = "";
+				this.statusText.setText("");
+			}
+			this.refreshCards();
+		} else {
+			this.renderThinkingSpinner();
+		}
 	}
 
 	private renderThinkingSpinner(): void {

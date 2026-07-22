@@ -46,6 +46,8 @@ function noopUi() {
 			showBackgroundTask: () => {},
 			updateBackgroundTask: () => {},
 			syncPendingQueue: () => [],
+			tickThinking: () => {},
+			expireToast: () => {},
 		},
 		tui: { requestRender: () => {} },
 		t: {

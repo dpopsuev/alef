@@ -65,6 +65,8 @@ function makeMockUi(): DispatchPorts {
 			showBackgroundTask: vi.fn(),
 			updateBackgroundTask: vi.fn(),
 			syncPendingQueue: vi.fn(() => []),
+			tickThinking: vi.fn(),
+			expireToast: vi.fn(),
 		},
 		tui: { requestRender: vi.fn() } as unknown as DispatchPorts["tui"],
 		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as DispatchPorts["t"],

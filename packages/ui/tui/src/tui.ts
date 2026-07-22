@@ -956,7 +956,7 @@ export class TUI extends Container {
 		const prevScroll = this.previousScrollable;
 		const prevBodyRows = this.previousDockBodyRows;
 		const dockHeightChanged = prevBodyRows > 0 && prevBodyRows !== bodyRows;
-		if (!widthChanged && !heightChanged && prevBodyRows > 0 && prevScroll.length > 0) {
+		if (!widthChanged && !heightChanged && !dockHeightChanged && prevBodyRows > 0 && prevScroll.length > 0) {
 			const oldStart = Math.max(0, prevScroll.length - prevBodyRows);
 			const newStart = Math.max(0, scrollRegion.length - bodyRows);
 			if (newStart > oldStart) {

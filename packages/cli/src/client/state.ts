@@ -194,6 +194,10 @@ export interface DockConsolePort {
 	updateBackgroundTask(taskId: string, status: "completed" | "failed", detail?: string): void;
 	/** Returns texts drained from the panel head — caller should add them to scrollback. */
 	syncPendingQueue(opts: { queueLength: number; text?: string; mode?: "steer" | "followUp" | "nextTurn" }): string[];
+	/** Tick the thinking animation — update spinner text or card elapsed times. No requestRender. */
+	tickThinking(): void;
+	/** Handle toast expiration — remove the expired toast from the widget slot. No requestRender. */
+	expireToast(): void;
 }
 
 /** Composite of all UI components needed by the TUI event dispatcher. */

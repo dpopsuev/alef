@@ -290,6 +290,26 @@ export interface CancelToolCall {
 	readonly name: string;
 }
 
+/** Tick the thinking animation — updates card spinners or standalone spinner. */
+export interface ThinkingTick {
+	readonly kind: "thinking-tick";
+}
+
+/** Handle an expired toast — removes it from the widget slot. */
+export interface ToastExpired {
+	readonly kind: "toast-expired";
+}
+
+/** Tick the thinking animation — update spinner or card elapsed times. */
+export interface ThinkingTick {
+	readonly kind: "thinking-tick";
+}
+
+/** Handle an expired toast — remove it from the widget slot. */
+export interface ToastExpired {
+	readonly kind: "toast-expired";
+}
+
 // ---------------------------------------------------------------------------
 // Union type
 // ---------------------------------------------------------------------------
@@ -339,4 +359,6 @@ export type RenderIntent =
 	| UpdateBackgroundTask
 	| SyncPendingQueue
 	| SetTokenFooterText
-	| CancelToolCall;
+	| CancelToolCall
+	| ThinkingTick
+	| ToastExpired;

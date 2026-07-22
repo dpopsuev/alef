@@ -121,6 +121,7 @@ export class TuiViewMode implements ViewMode {
 		const { bootTuiShell, wireSession } = await import("../client/tui-shell.js");
 		const { getUiSignalHandlers, isCompacted } = await import("./session.js");
 		const { getRebootPort, getRestartStrategy } = await import("./reboot-port.js");
+		const { getConfig } = await import("./config.js");
 		const { traceEvent } = await import("@dpopsuev/alef-kernel/log");
 
 		const { BUILD_INFO } = await import("./build-info.js");
@@ -150,6 +151,7 @@ export class TuiViewMode implements ViewMode {
 				restartStrategy: getRestartStrategy(),
 				checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 				buildInfo: (await import("./build-info.js")).BUILD_INFO,
+				getConfig,
 			},
 		);
 

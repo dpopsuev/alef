@@ -2,7 +2,7 @@ import { buildModel, resolveProfile } from "@dpopsuev/alef-agent/model";
 import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { SettingsListTheme } from "@dpopsuev/alef-tui";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
-import { getConfig } from "../../boot/config.js";
+import type { AlefConfig } from "../../boot/config.js";
 import { color, getActiveThemeName, getProviderColor, setThemeByName } from "../theme.js";
 import { buildPickerTheme, openConfigPicker, openEnumPicker, openPicker } from "./overlay-picker.js";
 import { type Command, completeCommandArguments, type SettingsCmdCtx } from "./types.js";
@@ -15,8 +15,8 @@ const THEMES = ["terminal", "terminal-light", "akko", "mono", "matrix"] as const
 let activeProfileOverride: string | undefined;
 
 /** Get the active profile name (runtime override or config default). */
-export function getActiveProfile(): string | undefined {
-	return activeProfileOverride ?? getConfig().profile;
+export function getActiveProfile(cfg: AlefConfig): string | undefined {
+	return activeProfileOverride ?? cfg.profile;
 }
 
 /** Set the active profile at runtime (used by :profile command). */
@@ -48,9 +48,9 @@ export function buildSettingsTheme(ctx: SettingsCmdCtx): SettingsListTheme {
 }
 
 /** Build the list of selectable model items from the active profile or all providers. */
-function buildModelItems(): SelectItem[] {
-	const cfg = getConfig();
-	const activeName = getActiveProfile();
+function buildModelItems(ctx: SettingsCmdCtx): SelectItem[] {
+	const cfg = ctx.getConfig();
+	const activeName = getActiveProfile(cfg);
 	const profile = activeName ? resolveProfile({ ...cfg, profile: activeName }) : null;
 	const viaVertex = isAnthropicViaVertex();
 	const items: SelectItem[] = [];
@@ -88,7 +88,7 @@ function buildModelItems(): SelectItem[] {
 
 /** Create a searchable SelectList submenu for browsing and selecting an LLM model. */
 function buildModelSubmenu(currentValue: string, done: (value?: string) => void, ctx: SettingsCmdCtx) {
-	const items = buildModelItems().map((item) => ({
+	const items = buildModelItems(ctx).map((item) => ({
 		...item,
 		label: currentValue.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
 	}));
@@ -126,7 +126,7 @@ function buildThemeSubmenu(_currentValue: string, done: (value?: string) => void
 
 /** Create a profile picker submenu. */
 function buildProfileSubmenu(_currentValue: string, done: (value?: string) => void, ctx: SettingsCmdCtx) {
-	const cfg = getConfig();
+	const cfg = ctx.getConfig();
 	const names = cfg.profiles ? Object.keys(cfg.profiles) : [];
 	if (names.length === 0) {
 		ctx.writer.addNotice("No profiles defined in config.yaml.");
@@ -138,7 +138,7 @@ function buildProfileSubmenu(_currentValue: string, done: (value?: string) => vo
 			invalidate() {}
 		})();
 	}
-	const currentProfile = getActiveProfile();
+	const currentProfile = getActiveProfile(cfg);
 	const items: SelectItem[] = names.map((n) => {
 		const p = cfg.profiles?.[n];
 		const active = n === currentProfile;
@@ -219,7 +219,7 @@ function openModelPicker(ctx: SettingsCmdCtx): void {
 
 /** Open the unified settings overlay with all runtime settings. */
 function openSettingsOverlay(ctx: SettingsCmdCtx): void {
-	const cfg = getConfig();
+	const cfg = ctx.getConfig();
 	const profileNames = cfg.profiles ? Object.keys(cfg.profiles) : [];
 
 	const settingsItems: SettingItem[] = [
@@ -440,7 +440,7 @@ export const profile: Command = {
 	name: "profile",
 	description: "Switch model profile -- :profile or :profile <name>",
 	run(ctx: SettingsCmdCtx, args: string[]) {
-		const cfg = getConfig();
+		const cfg = ctx.getConfig();
 		const names = cfg.profiles ? Object.keys(cfg.profiles) : [];
 		if (names.length === 0) {
 			ctx.writer.addNotice("No profiles defined in config.yaml.");
@@ -484,7 +484,7 @@ export const profile: Command = {
 			return;
 		}
 
-		const currentProfile = getActiveProfile();
+		const currentProfile = getActiveProfile(cfg);
 		const items: SelectItem[] = [
 			{ value: "(none)", label: currentProfile ? "(none)" : "(none) *", description: "Show all models" },
 			...names.map((n) => {

@@ -24,7 +24,7 @@ import type { Args } from "./args.js";
 import { discoverBlueprints } from "./blueprints.js";
 import { createBootstrapper } from "./bootstrapper.js";
 import { BUILD_INFO } from "./build-info.js";
-import type { AlefConfig } from "./config.js";
+import { type AlefConfig, getConfig } from "./config.js";
 import { deriveDiscussionRef } from "./discussion.js";
 import type { CliFoundryRuntime } from "./foundry-runtime.js";
 import { getRebootPort, getRestartStrategy, setRebootPort } from "./reboot-port.js";
@@ -74,6 +74,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
 			restartTui,
 			buildInfo: BUILD_INFO,
+			getConfig,
 		};
 		wireSession(newShell, resolvedRef, wireDeps);
 		return Promise.resolve();
@@ -290,6 +291,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			restartTui,
 			restartSupervisor,
 			buildInfo: BUILD_INFO,
+			getConfig,
 			reloadAdapters: async (_names: string[]) => {
 				if (!sessionHandleRef) return;
 				for (const name of _names) {

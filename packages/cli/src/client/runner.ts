@@ -5,6 +5,7 @@ import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { type Editor, matchesKey, type SelectItem, type SelectList, type TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
+import type { AlefConfig } from "../boot/config.js";
 import { getRebootPort, getRestartStrategy, type RebootPort, type RestartStrategy } from "../boot/reboot-port.js";
 import type { BuildInfo, InteractiveOptions, RestartExecutor } from "./boot-types.js";
 import type { TuiHandlerContext } from "./commands/commands.js";
@@ -92,6 +93,7 @@ export function createContextFactory(
 	session: Session,
 	getState: () => DispatchState,
 	dispatch: (event: DispatchEvent) => void,
+	getConfig: () => AlefConfig,
 	store?: SessionStore,
 	editorRef?: Editor,
 	rebootPort?: RebootPort,
@@ -109,6 +111,7 @@ export function createContextFactory(
 			session,
 			store,
 			dispatch,
+			getConfig,
 			abortCurrentTurn: state.abortCurrentTurn,
 			setAbortCurrentTurn: (fn: (() => void) | undefined) =>
 				fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" }),

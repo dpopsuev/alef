@@ -307,6 +307,7 @@ export function wireSession(shell: TuiShell, resolved: ResolvedSession, deps: Wi
 		session,
 		() => tuiState,
 		dispatch,
+		deps.getConfig,
 		store,
 		editor,
 		deps.rebootPort,

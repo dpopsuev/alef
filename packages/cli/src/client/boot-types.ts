@@ -20,6 +20,7 @@ import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 import type { Editor, Terminal, ThemeTokens, TUI } from "@dpopsuev/alef-tui";
 import type { ChatLog, FooterPanel, OutputPanel, TuiStateStore } from "@dpopsuev/alef-tui/views";
+import type { AlefConfig } from "../boot/config.js";
 import type { TuiChrome } from "./chrome.js";
 import type { InputPanel } from "./panel.js";
 
@@ -209,4 +210,6 @@ export interface WireSessionDeps {
 	restartSupervisor?: () => Promise<void>;
 	/** Build metadata injected from boot layer. */
 	buildInfo?: BuildInfo;
+	/** Return the current AlefConfig (re-reads on each call). */
+	getConfig: () => AlefConfig;
 }

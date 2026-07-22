@@ -6,6 +6,7 @@ import type { AdapterManagementSession, Session } from "@dpopsuev/alef-session/c
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Editor } from "@dpopsuev/alef-tui";
 import type { ChatLog } from "@dpopsuev/alef-tui/views";
+import type { AlefConfig } from "../../boot/config.js";
 import type { BuildInfo, InteractiveOptions, RebootPort, RestartExecutor, RestartStrategy } from "../boot-types.js";
 import type { DispatchEvent } from "../events.js";
 import type { TaskLedgerEntry } from "../state.js";
@@ -40,6 +41,7 @@ export interface TuiHandlerContext {
 	restartStrategy?: RestartStrategy;
 	restartExecutor?: RestartExecutor;
 	buildInfo?: BuildInfo;
+	getConfig: () => AlefConfig;
 }
 
 /** Lifecycle commands: quit, detach, clear, session, help. */
@@ -62,7 +64,7 @@ export type MetaCmdCtx = Pick<TuiHandlerContext, "t" | "writer" | "tui" | "dispa
 /** Theme/model/think/profile/skills commands. */
 export type SettingsCmdCtx = Pick<
 	TuiHandlerContext,
-	"t" | "writer" | "tui" | "dispatch" | "session" | "opts" | "editor"
+	"t" | "writer" | "tui" | "dispatch" | "session" | "opts" | "editor" | "getConfig"
 >;
 
 /** Dock note commands. */

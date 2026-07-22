@@ -478,6 +478,244 @@ describe("dock reflow monotonicity", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 // 4. Streaming bodyRows stability — dock height must not oscillate during LLM reply
 // ---------------------------------------------------------------------------
+describe("spinner mutual exclusion", { tags: ["unit"] }, () => {
+	/**
+	 * Assert the invariant on every rendered frame: statusText and
+	 * inFlightQueue must never both produce visible content.
+	 *
+	 * The timer races with the intent system — both mutate statusText
+	 * and inFlightQueue, both call requestRender(). A settle-based test
+	 * either waits too long (timer fires, hides the bug) or too short
+	 * (timer hasn't fired, doesn't reproduce it). Hooking onRender
+	 * catches violations at the exact frame they occur.
+	 */
+	function assertExclusivityOnEveryFrame(tui: TUI, pc: DockConsole): { violations: string[]; detach: () => void } {
+		const violations: string[] = [];
+		const prev = tui.onRender;
+		tui.onRender = (frame, w, h) => {
+			const statusLines = (pc as any).statusText.render(w) as string[];
+			const cardLines = (pc as any).inFlightQueue.render(w) as string[];
+			const hasSpinner = statusLines.some((l: string) => l.trim().length > 0);
+			const hasCards = cardLines.some((l: string) => l.trim().length > 0);
+			if (hasSpinner && hasCards) {
+				violations.push(
+					`frame has both statusText (${statusLines.length} lines) and ` +
+						`inFlightQueue (${cardLines.length} lines) visible`,
+				);
+			}
+			prev?.(frame, w, h);
+		};
+		return {
+			violations,
+			detach: () => {
+				tui.onRender = prev;
+			},
+		};
+	}
+
+	it("statusText and inFlightQueue are never both visible in any frame", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+
+		const { violations, detach } = assertExclusivityOnEveryFrame(tui, pc);
+
+		// Cycle: add card, stream, remove card, stream — repeat
+		for (let cycle = 0; cycle < 3; cycle++) {
+			pc.showInFlightCall(`c${cycle}`, "shell.exec", `cmd${cycle}`, {});
+			tui.requestRender();
+			await settle(30);
+
+			for (let i = 0; i < 5; i++) {
+				chat.addChild(new Text(`stream_${cycle}_${i}`, 0, 0));
+				tui.requestRender();
+				await settle(15);
+			}
+
+			pc.removeInFlightCall(`c${cycle}`);
+			tui.requestRender();
+			await settle(30);
+
+			for (let i = 0; i < 5; i++) {
+				chat.addChild(new Text(`after_${cycle}_${i}`, 0, 0));
+				tui.requestRender();
+				await settle(15);
+			}
+		}
+
+		detach();
+		pc.stopThinking();
+		cleanup();
+
+		expect(
+			violations.length,
+			`spinner mutual exclusion violated in ${violations.length} frame(s):\n${violations.slice(0, 5).join("\n")}`,
+		).toBe(0);
+	});
+
+	it("exclusivity holds during rapid card add/remove with no settling", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 24);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+
+		const { violations, detach } = assertExclusivityOnEveryFrame(tui, pc);
+
+		// Rapid fire — no settle between add/remove
+		for (let i = 0; i < 10; i++) {
+			pc.showInFlightCall(`r${i}`, "fs.read", `file${i}`, {});
+			tui.requestRender();
+		}
+		await settle(50);
+
+		for (let i = 0; i < 10; i++) {
+			pc.removeInFlightCall(`r${i}`);
+			tui.requestRender();
+		}
+		await settle(200);
+
+		detach();
+		pc.stopThinking();
+		cleanup();
+
+		expect(
+			violations.length,
+			`spinner mutual exclusion violated in ${violations.length} frame(s):\n${violations.slice(0, 5).join("\n")}`,
+		).toBe(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 5. Streaming bodyRows stability
+// ---------------------------------------------------------------------------
+describe("spinner mutual exclusion", { tags: ["unit"] }, () => {
+	/**
+	 * The invariant: statusText (standalone thinking spinner) and inFlightQueue
+	 * (agent card spinners) must never both produce visible output in the same
+	 * rendered frame. Assert this at render time, on every frame, so timing
+	 * cannot hide the race.
+	 */
+	function assertSpinnerExclusion(
+		pc: DockConsole,
+		tui: TUI,
+		_chat: Container,
+		durationMs: number,
+		scenario: () => Promise<void>,
+	): Promise<{ frames: number; violations: string[] }> {
+		return new Promise((resolve) => {
+			const violations: string[] = [];
+			let frames = 0;
+			const origOnRender = tui.onRender;
+
+			tui.onRender = (frame, w, _h) => {
+				frames++;
+				const statusLines = (pc as any).statusText.render(w) as string[];
+				const cardLines = (pc as any).inFlightQueue.render(w) as string[];
+				const statusHasContent = statusLines.some((l: string) => l.trim().length > 0);
+				const cardsHaveContent = cardLines.some((l: string) => l.trim().length > 0);
+				if (statusHasContent && cardsHaveContent) {
+					violations.push(`frame ${frames}: statusText and inFlightQueue both rendered content`);
+				}
+				origOnRender?.(frame, w, _h);
+			};
+
+			scenario().then(async () => {
+				await new Promise<void>((r) => setTimeout(r, durationMs));
+				tui.onRender = origOnRender;
+				resolve({ frames, violations });
+			});
+		});
+	}
+
+	it("statusText and cards are never both visible during tool lifecycle", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 30);
+
+		for (let i = 0; i < 5; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+
+		const { frames, violations } = await assertSpinnerExclusion(pc, tui, chat, 500, async () => {
+			// Add card while spinner is running
+			pc.showInFlightCall("c1", "shell.exec", "test", { command: "npm test" });
+			tui.requestRender();
+			await settle(100);
+
+			// Stream some content
+			for (let i = 0; i < 5; i++) {
+				chat.addChild(new Text(`STREAM_${i}`, 0, 0));
+				tui.requestRender();
+				await settle(20);
+			}
+
+			// Remove card
+			pc.removeInFlightCall("c1");
+			tui.requestRender();
+			await settle(100);
+
+			// Add another card
+			pc.showInFlightCall("c2", "fs.read", "file", { path: "/tmp" });
+			tui.requestRender();
+			await settle(100);
+
+			// Remove it
+			pc.removeInFlightCall("c2");
+			tui.requestRender();
+		});
+
+		expect(frames).toBeGreaterThan(5);
+		expect(
+			violations,
+			`spinner mutual exclusion violated in ${violations.length} of ${frames} frames:\n${violations.join("\n")}`,
+		).toHaveLength(0);
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("rapid card add/remove never produces dual-spinner frames", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 30);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+
+		const { frames, violations } = await assertSpinnerExclusion(pc, tui, chat, 300, async () => {
+			for (let cycle = 0; cycle < 10; cycle++) {
+				pc.showInFlightCall(`c${cycle}`, "shell.exec", `cmd${cycle}`, {});
+				tui.requestRender();
+				// No settle — immediate remove to maximize race window
+				pc.removeInFlightCall(`c${cycle}`);
+				tui.requestRender();
+			}
+		});
+
+		expect(frames).toBeGreaterThan(0);
+		expect(
+			violations,
+			`dual-spinner in ${violations.length} of ${frames} frames:\n${violations.join("\n")}`,
+		).toHaveLength(0);
+
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 5. Streaming bodyRows stability — dock height must not oscillate during LLM reply
+// ---------------------------------------------------------------------------
 describe("streaming bodyRows stability", { tags: ["unit"] }, () => {
 	it("bodyRows does not oscillate during simulated LLM streaming", async () => {
 		const { tui, pc, chat, cleanup } = setup(80, 30);

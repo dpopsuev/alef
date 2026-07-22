@@ -517,6 +517,46 @@ describe("scrollback integrity during dock height changes", { tags: ["unit"] }, 
 		cleanup();
 	});
 
+	it("archived lines contain no dock content during dock height changes", async () => {
+		const { tui, pc, chat, writes, cleanup } = setup(80, 16);
+
+		pc.editor.setText(EDITOR_TAG);
+		pc.setStatus(STATUS_TAG);
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+		writes.length = 0;
+
+		// Overflow while adding/removing cards — dock height changes repeatedly
+		for (let i = 0; i < 20; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			if (i === 5) pc.showInFlightCall("c1", "shell.exec", "test", {});
+			if (i === 10) pc.removeInFlightCall("c1");
+			if (i === 15) pc.showInFlightCall("c2", "fs.read", "file", {});
+			tui.requestRender();
+			await settle(20);
+		}
+
+		pc.removeInFlightCall("c2");
+		for (let i = 20; i < 40; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		const archived = extractArchivePayloads(writes);
+		expect(archived.length).toBeGreaterThan(0);
+
+		const archivedText = archived.join("\n");
+		expect(archivedText).toContain(CHAT_TAG);
+		expect(archivedText).not.toContain(EDITOR_TAG);
+		expect(archivedText).not.toContain(FOOTER_TAG);
+		expect(archivedText).not.toContain(STATUS_TAG);
+
+		pc.stopThinking();
+		cleanup();
+	});
+
 	it("archived lines survive card add/remove during streaming", async () => {
 		const { tui, pc, chat, writes, cleanup } = setup(80, 16);
 

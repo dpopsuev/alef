@@ -557,7 +557,15 @@ function getModelMatchCandidates(modelId: string, modelName?: string): string[] 
  */
 function supportsAdaptiveThinking(modelId: string, modelName?: string): boolean {
 	const candidates = getModelMatchCandidates(modelId, modelName);
-	return candidates.some((s) => s.includes("opus-4-6") || s.includes("opus-4-7") || s.includes("sonnet-4-6"));
+	return candidates.some(
+		(s) =>
+			s.includes("opus-4-6") ||
+			s.includes("opus-4-7") ||
+			s.includes("opus-4-8") ||
+			s.includes("sonnet-4-6") ||
+			s.includes("sonnet-5") ||
+			s.includes("fable-5"),
+	);
 }
 
 /**

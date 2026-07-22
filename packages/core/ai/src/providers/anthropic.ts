@@ -151,6 +151,7 @@ function getAnthropicCompat(model: Model<"anthropic-messages">): Required<Anthro
 	return {
 		supportsEagerToolInputStreaming: model.compat?.supportsEagerToolInputStreaming ?? true,
 		supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? true,
+		forceAdaptiveThinking: model.compat?.forceAdaptiveThinking ?? false,
 	};
 }
 
@@ -160,17 +161,17 @@ function getAnthropicCompat(model: Model<"anthropic-messages">): Required<Anthro
 export interface AnthropicOptions extends StreamOptions {
 	/**
 	 * Enable extended thinking.
-	 * For Opus 4.6 and Sonnet 4.6: uses adaptive thinking (model decides when/how much to think).
+	 * For models with `compat.forceAdaptiveThinking`: uses adaptive thinking (model decides when/how much to think).
 	 * For older models: uses budget-based thinking with thinkingBudgetTokens.
 	 */
 	thinkingEnabled?: boolean;
 	/**
 	 * Token budget for extended thinking (older models only).
-	 * Ignored for Opus 4.6 and Sonnet 4.6, which use adaptive thinking.
+	 * Ignored for models with `compat.forceAdaptiveThinking`, which use adaptive thinking.
 	 */
 	thinkingBudgetTokens?: number;
 	/**
-	 * Effort level for adaptive thinking (Opus 4.6+ and Sonnet 4.6).
+	 * Effort level for adaptive thinking (models with `compat.forceAdaptiveThinking`).
 	 * Controls how much thinking Claude allocates:
 	 * - "max": Always thinks with no constraints (Opus 4.6 only)
 	 * - "xhigh": Highest reasoning level (Opus 4.7)
@@ -855,21 +856,6 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 };
 
 /**
- * Check if a model supports adaptive thinking (Opus 4.6+, Sonnet 4.6)
- */
-function supportsAdaptiveThinking(modelId: string): boolean {
-	// Adaptive-thinking model IDs (with or without date suffix)
-	return (
-		modelId.includes("opus-4-6") ||
-		modelId.includes("opus-4.6") ||
-		modelId.includes("opus-4-7") ||
-		modelId.includes("opus-4.7") ||
-		modelId.includes("sonnet-4-6") ||
-		modelId.includes("sonnet-4.6")
-	);
-}
-
-/**
  * Map ThinkingLevel to Anthropic effort levels for adaptive thinking.
  * Note: effort "max" is only valid on Opus 4.6, while Opus 4.7 supports "xhigh".
  */
@@ -914,9 +900,8 @@ export const streamSimpleAnthropic: StreamFunction<
 		return streamAnthropic(model, context, { ...base, thinkingEnabled: false, isVertex } satisfies AnthropicOptions);
 	}
 
-	// For Opus 4.6 and Sonnet 4.6: use adaptive thinking with effort level
-	// For older models: use budget-based thinking
-	if (supportsAdaptiveThinking(model.id)) {
+	// Adaptive-thinking models use an effort level; older models use budget-based thinking.
+	if (model.compat?.forceAdaptiveThinking === true) {
 		const effort = mapThinkingLevelToEffort(model, options.reasoning);
 		return streamAnthropic(model, context, {
 			...base,
@@ -960,9 +945,9 @@ function createClient(
 	optionsHeaders?: Record<string, string>,
 	dynamicHeaders?: Record<string, string>,
 ): { client: Anthropic; isOAuthToken: boolean } {
-	// Adaptive thinking models (Opus 4.6, Sonnet 4.6) have interleaved thinking built-in.
-	// The beta header is deprecated on Opus 4.6 and redundant on Sonnet 4.6, so skip it.
-	const needsInterleavedBeta = interleavedThinking && !supportsAdaptiveThinking(model.id);
+	// Adaptive-thinking models have interleaved thinking built-in; the beta header is
+	// deprecated/redundant for them, so skip it.
+	const needsInterleavedBeta = interleavedThinking && model.compat?.forceAdaptiveThinking !== true;
 	const betaFeatures: string[] = [];
 	if (useFineGrainedToolStreamingBeta) {
 		betaFeatures.push(FINE_GRAINED_TOOL_STREAMING_BETA);
@@ -1132,7 +1117,7 @@ function applyThinkingConfig(
 	// older Claude 4 models (whose API default is also "summarized").
 	const display: AnthropicThinkingDisplay = options.thinkingDisplay ?? "summarized";
 
-	if (!supportsAdaptiveThinking(model.id)) {
+	if (model.compat?.forceAdaptiveThinking !== true) {
 		// Budget-based thinking for older models
 		params.thinking = {
 			type: "enabled",
@@ -1209,7 +1194,7 @@ function buildParams(
 		);
 	}
 
-	// Configure thinking mode: adaptive (Opus 4.6+ and Sonnet 4.6),
+	// Configure thinking mode: adaptive (compat.forceAdaptiveThinking),
 	// budget-based (older models), or explicitly disabled.
 	applyThinkingConfig(params, model, options);
 

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
 import { streamSimple } from "../src/stream.js";
-import type { Api, Context, Model, SimpleStreamOptions } from "../src/types.js";
+import type { AnthropicMessagesCompat, Api, Context, Model, SimpleStreamOptions } from "../src/types.js";
+
+/** Narrow a generic Model's compat to the Anthropic shape for test assertions. */
+function forceAdaptiveThinking(model: Model<Api>): boolean | undefined {
+	if (model.api !== "anthropic-messages") return undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- api checked above; compat's conditional type isn't narrowed by control flow
+	return (model.compat as AnthropicMessagesCompat | undefined)?.forceAdaptiveThinking;
+}
 
 interface AnthropicThinkingPayload {
 	thinking?: { type: string; budget_tokens?: number; display?: string };
@@ -137,6 +144,51 @@ describe("Anthropic thinking disable payload", { tags: ["unit"] }, () => {
 
 		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
 		expect(payload.output_config).toEqual({ effort: "xhigh" });
+	});
+
+	it("uses adaptive thinking for Claude Sonnet 5 when reasoning is enabled", async () => {
+		const sonnet5: Model<Api> = { ...getModel("anthropic", "claude-opus-4-7")!, id: "claude-sonnet-5" };
+		const payload = await capturePayload(sonnet5, { reasoning: "high" });
+
+		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
+		expect(payload.output_config).toEqual({ effort: "high" });
+	});
+
+	it("uses adaptive thinking for Claude Opus 4.8 when reasoning is enabled", async () => {
+		const opus48: Model<Api> = { ...getModel("anthropic", "claude-opus-4-7")!, id: "claude-opus-4-8" };
+		const payload = await capturePayload(opus48, { reasoning: "high" });
+
+		expect(payload.thinking).toEqual({ type: "adaptive", display: "summarized" });
+		expect(payload.output_config).toEqual({ effort: "high" });
+	});
+});
+
+describe("Adaptive thinking flag assignment", { tags: ["unit"] }, () => {
+	it("sets compat.forceAdaptiveThinking on the bundled snapshot for Claude Opus 4.7", () => {
+		const model = getModel("anthropic", "claude-opus-4-7")!;
+		expect(forceAdaptiveThinking(model)).toBe(true);
+	});
+
+	it("sets compat.forceAdaptiveThinking when merging a live models.dev entry for Claude Sonnet 5", async () => {
+		const { mergeModelsDevEntries } = await import("../src/models/models-snapshot.js");
+		const registry = new Map<string, Map<string, Model<Api>>>();
+
+		mergeModelsDevEntries(registry, [{ id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5" }]);
+
+		const merged = registry.get("anthropic")?.get("claude-sonnet-5");
+		expect(merged).toBeDefined();
+		expect(forceAdaptiveThinking(merged!)).toBe(true);
+	});
+
+	it("does not set compat.forceAdaptiveThinking for a non-adaptive model merged live", async () => {
+		const { mergeModelsDevEntries } = await import("../src/models/models-snapshot.js");
+		const registry = new Map<string, Map<string, Model<Api>>>();
+
+		mergeModelsDevEntries(registry, [{ id: "anthropic/claude-sonnet-4-5", name: "Claude Sonnet 4.5" }]);
+
+		const merged = registry.get("anthropic")?.get("claude-sonnet-4-5");
+		expect(merged).toBeDefined();
+		expect(forceAdaptiveThinking(merged!)).toBeUndefined();
 	});
 });
 

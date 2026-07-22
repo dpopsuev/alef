@@ -35,6 +35,29 @@ const PROVIDER_URL: Record<string, string> = {
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 const DEFAULT_MAX_TOKENS = 8_192;
 
+/**
+ * Whether an Anthropic model id requires adaptive thinking
+ * (`thinking.type: "adaptive"` + `output_config.effort`) instead of the
+ * legacy budget-based format. Single source of truth for the
+ * `compat.forceAdaptiveThinking` flag set on every anthropic Model this
+ * module produces -- see mapEntry() and buildRegistryFromSnapshot() below.
+ */
+export function isAnthropicAdaptiveThinkingModel(modelId: string): boolean {
+	return (
+		modelId.includes("opus-4-6") ||
+		modelId.includes("opus-4.6") ||
+		modelId.includes("opus-4-7") ||
+		modelId.includes("opus-4.7") ||
+		modelId.includes("opus-4-8") ||
+		modelId.includes("opus-4.8") ||
+		modelId.includes("sonnet-4-6") ||
+		modelId.includes("sonnet-4.6") ||
+		modelId.includes("sonnet-5") ||
+		modelId.includes("sonnet.5") ||
+		modelId.includes("fable-5")
+	);
+}
+
 /** Map a models.dev entry to provider + Model, or null if unparseable. */
 function mapEntry(entry: ModelsDevEntry): { provider: string; model: Model<Api> } | null {
 	const slashIdx = entry.id.indexOf("/");
@@ -65,6 +88,9 @@ function mapEntry(entry: ModelsDevEntry): { provider: string; model: Model<Api> 
 			},
 			contextWindow: entry.limit?.context ?? DEFAULT_CONTEXT_WINDOW,
 			maxTokens: entry.limit?.output ?? DEFAULT_MAX_TOKENS,
+			...(provider === "anthropic" && isAnthropicAdaptiveThinkingModel(modelId)
+				? { compat: { forceAdaptiveThinking: true } }
+				: {}),
 		},
 	};
 }
@@ -103,7 +129,13 @@ export function buildRegistryFromSnapshot(): Map<string, Map<string, Model<Api>>
 		const providerModels = new Map<string, Model<Api>>();
 		for (const [id, model] of Object.entries(models)) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generated MODELS entries conform to Model<Api>
-			providerModels.set(id, model as Model<Api>);
+			const typed = model as Model<Api>;
+			providerModels.set(
+				id,
+				provider === "anthropic" && isAnthropicAdaptiveThinkingModel(id)
+					? { ...typed, compat: { ...typed.compat, forceAdaptiveThinking: true } }
+					: typed,
+			);
 		}
 		registry.set(provider, providerModels);
 	}

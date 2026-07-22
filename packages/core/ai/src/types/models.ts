@@ -86,6 +86,8 @@ export interface AnthropicMessagesCompat {
 	supportsEagerToolInputStreaming?: boolean;
 	/** Whether the provider supports Anthropic long cache retention (`cache_control.ttl: "1h"`). Default: true. */
 	supportsLongCacheRetention?: boolean;
+	/** Force adaptive thinking (`thinking.type: "adaptive"` + `output_config.effort`) regardless of model id heuristics. Default: false. */
+	forceAdaptiveThinking?: boolean;
 }
 
 /**

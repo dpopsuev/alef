@@ -476,7 +476,97 @@ describe("dock reflow monotonicity", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Streaming bodyRows stability — dock height must not oscillate during LLM reply
+// 4. Scrollback integrity — lines must not be lost during dock height changes
+// ---------------------------------------------------------------------------
+describe("scrollback integrity during dock height changes", { tags: ["unit"] }, () => {
+	it("archived lines are not lost when dock height changes during streaming", async () => {
+		const { tui, pc, chat, writes, cleanup } = setup(80, 16);
+
+		pc.editor.setText(EDITOR_TAG);
+
+		tui.requestRender(true);
+		await settle();
+		writes.length = 0;
+
+		pc.startThinking();
+
+		// Overflow viewport — lines must be archived even if dock height changes
+		for (let i = 0; i < 30; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		await settle(300);
+
+		for (let i = 30; i < 50; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		const archived = extractArchivePayloads(writes);
+		expect(archived.length, "should have archived lines").toBeGreaterThan(0);
+
+		const archivedText = archived.join("\n");
+		for (let i = 0; i < 20; i++) {
+			expect(archivedText, `${CHAT_TAG}${i} must be in scrollback`).toContain(`${CHAT_TAG}${i}`);
+		}
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("archived lines survive card add/remove during streaming", async () => {
+		const { tui, pc, chat, writes, cleanup } = setup(80, 16);
+
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+		tui.requestRender(true);
+		await settle(200);
+		writes.length = 0;
+
+		for (let i = 0; i < 15; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		pc.showInFlightCall("c1", "shell.exec", "test", {});
+		tui.requestRender();
+		await settle(50);
+
+		for (let i = 15; i < 30; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		pc.removeInFlightCall("c1");
+		tui.requestRender();
+		await settle(50);
+
+		for (let i = 30; i < 45; i++) {
+			chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+			tui.requestRender();
+			await settle(15);
+		}
+
+		const archived = extractArchivePayloads(writes);
+		expect(archived.length, "should have archived lines").toBeGreaterThan(0);
+
+		const archivedText = archived.join("\n");
+		for (let i = 0; i < 10; i++) {
+			expect(archivedText, `${CHAT_TAG}${i} must survive card lifecycle`).toContain(`${CHAT_TAG}${i}`);
+		}
+
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 5. Streaming bodyRows stability — dock height must not oscillate during LLM reply
 // ---------------------------------------------------------------------------
 describe("spinner mutual exclusion", { tags: ["unit"] }, () => {
 	/**

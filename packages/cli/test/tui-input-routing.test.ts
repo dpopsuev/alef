@@ -48,6 +48,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		dispatch: vi.fn(),
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
+		getConfig: () => ({}),
 		...overrides,
 	};
 }

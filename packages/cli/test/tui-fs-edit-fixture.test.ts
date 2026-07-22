@@ -76,6 +76,7 @@ function testDeps(): WireSessionDeps {
 		signalHandlers: new Map(),
 		isCompacted: () => false,
 		checkForUpdate: async () => null,
+		getConfig: () => ({}),
 	};
 }
 

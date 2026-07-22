@@ -88,6 +88,7 @@ describe("Bootstrapper integration", { tags: ["unit"] }, () => {
 			pickSession: async () => stubSelection(),
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,
@@ -132,6 +133,7 @@ describe("Bootstrapper integration", { tags: ["unit"] }, () => {
 			pickSession: async () => stubSelection(),
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,
@@ -162,6 +164,7 @@ describe("Bootstrapper integration", { tags: ["unit"] }, () => {
 				throw new Error("adapter load failed");
 			},
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,

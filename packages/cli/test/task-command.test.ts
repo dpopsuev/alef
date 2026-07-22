@@ -12,6 +12,7 @@ function makeContext(taskCount = 1): TuiHandlerContext {
 		dispatch,
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
+		getConfig: () => ({}),
 		taskLedger:
 			taskCount === 0
 				? []

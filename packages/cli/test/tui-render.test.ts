@@ -75,6 +75,7 @@ async function startTui(
 			rebootPort: getRebootPort(),
 			restartStrategy: getRestartStrategy(),
 			checkForUpdate: () => Promise.resolve(null),
+			getConfig: () => ({}),
 		},
 	);
 

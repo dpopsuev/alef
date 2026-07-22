@@ -101,6 +101,7 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
 		dispatch: vi.fn(),
 		abortCurrentTurn: undefined as (() => void) | undefined,
 		setAbortCurrentTurn: vi.fn(),
+		getConfig: () => ({}),
 		...overrides,
 	};
 }

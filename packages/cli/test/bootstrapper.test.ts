@@ -233,6 +233,7 @@ describe("createBootstrapper", { tags: ["unit"] }, () => {
 			pickSession: async () => stubSelection(),
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,
@@ -269,6 +270,7 @@ describe("createBootstrapper", { tags: ["unit"] }, () => {
 			pickSession: async () => stubSelection(),
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,
@@ -299,6 +301,7 @@ describe("createBootstrapper", { tags: ["unit"] }, () => {
 			pickSession: async () => stubSelection(),
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,
@@ -330,6 +333,7 @@ describe("createBootstrapper", { tags: ["unit"] }, () => {
 			},
 			resolveSession: async () => stubResolved(),
 			getDeps: () => ({
+				getConfig: () => ({}),
 				signalHandlers: new Map(),
 				isCompacted: () => false,
 				checkForUpdate: async () => null,

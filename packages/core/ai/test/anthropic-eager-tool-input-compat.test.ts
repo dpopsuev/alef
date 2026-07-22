@@ -22,7 +22,10 @@ function createModel(baseUrl: string, compat?: Model<"anthropic-messages">["comp
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 200000,
 		maxTokens: 32000,
-		compat,
+		// This fixture models a real Claude Opus 4.7, which requires adaptive
+		// thinking; production code now reads that off compat instead of
+		// inferring it from the id, so the fixture must set it explicitly.
+		compat: { forceAdaptiveThinking: true, ...compat },
 	};
 }
 

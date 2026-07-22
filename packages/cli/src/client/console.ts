@@ -225,7 +225,6 @@ export class DockConsole {
 		this.thinkingStart = Date.now();
 		this.lastThinkingText = "";
 		const tick = (): void => {
-			const elapsedMs = Date.now() - this.thinkingStart;
 			const hasCards = this.inFlightCalls.size > 0;
 			if (hasCards) {
 				if (this.lastThinkingText !== "") {
@@ -235,16 +234,9 @@ export class DockConsole {
 				this.refreshCards();
 				this.tui.requestRender();
 			} else {
-				const elapsedS = fmtMs(Math.floor(elapsedMs / THINKING_ELAPSED_STEP_MS) * THINKING_ELAPSED_STEP_MS);
-				const frameIdx = Math.floor(elapsedMs / THINKING_FRAME_MS) % THINKING_FRAMES.length;
-				const frame = THINKING_FRAMES[frameIdx] ?? glyph("state:active");
-				const colorize = accentColorize(this.t.accentFg, elapsedMs);
-				const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
-				const pad = " ".repeat(INDENT.BLOCK);
-				const text = `${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`;
-				if (text !== this.lastThinkingText) {
-					this.lastThinkingText = text;
-					this.statusText.setText(text);
+				const prevText = this.lastThinkingText;
+				this.renderThinkingSpinner();
+				if (this.lastThinkingText !== prevText) {
 					this.tui.requestRender();
 				}
 			}
@@ -408,6 +400,7 @@ export class DockConsole {
 			this.chunkAccumulators.delete(callId);
 			if (this.inFlightCalls.size === 0 && this.isThinking) {
 				this.editor.clearGhostHint();
+				this.renderThinkingSpinner();
 			}
 			this.refreshCards();
 		}
@@ -551,6 +544,19 @@ export class DockConsole {
 				running > 0 ? this.t.accentFg : this.t.mutedFg,
 			),
 		);
+	}
+
+	private renderThinkingSpinner(): void {
+		const elapsedMs = Date.now() - this.thinkingStart;
+		const elapsedS = fmtMs(Math.floor(elapsedMs / THINKING_ELAPSED_STEP_MS) * THINKING_ELAPSED_STEP_MS);
+		const frameIdx = Math.floor(elapsedMs / THINKING_FRAME_MS) % THINKING_FRAMES.length;
+		const frame = THINKING_FRAMES[frameIdx] ?? glyph("state:active");
+		const colorize = accentColorize(this.t.accentFg, elapsedMs);
+		const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
+		const pad = " ".repeat(INDENT.BLOCK);
+		const text = `${pad}${colorize(frame)} ${colorize(elapsedS)}${intent}`;
+		this.lastThinkingText = text;
+		this.statusText.setText(text);
 	}
 
 	private refreshCards(): void {

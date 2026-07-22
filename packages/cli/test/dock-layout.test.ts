@@ -476,7 +476,238 @@ describe("dock reflow monotonicity", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Dock stability
+// 4. Streaming bodyRows stability — dock height must not oscillate during LLM reply
+// ---------------------------------------------------------------------------
+describe("streaming bodyRows stability", { tags: ["unit"] }, () => {
+	it("bodyRows does not oscillate during simulated LLM streaming", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 30);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+
+		tui.requestRender(true);
+		await settle(200);
+
+		// Capture dock heights across renders during streaming.
+		const dockHeights: number[] = [];
+		const origOnRender = tui.onRender;
+		tui.onRender = (frame, w, h) => {
+			const dockH = partition(tui, chat, w).dock.length;
+			dockHeights.push(dockH);
+			origOnRender?.(frame, w, h);
+		};
+
+		// Simulate 40 LLM streaming chunks adding to scroll region
+		for (let i = 0; i < 40; i++) {
+			chat.addChild(new Text(`streaming_chunk_${i}`, 0, 0));
+			tui.requestRender();
+			await settle(20);
+		}
+
+		tui.onRender = origOnRender;
+		pc.stopThinking();
+		cleanup();
+
+		// After the first render establishes the dock height, it must never change
+		// during pure streaming (no card add/remove, no editor resize).
+		expect(dockHeights.length).toBeGreaterThan(1);
+		const stableDockHeight = dockHeights[0]!;
+		for (let i = 1; i < dockHeights.length; i++) {
+			expect(
+				dockHeights[i],
+				`dock height oscillated at render ${i}: [${dockHeights.slice(Math.max(0, i - 2), i + 2).join(", ")}]`,
+			).toBe(stableDockHeight);
+		}
+	});
+
+	it("bodyRows does not oscillate during streaming + tool call lifecycle", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 30);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+
+		tui.requestRender(true);
+		await settle(200);
+
+		// Phase 1: Stream with no cards — capture baseline dock height
+		const phase1Heights: number[] = [];
+		tui.onRender = () => {
+			phase1Heights.push(partition(tui, chat, 80).dock.length);
+		};
+
+		for (let i = 0; i < 10; i++) {
+			chat.addChild(new Text(`stream_before_card_${i}`, 0, 0));
+			tui.requestRender();
+			await settle(20);
+		}
+		await settle(200);
+
+		const baselineDock = phase1Heights[phase1Heights.length - 1]!;
+
+		// Phase 2: Add card — dock grows. Capture new stable height.
+		pc.showInFlightCall("c1", "shell.exec", "test", {});
+		await settle(200);
+
+		const phase2Heights: number[] = [];
+		tui.onRender = () => {
+			phase2Heights.push(partition(tui, chat, 80).dock.length);
+		};
+
+		for (let i = 0; i < 10; i++) {
+			chat.addChild(new Text(`stream_with_card_${i}`, 0, 0));
+			tui.requestRender();
+			await settle(20);
+		}
+		await settle(200);
+
+		// During streaming WITH a card, dock height must be stable.
+		// Height may equal baseline (card replaces statusText spinner line)
+		// or be larger (card adds lines beyond the replaced spinner).
+		const withCardDock = phase2Heights[phase2Heights.length - 1]!;
+		expect(withCardDock).toBeGreaterThanOrEqual(baselineDock);
+		for (const h of phase2Heights) {
+			expect(h, "dock height must not oscillate while card is showing").toBe(withCardDock);
+		}
+
+		// Phase 3: Remove card — start capturing IMMEDIATELY, no settle.
+		// This catches the transient frame where the card is gone but
+		// statusText hasn't been restored by the timer yet.
+		const phase3Heights: number[] = [];
+		tui.onRender = () => {
+			phase3Heights.push(partition(tui, chat, 80).dock.length);
+		};
+
+		pc.removeInFlightCall("c1");
+		// DO NOT settle here — we want to capture the immediate post-removal frame
+
+		for (let i = 0; i < 10; i++) {
+			chat.addChild(new Text(`stream_after_card_${i}`, 0, 0));
+			tui.requestRender();
+			await settle(20);
+		}
+		await settle(200);
+
+		// After timer stabilization, dock must return to baseline
+		const afterCardDock = phase3Heights[phase3Heights.length - 1]!;
+		expect(afterCardDock, "dock must return to baseline after card removal").toBe(baselineDock);
+
+		// Dock height must not oscillate during this phase — the key invariant.
+		// If removeInFlightCall does not restore statusText synchronously,
+		// there's a 1-frame gap where dock is 1 line shorter (card gone,
+		// statusText still empty), then the timer fires and restores it.
+		// That gap causes bodyRows to jump, which makes scrollback jitter.
+		for (const h of phase3Heights) {
+			expect(h, "dock height must not oscillate after card removal").toBe(afterCardDock);
+		}
+
+		tui.onRender = undefined;
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("removeInFlightCall restores statusText synchronously (no 1-frame dock gap)", () => {
+		const { pc, cleanup } = setup(80, 30);
+
+		pc.startThinking();
+
+		// Manually trigger a timer tick to populate statusText
+		// (accessing private thinkingTimer is fragile; instead wait)
+		// We use a synchronous check: force statusText to have content by
+		// directly calling the public API sequence.
+
+		// Simulate: statusText has spinner content (1 line)
+		(pc as any).statusText.setText("spinner placeholder");
+		(pc as any).lastThinkingText = "spinner placeholder";
+		const beforeCard = (pc as any).statusText.render(80).length;
+		expect(beforeCard, "statusText should be 1 line before card").toBe(1);
+
+		// Add card — statusText cleared synchronously (0 lines)
+		pc.showInFlightCall("c1", "shell.exec", "test", {});
+		const afterAdd = (pc as any).statusText.render(80).length;
+		expect(afterAdd, "statusText should be 0 lines after card add").toBe(0);
+
+		// Remove card — statusText must be restored synchronously (1 line)
+		// THIS IS THE BUG: removeInFlightCall does NOT restore statusText,
+		// leaving a 1-frame gap where dock is 1 line shorter.
+		pc.removeInFlightCall("c1");
+		const afterRemove = (pc as any).statusText.render(80).length;
+		expect(
+			afterRemove,
+			"statusText must be restored synchronously on last card removal to prevent dock height oscillation",
+		).toBe(1);
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("dock height must not drop transiently after card removal", async () => {
+		const { tui, pc, chat, cleanup } = setup(80, 30);
+
+		for (let i = 0; i < 3; i++) chat.addChild(new Text(`${CHAT_TAG}${i}`, 0, 0));
+		pc.editor.setText(EDITOR_TAG);
+		pc.startThinking();
+
+		tui.requestRender(true);
+		await settle(200);
+
+		const baselineDock = partition(tui, chat, 80).dock.length;
+
+		// Add card — dock should stay same (showInFlightCall clears statusText)
+		pc.showInFlightCall("c1", "shell.exec", "test", {});
+
+		// Check SYNCHRONOUSLY — no settle, no timer tick
+		const immediateAfterAdd = partition(tui, chat, 80).dock.length;
+		expect(
+			immediateAfterAdd,
+			"dock must not change transiently after card add (statusText should be cleared synchronously)",
+		).toBe(baselineDock);
+
+		await settle(200);
+
+		// Remove card — this is where the bug lives.
+		// If removeInFlightCall does NOT restore statusText synchronously,
+		// dock is 1 line shorter until the next timer tick.
+		const heightBeforeRemoval = partition(tui, chat, 80).dock.length;
+		pc.removeInFlightCall("c1");
+
+		// Check SYNCHRONOUSLY — no settle, no timer tick
+		const immediateAfterRemove = partition(tui, chat, 80).dock.length;
+		expect(
+			immediateAfterRemove,
+			"dock must not drop transiently after card removal — " +
+				`was ${heightBeforeRemoval} before, got ${immediateAfterRemove} immediately after. ` +
+				"removeInFlightCall must restore statusText synchronously when last card is removed",
+		).toBe(heightBeforeRemoval);
+
+		pc.stopThinking();
+		cleanup();
+	});
+
+	it("statusText line count is stable between timer ticks during streaming", async () => {
+		const { pc, cleanup } = setup(80, 30);
+
+		pc.startThinking();
+		await settle(200);
+
+		// statusText should be 1 line (spinner) and stay 1 line
+		const lineCountBefore = (pc as any).statusText.render(80).length;
+		expect(lineCountBefore, "statusText should be 1 line during thinking").toBe(1);
+
+		// Wait several timer ticks
+		await settle(500);
+
+		const lineCountAfter = (pc as any).statusText.render(80).length;
+		expect(lineCountAfter, "statusText line count must not change between ticks").toBe(lineCountBefore);
+
+		pc.stopThinking();
+		cleanup();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// 5. Dock stability
 // ---------------------------------------------------------------------------
 describe("dock stability", { tags: ["unit"] }, () => {
 	it("dock line count does not change when only chat grows", async () => {

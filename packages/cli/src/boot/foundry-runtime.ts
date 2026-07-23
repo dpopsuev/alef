@@ -39,6 +39,13 @@ export interface CliApplicationServicesOptions {
 	storage: StorageFactory;
 	identity?: IdentityContext;
 	reloadAdapters?: () => Promise<AdapterLoadResult>;
+	/**
+	 * Whether to also register the Foundry-managed "tui" service (views.ts's
+	 * selectViewMode/TuiViewMode). Callers that already own TUI presentation
+	 * directly (the interactive Bootstrapper path) should pass false to avoid
+	 * a redundant second view-mode registration. Default: true.
+	 */
+	registerTui?: boolean;
 }
 
 /** CLI-specific Foundry facade above raw register/start/stop orchestration. */
@@ -100,7 +107,9 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 				}),
 			);
 			foundry.register(createAgentServiceDescriptor({ args: opts.args, cfg: opts.cfg, storage: opts.storage }));
-			foundry.register(createTuiServiceDescriptor({ args: opts.args, store: opts.store }));
+			if (opts.registerTui ?? true) {
+				foundry.register(createTuiServiceDescriptor({ args: opts.args, store: opts.store }));
+			}
 		},
 	};
 }

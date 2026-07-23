@@ -10,6 +10,7 @@
 import { dirname } from "node:path";
 import { resolveStartupModel } from "@dpopsuev/alef-agent/model";
 import { initSessionSink, traceEvent } from "@dpopsuev/alef-kernel/log";
+import type { AdapterManagementSession } from "@dpopsuev/alef-session/contracts";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { isTermDark } from "is-term-dark";
@@ -28,7 +29,8 @@ import { type AlefConfig, getConfig } from "./config.js";
 import { deriveDiscussionRef } from "./discussion.js";
 import type { CliFoundryRuntime } from "./foundry-runtime.js";
 import { getRebootPort, getRestartStrategy, setRebootPort } from "./reboot-port.js";
-import { buildIdentityContext, createLocalSession, getUiSignalHandlers, isCompacted } from "./session.js";
+import { buildIdentityContext, getUiSignalHandlers, isCompacted } from "./session.js";
+import type { SessionService } from "./session-service.js";
 
 /** Dependencies for the TUI boot path. */
 export interface TuiBootDeps {
@@ -51,10 +53,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 
 	let shellRef: TuiShell | null = null;
 	let resolvedRef: ResolvedSession | null = null;
-	let sessionHandleRef: {
-		unloadAdapter(name: string): boolean;
-		reloadAdapter(name: string, path: string): Promise<void>;
-	} | null = null;
+	let sessionHandleRef: Partial<AdapterManagementSession> | null = null;
 
 	const restartSupervisor = async (): Promise<void> => {
 		await runtime.stop();
@@ -66,19 +65,39 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 		shellRef.tui.stop();
 		const newShell = bootTuiShell({ cwd: args.cwd, buildInfo: BUILD_INFO });
 		shellRef = newShell;
-		const wireDeps: WireSessionDeps = {
-			signalHandlers: getUiSignalHandlers(),
-			isCompacted,
-			rebootPort: getRebootPort(),
-			restartStrategy: getRestartStrategy(),
-			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
-			restartTui,
-			buildInfo: BUILD_INFO,
-			getConfig,
-		};
-		wireSession(newShell, resolvedRef, wireDeps);
+		wireSession(newShell, resolvedRef, buildWireSessionDeps());
 		return Promise.resolve();
 	};
+
+	/**
+	 * Build the full WireSessionDeps object -- the single source of truth for
+	 * both the initial cold-boot wire (getDeps) and every warm restart
+	 * (restartTui), so a restart can never hand the TUI an incomplete deps set.
+	 */
+	const buildWireSessionDeps = (): WireSessionDeps => ({
+		signalHandlers: getUiSignalHandlers(),
+		isCompacted,
+		rebootPort: getRebootPort(),
+		restartStrategy: getRestartStrategy(),
+		checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
+		restartTui,
+		restartSupervisor,
+		buildInfo: BUILD_INFO,
+		getConfig,
+		reloadAdapters: async (_names: string[]) => {
+			if (!sessionHandleRef) return;
+			for (const name of _names) {
+				sessionHandleRef.unloadAdapter?.(name);
+			}
+			// Full adapter reload via the runtime's registered reload callback
+			const { foundry } = runtime;
+			const sessionSvc = foundry.get("session");
+			if (sessionSvc && "reboot" in sessionSvc) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'reboot' in check
+				await (sessionSvc as unknown as { reboot(): Promise<void> }).reboot();
+			}
+		},
+	});
 
 	const handle = createBootstrapper({
 		cwd: args.cwd,
@@ -215,7 +234,10 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 				});
 			}
 
-			// Register application services
+			// Register application services. registerTui: false -- this Bootstrapper
+			// already owns TUI presentation directly (createShell/wireSession below),
+			// so the Foundry-managed "tui" service (views.ts's TuiViewMode) would
+			// only be redundant here.
 			runtime.registerApplicationServices({
 				args,
 				cfg,
@@ -225,6 +247,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 				model,
 				storage,
 				identity,
+				registerTui: false,
 				reloadAdapters: () => {
 					const reloadArgs = {
 						...args,
@@ -252,11 +275,18 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 				terminalPalette,
 			);
 
-			// Start Foundry services
+			// Start Foundry services -- this is what actually assembles the session
+			// (agent, adapters, LLM), via the "session" service registered above.
+			// Pull the result from Foundry rather than assembling it again directly,
+			// so createLocalSession() runs exactly once per boot.
 			await runtime.start();
 
-			// Create the local session (agent, adapters, LLM)
-			const result = await createLocalSession(args, cfg, log, store, loaded, model, storage, identity);
+			const sessionSvc = runtime.get("session");
+			if (!sessionSvc || !("session" in sessionSvc)) {
+				throw new Error("Session service failed to start");
+			}
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
+			const result = sessionSvc as unknown as SessionService;
 
 			sessionHandleRef = result.session;
 
@@ -282,30 +312,7 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 			wireSession(shell, resolved, wireDeps);
 		},
 
-		getDeps: () => ({
-			signalHandlers: getUiSignalHandlers(),
-			isCompacted,
-			rebootPort: getRebootPort(),
-			restartStrategy: getRestartStrategy(),
-			checkForUpdate: () => import("./version-check.js").then((m) => m.checkForUpdate()),
-			restartTui,
-			restartSupervisor,
-			buildInfo: BUILD_INFO,
-			getConfig,
-			reloadAdapters: async (_names: string[]) => {
-				if (!sessionHandleRef) return;
-				for (const name of _names) {
-					sessionHandleRef.unloadAdapter(name);
-				}
-				// Full adapter reload via the runtime's registered reload callback
-				const { foundry } = runtime;
-				const sessionSvc = foundry.get("session");
-				if (sessionSvc && "reboot" in sessionSvc) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'reboot' in check
-					await (sessionSvc as unknown as { reboot(): Promise<void> }).reboot();
-				}
-			},
-		}),
+		getDeps: () => buildWireSessionDeps(),
 	});
 
 	await handle.done;

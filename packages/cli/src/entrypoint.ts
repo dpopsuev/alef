@@ -13,6 +13,7 @@ import "@dpopsuev/alef-factory-agent";
 
 import { dirname } from "node:path";
 import { resolveStartupModel, setModelConfigProvider } from "@dpopsuev/alef-agent/model";
+import { discoverDaemons } from "@dpopsuev/alef-foundry";
 import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
@@ -111,15 +112,17 @@ if (args.replay !== undefined) {
 
 if (args.listDaemons) {
 	const storage = await runtime.getStorage();
-	const store = storage.daemonRegistry();
-	await store.prune();
-	const entries = await store.list();
-	if (entries.length === 0) {
+	// Foundry is the registry of services; a sibling daemon is just one more
+	// service kind. Discovering registers each live sibling as a plain
+	// ManagedService on runtime.foundry — the same registry storage/session/
+	// tui/agent-delegation/children live in — not a parallel API surface.
+	const daemons = await discoverDaemons(runtime.foundry, storage.daemonRegistry(), { cwd: args.cwd });
+	if (daemons.length === 0) {
 		console.log("No running daemons.");
 	} else {
-		for (const e of entries) {
-			const age = Math.round((Date.now() - e.startedAt) / 1000);
-			console.log(`  ${e.sessionId}  pid=${e.pid}  port=${e.port}  cwd=${e.cwd}  age=${age}s`);
+		for (const d of daemons) {
+			const age = Math.round((Date.now() - d.startedAt) / 1000);
+			console.log(`  ${d.sessionId}  pid=${d.pid}  port=${d.port}  cwd=${d.cwd}  age=${age}s`);
 		}
 	}
 	await runtime.stop();
@@ -128,19 +131,20 @@ if (args.listDaemons) {
 
 if (args.killDaemon !== undefined) {
 	const storage = await runtime.getStorage();
-	const store = storage.daemonRegistry();
-	const entry = await store.get(args.killDaemon);
+	const daemons = await discoverDaemons(runtime.foundry, storage.daemonRegistry(), { cwd: args.cwd });
+	const entry = daemons.find((d) => d.sessionId === args.killDaemon);
 	if (!entry) {
 		console.error(`No daemon found with session ID: ${args.killDaemon}`);
 		process.exit(1);
 	}
-	try {
-		process.kill(entry.pid, "SIGTERM");
-		console.log(`Sent SIGTERM to daemon ${entry.sessionId} (pid ${entry.pid})`);
-	} catch {
-		console.error(`Daemon ${entry.sessionId} (pid ${entry.pid}) is not running.`);
-	}
-	await store.unregister(entry.sessionId);
+	// stopService() routes through the same ManagedService.stop() contract
+	// every other Foundry service uses — kill-the-pid-and-unregister is an
+	// implementation detail of that one service's stop(), not a special path
+	// the CLI hand-rolls. Supervisor.stop() swallows stop() errors (matching
+	// every other service's lifecycle), so this can no longer distinguish
+	// "signal sent" from "was already dead" — both converge on "stopped".
+	await runtime.foundry.stopService(entry.sessionId);
+	console.log(`Stopped daemon ${entry.sessionId} (pid ${entry.pid})`);
 	await runtime.stop();
 	process.exit(0);
 }

@@ -1,3 +1,9 @@
+export {
+	createDaemonServiceDescriptor,
+	discoverDaemons,
+	isDaemonAlive,
+} from "./daemon-registry.js";
+export type { DaemonDiscoveryHost, DaemonRegistrySource, DiscoverableDaemon } from "./daemon-registry.js";
 export { defineAdapterService } from "./adapter-service.js";
 export type { AdapterServiceContext, AdapterServiceDefinition } from "./adapter-service.js";
 export { createBuildServiceDescriptor, createBootloaderDescriptor } from "./bootloader.js";

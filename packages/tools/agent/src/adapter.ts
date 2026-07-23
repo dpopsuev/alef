@@ -31,7 +31,7 @@ import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, RunDescriptor, TaskSnapshot, WorkContext } from "@dpopsuev/alef-kernel/execution";
-import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
+import { createFoundryRuntime, type FoundryServiceHost } from "@dpopsuev/alef-foundry";
 import { z } from "zod";
 import { AsyncQueue } from "./async-queue.js";
 import {
@@ -76,6 +76,15 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	profilePrompts?: Record<string, string>;
 	/** Supervisor for service lifecycle. When set, strategy resolution falls through to supervisor before the global registry. */
 	supervisor?: { strategy(name: string): ExecutionStrategy | undefined };
+	/**
+	 * Platform's own Foundry service host. When set, spawned children register
+	 * here instead of a private, disconnected Foundry runtime this adapter
+	 * would otherwise create for itself — so foundry.names() at the platform
+	 * level can see spawned children (list/health/stop), not just this
+	 * adapter's own bookkeeping.
+	 */
+	serviceHost?: FoundryServiceHost;
+
 	/** Subagent factory for ad-hoc sessions with custom adapters/prompt/model. */
 	subagentFactory?: (opts: {
 		adapters: readonly Adapter[];
@@ -112,10 +121,12 @@ export function createAgentAdapter(
 	const factory = opts.subagentFactory;
 	let mountedBus: Bus | null = null;
 
-	const childRuntime = createFoundryRuntime({
-		cwd: opts.cwd ?? process.cwd(),
-		logger: opts.logger,
-	});
+	// Only set when no serviceHost was injected — this adapter then owns the
+	// runtime's whole lifecycle (including shutting it down on unmount).
+	// When a serviceHost IS injected, it's the platform's shared Supervisor;
+	// unmount must stop only this adapter's own children, never the platform.
+	const ownRuntime = opts.serviceHost ? undefined : createFoundryRuntime({ cwd: opts.cwd ?? process.cwd(), logger: opts.logger });
+	const childRuntime: FoundryServiceHost = opts.serviceHost ?? ownRuntime!;
 
 	const deps: ChildLifecycleDeps = {
 		cwd: opts.cwd ?? process.cwd(),
@@ -922,7 +933,17 @@ export function createAgentAdapter(
 			onUnmount: () => {
 				mountedBus = null;
 				deps.publishInnerSignal = undefined;
-				void childRuntime.stop();
+				if (ownRuntime) {
+					void ownRuntime.stop();
+					return;
+				}
+				// Shared platform host: stop only this adapter's own children
+				// (strategies also holds non-child profile strategy names like
+				// "explore"/"general" — filter to the child-* names spawnChild uses).
+				for (const name of strategies.keys()) {
+					if (!name.startsWith("child-")) continue;
+					void childRuntime.stopService(name).catch(() => {});
+				}
 			},
 			contributions: {
 				"context.assemble": taskContextStage,

@@ -23,6 +23,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
+import { service as agentToolService } from "@dpopsuev/alef-tool-agent";
 import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
@@ -207,6 +208,53 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 
 		await supervisor.startAll({ cwd });
 
+		expect(registered).toBe(true);
+	}, 15_000);
+
+	it("the CLI's permanent 'agent' service still starts when tools/agent's delegation service resolves first", async () => {
+		// Reproduces the boot order in entrypoint.ts / boot-tui.ts: loadAdapters()
+		// resolves the blueprint's "agent" tool adapter through Foundry (which
+		// registers-and-starts tools/agent's transient "agent" ServiceDescriptor)
+		// BEFORE registerApplicationServices() registers the CLI's own permanent
+		// "agent" ServiceDescriptor (daemon registration + heartbeat). Both
+		// descriptors share the literal name "agent" in Supervisor's single flat
+		// namespace.
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const { opts } = makeSessionOpts(cwd, store);
+		opts.args = { ...opts.args, daemon: true, serve: 0 };
+
+		let registered = false;
+		const daemonStorage: StorageFactory = {
+			...STUB_STORAGE,
+			daemonRegistry: () => ({
+				register: async () => {
+					registered = true;
+				},
+				unregister: async () => {},
+				heartbeat: async () => {},
+				get: async () => undefined,
+				list: async () => [],
+				findByCwd: async () => undefined,
+				findLatest: async () => undefined,
+				prune: async () => 0,
+			}),
+		};
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
+
+		// Simulate loadAdapters() claiming "agent" first, exactly as it does today.
+		await supervisor.getOrStart(agentToolService, { cwd });
+
+		// The platform's own permanent "agent" service registers second.
+		supervisor.register(createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage }));
+
+		await supervisor.startAll({ cwd });
+
+		// This must be true for --daemon/--list/--attach to work when the
+		// blueprint also loads the "agent" tool adapter (the default case).
 		expect(registered).toBe(true);
 	}, 15_000);
 

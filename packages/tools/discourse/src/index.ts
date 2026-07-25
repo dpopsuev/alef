@@ -4,15 +4,23 @@ export {
 	type DiscourseAdapterOptions,
 } from "./adapter.js";
 export type { DiscourseBackend } from "./backend.js";
-export { ensureDiscourseSchema } from "./ensure-schema.js";
-export { InMemoryDiscourseStore } from "./memory-store.js";
 export {
-	maybeMirrorToScribe,
-	openDiscourseBackend,
-	type OpenDiscourseBackendOptions,
-} from "./open-backend.js";
-export { service } from "./service.js";
-export { ScribeDiscourseMirror, type ScribeArtifactCall } from "./scribe-backend.js";
-export { SqliteDiscourseStore } from "./sqlite-store.js";
+	CapabilityDiscourseBackend,
+	CapabilityDiscourseBackend as InMemoryDiscourseStore,
+} from "./capability-backend.js";
+export { ensureDiscourseSchema } from "./ensure-schema.js";
 export { createHttpScribeArtifactCall, scribeCallFromEnv } from "./http-scribe-call.js";
+export {
+	type OpenDiscourseBackendOptions,
+	openDiscourseBackend,
+	openInMemoryDiscourseBackend,
+} from "./open-backend.js";
+export {
+	PapyrusArtifactReferenceVerifier,
+	PapyrusDiscourseStore,
+	type PapyrusOperationCall,
+} from "./papyrus-store.js";
+export { type ScribeArtifactCall, ScribeDiscourseProjection } from "./scribe-projection.js";
+export { service } from "./service.js";
+export { SqliteCapabilityDiscourseStore } from "./sqlite-capability-store.js";
 export type { Post, ThreadInfo, TopicSummary } from "./types.js";

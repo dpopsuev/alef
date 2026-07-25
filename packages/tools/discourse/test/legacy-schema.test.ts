@@ -4,7 +4,7 @@
  * Boot → context.assemble → readNewPosts → SQLITE_ERROR: no such column: id → process exit.
  */
 
-import { createClient, type Client } from "@libsql/client";
+import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDiscourseAdapter } from "../src/adapter.js";
 import { ensureDiscourseSchema } from "../src/ensure-schema.js";

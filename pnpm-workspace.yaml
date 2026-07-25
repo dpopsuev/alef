@@ -1,6 +1,7 @@
 packages:
   - packages/cli
   - packages/core/*
+  - packages/hosts/*
   - packages/tools/*
   - packages/ui/*
   - packages/profiles/*

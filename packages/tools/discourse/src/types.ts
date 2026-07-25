@@ -3,6 +3,9 @@
  */
 export interface PostWriteOptions {
 	readonly replyToPostId?: string;
+	readonly operationId?: string;
+	readonly correlationId?: string;
+	readonly causationId?: string;
 }
 
 /**

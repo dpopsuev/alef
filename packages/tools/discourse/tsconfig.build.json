@@ -20,6 +20,9 @@
 	],
 	"references": [
 		{
+			"path": "../../core/discourse/tsconfig.build.json"
+		},
+		{
 			"path": "../../core/foundry/tsconfig.build.json"
 		},
 		{

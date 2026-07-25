@@ -1,8 +1,7 @@
 import { defineAdapterService } from "@dpopsuev/alef-foundry";
 import { getDatabase } from "@dpopsuev/alef-storage/sqlite/database";
 import { createDiscourseAdapter } from "./adapter.js";
-import { InMemoryDiscourseStore } from "./memory-store.js";
-import { openDiscourseBackend } from "./open-backend.js";
+import { openDiscourseBackend, openInMemoryDiscourseBackend } from "./open-backend.js";
 
 export const service = defineAdapterService({
 	name: "discourse",
@@ -16,7 +15,7 @@ export const service = defineAdapterService({
 			: undefined;
 		if (!sessionId) {
 			return createDiscourseAdapter({
-				backend: new InMemoryDiscourseStore(),
+				backend: openInMemoryDiscourseBackend({ logger: opts.logger }),
 				logger: opts.logger,
 				actorAddress: opts.actorAddress,
 				ignoredThread,

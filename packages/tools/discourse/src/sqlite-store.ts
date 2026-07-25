@@ -6,7 +6,10 @@ import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.j
 /**
  *
  */
-function resolveReplyMeta(existing: readonly Post[], opts?: PostWriteOptions): Pick<Post, "replyToPostId" | "references"> {
+function resolveReplyMeta(
+	existing: readonly Post[],
+	opts?: PostWriteOptions,
+): Pick<Post, "replyToPostId" | "references"> {
 	if (!opts?.replyToPostId) return { replyToPostId: undefined, references: [] };
 	const parent = existing.find((post) => post.id === opts.replyToPostId);
 	return {
@@ -49,7 +52,13 @@ export class SqliteDiscourseStore implements DiscourseBackend {
 		this.sessionId = sessionId;
 	}
 
-	async append(topic: string, thread: string, author: string, content: unknown, opts?: PostWriteOptions): Promise<Post> {
+	async append(
+		topic: string,
+		thread: string,
+		author: string,
+		content: unknown,
+		opts?: PostWriteOptions,
+	): Promise<Post> {
 		const replyMeta = resolveReplyMeta(await this.readThread(topic, thread), opts);
 		const post: Post = {
 			id: randomUUID(),
@@ -107,7 +116,7 @@ export class SqliteDiscourseStore implements DiscourseBackend {
 			sql: "SELECT DISTINCT topic FROM discourse_posts WHERE session_id = ?",
 			args: [this.sessionId],
 		});
-		return result.rows.map((r) => typeof r.topic === "string" ? r.topic : "");
+		return result.rows.map((r) => (typeof r.topic === "string" ? r.topic : ""));
 	}
 
 	async listThreads(topic: string): Promise<string[]> {
@@ -115,7 +124,7 @@ export class SqliteDiscourseStore implements DiscourseBackend {
 			sql: "SELECT DISTINCT thread FROM discourse_posts WHERE session_id = ? AND topic = ?",
 			args: [this.sessionId, topic],
 		});
-		return result.rows.map((r) => typeof r.thread === "string" ? r.thread : "");
+		return result.rows.map((r) => (typeof r.thread === "string" ? r.thread : ""));
 	}
 
 	async threadInfo(topic: string, thread: string): Promise<ThreadInfo> {

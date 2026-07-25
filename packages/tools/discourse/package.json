@@ -11,6 +11,7 @@
     }
   },
   "dependencies": {
+    "@danypops/discourse": "workspace:*",
     "@dpopsuev/alef-foundry": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-storage": "workspace:*",

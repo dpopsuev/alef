@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import type { CompiledBlueprintArtifact } from "@dpopsuev/alef-blueprint/artifact";
 import {
 	findAgentDefinitionPath,
 	loadAgentDefinition,
@@ -11,14 +12,14 @@ import {
 	DEFAULT_COMPILED_DEFINITION,
 	loadUserAdaptersConfig,
 	type MaterializerOptions,
-	materializeBlueprint,
+	materializeBlueprintArtifact,
 } from "@dpopsuev/alef-blueprint/materializer";
 import type { AgentDefinitionSurfaceInput, CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
 import { resolveAdapterPath } from "../pkg/alef-pm.js";
 import type { Args } from "./args.js";
-import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprints.js";
+import { resolveBlueprint } from "./blueprints.js";
 import type { AlefConfig } from "./config.js";
 
 const require = createRequire(import.meta.url);
@@ -61,6 +62,8 @@ export interface AdapterLoadResult {
 	blueprintUpgradePolicy: "rebuild_only" | "packages" | "self";
 	blueprintPath: string | undefined;
 	writableRoots: readonly string[] | undefined;
+	/** The one immutable, hashed record of exactly what this agent is: versions, permissions, budgets, command ownership. */
+	artifact: CompiledBlueprintArtifact;
 }
 
 /** Map registry stack names to their published package blueprint.yaml export. */
@@ -87,6 +90,43 @@ function baseDefinitionForRegistry(name: string | undefined): CompiledAgentDefin
 		if (yamlPath) return loadAgentDefinition(yamlPath);
 	}
 	return CODING_AGENT_BLUEPRINT;
+}
+
+/** Materialize a resolved definition into the one AdapterLoadResult shape, artifact included. */
+async function materializeResult(
+	definition: CompiledAgentDefinition,
+	blueprintPath: string | undefined,
+	blueprintName: string | undefined,
+	args: Args,
+	cfg: AlefConfig,
+	log: Logger,
+	sessionDir: string | undefined,
+	writableRoots: readonly string[] | undefined,
+	extra: Pick<MaterializerOptions, "resolveService" | "discussion" | "sessionId"> & { actorAddress?: string },
+): Promise<AdapterLoadResult> {
+	const { result, artifact } = await materializeBlueprintArtifact(definition, {
+		cwd: args.cwd,
+		sessionDir,
+		loggerFor: (name) => log.child({ adapter: name }),
+		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
+		writableRoots,
+		resolveExternalPath: resolveAdapterPath,
+		resolveService: extra.resolveService,
+		actorAddress: extra.actorAddress,
+		discussion: extra.discussion,
+		sessionId: extra.sessionId,
+	});
+
+	return {
+		adapters: result.adapters,
+		blueprintModelId: result.modelId,
+		blueprintName: blueprintName ?? definition.name,
+		blueprintSurfaces: definition.surfaces,
+		blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
+		blueprintPath,
+		writableRoots,
+		artifact,
+	};
 }
 
 /** Discover and materialize adapters from a blueprint, CLI args, or user defaults. */
@@ -120,24 +160,11 @@ export async function loadAdapters(
 			blueprintPath = resolveRegistryBlueprintYaml(resolved) ?? resolveRegistryBlueprintYaml(args.blueprint);
 			log.info({ blueprint: args.blueprint, path: blueprintPath }, "blueprint:registry-selected");
 		}
-	} else if (!args.print && !args.json && process.stdin.isTTY) {
-		const discovered = discoverBlueprints();
-		if (discovered.length > 1) {
-			const chosen = await pickBlueprint(discovered);
-			if (!chosen) process.exit(0);
-			blueprintName = chosen.name;
-			const { existsSync } = await import("node:fs");
-			if (existsSync(chosen.path)) {
-				blueprintPath = chosen.path;
-				explicitYamlFile = true;
-			} else {
-				registrySelected = true;
-				blueprintPath = resolveRegistryBlueprintYaml(chosen.name);
-				log.info({ blueprint: chosen.name, path: blueprintPath }, "blueprint:selected");
-			}
-		}
 	}
 
+	// Explicit resolution chain: --blueprint (path or registry name) > workspace agent.yaml
+	// (as an overlay on the built-in coding profile) > built-in coding alone. No implicit
+	// discovery across the whole blueprint registry, and never an interactive prompt.
 	const overlayPath = findAgentDefinitionPath(args.cwd);
 
 	let definition: CompiledAgentDefinition | undefined;
@@ -170,52 +197,21 @@ export async function loadAdapters(
 			}
 		}
 
-		const materialized = await materializeBlueprint(definition, {
-			cwd: args.cwd,
-			sessionDir,
-			loggerFor: (name) => log.child({ adapter: name }),
-			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-			writableRoots,
-			resolveExternalPath: resolveAdapterPath,
-			resolveService: extra.resolveService,
-			actorAddress: extra.actorAddress,
-			discussion: extra.discussion,
-			sessionId: extra.sessionId,
-		});
-
-		return {
-			adapters: materialized.adapters,
-			blueprintModelId: materialized.modelId,
-			blueprintName: blueprintName ?? definition.name,
-			blueprintSurfaces: definition.surfaces,
-			blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
+		return materializeResult(
+			definition,
 			blueprintPath,
+			blueprintName,
+			args,
+			cfg,
+			log,
+			sessionDir,
 			writableRoots,
-		};
+			extra,
+		);
 	}
 
 	if (definition) {
-		const materialized = await materializeBlueprint(definition, {
-			cwd: args.cwd,
-			sessionDir,
-			loggerFor: (name) => log.child({ adapter: name }),
-			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-			writableRoots,
-			resolveExternalPath: resolveAdapterPath,
-			resolveService: extra.resolveService,
-			actorAddress: extra.actorAddress,
-			discussion: extra.discussion,
-			sessionId: extra.sessionId,
-		});
-		return {
-			adapters: materialized.adapters,
-			blueprintModelId: materialized.modelId,
-			blueprintName: blueprintName ?? definition.name,
-			blueprintSurfaces: definition.surfaces,
-			blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
-			blueprintPath: undefined,
-			writableRoots,
-		};
+		return materializeResult(definition, undefined, blueprintName, args, cfg, log, sessionDir, writableRoots, extra);
 	}
 
 	const userAdapters = loadUserAdaptersConfig();
@@ -223,26 +219,17 @@ export async function loadAdapters(
 		? { ...DEFAULT_COMPILED_DEFINITION, adapters: userAdapters }
 		: DEFAULT_COMPILED_DEFINITION;
 	if (userAdapters) log.info({ count: userAdapters.length }, "loaded user adapters config");
-	const defaultMaterialized = await materializeBlueprint(fallback, {
-		cwd: args.cwd,
-		sessionDir,
-		loggerFor: (name) => log.child({ adapter: name }),
-		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-		writableRoots,
-		resolveExternalPath: resolveAdapterPath,
-		resolveService: extra.resolveService,
-		actorAddress: extra.actorAddress,
-		discussion: extra.discussion,
-		sessionId: extra.sessionId,
-	});
 
-	return {
-		adapters: defaultMaterialized.adapters,
-		blueprintModelId: undefined,
+	const fallbackResult = await materializeResult(
+		fallback,
+		undefined,
 		blueprintName,
-		blueprintSurfaces: [],
-		blueprintUpgradePolicy: "rebuild_only",
-		blueprintPath: undefined,
+		args,
+		cfg,
+		log,
+		sessionDir,
 		writableRoots,
-	};
+		extra,
+	);
+	return { ...fallbackResult, blueprintModelId: undefined, blueprintSurfaces: [] };
 }

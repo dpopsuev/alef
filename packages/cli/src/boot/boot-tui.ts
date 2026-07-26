@@ -15,7 +15,6 @@ import type { AdapterManagementSession } from "@dpopsuev/alef-session/contracts"
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { isTermDark } from "is-term-dark";
 import type { Logger } from "pino";
-import { pickBlueprintInTui } from "../client/blueprint-picker-app.js";
 import type { ResolvedSession, SessionSelection, TuiShell, WireSessionDeps } from "../client/boot-types.js";
 import { pickSessionInTui } from "../client/session-picker-app.js";
 import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "../client/theme.js";
@@ -23,7 +22,6 @@ import { bootTuiShell, wireSession } from "../client/tui-shell.js";
 import { loadAdapters } from "./adapters.js";
 import type { Args } from "./args.js";
 import { assembleSession } from "./assemble-session.js";
-import { discoverBlueprints } from "./blueprints.js";
 import { createBootstrapper } from "./bootstrapper.js";
 import { BUILD_INFO } from "./build-info.js";
 import { type AlefConfig, getConfig } from "./config.js";
@@ -167,19 +165,9 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 					log.warn({ error: String(err) }, "embedder init failed");
 				});
 
-			// Blueprint selection (if multiple available and not already specified)
-			const resolvedArgs = { ...args };
-			if (!resolvedArgs.blueprint) {
-				const discovered = discoverBlueprints();
-				if (discovered.length > 1 && shellRef) {
-					const chosen = await pickBlueprintInTui(shellRef, discovered);
-					if (chosen) resolvedArgs.blueprint = chosen.name;
-				}
-			}
-
 			// Load adapters + model
 			const sessionDir = dirname(store.path);
-			const loaded = await loadAdapters(resolvedArgs, cfg, log, sessionDir, {
+			const loaded = await loadAdapters(args, cfg, log, sessionDir, {
 				resolveService: runtime.resolveService,
 				actorAddress: identity.agentActor.address,
 				sessionId: store.id,

@@ -34,6 +34,19 @@ const EMPTY_LOADED = {
 	blueprintUpgradePolicy: "rebuild_only" as const,
 	blueprintPath: undefined,
 	writableRoots: undefined,
+	artifact: {
+		name: "empty",
+		sourcePath: undefined,
+		model: undefined,
+		systemPrompt: undefined,
+		packages: [],
+		commandOwnership: {},
+		permissions: { writableRoots: undefined },
+		budgets: {},
+		ports: [],
+		artifactHash: "test",
+		compiledAt: new Date(0).toISOString(),
+	},
 };
 
 describe("Full lifecycle", { tags: ["unit"] }, () => {

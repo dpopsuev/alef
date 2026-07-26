@@ -11,7 +11,6 @@ import { join } from "node:path";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pickBlueprint } from "../src/boot/blueprints.js";
 import { runPicker } from "../src/client/commands/picker.js";
 import { pickSession } from "../src/client/commands/sessions.js";
 
@@ -78,15 +77,5 @@ describe("boot picker Esc/cancel exits to terminal", { tags: ["unit"] }, () => {
 		expect(exit).not.toHaveBeenCalled();
 
 		exit.mockRestore();
-	});
-
-	it("blueprint picker Esc returns undefined instead of selecting the first blueprint", async () => {
-		mockedRunPicker.mockResolvedValueOnce(undefined);
-
-		const choices = [
-			{ name: "coding", description: "first", path: "/tmp/coding.yaml" },
-			{ name: "research", description: "second", path: "/tmp/research.yaml" },
-		];
-		expect(await pickBlueprint(choices)).toBeUndefined();
 	});
 });

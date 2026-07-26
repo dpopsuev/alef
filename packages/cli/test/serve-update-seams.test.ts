@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Args } from "../src/boot/args.js";
-import { shouldMirrorSessionToRouter } from "../src/boot/build-delegation.js";
+import { DEFAULT_SERVE_PORT } from "../src/boot/args.js";
+import { resolveSurfacePort, shouldMirrorSessionToRouter } from "../src/boot/build-delegation.js";
 import { awaitProcessLifetime, SERVE_IDLE_TIMEOUT_MS } from "../src/boot/process-lifetime.js";
 import { getRebootPort, setRebootPort } from "../src/boot/reboot-port.js";
 import { setupSupervisorIpc } from "../src/boot/supervisor-ipc.js";
@@ -17,6 +18,24 @@ import {
 function baseArgs(over: Partial<Args> = {}): Args {
 	return { print: false, noTui: false, serve: undefined, json: false, ...over } as Args;
 }
+
+describe("resolveSurfacePort", { tags: ["unit"] }, () => {
+	it("an explicit --serve <port> always wins over a blueprint's declared port", () => {
+		expect(resolveSurfacePort(4200, [{ type: "sse", port: 9000 }])).toBe(4200);
+	});
+
+	it("a blueprint's declared port fills in for a bare --serve", () => {
+		expect(resolveSurfacePort(DEFAULT_SERVE_PORT, [{ type: "sse", port: 9000 }])).toBe(9000);
+	});
+
+	it("falls back to the CLI's default when no surface declares a port", () => {
+		expect(resolveSurfacePort(DEFAULT_SERVE_PORT, [{ type: "sse" }])).toBe(DEFAULT_SERVE_PORT);
+	});
+
+	it("daemon mode's OS-assigned port (0) is never overridden by a blueprint", () => {
+		expect(resolveSurfacePort(0, [{ type: "sse", port: 9000 }])).toBe(0);
+	});
+});
 
 describe("isHeadlessServe / selectViewMode", { tags: ["unit"] }, () => {
 	it("selects ServeViewMode for --serve --no-tui", () => {

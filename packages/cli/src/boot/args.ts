@@ -214,7 +214,7 @@ Examples:
 /** Default maximum tool-call turns before the agent stops. */
 const DEFAULT_MAX_TURNS = 50;
 /** Default HTTP port for the --serve flag. */
-const DEFAULT_SERVE_PORT = 3000;
+export const DEFAULT_SERVE_PORT = 3000;
 /** Rollback sentinel: roll back to the previous generation. */
 const ROLLBACK_PREVIOUS = -1;
 

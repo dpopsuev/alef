@@ -2,8 +2,19 @@ import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { createRouterAdapter, HTTP, type RouterAdapter } from "@dpopsuev/alef-engine/http";
 import type { AgentEvent, Session } from "@dpopsuev/alef-session/contracts";
-import type { Args } from "../boot/args.js";
+import { type Args, DEFAULT_SERVE_PORT } from "../boot/args.js";
 import { metricsHandler, setupMetrics } from "../boot/metrics.js";
+
+/**
+ * A blueprint may pin a preferred port for its declared surface. It only takes effect
+ * when the CLI was told to serve without pinning its own port (bare --serve) -- an
+ * explicit --serve <port> always wins, and a blueprint alone can never turn serving on.
+ */
+export function resolveSurfacePort(servePort: number, blueprintSurfaces: AgentDefinitionSurfaceInput[]): number {
+	if (servePort !== DEFAULT_SERVE_PORT) return servePort;
+	const declared = blueprintSurfaces.find((surface) => surface.port !== undefined)?.port;
+	return declared ?? servePort;
+}
 
 /** Running HTTP router with its resolved port for SSE and REST endpoints. */
 export interface HttpSurface {
@@ -25,7 +36,7 @@ async function createRouter(
 	const history: Record<string, unknown>[] = [];
 
 	const router = createRouterAdapter({
-		port: servePort,
+		port: resolveSurfacePort(servePort, blueprintSurfaces),
 		host: args.host,
 		allowedEvents,
 		triggerEvent: "llm.input",

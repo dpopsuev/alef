@@ -26,7 +26,6 @@ vi.mock("@dpopsuev/alef-foundry/environment", () => ({
 	detectEnvironment: () => ({ mode: "local", canWarmReboot: false, buildCommand: undefined }),
 }));
 vi.mock("is-term-dark", () => ({ isTermDark: async () => true }));
-vi.mock("../src/client/blueprint-picker-app.js", () => ({ pickBlueprintInTui: vi.fn() }));
 vi.mock("../src/client/session-picker-app.js", () => ({ pickSessionInTui: vi.fn() }));
 vi.mock("../src/client/theme.js", () => ({
 	loadTheme: () => {},
@@ -44,7 +43,6 @@ vi.mock("../src/boot/adapters.js", () => ({
 		writableRoots: undefined,
 	}),
 }));
-vi.mock("../src/boot/blueprints.js", () => ({ discoverBlueprints: () => [] }));
 vi.mock("../src/boot/build-info.js", () => ({
 	BUILD_INFO: { version: "0.0.0-test", gitHash: "test", gitBranch: "test", channel: "dev" },
 }));

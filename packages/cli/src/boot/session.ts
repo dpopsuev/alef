@@ -261,6 +261,11 @@ export async function createLocalSession(
 		);
 	}
 	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
+	traceEvent("blueprint:artifact", {
+		hash: loaded.artifact.artifactHash,
+		packages: loaded.artifact.packages.length,
+		commands: Object.keys(loaded.artifact.commandOwnership).length,
+	});
 
 	const subagentFactory = buildSubagentFactory({
 		model,
@@ -338,7 +343,7 @@ export async function createLocalSession(
 		commandRouter,
 		runJournal: storage.runJournal(),
 		runPolicy: {
-			budget: {},
+			budget: loaded.artifact.budgets,
 			externalEffects: args.yolo ? "allow" : "require-approval",
 		},
 		// One primary Thread per session Topic today; a future multi-thread CLI surface

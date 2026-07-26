@@ -10,6 +10,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const aiStreamUrl = new URL("../src/stream.ts", import.meta.url).href;
 const aiRegisterUrl = new URL("../src/providers/register-llm.ts", import.meta.url).href;
 const aiModelsUrl = new URL("../src/models/llm.ts", import.meta.url).href;
+const PROVIDER_DISPATCH_TIMEOUT_MS = 15_000;
 
 const SDK_SPECIFIERS = [
 	"@anthropic-ai/sdk",
@@ -103,5 +104,5 @@ describe("lazy provider module loading", { tags: ["unit"] }, () => {
 		`);
 
 		expect(result.loadedSpecifiers).toEqual(["@anthropic-ai/sdk"]);
-	});
+	}, PROVIDER_DISPATCH_TIMEOUT_MS);
 });

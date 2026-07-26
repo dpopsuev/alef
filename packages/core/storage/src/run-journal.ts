@@ -65,6 +65,7 @@ export type RunEventType =
 	| "run.tool-completed"
 	| "run.tool-failed"
 	| "run.budget-consumed"
+	| "run.budget-exceeded"
 	| "run.effect-proposed"
 	| "run.effect-approved"
 	| "run.effect-rejected"
@@ -160,13 +161,21 @@ export function applyRunEvent(snapshot: RunSnapshot, event: RunEvent): RunSnapsh
 			const activeTools = snapshot.activeTools - 1;
 			return { ...transition(snapshot, activeTools === 0 ? "running" : "waiting-tool", event), activeTools };
 		}
-		case "run.budget-consumed":
+		case "run.budget-consumed": {
+			const { maxToolCalls, maxElapsedMs } = snapshot.policy.budget;
+			if (maxToolCalls !== undefined && snapshot.budget.toolCalls >= maxToolCalls)
+				throw new RunJournalError("invalid-transition", `maxToolCalls (${maxToolCalls}) exceeded`);
+			if (maxElapsedMs !== undefined && event.timestamp - snapshot.budget.startedAt >= maxElapsedMs)
+				throw new RunJournalError("invalid-transition", `maxElapsedMs (${maxElapsedMs}) exceeded`);
 			return {
 				...snapshot,
 				budget: { ...snapshot.budget, toolCalls: snapshot.budget.toolCalls + 1 },
 				sequence: event.sequence,
 				updatedAt: event.timestamp,
 			};
+		}
+		case "run.budget-exceeded":
+			return { ...snapshot, sequence: event.sequence, updatedAt: event.timestamp };
 		case "run.effect-proposed":
 			if (snapshot.pendingEffectId) throw new RunJournalError("invalid-transition", "run already has a pending effect");
 			return { ...snapshot, pendingEffectId: requiredString(event.payload, "proposalId"), sequence: event.sequence, updatedAt: event.timestamp };

@@ -4,10 +4,8 @@ import {
 	tool,
 	typedAction,
 } from "@dpopsuev/alef-kernel/adapter";
-import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/bus";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { newCorrelationId } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { z } from "zod";
 import type { Contract } from "./contract.js";
@@ -117,14 +115,13 @@ export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 	);
 }
 
-const AUTO_APPROVE_MS = 5_000;
-
 /**
  *
  */
 export function createContractTool<T extends z.ZodTypeAny>(
 	contract: Contract<T>,
 	onSubmit: (data: z.infer<T>) => void,
+	onEvaluate?: (input: { output: z.infer<T>; context: string; kind: string }) => Promise<{ approved: boolean; feedback?: string }>,
 ) {
 	const SUBMIT_TOOL = tool(
 		"contract.submit",
@@ -137,8 +134,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 		ctx: CommandHandlerCtx<z.infer<typeof SUBMIT_TOOL.inputSchema>>,
 	): Promise<Record<string, unknown>> {
 		traceEvent("contract:submit", {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx carries correlationId at runtime via bus dispatch
-			correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+			correlationId: ctx.correlationId,
 			hasValidator: !!contract.validator,
 		});
 		const schemaResult = contract.schema.safeParse(ctx.payload.data);
@@ -162,62 +158,25 @@ export function createContractTool<T extends z.ZodTypeAny>(
 			);
 		}
 
-		const id = newCorrelationId();
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx exposes command/event channels at runtime via bus
-		const { command, event } = ctx as unknown as {
-			command: { publish: (e: unknown) => void };
-			event: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
-		};
-
-		return new Promise<Record<string, unknown>>((resolve) => {
-			// lint-ignore: RAWTIMER HITL auto-submit deadline
-			const timer = setTimeout(() => {
-				off();
-				onSubmit(validated);
-				resolve(
-					withDisplay(
-						{ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." },
-						{ text: "Contract auto-approved (no evaluator responded)", mimeType: "text/plain" },
-					),
-				);
-			}, AUTO_APPROVE_MS);
-
-			const off = event.subscribe(VALIDATE_RESULT, (evt: unknown) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- VALIDATE_RESULT payload shape enforced by bus protocol
-				const e = evt as { payload: { id: string; approved: boolean; feedback?: string } };
-				if (e.payload.id !== id) return;
-				clearTimeout(timer);
-				off();
-				traceEvent("contract:result", { id, approved: e.payload.approved });
-				if (e.payload.approved) {
-					onSubmit(validated);
-					resolve(
-						withDisplay(
-							{ success: true, message: "Contract fulfilled." },
-							{ text: "Contract fulfilled", mimeType: "text/plain" },
-						),
-					);
-				} else {
-					resolve(
-						withDisplay(
-							{ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." },
-							{
-								text: `Contract rejected: ${e.payload.feedback ?? "Rejected by evaluator."}`,
-								mimeType: "text/plain",
-							},
-						),
-					);
-				}
-			});
-
-			traceEvent("contract:validate", { id, kind: contract.validator, targetAdapter: contract.validator });
-			command.publish({
-				type: VALIDATE_REQUEST,
-				payload: { id, output: validated, kind: contract.validator, context: contract.intent },
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx carries correlationId at runtime via bus dispatch
-				correlationId: (ctx as unknown as { correlationId: string }).correlationId,
-			});
-		});
+		if (!onEvaluate) {
+			return withDisplay(
+				{ success: false, errors: `Contract requires ${contract.validator} evaluation, but no evaluator is configured.` },
+				{ text: `Contract rejected: ${contract.validator} evaluator unavailable`, mimeType: "text/plain" },
+			);
+		}
+		const result = await onEvaluate({ output: validated, context: contract.intent, kind: contract.validator });
+		traceEvent("contract:result", { correlationId: ctx.correlationId, approved: result.approved });
+		if (!result.approved) {
+			return withDisplay(
+				{ success: false, errors: result.feedback ?? "Rejected by evaluator." },
+				{ text: `Contract rejected: ${result.feedback ?? "Rejected by evaluator."}`, mimeType: "text/plain" },
+			);
+		}
+		onSubmit(validated);
+		return withDisplay(
+			{ success: true, message: "Contract fulfilled." },
+			{ text: "Contract fulfilled", mimeType: "text/plain" },
+		);
 	}
 
 	return defineAdapter(

@@ -100,7 +100,40 @@ describe("DurableRunPolicy", { tags: ["unit"] }, () => {
 		await expect(restartedRouter.execute(Read, { path: "second" }, { runId: "run-2" })).rejects.toMatchObject({
 			code: "budget-exceeded",
 		});
-		expect(await journal.get("run-2")).toMatchObject({ state: "failed", budget: { toolCalls: 1 } });
+		expect(await journal.get("run-2")).toMatchObject({ state: "running", budget: { toolCalls: 1 } });
+		expect((await journal.events("run-2", 0, 20)).map((event) => event.type)).toContain("run.budget-exceeded");
+	});
+
+	it("atomically enforces a persisted budget under concurrent commands", async () => {
+		const database = await makeTestDatabase();
+		cleanups.push(database.cleanup);
+		const journal = new SqliteRunJournal(database.client);
+		const policy = new DurableRunPolicy(journal);
+		await policy.start("run-concurrent", "session-1", {
+			budget: { maxToolCalls: 1 },
+			externalEffects: "require-approval",
+		});
+		let release: (() => void) | undefined;
+		const handler = vi.fn(
+			({ input }: { input: { path: string } }) =>
+				new Promise<{ content: string }>((resolve) => {
+					release = () => resolve({ content: input.path });
+				}),
+		);
+		const router = new CommandRouter(policy);
+		router.register("fs", Read, handler);
+		const first = router.execute(Read, { path: "first" }, { runId: "run-concurrent" });
+		const second = router.execute(Read, { path: "second" }, { runId: "run-concurrent" });
+		void second.catch(() => undefined);
+		await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+		release?.();
+		const results = await Promise.allSettled([first, second]);
+
+		expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+		expect(results.find((result) => result.status === "rejected")).toMatchObject({
+			status: "rejected",
+			reason: expect.objectContaining({ code: "budget-exceeded" }),
+		});
 	});
 
 	it("never treats an expired human decision as approval", async () => {

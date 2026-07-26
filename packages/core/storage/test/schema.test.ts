@@ -26,6 +26,9 @@ describe("schema", { tags: ["unit"] }, () => {
 		expect(names).toContain("auth");
 		expect(names).toContain("daemon");
 		expect(names).toContain("session_summaries");
+		expect(names).toContain("runs");
+		expect(names).toContain("run_events");
+		expect(names).toContain("effect_proposals");
 		expect(names).toContain("schema_version");
 	});
 
@@ -170,6 +173,24 @@ describe("schema", { tags: ["unit"] }, () => {
 
 		const columns = await client.execute("PRAGMA table_info(daemon)");
 		expect(columns.rows.map((column) => String(column.name))).not.toContain("token");
+	});
+
+	it("migrates v10 schema with durable run tables", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await client.batch(
+			[
+				{ sql: "CREATE TABLE schema_version (version INTEGER NOT NULL)", args: [] },
+				{ sql: "INSERT INTO schema_version (version) VALUES (10)", args: [] },
+			],
+			"write",
+		);
+
+		await applySchema(client);
+
+		const tables = await client.execute("SELECT name FROM sqlite_master WHERE type='table'");
+		const names = tables.rows.map((row) => String(row.name));
+		expect(names).toEqual(expect.arrayContaining(["runs", "run_events", "effect_proposals"]));
 	});
 
 	it("can insert and query a session + event", async () => {

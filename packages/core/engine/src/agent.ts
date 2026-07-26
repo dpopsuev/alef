@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import {
 	type AgentBus,
-	type Binding,
 	type Bus,
 	type BusMessage,
 	type CommandMessage,
@@ -12,9 +11,7 @@ import {
 	makeBus,
 	type NotificationInput,
 	withAutoTrace,
-	withBindings,
 } from "@dpopsuev/alef-kernel/bus";
-import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ZodTypeAny } from "zod";
 import { type AdapterPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
 
@@ -128,7 +125,6 @@ export class Agent {
 	get adapters(): readonly Adapter[] {
 		return this._adapters;
 	}
-	private readonly _bindings = new Map<string, Binding>();
 	private disposed = false;
 	/**
 	 * AbortController fired on dispose(). Pass signal to long-running adapters
@@ -158,8 +154,7 @@ export class Agent {
 		let unmount: () => void;
 		try {
 			const tracedBus = this.asBus();
-			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, tracedBus) : tracedBus;
-			unmount = adapter.mount(withPayloadValidation(boundBus, adapter));
+			unmount = adapter.mount(withPayloadValidation(tracedBus, adapter));
 		} catch (err) {
 			this._adapters.pop();
 			this._toolsCache = null;
@@ -343,27 +338,6 @@ export class Agent {
 	reload(adapter: Adapter): this {
 		this.unload(adapter.name);
 		return this.load(adapter);
-	}
-
-	bind(binding: Binding): this {
-		this._bindings.set(binding.id, binding);
-		traceEvent("agent:bind", {
-			id: binding.id,
-			event: binding.event,
-			mode: binding.mode,
-			stages: binding.chain.length,
-		});
-		return this;
-	}
-
-	unbind(id: string): boolean {
-		const removed = this._bindings.delete(id);
-		if (removed) traceEvent("agent:unbind", { id });
-		return removed;
-	}
-
-	get bindings(): ReadonlyMap<string, Binding> {
-		return this._bindings;
 	}
 
 	async dispose(): Promise<void> {

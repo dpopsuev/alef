@@ -85,17 +85,14 @@ Before each LLM turn, the Reasoner awaits the materialized `ContextPipeline`:
 4. LLM API call receives the assembled context
 ```
 
-## Binding Chains
+## Run Policy
 
-Validation pipeline for cross-cutting concerns (security, HITL approval):
+Command execution is governed before the handler runs:
 
 ```
-agent.bind({
-  id: "security",
-  event: "agent.run",
-  chain: [{ adapter: "security-policy" }, { adapter: "hitl" }],
-  mode: "ordered"   // ordered | parallel-all | parallel-first
-})
+authorize → check persisted budget → validate input → classify effect
+          → persist waiting-human when approval is required
+          → execute → validate output → commit result
 ```
 
-Each stage publishes VALIDATE_REQUEST, waits for VALIDATE_RESULT. Timeout auto-approves (30s default).
+`RunJournal` atomically appends sequenced events and updates snapshots. External effects become durable proposals; timeout rejects and never approves.

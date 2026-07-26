@@ -13,6 +13,28 @@ import {
 } from "../run-journal.js";
 
 const MAX_EVENT_PAGE = 1_000;
+const MAX_PENDING_WRITES = 256;
+type WriteQueue = { tail: Promise<void>; pending: number };
+const writeQueues = new WeakMap<Client, WriteQueue>();
+
+/** Serializes one client's writes so concurrent tools cannot contend on SQLite transactions. */
+function enqueueWrite<T>(client: Client, operation: () => Promise<T>): Promise<T> {
+	let queue = writeQueues.get(client);
+	if (!queue) {
+		queue = { tail: Promise.resolve(), pending: 0 };
+		writeQueues.set(client, queue);
+	}
+	if (queue.pending >= MAX_PENDING_WRITES) return Promise.reject(new Error("run journal write queue capacity reached"));
+	queue.pending += 1;
+	const result = queue.tail.then(operation);
+	queue.tail = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	return result.finally(() => {
+		queue.pending -= 1;
+	});
+}
 const RUN_EVENT_TYPES = [
 	"run.created",
 	"run.started",
@@ -20,6 +42,7 @@ const RUN_EVENT_TYPES = [
 	"run.tool-completed",
 	"run.tool-failed",
 	"run.budget-consumed",
+	"run.budget-exceeded",
 	"run.effect-proposed",
 	"run.effect-approved",
 	"run.effect-rejected",
@@ -142,7 +165,11 @@ async function updateProposal(transaction: Transaction, runId: string, event: Ru
 export class SqliteRunJournal implements RunJournal {
 	constructor(private readonly client: Client) {}
 
-	async create(input: CreateRunInput): Promise<RunSnapshot> {
+	create(input: CreateRunInput): Promise<RunSnapshot> {
+		return enqueueWrite(this.client, () => this.createTransaction(input));
+	}
+
+	private async createTransaction(input: CreateRunInput): Promise<RunSnapshot> {
 		if (!input.runId.trim() || !input.sessionId.trim()) throw new Error("runId and sessionId are required");
 		const timestamp = input.timestamp ?? Date.now();
 		const snapshot: RunSnapshot = {
@@ -182,7 +209,11 @@ export class SqliteRunJournal implements RunJournal {
 		return row ? snapshotFromRow(row) : undefined;
 	}
 
-	async append(runId: string, expectedSequence: number, input: RunEventInput): Promise<RunAppendResult> {
+	append(runId: string, expectedSequence: number, input: RunEventInput): Promise<RunAppendResult> {
+		return enqueueWrite(this.client, () => this.appendTransaction(runId, expectedSequence, input));
+	}
+
+	private async appendTransaction(runId: string, expectedSequence: number, input: RunEventInput): Promise<RunAppendResult> {
 		const transaction = await this.client.transaction("write");
 		try {
 			const current = await transaction.execute({ sql: "SELECT snapshot_json FROM runs WHERE id = ?", args: [runId] });

@@ -162,11 +162,7 @@ export class DurableRunPolicy implements CapabilityExecutionPolicy {
 		invoke: (input: unknown) => Promise<unknown>,
 	): Promise<unknown> {
 		await this.checkBudget(runId);
-		await this.commit(runId, {
-			type: "run.budget-consumed",
-			correlationId: request.options.correlationId,
-			payload: { commandName: request.command.name },
-		});
+		await this.consumeBudget(runId, request);
 		await this.commit(runId, {
 			type: "run.waiting-tool",
 			correlationId: request.options.correlationId,
@@ -194,15 +190,33 @@ export class DurableRunPolicy implements CapabilityExecutionPolicy {
 		}
 	}
 
+	private async consumeBudget(runId: string, request: CapabilityExecutionRequest): Promise<void> {
+		try {
+			await this.commit(runId, {
+				type: "run.budget-consumed",
+				correlationId: request.options.correlationId,
+				payload: { commandName: request.command.name },
+			});
+		} catch (error) {
+			if (!(error instanceof RunJournalError) || error.code !== "invalid-transition") throw error;
+			await this.commit(runId, {
+				type: "run.budget-exceeded",
+				correlationId: request.options.correlationId,
+				payload: { commandName: request.command.name, reason: error.message },
+			});
+			throw new RunPolicyError("budget-exceeded", `run ${runId} ${error.message}`);
+		}
+	}
+
 	private async checkBudget(runId: string): Promise<void> {
 		const snapshot = await this.requireActive(runId);
 		const { maxToolCalls, maxElapsedMs } = snapshot.policy.budget;
 		if (maxToolCalls !== undefined && snapshot.budget.toolCalls >= maxToolCalls) {
-			await this.fail(runId, `maxToolCalls (${maxToolCalls}) exceeded`);
+			await this.commit(runId, { type: "run.budget-exceeded", payload: { reason: `maxToolCalls (${maxToolCalls}) exceeded` } });
 			throw new RunPolicyError("budget-exceeded", `run ${runId} exceeded maxToolCalls (${maxToolCalls})`);
 		}
 		if (maxElapsedMs !== undefined && Date.now() - snapshot.budget.startedAt >= maxElapsedMs) {
-			await this.fail(runId, `maxElapsedMs (${maxElapsedMs}) exceeded`);
+			await this.commit(runId, { type: "run.budget-exceeded", payload: { reason: `maxElapsedMs (${maxElapsedMs}) exceeded` } });
 			throw new RunPolicyError("budget-exceeded", `run ${runId} exceeded maxElapsedMs (${maxElapsedMs})`);
 		}
 	}

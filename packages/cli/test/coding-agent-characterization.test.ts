@@ -1,17 +1,14 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SessionLog } from "@dpopsuev/alef-agent/event-log";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import {
 	type FauxResponseFactory,
 	fauxAssistantMessage,
 	fauxToolCall,
 	registerFauxProvider,
 } from "@dpopsuev/alef-ai/faux";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { createFoundryRuntime } from "@dpopsuev/alef-foundry";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
@@ -69,15 +66,17 @@ describe("coding agent walking skeleton", { tags: ["integration"] }, () => {
 		expect(loaded.blueprintName).toBe("alef-coding-agent");
 		expect(fileAdapter).toBeDefined();
 
-		const agent = new Agent();
-		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
-		agent.load(fileAdapter!);
-		agent.load(new SessionLog(store, faux.getModel().id));
-		agent.validate();
-		cleanups.push(() => agent.dispose());
-		const host = new AgentController(agent);
+		const runtime = await createAgentSession({
+			cwd,
+			model: faux.getModel(),
+			adapters: [fileAdapter!],
+			toolDisclosure: "full",
+			session: store,
+			modelId: faux.getModel().id,
+		});
+		cleanups.push(() => runtime.dispose());
 
-		const reply = await host.send("characterization request", "human", 10_000);
+		const reply = await runtime.controller.send("characterization request", "human", 10_000);
 
 		expect(reply).toBe("host-reply-marker");
 		expect(modelContexts).toHaveLength(2);
@@ -85,7 +84,7 @@ describe("coding agent walking skeleton", { tags: ["integration"] }, () => {
 		expect(modelContexts[1]).toContain("walking-skeleton-marker");
 		const events = await store.events();
 		expect(events.map((event) => event.type)).toEqual(
-			expect.arrayContaining(["llm.input", "fs.read", "llm.response"]),
+			expect.arrayContaining(["llm.input", "tool.started", "tool.completed", "llm.response"]),
 		);
 		expect(JSON.stringify(events)).toContain("walking-skeleton-marker");
 	});

@@ -1,8 +1,11 @@
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
+import type { EventHub } from "@dpopsuev/alef-kernel/events";
 import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
+import { ToolCompleted, ToolProgressed, ToolStarted } from "./events.js";
 import { classifyToolError, formatToolErrorObservation } from "./tool-error-observation.js";
 
 /** Best-effort text extraction for tool-result display pills. */
@@ -439,10 +442,115 @@ interface DispatchToolsOptions {
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	callAbortControllers?: Map<string, AbortController>;
+	permissions?: readonly string[];
 	onToolWake?: (info: ToolWakeSnapshot & { args: Record<string, unknown> }) => Promise<ToolWakeDecision>;
 }
 
 /** Publish tool-call commands in parallel and collect all results with timeout and stall detection. */
+export async function dispatchToolCommands(
+	router: CommandRouter,
+	eventHub: EventHub | undefined,
+	signal: NotificationBus,
+	correlationId: string,
+	toolCalls: ToolCall[],
+	toCommandName: (llmName: string) => string,
+	timeoutMs: number,
+	options: DispatchToolsOptions,
+): Promise<EventMessage[]> {
+	return Promise.all(
+		toolCalls.map(async (toolCall) => {
+			const commandName = toCommandName(toolCall.name);
+			const startedAt = Date.now();
+			const controller = new AbortController();
+			if (options.signal) {
+				options.signal.addEventListener("abort", () => controller.abort(options.signal?.reason), { once: true });
+			}
+			options.callAbortControllers?.set(toolCall.id, controller);
+			const startedPayload = { callId: toolCall.id, name: commandName, args: toolCall.args };
+			await eventHub?.publish(ToolStarted, startedPayload, { correlationId });
+			signal.publish({
+				type: "llm.tool-start",
+				payload: startedPayload,
+				correlationId,
+			});
+			const toolDefinition = options.schemaResolver?.(commandName) ?? options.toolDefs?.get(commandName);
+			const supervision = resolveToolSupervisionPolicy(commandName, toolCall.args, timeoutMs, toolDefinition);
+			try {
+				const output = await router.executeByName(commandName, toolDefinition?.version ?? 1, toolCall.args, {
+					signal: controller.signal,
+					deadline: Date.now() + supervision.expectedRuntimeMs,
+					permissions: options.permissions,
+					correlationId,
+					toolCallId: toolCall.id,
+					onProgress: (progress) => {
+						const text = extractPartialText(progress);
+						if (text) {
+							signal.publish({
+								type: "llm.tool-chunk",
+								payload: { callId: toolCall.id, text },
+								correlationId,
+							});
+						}
+						const progressPayload = {
+							callId: toolCall.id,
+							name: commandName,
+							elapsedMs: Date.now() - startedAt,
+							...progress,
+						};
+						void eventHub?.publish(ToolProgressed, progressPayload, { correlationId }).catch((error: unknown) => {
+							traceEvent("event-hub:publish-error", { type: ToolProgressed.type, error: String(error) });
+						});
+						signal.publish({ type: "llm.tool-progress", payload: progressPayload, correlationId });
+					},
+				});
+				if (!hasTruthyRecord(output)) throw new Error(`${commandName} returned a non-object result`);
+				const payload = { ...output, toolCallId: toolCall.id, isFinal: true };
+				const display = extractDisplay(payload);
+				const resultText = payloadToText(payload, false, undefined, toolCall.name);
+				const completedPayload = {
+					callId: toolCall.id,
+					name: commandName,
+					elapsedMs: Date.now() - startedAt,
+					ok: true,
+					result: resultText,
+					display: display?.text,
+					displayKind: display?.mimeType,
+					estimatedTokens: Math.ceil(resultText.length / CHARS_PER_TOKEN),
+				};
+				await eventHub?.publish(ToolCompleted, completedPayload, { correlationId });
+				signal.publish({ type: "llm.tool-end", payload: completedPayload, correlationId });
+				return {
+					type: commandName,
+					correlationId,
+					payload,
+					isError: false,
+					timestamp: Date.now(),
+					elapsed: Date.now() - startedAt,
+				};
+			} catch (error) {
+				controller.abort(error instanceof Error ? error : new Error(String(error)));
+				const elapsedMs = Date.now() - startedAt;
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				const completedPayload = {
+					callId: toolCall.id,
+					name: commandName,
+					elapsedMs,
+					ok: false,
+					result: errorMessage,
+					display: `\u26a0 ${errorMessage}`,
+					displayKind: "text/plain",
+				};
+				await eventHub?.publish(ToolCompleted, completedPayload, { correlationId });
+				signal.publish({ type: "llm.tool-end", payload: completedPayload, correlationId });
+				return buildErrorSenseEvent(commandName, correlationId, toolCall.id, error, elapsedMs);
+			} finally {
+				options.callAbortControllers?.delete(toolCall.id);
+			}
+		}),
+	);
+}
+
+/** Retains the legacy bus path only for callers that have not materialized command ownership yet. */
 export async function dispatchTools(
 	command: CommandBus,
 	signal: NotificationBus,

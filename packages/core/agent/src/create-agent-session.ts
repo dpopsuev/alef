@@ -2,19 +2,24 @@ const DEFAULT_LOOP_THRESHOLD = 10;
 const DIRECTIVE_BUDGET_FRACTION = 0.1;
 const CHARS_PER_TOKEN = 4;
 const DEFAULT_CONTEXT_WINDOW = 128_000;
+const EVENT_HUB_CAPACITY = 256;
+const EVENT_HUB_CONCURRENCY = 8;
 
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { LoopGuard } from "@dpopsuev/alef-agent/loop-detector";
 import { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildAdapterDirectives, createToolShellAdapter, DEFAULT_ALWAYS_FULL_NAMESPACES, DEFAULT_ALWAYS_FULL_TOOLS } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
-import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { createAdapterCommandRouter, type Adapter, type ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
+import { EventHub, type EventEnvelope } from "@dpopsuev/alef-kernel/events";
 import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
 import { newCorrelationId } from "@dpopsuev/alef-kernel/bus";
 import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { DesiredStateSpec } from "@dpopsuev/alef-kernel/reconciliation";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import { ToolCompleted, ToolProgressed, ToolStarted } from "@dpopsuev/alef-reasoner/events";
 import { connectObservers, type SignalMapper } from "./assemble.js";
 export type { SignalMapper } from "./assemble.js";
 import { buildLlm, type LlmBuildOptions } from "./build-llm.js";
@@ -23,6 +28,14 @@ import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
 import { createDefaultDirectives, registerAdapters } from "./prompt.js";
 import { type GapSnapshot, ProgressTelemetry } from "./progress-telemetry.js";
+
+/** Delays model-adapter construction until session capabilities are materialized. */
+export type AgentLlmFactory = (runtime: {
+	contextPipeline: ContextPipeline;
+	commandRouter: CommandRouter;
+	eventHub: EventHub;
+	systemPrompt: string;
+}) => Adapter;
 
 /** Keeps every runtime host on the same assembly path. */
 export interface CreateAgentSessionOptions {
@@ -36,10 +49,14 @@ export interface CreateAgentSessionOptions {
 	directives?: Directives;
 	systemPrompt?: string;
 	llmAdapter?: Adapter;
+	llmFactory?: AgentLlmFactory;
 	llm?: LlmBuildOptions["llm"];
 	trackConcurrentOps?: boolean;
 	desiredState?: DesiredStateSpec;
 	contextPipeline?: ContextPipeline;
+	commandRouter?: CommandRouter;
+	commandPermissions?: readonly string[];
+	eventHub?: EventHub;
 	composeToolShell?: boolean;
 	toolDisclosure?: "full" | "progressive";
 	session?: SessionStore;
@@ -65,6 +82,7 @@ export interface AgentSessionRuntime {
 	readonly agent: Agent;
 	readonly controller: AgentController;
 	readonly observers: Set<(event: AgentEvent) => void>;
+	readonly eventHub: EventHub;
 	readonly systemPrompt: string;
 	dispose(): Promise<void>;
 }
@@ -109,9 +127,27 @@ function gapFromLlm(llm: Adapter): () => GapSnapshot | null {
 
 /** Centralizes readiness, control, observers, and disposal across every host. */
 export async function createAgentSession(opts: CreateAgentSessionOptions): Promise<AgentSessionRuntime> {
-	const contextPipeline = opts.contextPipeline ?? createContextPipeline();
-	contextPipeline.addAdapters(opts.adapters);
+	const agentSlot: { current?: Agent } = {};
 	const tools = opts.adapters.flatMap((adapter) => adapter.tools);
+	const toolShell = opts.composeToolShell === false
+		? undefined
+		: createToolShellAdapter({
+				tools,
+				getTools: () =>
+					agentSlot.current
+						? agentSlot.current.tools.filter((tool) => !["tools.describe", "tools.status", "tools.cancel"].includes(tool.name))
+						: tools,
+				adapterDirectives: buildAdapterDirectives(opts.adapters),
+				disclosure: opts.toolDisclosure ?? "progressive",
+				alwaysFullNamespaces: [...DEFAULT_ALWAYS_FULL_NAMESPACES],
+				alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
+			});
+	const runtimeAdapters = toolShell ? [...opts.adapters, toolShell] : opts.adapters;
+	const contextPipeline = opts.contextPipeline ?? createContextPipeline();
+	contextPipeline.addAdapters(runtimeAdapters);
+	const commandRouter = opts.commandRouter ?? createAdapterCommandRouter(runtimeAdapters);
+	const eventHub = opts.eventHub ?? new EventHub({ capacity: EVENT_HUB_CAPACITY, concurrency: EVENT_HUB_CONCURRENCY });
+	const ownsEventHub = opts.eventHub === undefined;
 	const directives = opts.systemPrompt !== undefined
 		? createLeanDirectives({ systemPrompt: opts.systemPrompt, adapters: opts.adapters, cwd: opts.cwd })
 		: opts.directives ?? (() => {
@@ -124,7 +160,8 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	);
 	const systemPrompt = directives.build(budgetChars);
 	const thinkingState = { level: opts.thinking ?? (opts.model?.reasoning ? "medium" : undefined) };
-	let llm = opts.llmAdapter;
+	if (opts.llmAdapter && opts.llmFactory) throw new Error("createAgentSession accepts llmAdapter or llmFactory, not both");
+	let llm = opts.llmAdapter ?? opts.llmFactory?.({ contextPipeline, commandRouter, eventHub, systemPrompt });
 	if (!llm) {
 		if (!opts.model) throw new Error("createAgentSession requires model or llmAdapter");
 		const model = opts.model;
@@ -136,6 +173,9 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 			getApiKey: opts.getApiKey,
 			schemaResolver: opts.schemaResolver ?? ((name) => contextPipeline.resolveSchema(name)),
 			contextPipeline,
+			commandRouter,
+			commandPermissions: opts.commandPermissions,
+			eventHub,
 			systemPrompt,
 			llm: opts.llm,
 			trackConcurrentOps: opts.trackConcurrentOps ?? true,
@@ -149,6 +189,26 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	}
 
 	const agent = new Agent({ bus: opts.bus });
+	agentSlot.current = agent;
+	const projectToolEvent = (event: EventEnvelope<Record<string, unknown>>): void => {
+		agent.asBus().event.publish({
+			type: event.type,
+			correlationId: event.correlationId ?? event.id,
+			payload: {
+				...event.payload,
+				eventId: event.id,
+				version: event.version,
+				causationId: event.causationId,
+				scope: event.scope,
+			},
+			isError: false,
+		});
+	};
+	const eventHubUnsubscribers = [
+		eventHub.subscribe(ToolStarted, projectToolEvent),
+		eventHub.subscribe(ToolProgressed, projectToolEvent),
+		eventHub.subscribe(ToolCompleted, projectToolEvent),
+	];
 	agent.load(llm);
 	agent.load(new LoopGuard({ repeatedInteractionThreshold: opts.loopThreshold ?? DEFAULT_LOOP_THRESHOLD, onLoop: opts.onLoop }));
 	agent.load(new ProgressTelemetry({ getGap: opts.getGap ?? gapFromLlm(llm) }));
@@ -156,18 +216,7 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 		agent.load(new SessionLog(opts.session, opts.modelId, opts.agentIdentity, opts.summaryWriter));
 	}
 	for (const adapter of opts.adapters) agent.load(adapter);
-	if (opts.composeToolShell !== false) {
-		const toolShell = createToolShellAdapter({
-			tools,
-			getTools: () => agent.tools.filter((tool) => !["tools.describe", "tools.status", "tools.cancel"].includes(tool.name)),
-			adapterDirectives: buildAdapterDirectives(opts.adapters),
-			disclosure: opts.toolDisclosure ?? "progressive",
-			alwaysFullNamespaces: [...DEFAULT_ALWAYS_FULL_NAMESPACES],
-			alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
-		});
-		contextPipeline.addAdapters([toolShell]);
-		agent.load(toolShell);
-	}
+	if (toolShell) agent.load(toolShell);
 
 	const observers = new Set<(event: AgentEvent) => void>();
 	const controller = new AgentController(agent, { onReply: opts.onReply });
@@ -188,10 +237,13 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 		agent,
 		controller,
 		observers,
+		eventHub,
 		systemPrompt,
 		async dispose() {
 			controller.dispose();
+			for (const unsubscribe of eventHubUnsubscribers) unsubscribe();
 			await agent.dispose();
+			if (ownsEventHub) eventHub.close();
 		},
 	};
 }

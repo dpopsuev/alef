@@ -1,6 +1,8 @@
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
+import type { EventHub } from "@dpopsuev/alef-kernel/events";
 import { createAgentLoop, type StreamRule } from "@dpopsuev/alef-reasoner";
 import { ScriptedLlmAdapter } from "./scripted-llm.js";
 
@@ -16,6 +18,9 @@ export interface LlmBuildOptions {
 	systemPrompt?: string;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	contextPipeline?: ContextPipeline;
+	commandRouter?: CommandRouter;
+	commandPermissions?: readonly string[];
+	eventHub?: EventHub;
 	trackConcurrentOps?: boolean;
 	llm?: {
 		maxRetries?: number;
@@ -73,6 +78,9 @@ export function buildLlm(opts: LlmBuildOptions): Adapter {
 		trackConcurrentOps: opts.trackConcurrentOps,
 		getSignal: opts.getSignal,
 		contextPipeline: opts.contextPipeline,
+		commandRouter: opts.commandRouter,
+		commandPermissions: opts.commandPermissions,
+		eventHub: opts.eventHub,
 		schemaResolver: opts.schemaResolver,
 		streamRules: opts.streamRules ?? parseStreamRulesEnv(),
 	});

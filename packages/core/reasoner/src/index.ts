@@ -1,5 +1,7 @@
 import type { Adapter, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
+import type { EventHub } from "@dpopsuev/alef-kernel/events";
 import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { pickKeyArg, withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -67,6 +69,9 @@ export interface LlmTopologyOptions {
 	getThinking?: () => ThinkingLevel | undefined;
 	trackConcurrentOps?: boolean;
 	contextPipeline?: ContextPipeline;
+	commandRouter?: CommandRouter;
+	commandPermissions?: readonly string[];
+	eventHub?: EventHub;
 
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;

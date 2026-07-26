@@ -1,10 +1,11 @@
-import type { ZodTypeAny } from "zod";
-import { createMapCache } from "./cache.js";
+import { type ZodTypeAny, z } from "zod";
+import { createMapCache, makeCacheKey } from "./cache.js";
 import { dispatchCommandAction, dispatchEventAction } from "./dispatch.js";
 import type { ActionMap, AdapterLogger, AdapterOptions, CommandActionMap, EventActionMap } from "./types.js";
 import { startElapsedTimer, withLimits } from "../bus/budget.js";
 import type { Adapter, ToolDefinition } from "./interface.js";
 import type { Bus } from "../bus/messages.js";
+import { CommandRouter, type CommandBinding, defineCommand } from "../capabilities.js";
 
 export type {
 	ActionMap,
@@ -76,6 +77,61 @@ function buildCommandSchemas(actions: ActionMap, overrides?: Record<string, ZodT
 	return { ...auto, ...overrides };
 }
 
+const RECORD_SCHEMA = z.record(z.string(), z.unknown());
+
+/** Keeps adapter-local cache state isolated to one materialized command router. */
+function buildCommandBindings(
+	actions: ActionMap,
+	log: AdapterLogger,
+	inputOverrides?: Record<string, ZodTypeAny>,
+): CommandBinding[] {
+	const inputSchemas = buildCommandSchemas(actions, inputOverrides);
+	return Object.entries(actions.command ?? {}).map(([name, action]) => ({
+		command: defineCommand({
+			name,
+			version: action.tool?.version ?? 1,
+			input: inputSchemas[name] ?? RECORD_SCHEMA,
+			output: action.tool?.outputSchema ?? RECORD_SCHEMA,
+			permissions: action.tool?.permissions ?? [],
+		}),
+		bind() {
+			const cache = createMapCache();
+			return async ({ input, correlationId, toolCallId, reportProgress }) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Command input schemas for adapter actions produce object payloads.
+				const payload = input as Record<string, unknown>;
+				const context = {
+					correlationId: correlationId ?? "",
+					toolCallId,
+					payload,
+					log: log.child({ ...(correlationId ? { correlationId } : {}), ...(toolCallId ? { toolCallId } : {}) }),
+				};
+				const cacheKey = makeCacheKey(name, payload);
+				const cached = cache.get(cacheKey);
+				if (cached !== undefined) return cached;
+
+				let last: Record<string, unknown> | undefined;
+				for await (const chunk of action.handle(context)) {
+					if (last !== undefined) reportProgress(last);
+					last = chunk;
+				}
+				const result = last ?? {};
+				if (action.invalidates) cache.invalidate(action.invalidates(context));
+				if (action.shouldCache?.(context, result)) cache.set(cacheKey, result);
+				return result;
+			};
+		},
+	}));
+}
+
+/** Materializes command ownership before an AgentSession can execute tools. */
+export function createAdapterCommandRouter(adapters: readonly Adapter[]): CommandRouter {
+	const router = new CommandRouter();
+	for (const adapter of adapters) {
+		for (const binding of adapter.commands ?? []) router.registerBinding(adapter.name, binding);
+	}
+	return router;
+}
+
 /** Throw if an adapter exposes tools but is missing a description or directives. */
 function validateAdapterMetadata(name: string, tools: ToolDefinition[], opts: AdapterOptions): void {
 	if (tools.length === 0) return;
@@ -97,10 +153,12 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 
 	const { tools, command: commandSubscriptions, event: eventSubscriptions } = extractToolsAndSubscriptions(actions);
 	validateAdapterMetadata(name, tools, opts);
+	const commands = buildCommandBindings(actions, log, opts.inputSchemas?.command);
 
 	return {
 		name,
 		tools,
+		commands,
 		subscriptions: {
 			command: commandSubscriptions,
 			event: eventSubscriptions,

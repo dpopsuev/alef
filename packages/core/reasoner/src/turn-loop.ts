@@ -1,5 +1,7 @@
 import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
+import type { EventHub } from "@dpopsuev/alef-kernel/events";
 import { DEFAULT_TOOL_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { isContextOverflow } from "@dpopsuev/alef-ai/overflow";
@@ -11,7 +13,7 @@ import { publishReply, reportUsage } from "./handlers/response-handler.js";
 import { appendToolResults } from "./handlers/tool-result-handler.js";
 import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type StreamRule } from "./stream-turn.js";
-import { dispatchTools, type ToolWakeDecision, type ToolWakeSnapshot } from "./tool-dispatch.js";
+import { dispatchToolCommands, dispatchTools, type ToolWakeDecision, type ToolWakeSnapshot } from "./tool-dispatch.js";
 import { createTurnSignals } from "./turn-signals.js";
 import {
 	applyStageTransformation,
@@ -45,6 +47,9 @@ export interface TurnLoopOptions {
 	thinking?: ThinkingLevel;
 	getThinking?: () => ThinkingLevel | undefined;
 	contextPipeline?: ContextPipeline;
+	commandRouter?: CommandRouter;
+	commandPermissions?: readonly string[];
+	eventHub?: EventHub;
 
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
@@ -274,14 +279,36 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			}
 
 			const toolDefsMap = new Map<string, ToolDefinition>();
-			const results = await dispatchTools(command, signal, event, correlationId, toolCalls, toMotorName, timeoutMs, {
+			const dispatchOptions = {
 				...effectiveOptions,
 				signal: effectiveSignal,
 				toolDefs: toolDefsMap,
+				permissions: effectiveOptions.commandPermissions,
 				callAbortControllers,
-				onToolWake: (wake) =>
+				onToolWake: (wake: ToolWakeSnapshot & { args: Record<string, unknown> }) =>
 					decideToolWakeAction(messages, wake, model, turn, appRetryCount, correlationId, effectiveOptions),
-			});
+			};
+			const results = effectiveOptions.commandRouter
+				? await dispatchToolCommands(
+						effectiveOptions.commandRouter,
+						effectiveOptions.eventHub,
+						signal,
+						correlationId,
+						toolCalls,
+						toMotorName,
+						timeoutMs,
+						dispatchOptions,
+					)
+				: await dispatchTools(
+						command,
+						signal,
+						event,
+						correlationId,
+						toolCalls,
+						toMotorName,
+						timeoutMs,
+						dispatchOptions,
+					);
 			await appendToolResults(messages, toolCalls, results, toMotorName, options.sessionId);
 			signal.publish({
 				type: "llm.checkpoint",

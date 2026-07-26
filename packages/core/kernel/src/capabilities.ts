@@ -54,6 +54,7 @@ export interface CommandExecutionOptions {
 	readonly permissions?: readonly string[];
 	readonly correlationId?: string;
 	readonly runId?: string;
+	readonly toolCallId?: string;
 	readonly onProgress?: (progress: Record<string, unknown>) => void;
 }
 
@@ -64,16 +65,25 @@ export interface CommandHandlerContext<TInput> {
 	readonly deadline?: number;
 	readonly correlationId?: string;
 	readonly runId?: string;
+	readonly toolCallId?: string;
 	reportProgress(progress: Record<string, unknown>): void;
 }
 
 /** Keeps command execution independent from its in-process or RPC transport. */
 export type CommandHandler<TInput, TOutput> = (context: CommandHandlerContext<TInput>) => Promise<TOutput>;
 
-type AnyCommand = CapabilityCommand<ZodTypeAny, ZodTypeAny>;
+/** Erases schema generics only after contracts retain their runtime validators. */
+export type AnyCapabilityCommand = CapabilityCommand<ZodTypeAny, ZodTypeAny>;
+
+/** Creates session-local command handling state from an adapter declaration. */
+export interface CommandBinding {
+	readonly command: AnyCapabilityCommand;
+	bind(): CommandHandler<unknown, unknown>;
+}
+
 type Registration = {
 	readonly owner: string;
-	readonly command: AnyCommand;
+	readonly command: AnyCapabilityCommand;
 	invoke(input: unknown, context: Omit<CommandHandlerContext<unknown>, "input">): Promise<unknown>;
 };
 
@@ -109,26 +119,18 @@ export class CommandRouter {
 		command: CapabilityCommand<TInputSchema, TOutputSchema>,
 		handler: CommandHandler<z.infer<TInputSchema>, z.infer<TOutputSchema>>,
 	): void {
-		if (!owner.trim()) throw new Error("command owner must not be empty");
-		const key = commandKey(command.name, command.version);
-		const existing = this.registrations.get(key);
-		if (existing) {
-			throw new CapabilityCommandError(
-				"duplicate-owner",
-				`${key} is already owned by ${existing.owner}; ${owner} cannot also register it`,
-			);
-		}
-		this.registrations.set(key, {
-			owner,
-			command,
-			invoke(input, context) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Input was parsed by this command's schema before invocation.
-				return handler({ ...context, input: input as z.infer<TInputSchema> });
-			},
+		this.addRegistration(owner, command, (input, context) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Input was parsed by this command's schema before invocation.
+			return handler({ ...context, input: input as z.infer<TInputSchema> });
 		});
 	}
 
-	ownerOf(command: AnyCommand): string | undefined {
+	registerBinding(owner: string, binding: CommandBinding): void {
+		const handler = binding.bind();
+		this.addRegistration(owner, binding.command, (input, context) => handler({ ...context, input }));
+	}
+
+	ownerOf(command: AnyCapabilityCommand): string | undefined {
 		return this.registrations.get(commandKey(command.name, command.version))?.owner;
 	}
 
@@ -153,6 +155,23 @@ export class CommandRouter {
 		options: CommandExecutionOptions = {},
 	): Promise<unknown> {
 		return this.executeRegistration(commandKey(name, version), input, options);
+	}
+
+	private addRegistration(
+		owner: string,
+		command: AnyCapabilityCommand,
+		invoke: Registration["invoke"],
+	): void {
+		if (!owner.trim()) throw new Error("command owner must not be empty");
+		const key = commandKey(command.name, command.version);
+		const existing = this.registrations.get(key);
+		if (existing) {
+			throw new CapabilityCommandError(
+				"duplicate-owner",
+				`${key} is already owned by ${existing.owner}; ${owner} cannot also register it`,
+			);
+		}
+		this.registrations.set(key, { owner, command, invoke });
 	}
 
 	private async executeRegistration(
@@ -184,6 +203,7 @@ export class CommandRouter {
 			deadline: options.deadline,
 			correlationId: options.correlationId,
 			runId: options.runId,
+			toolCallId: options.toolCallId,
 			reportProgress: (progress) => options.onProgress?.(progress),
 		};
 

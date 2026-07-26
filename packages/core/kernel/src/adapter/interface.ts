@@ -1,6 +1,7 @@
 import type { ZodTypeAny } from "zod";
 import { z } from "zod";
 import type { AdapterContributions } from "./contributions.js";
+import type { CommandBinding } from "../capabilities.js";
 import type { Bus, ChannelMap } from "../bus/messages.js";
 
 /** Schema and metadata describing a single tool exposed by an adapter. */
@@ -10,6 +11,9 @@ export interface ToolDefinition {
 	readonly inputSchema: ZodTypeAny;
 	readonly streaming?: true;
 	readonly longRunning?: true;
+	readonly version?: number;
+	readonly outputSchema?: ZodTypeAny;
+	readonly permissions?: readonly string[];
 }
 
 const passthroughRawMap = new WeakMap<ZodTypeAny, Record<string, unknown>>();
@@ -35,6 +39,7 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 export interface Adapter {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
+	readonly commands?: readonly CommandBinding[];
 	mount(bus: Bus): () => void;
 	close?(): Promise<void>;
 	readonly subscriptions: ChannelMap<readonly string[]>;

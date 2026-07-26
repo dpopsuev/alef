@@ -66,7 +66,7 @@ export type {
 } from "./permissions.js";
 export { createCompositeAgentRunContribution } from "./contributions.js";
 export type { AdapterTheme, UiContribution, UiSignalHandler } from "./ui.js";
-export { defineAdapter } from "./framework.js";
+export { createAdapterCommandRouter, defineAdapter } from "./framework.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

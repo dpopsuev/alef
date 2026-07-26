@@ -11,8 +11,11 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { buildBootCatalog } from "@dpopsuev/alef-engine/catalog";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createRoleTenantDataAccessPolicy } from "@dpopsuev/alef-kernel/adapter";
+import {
+	type Adapter,
+	createAdapterCommandRouter,
+	createRoleTenantDataAccessPolicy,
+} from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
@@ -280,6 +283,7 @@ export async function createLocalSession(
 		toolDisclosure: cfg.tool_disclosure,
 	});
 	const { contextPipeline } = stack;
+	const commandRouter = createAdapterCommandRouter(stack.adapters);
 
 	const systemPrompt = directives.build(directivesBudgetChars);
 	const blockSizes = directives.blockSizes();
@@ -293,24 +297,31 @@ export async function createLocalSession(
 		tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
 	});
 
-	const llmAdapter = buildLlmAdapter({
-		model,
-		cfg,
-		args,
-		thinkingState,
-		getModel: () => currentModel,
-		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => contextPipeline.resolveSchema(name),
-		contextPipeline,
-		systemPrompt,
-	});
-
 	const summaryStore = storage.summaryStore();
 	const handleSlot: { current?: SessionHandle } = {};
 	let sessionAdapter!: Session;
 	const runtime = await createAgentSession({
 		cwd: args.cwd,
 		model,
+		llmFactory: ({
+			contextPipeline: materializedContext,
+			commandRouter: materializedCommands,
+			eventHub,
+			systemPrompt: materializedPrompt,
+		}) =>
+			buildLlmAdapter({
+				model,
+				cfg,
+				args,
+				thinkingState,
+				getModel: () => currentModel,
+				getSignal: () => llmController?.signal,
+				schemaResolver: (name) => materializedContext.resolveSchema(name),
+				contextPipeline: materializedContext,
+				commandRouter: materializedCommands,
+				eventHub,
+				systemPrompt: materializedPrompt,
+			}),
 		adapters: [
 			...stack.adapters,
 			createTokenTelemetry(store.id),
@@ -320,9 +331,9 @@ export async function createLocalSession(
 				scope: { tenantId: boardId, roles: ["operator"] },
 			}),
 		],
-		llmAdapter,
 		composeToolShell: false,
 		contextPipeline,
+		commandRouter,
 		directives,
 		session: store,
 		modelId: model.id,

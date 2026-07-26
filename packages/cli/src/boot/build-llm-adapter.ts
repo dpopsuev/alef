@@ -1,7 +1,9 @@
 import { buildLlm } from "@dpopsuev/alef-agent/build-llm";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { CommandRouter } from "@dpopsuev/alef-kernel/capabilities";
 import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
+import type { EventHub } from "@dpopsuev/alef-kernel/events";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import type { AlefConfig } from "./config.js";
@@ -16,6 +18,9 @@ export interface LlmAdapterOptions {
 	getSignal: () => AbortSignal | undefined;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	contextPipeline?: ContextPipeline;
+	commandRouter?: CommandRouter;
+	commandPermissions?: readonly string[];
+	eventHub?: EventHub;
 	systemPrompt?: string;
 }
 
@@ -30,6 +35,9 @@ export function buildLlmAdapter(opts: LlmAdapterOptions): Adapter {
 		systemPrompt: opts.systemPrompt,
 		schemaResolver: opts.schemaResolver,
 		contextPipeline: opts.contextPipeline,
+		commandRouter: opts.commandRouter,
+		commandPermissions: opts.commandPermissions,
+		eventHub: opts.eventHub,
 		trackConcurrentOps: opts.args.serve !== undefined,
 		llm: opts.cfg.llm,
 	});

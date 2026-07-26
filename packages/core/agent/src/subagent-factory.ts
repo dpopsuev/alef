@@ -5,7 +5,6 @@ import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentSession } from "@dpopsuev/alef-session/agent";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
@@ -19,9 +18,6 @@ export type LlmAdapterFactory = (opts: {
 	systemPrompt?: string;
 	contextPipeline: ContextPipeline;
 }) => Adapter;
-
-const defaultLlmFactory: LlmAdapterFactory = (opts) =>
-	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, contextPipeline: opts.contextPipeline });
 
 /**
  *
@@ -83,8 +79,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const resolvedModel = modelOverride ? buildModel(modelOverride) : opts.model;
 
 		const contextPipeline = createContextPipeline(adapters);
-		const llmFactory = opts.llmFactory ?? defaultLlmFactory;
-		const llm = llmFactory({ model: resolvedModel, systemPrompt, contextPipeline });
+		const llm = opts.llmFactory?.({ model: resolvedModel, systemPrompt, contextPipeline });
 
 		let reply = "";
 		let totalInputTokens = 0;
@@ -94,7 +89,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			cwd: process.cwd(),
 			model: resolvedModel,
 			adapters,
-			llmAdapter: llm,
+			...(llm ? { llmAdapter: llm } : { systemPrompt }),
 			contextPipeline,
 			toolDisclosure: "full",
 			onReply: (text) => {

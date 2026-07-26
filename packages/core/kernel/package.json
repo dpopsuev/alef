@@ -80,6 +80,16 @@
       "source": "./src/backend.ts",
       "import": "./src/backend.ts",
       "default": "./src/backend.ts"
+    },
+    "./capabilities": {
+      "source": "./src/capabilities.ts",
+      "import": "./src/capabilities.ts",
+      "default": "./src/capabilities.ts"
+    },
+    "./events": {
+      "source": "./src/events.ts",
+      "import": "./src/events.ts",
+      "default": "./src/events.ts"
     }
   },
   "files": [

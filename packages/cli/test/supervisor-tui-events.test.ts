@@ -16,7 +16,7 @@ import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpop
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import pino from "pino";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import "@dpopsuev/alef-coding-agent";
 
@@ -27,6 +27,7 @@ import { createSessionServiceDescriptor, type SessionService } from "../src/boot
 import { HeadlessViewMode } from "../src/boot/views.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
+const FAUX_PROVIDER = registerFauxProvider({ models: [{ id: "tui-event-test" }] });
 
 const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 const EMPTY_LOADED = {
@@ -63,6 +64,18 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 	const tmpDirs: string[] = [];
 	const supervisors: Supervisor[] = [];
 
+	beforeEach(() => {
+		FAUX_PROVIDER.setResponses([
+			fauxAssistantMessage("event-test-reply"),
+			fauxAssistantMessage("event-test-reply"),
+			fauxAssistantMessage("event-test-reply"),
+		]);
+	});
+
+	afterAll(() => {
+		FAUX_PROVIDER.unregister();
+	});
+
 	afterEach(async () => {
 		for (const s of supervisors.splice(0)) await s.stopAll().catch(() => {});
 		for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -75,8 +88,7 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 	}
 
 	async function bootWithSession() {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("event-test-reply")]);
+		const faux = FAUX_PROVIDER;
 
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);

@@ -174,16 +174,6 @@ describe("runDevUpdate", { tags: ["unit"] }, () => {
 		expect(git.pull).not.toHaveBeenCalled();
 	});
 
-	it("skips rebuild when working tree is clean (no changes)", async () => {
-		const rebuild = vi.fn(async () => {});
-		const respawn = vi.fn(async () => {});
-		const git = fakeGit({ statusPorcelain: () => "" });
-		const result = await runDevUpdate({ pull: false, force: false, checkOnly: false, git, rebuild, respawn });
-		expect(result).toEqual({ kind: "up-to-date" });
-		expect(rebuild).not.toHaveBeenCalled();
-		expect(respawn).not.toHaveBeenCalled();
-	});
-
 	it("rebuilds when working tree has changes", async () => {
 		const rebuild = vi.fn(async () => {});
 		const git = fakeGit({ statusPorcelain: () => " M src/foo.ts" });

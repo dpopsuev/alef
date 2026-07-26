@@ -14,7 +14,7 @@ describe("chain instrumentation coverage", { tags: ["unit"] }, () => {
 	});
 
 	it("TUI observer callback has traceEvent", () => {
-		const content = readFileSync(resolve(CLI_CLIENT, "runner.ts"), "utf-8");
+		const content = readFileSync(resolve(CLI_CLIENT, "tui-shell.ts"), "utf-8");
 		expect(content).toContain('traceEvent("tui:observer"');
 	});
 

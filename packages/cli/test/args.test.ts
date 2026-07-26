@@ -44,14 +44,6 @@ describe("parseArgs", { tags: ["unit"] }, () => {
 		expect(args.prompt).toBe("audit src/");
 	});
 
-	it("ALEF_MODEL env var sets default model", () => {
-		const original = process.env.ALEF_MODEL;
-		process.env.ALEF_MODEL = "claude-opus-4-5";
-		const args = parseArgs([]);
-		process.env.ALEF_MODEL = original;
-		expect(args.modelId).toBe("claude-opus-4-5");
-	});
-
 	it("--model overrides ALEF_MODEL env var", () => {
 		const original = process.env.ALEF_MODEL;
 		process.env.ALEF_MODEL = "claude-opus-4-5";

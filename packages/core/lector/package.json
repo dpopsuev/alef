@@ -1,0 +1,32 @@
+{
+  "name": "@dpopsuev/alef-lector",
+  "version": "0.1.0",
+  "description": "Thin WorkspaceFilesystemPort/CodeIntelligencePort/CallGraphPort/WorkspaceGitPort implementations backed by a real Lector daemon",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@danypops/lector": "^0.1.12",
+    "@dpopsuev/alef-workspace": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "^1.2.20",
+    "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "alef": {
+    "type": "core",
+    "entry": "./src/index.ts"
+  }
+}

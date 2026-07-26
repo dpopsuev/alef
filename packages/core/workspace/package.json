@@ -1,0 +1,30 @@
+{
+  "name": "@dpopsuev/alef-workspace",
+  "version": "0.1.0",
+  "description": "Versioned filesystem, code-intelligence, call-graph, and Git ports for workspace capability adapters",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./src/index.ts" },
+    "./filesystem-port": { "types": "./dist/filesystem-port.d.ts", "default": "./src/filesystem-port.ts" },
+    "./code-intelligence-port": { "types": "./dist/code-intelligence-port.d.ts", "default": "./src/code-intelligence-port.ts" },
+    "./call-graph-port": { "types": "./dist/call-graph-port.d.ts", "default": "./src/call-graph-port.ts" },
+    "./git-port": { "types": "./dist/git-port.d.ts", "default": "./src/git-port.ts" },
+    "./filesystem-port-conformance": "./test/filesystem-port-conformance.ts"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "npx tsc -b tsconfig.build.json",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "devDependencies": {
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.6"
+  },
+  "engines": { "node": "^22.0.0" },
+  "license": "MIT"
+}

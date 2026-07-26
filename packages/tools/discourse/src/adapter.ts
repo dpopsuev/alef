@@ -216,7 +216,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 			],
 			sources: [{ name: usingScribe ? "session-store+scribe" : "session-store", kind: "process" }],
 			contributions: {
-				"context.assemble": contextStage,
+				"context.stage": contextStage,
 			},
 			...opts,
 		},

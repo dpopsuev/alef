@@ -60,6 +60,7 @@ defineEvalSuite({
 			cwd: workspace,
 			model,
 			adapters: [...stack.adapters, ...additionalAdapters],
+			contextPipeline: stack.contextPipeline,
 			composeToolShell: false,
 			getSignal: () => signal,
 		});

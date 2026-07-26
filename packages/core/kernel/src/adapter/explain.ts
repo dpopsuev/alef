@@ -29,7 +29,7 @@ export function explainAdapter(adapter: Adapter): string {
 	if (contributions) {
 		const slots: string[] = [];
 		if (contributions.port) slots.push(`port(${contributions.port.name})`);
-		if (contributions["context.assemble"]) slots.push("context.assemble");
+		if (contributions["context.stage"]) slots.push("context.stage");
 		if (contributions["agent.run"]) slots.push("agent.run");
 		if (contributions["schema-resolver"]) slots.push("schema-resolver");
 		if (contributions.skills) slots.push(`skills(${contributions.skills.length})`);

@@ -1,9 +1,3 @@
-/**
- * Repro: existing alef.db has discourse_posts without `id` (pre-session-store shape),
- * while plugin migration version is already 1 so CREATE TABLE IF NOT EXISTS is a no-op.
- * Boot → context.assemble → readNewPosts → SQLITE_ERROR: no such column: id → process exit.
- */
-
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDiscourseAdapter } from "../src/adapter.js";
@@ -11,7 +5,7 @@ import { ensureDiscourseSchema } from "../src/ensure-schema.js";
 import { openDiscourseBackend } from "../src/open-backend.js";
 import { SqliteDiscourseStore } from "../src/sqlite-store.js";
 
-/** Match production ~/.local/share/alef/alef.db discourse_posts (2026-07 observed). */
+/** Reproduces the deployed schema that migration must repair. */
 async function seedLegacyDiscourseDb(client: Client): Promise<void> {
 	await client.execute(`CREATE TABLE discourse_posts (
 		rowid INTEGER PRIMARY KEY,
@@ -61,14 +55,14 @@ describe("legacy discourse_posts schema (no id column)", { tags: ["unit"] }, () 
 		expect(posts[0]?.author).toBe("@user");
 	});
 
-	it("openDiscourseBackend + context.assemble survives legacy schema (boot crash path)", async () => {
+	it("openDiscourseBackend context stage survives legacy schema (boot crash path)", async () => {
 		const client = createClient({ url: ":memory:" });
 		clients.push(client);
 		await seedLegacyDiscourseDb(client);
 
 		const backend = await openDiscourseBackend({ client, sessionId: "sess-legacy" });
 		const adapter = createDiscourseAdapter({ backend, actorAddress: "@agent" });
-		const stage = adapter.contributions?.["context.assemble"];
+		const stage = adapter.contributions?.["context.stage"];
 		expect(stage).toBeTypeOf("function");
 
 		await expect(

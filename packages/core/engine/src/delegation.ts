@@ -1,12 +1,12 @@
 /**
- * Delegation stack builder — wires explore/general strategies and context assembly
+ * Delegation stack builder — wires explore/general strategies and the context pipeline
  * from prebuilt adapters injected by the composition root (profiles).
  */
 
 import type { SubagentFactory } from "./subagent-port.js";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { WorkContext } from "@dpopsuev/alef-kernel/execution";
 import {
 	buildAdapterDirectives,
@@ -40,7 +40,7 @@ export interface DelegationAdapters {
 	createSessionContextStage: (opts: any) => ContextAssemblyHandler;
 }
 
-/** Configuration for building explore/general strategies, context assembly, and domain adapters. */
+/** Configuration for building explore/general strategies, the context pipeline, and domain adapters. */
 export interface DelegationStackOptions {
 	cwd: string;
 	factory: SubagentFactory;
@@ -73,10 +73,10 @@ export interface DelegationStackOptions {
 	toolDisclosure?: "full" | "progressive";
 }
 
-/** Materialized adapter set with explore/general strategies and context assembly pipeline. */
+/** Materialized adapter set with explore/general strategies and their context pipeline. */
 export interface DelegationStack {
 	adapters: Adapter[];
-	contextAssembly: ReturnType<typeof createContextAssembler>;
+	contextPipeline: ReturnType<typeof createContextPipeline>;
 	exploreAdapters: Adapter[];
 	generalAdapters: Adapter[];
 }
@@ -103,7 +103,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	const resolvedExploreAdapters = [...exploreAdapters];
 	const resolvedGeneralAdapters = [...generalAdapters];
 
-	const contextAssembly = createContextAssembler();
+	const contextPipeline = createContextPipeline();
 
 	const allWeights: Record<string, number> = {};
 	for (const adapter of [...resolvedDomainAdapters, ...extraAdapters]) {
@@ -117,7 +117,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	if (opts.sessionStore) {
 		const store = opts.sessionStore;
-		contextAssembly.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
+		contextPipeline.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
 	}
 
 	const exploreStrategy = new InProcessStrategy(resolvedExploreAdapters, factory, explorePrompt);
@@ -146,7 +146,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
 	let lastTotalTokens = 0;
 	let pendingForceCompact: { instructions?: string; strategy?: "summarize" | "shake" } | undefined;
-	contextAssembly.addStage(
+	contextPipeline.addStage(
 		"compactor",
 		injected.createCompactionStage({
 			contextWindow,
@@ -164,34 +164,44 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			},
 		}),
 	);
-	const origMount = contextAssembly.mount.bind(contextAssembly);
-	(contextAssembly as { mount: typeof contextAssembly.mount }).mount = (bus) => {
-		signalPublish = (type, payload) => bus.notification.publish({ type, payload, correlationId: "" });
-		bus.notification.subscribe("llm.token-usage", (event) => {
-			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
-			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
-		});
-		bus.notification.subscribe("context.compacted", (event) => {
-			const after = (event as { payload?: { estimatedAfter?: number } }).payload?.estimatedAfter;
-			if (typeof after === "number" && after >= 0) lastTotalTokens = after;
-		});
-		bus.notification.subscribe("context.compact.request", (event) => {
-			const instructions =
-				typeof event.payload.instructions === "string" ? event.payload.instructions : undefined;
-			const strategyRaw = event.payload.strategy;
-			const strategy =
-				strategyRaw === "shake" || strategyRaw === "summarize" ? strategyRaw : undefined;
-			pendingForceCompact = { instructions, strategy };
-		});
-		if (opts.onPlanOpened) {
-			const onPlanOpened = opts.onPlanOpened;
-			bus.notification.subscribe("plan.opened", (event) => {
-				const desired = typeof event.payload.desired === "string" ? event.payload.desired : "";
-				if (!desired) return;
-				void onPlanOpened(desired);
+	const contextLifecycle: Adapter = {
+		name: "context.lifecycle",
+		tools: [],
+		subscriptions: {
+			command: [],
+			event: [],
+			notification: ["llm.token-usage", "context.compacted", "context.compact.request", "plan.opened"],
+		},
+		sources: [],
+		mount(bus) {
+			signalPublish = (type, payload) => bus.notification.publish({ type, payload, correlationId: "" });
+			const unsubscribeUsage = bus.notification.subscribe("llm.token-usage", (event) => {
+				const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
+				if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
 			});
-		}
-		return origMount(bus);
+			const unsubscribeCompacted = bus.notification.subscribe("context.compacted", (event) => {
+				const after = (event as { payload?: { estimatedAfter?: number } }).payload?.estimatedAfter;
+				if (typeof after === "number" && after >= 0) lastTotalTokens = after;
+			});
+			const unsubscribeCompactRequest = bus.notification.subscribe("context.compact.request", (event) => {
+				const instructions = typeof event.payload.instructions === "string" ? event.payload.instructions : undefined;
+				const strategyRaw = event.payload.strategy;
+				const strategy = strategyRaw === "shake" || strategyRaw === "summarize" ? strategyRaw : undefined;
+				pendingForceCompact = { instructions, strategy };
+			});
+			const unsubscribePlan = opts.onPlanOpened
+				? bus.notification.subscribe("plan.opened", (event) => {
+						const desired = typeof event.payload.desired === "string" ? event.payload.desired : "";
+						if (desired) void opts.onPlanOpened?.(desired);
+					})
+				: () => undefined;
+			return () => {
+				unsubscribeUsage();
+				unsubscribeCompacted();
+				unsubscribeCompactRequest();
+				unsubscribePlan();
+			};
+		},
 	};
 
 	const baseExclude = new Set(["agent", "compactor", ...excludeNames]);
@@ -206,11 +216,12 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
 	});
 
-	const adapters: Adapter[] = [...allAdapters, toolShell, contextAssembly];
+	contextPipeline.addAdapters([...allAdapters, toolShell]);
+	const adapters: Adapter[] = [...allAdapters, toolShell, contextLifecycle];
 
 	return {
 		adapters,
-		contextAssembly,
+		contextPipeline,
 		exploreAdapters: resolvedExploreAdapters,
 		generalAdapters: resolvedGeneralAdapters,
 	};

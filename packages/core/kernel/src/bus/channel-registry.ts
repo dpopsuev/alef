@@ -53,7 +53,6 @@ const CHANNEL_REGISTRY: ReadonlyMap<string, ChannelName> = new Map<string, Chann
 	["task.cancelled", "notification"],
 	["llm.response", "command"],
 	["llm.input", "event"],
-	["context.assemble", "command"],
 ]);
 
 /** Check if a publish targets the correct channel. Returns null if correct or unregistered, or the expected channel if wrong. */

@@ -40,8 +40,9 @@ describe("createAgentSession", () => {
 
 		expect(reply).toBe("session reply");
 		expect(runtime.agent.adapters.map((entry) => entry.name)).toEqual(
-			expect.arrayContaining(["llm", "loop-detector", "progress-telemetry", "session-capability", "tools", "context.assembly"]),
+			expect.arrayContaining(["llm", "loop-detector", "progress-telemetry", "session-capability", "tools"]),
 		);
+		expect(runtime.agent.adapters.some((entry) => entry.name === "context.assembly")).toBe(false);
 		expect(events).toContain("turn-complete");
 	});
 });

@@ -434,7 +434,7 @@ export class EvalHarness {
 		const transcript: Array<Record<string, unknown>> = [];
 		const busEvents: BusEvent[] = [];
 		const motorTimes = new Map<string, number>();
-		const SKIP_BUS_EVENTS = new Set(["llm.response", "context.assemble"]);
+		const SKIP_BUS_EVENTS = new Set(["llm.response"]);
 
 		const transcriptObserver = agent.observe({
 			onCommand(event) {

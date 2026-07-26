@@ -1,4 +1,5 @@
 import type { Adapter, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { pickKeyArg, withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
@@ -65,7 +66,7 @@ export interface LlmTopologyOptions {
 	/** Live getter — overrides `thinking` when provided. Enables :think runtime switching. */
 	getThinking?: () => ThinkingLevel | undefined;
 	trackConcurrentOps?: boolean;
-	phaseTimeoutMs?: number;
+	contextPipeline?: ContextPipeline;
 
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
@@ -281,7 +282,7 @@ interface InflightEntry {
 // The reply event signals turn completion, not an in-flight op.
 /** Build the set of event types that should not be tracked as in-flight operations. */
 function makeInflightExcluded(replyType: string): Set<string> {
-	return new Set([replyType, "context.assemble", "llm.result"]);
+	return new Set([replyType, "llm.result"]);
 }
 
 /** Compose a unique map key from event type, correlation ID, and optional tool-call ID. */
@@ -354,11 +355,6 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 				text: z.string().min(1),
 				conversationHistory: z.array(z.unknown()).optional(),
 				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
-			}),
-			"context.assemble": z.object({
-				messages: z.array(z.unknown()),
-				turn: z.number().int().positive(),
-				toolCount: z.number().int().nonnegative(),
 			}),
 		},
 	};

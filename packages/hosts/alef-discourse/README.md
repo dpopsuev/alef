@@ -8,6 +8,6 @@ Commands:
 - `discourse.read` returns one bounded thread page.
 - `discourse.list` returns bounded topic or thread summaries.
 
-Committed events are consumed through a sequenced subscription and injected via the `context.assemble` contribution. Replay gaps produce an explicit resynchronization marker rather than silently skipping posts.
+Committed events are consumed through a sequenced subscription and injected via the direct `context.stage` contribution. Replay gaps produce an explicit resynchronization marker rather than silently skipping posts.
 
 This adapter's forum is process-local and in-memory, matching `pi-discourse`'s default composition exactly — it does not persist across restarts. For durable, cross-process multi-agent coordination, compose `@danypops/discourse`'s ports with a persistent `DiscourseStore` (for example `SqliteCapabilityDiscourseStore` from `@dpopsuev/alef-tool-discourse`) instead of the in-memory store used here.

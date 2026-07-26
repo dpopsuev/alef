@@ -62,7 +62,7 @@ export async function createResearchAgentStack(
 
 	return {
 		adapters,
-		contextAssembly: codingStack.contextAssembly,
+		contextPipeline: codingStack.contextPipeline,
 		supervisor: foundry.supervisor,
 	};
 }

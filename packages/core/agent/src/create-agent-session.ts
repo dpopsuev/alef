@@ -11,7 +11,7 @@ import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
 import { newCorrelationId } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { DesiredStateSpec } from "@dpopsuev/alef-kernel/reconciliation";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
@@ -39,7 +39,7 @@ export interface CreateAgentSessionOptions {
 	llm?: LlmBuildOptions["llm"];
 	trackConcurrentOps?: boolean;
 	desiredState?: DesiredStateSpec;
-	contextAssembly?: ReturnType<typeof createContextAssembler>;
+	contextPipeline?: ContextPipeline;
 	composeToolShell?: boolean;
 	toolDisclosure?: "full" | "progressive";
 	session?: SessionStore;
@@ -109,7 +109,8 @@ function gapFromLlm(llm: Adapter): () => GapSnapshot | null {
 
 /** Centralizes readiness, control, observers, and disposal across every host. */
 export async function createAgentSession(opts: CreateAgentSessionOptions): Promise<AgentSessionRuntime> {
-	const contextAssembly = opts.contextAssembly ?? createContextAssembler();
+	const contextPipeline = opts.contextPipeline ?? createContextPipeline();
+	contextPipeline.addAdapters(opts.adapters);
 	const tools = opts.adapters.flatMap((adapter) => adapter.tools);
 	const directives = opts.systemPrompt !== undefined
 		? createLeanDirectives({ systemPrompt: opts.systemPrompt, adapters: opts.adapters, cwd: opts.cwd })
@@ -133,7 +134,8 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 			getModel: () => model,
 			getSignal: opts.getSignal ?? (() => undefined),
 			getApiKey: opts.getApiKey,
-			schemaResolver: opts.schemaResolver ?? ((name) => contextAssembly.getSchemaResolver()?.(name)),
+			schemaResolver: opts.schemaResolver ?? ((name) => contextPipeline.resolveSchema(name)),
+			contextPipeline,
 			systemPrompt,
 			llm: opts.llm,
 			trackConcurrentOps: opts.trackConcurrentOps ?? true,
@@ -155,15 +157,16 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	}
 	for (const adapter of opts.adapters) agent.load(adapter);
 	if (opts.composeToolShell !== false) {
-		agent.load(createToolShellAdapter({
+		const toolShell = createToolShellAdapter({
 			tools,
 			getTools: () => agent.tools.filter((tool) => !["tools.describe", "tools.status", "tools.cancel"].includes(tool.name)),
 			adapterDirectives: buildAdapterDirectives(opts.adapters),
 			disclosure: opts.toolDisclosure ?? "progressive",
 			alwaysFullNamespaces: [...DEFAULT_ALWAYS_FULL_NAMESPACES],
 			alwaysFullTools: [...DEFAULT_ALWAYS_FULL_TOOLS],
-		}));
-		agent.load(contextAssembly);
+		});
+		contextPipeline.addAdapters([toolShell]);
+		agent.load(toolShell);
 	}
 
 	const observers = new Set<(event: AgentEvent) => void>();

@@ -26,7 +26,6 @@ first turn.
 | `shell` | `motor/shell.` | zero-or-one | organ-shell | Process execution with PTY streaming |
 | `enclosure` | `motor/enclosure.` | zero-or-one | organ-enclosure | Copy-on-write isolated workspaces |
 | `web` | `motor/web.` | zero-or-one | organ-web | Page fetch (Readability) and web search |
-| `context_assembly` | `motor/context.assemble` | ordered-pipeline | kernel built-in | Pre-LLM context assembly pipeline |
 
 Cardinality enforcement (`kernel/port-registry.ts`):
 - **exactly-one** — missing = error, duplicate = error (race condition)
@@ -50,12 +49,12 @@ consumer.
 
 ### 3. Pipeline — Context Assembly Ports
 
-Declared via `contributions["context.assemble"]` and
-`contributions["schema-resolver"]`. Stages run in order before each LLM call.
+Declared via `contributions["context.stage"]` and
+`contributions["schema-resolver"]`. Materialization orders the stages before the first LLM call.
 
 | Contribution | Interface | Adapters |
 |---|---|---|
-| `context.assemble` | `ContextAssemblyHandler` — modify messages / tools pre-turn | organ-discourse, organ-plan, organ-scribe, ToolShell |
+| `context.stage` | `ContextAssemblyHandler` — modify messages / tools pre-turn | organ-discourse, organ-plan, organ-scribe, ToolShell |
 | `schema-resolver` | `(toolName) → ToolDefinition` — resolve full tool schemas | ToolShell |
 
 ### 4. Presentation — Display Ports
@@ -86,14 +85,13 @@ contributions. They are pure tool providers:
 
 An adapter can contribute to multiple buckets simultaneously. For example,
 `organ-enclosure` declares both a **seaming** port (`motor/enclosure.`) and a
-**presentation** TUI renderer. The kernel collects all contributions at mount
-via `sense/organ.loaded`.
+**presentation** TUI renderer. The blueprint composition root collects pipeline contributions directly from materialized adapters.
 
 ```typescript
 // buses.ts — the 4 contribution interfaces compose into OrganContributions
 interface OrganContributions
   extends ReasoningContributions,    // agent.run, skills
-          PipelineContributions,     // context.assemble, schema-resolver
+          PipelineContributions,     // context.stage, schema-resolver
           PresentationContributions, // tui, history, signal.map
           SeamingContributions {}    // port, plan.scope
 ```

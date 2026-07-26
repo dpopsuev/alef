@@ -1,5 +1,5 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import type { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
@@ -48,7 +48,7 @@ export interface BlueprintStackOptions {
  */
 export interface BlueprintStack {
 	adapters: Adapter[];
-	contextAssembly: ReturnType<typeof createContextAssembler>;
+	contextPipeline: ReturnType<typeof createContextPipeline>;
 }
 
 /**

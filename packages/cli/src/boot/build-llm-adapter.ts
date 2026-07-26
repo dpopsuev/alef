@@ -1,6 +1,7 @@
 import { buildLlm } from "@dpopsuev/alef-agent/build-llm";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import type { AlefConfig } from "./config.js";
@@ -14,6 +15,7 @@ export interface LlmAdapterOptions {
 	getModel: () => Model<Api>;
 	getSignal: () => AbortSignal | undefined;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
+	contextPipeline?: ContextPipeline;
 	systemPrompt?: string;
 }
 
@@ -27,6 +29,7 @@ export function buildLlmAdapter(opts: LlmAdapterOptions): Adapter {
 		getApiKey: (provider) => resolveApiKey(provider),
 		systemPrompt: opts.systemPrompt,
 		schemaResolver: opts.schemaResolver,
+		contextPipeline: opts.contextPipeline,
 		trackConcurrentOps: opts.args.serve !== undefined,
 		llm: opts.cfg.llm,
 	});

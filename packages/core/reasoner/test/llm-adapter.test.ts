@@ -1,17 +1,13 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Context } from "@dpopsuev/alef-ai/types";
 import { type FauxResponseFactory, fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { afterEach, describe, expect, it } from "vitest";
-import { adapterComplianceSuite, BusFixture, TurnDriver } from "../../testkit/src/index.js";
+import { BusFixture, TurnDriver } from "../../testkit/src/index.js";
 import { createAgentLoop } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
 import { buildTools } from "../src/handlers/message-handler.js";
-
-// createContextAssembler (from kernel) is the mountable pipeline adapter — no tools, pure coordinator.
-// adapter-llm is a reasoner (no tools), not a tool-bearing adapter.
-adapterComplianceSuite(() => createContextAssembler());
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 
@@ -287,160 +283,86 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 	});
 });
 
-// ---------------------------------------------------------------------------
-// command/context.assemble seam
-// ---------------------------------------------------------------------------
-
-describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () => {
+describe("Reasoner — direct context pipeline", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
-		for (const d of disposes.splice(0)) d();
+		for (const dispose of disposes.splice(0)) dispose();
 	});
 
-	it("disabled by default (phaseTimeoutMs=0): no command/context.assemble published", async () => {
+	it("does not publish context control events", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-		const f = new BusFixture();
-		const driver = new TurnDriver(f.bus);
-		const recorder = f.observe();
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-			}),
-		);
-		disposes.push(() => f.dispose());
+		const fixture = new BusFixture();
+		const driver = new TurnDriver(fixture.bus);
+		const recorder = fixture.observe();
+		fixture.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
+		disposes.push(() => fixture.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		expect(recorder.command.filter((e) => e.type === "context.assemble")).toHaveLength(0);
+
+		expect(recorder.command.some((event) => event.type === "context.assemble")).toBe(false);
+		expect(recorder.event.some((event) => event.type === "context.assemble")).toBe(false);
 	});
 
-	it("publishes command/context.assemble before each LLM call when phaseTimeoutMs > 0", async () => {
+	it("awaits ordered stages before the model call", async () => {
 		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("done")]);
-		const f = new BusFixture();
-		const driver = new TurnDriver(f.bus);
-		const recorder = f.observe();
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				phaseTimeoutMs: 50,
-			}),
-		);
-		disposes.push(() => f.dispose());
+		const calls: string[] = [];
+		const pipeline = createContextPipeline();
+		pipeline.addStage("first", async () => {
+			await Promise.resolve();
+			calls.push("first");
+			return {};
+		});
+		pipeline.addStage("second", async () => {
+			calls.push("second");
+			return {};
+		});
+		faux.setResponses([() => {
+			calls.push("model");
+			return fauxAssistantMessage("done");
+		}]);
+		const fixture = new BusFixture();
+		const driver = new TurnDriver(fixture.bus);
+		fixture.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", contextPipeline: pipeline }));
+		disposes.push(() => fixture.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		const phaseEvents = recorder.command.filter((e) => e.type === "context.assemble");
-		expect(phaseEvents.length).toBeGreaterThanOrEqual(1);
-		const first = phaseEvents[0] as unknown as { payload: { messages: unknown[]; turn: number } };
-		expect(first.payload.turn).toBe(1);
-		expect(Array.isArray(first.payload.messages)).toBe(true);
+
+		expect(calls).toEqual(["first", "second", "model"]);
 	});
 
-	it("phase adapter receives messages and its event/context.assemble reply is awaited", async () => {
+	it("passes current messages directly to stages", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
-		const f = new BusFixture();
-		const driver = new TurnDriver(f.bus);
-		const recorder = f.observe();
-
-		let phaseReceivedMessages: unknown[] = [];
-		const phaseAdapter = {
-			name: "phase-spy",
-			description: "test phase interceptor",
-			labels: [] as const,
-			tools: [] as const,
-			publishSchemas: {} as const,
-			subscriptions: { command: ["context.assemble"] as const, event: [] as const, notification: [] as const },
-			sources: [],
-			mount(nerve: Bus) {
-				nerve.command.subscribe("context.assemble", (event) => {
-					const payload = event.payload as { messages: unknown[] };
-					phaseReceivedMessages = payload.messages;
-					nerve.event.publish({
-						type: "context.assemble",
-						payload: { messages: payload.messages },
-						correlationId: event.correlationId,
-						isError: false,
-					});
-				});
-				return () => {};
-			},
-		};
-
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				phaseTimeoutMs: 500,
-			}),
-		);
-		f.mount(phaseAdapter);
-		disposes.push(() => f.dispose());
+		const pipeline = createContextPipeline();
+		let receivedMessages: readonly unknown[] = [];
+		pipeline.addStage("capture", async ({ messages }) => {
+			receivedMessages = messages;
+			return {};
+		});
+		const fixture = new BusFixture();
+		const driver = new TurnDriver(fixture.bus);
+		const recorder = fixture.observe();
+		fixture.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", contextPipeline: pipeline }));
+		disposes.push(() => fixture.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		expect(phaseReceivedMessages.length).toBeGreaterThan(0);
+
+		expect(receivedMessages.length).toBeGreaterThan(0);
 		recorder.assertCommandEmitted("llm.response");
-	});
-
-	it("proceeds with original messages when phase adapter times out", async () => {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("ok")]);
-		const f = new BusFixture();
-		const driver = new TurnDriver(f.bus);
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				phaseTimeoutMs: 50,
-			}),
-		);
-		disposes.push(() => f.dispose());
-
-		const reply = await driver.send("hi", "user", 5_000);
-		expect(typeof reply).toBe("string");
 	});
 });
 
-// ---------------------------------------------------------------------------
-// command/context.assemble: skip, abort, llm.result
-// ---------------------------------------------------------------------------
-
-describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, () => {
+describe("Reasoner — context skip, abort, and llm.result", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
 	});
 
-	function makePhaseAdapter(
-		handler: (
-			payload: { messages: unknown[]; turn: number },
-			reply: (response: Record<string, unknown>) => void,
-		) => void,
-	) {
-		return {
-			name: "phase-adapter",
-			description: "test",
-			labels: [] as const,
-			tools: [] as const,
-			publishSchemas: {} as const,
-			subscriptions: { command: ["context.assemble"] as const, event: [] as const, notification: [] as const },
-			sources: [],
-			mount(nerve: Bus) {
-				nerve.command.subscribe("context.assemble", (event) => {
-					handler(event.payload as { messages: unknown[]; turn: number }, (response) => {
-						nerve.event.publish({
-							type: "context.assemble",
-							payload: response,
-							correlationId: event.correlationId,
-							isError: false,
-						});
-					});
-				});
-				return () => {};
-			},
-		};
+	function makePipeline(output: { skip?: boolean; reply?: string; abort?: boolean }) {
+		const pipeline = createContextPipeline();
+		pipeline.addStage("test", async () => output);
+		return pipeline;
 	}
 
 	it("skip: phase adapter bypasses LLM and injects its own reply", async () => {
@@ -452,12 +374,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				phaseTimeoutMs: 500,
-			}),
-		);
-		f.mount(
-			makePhaseAdapter((_payload, reply) => {
-				reply({ skip: true, reply: "phase shortcut" });
+				contextPipeline: makePipeline({ skip: true, reply: "phase shortcut" }),
 			}),
 		);
 		disposes.push(() => f.dispose());
@@ -475,12 +392,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				phaseTimeoutMs: 500,
-			}),
-		);
-		f.mount(
-			makePhaseAdapter((_payload, reply) => {
-				reply({ skip: true, reply: "ambient shortcut" });
+				contextPipeline: makePipeline({ skip: true, reply: "ambient shortcut" }),
 			}),
 		);
 		disposes.push(() => f.dispose());
@@ -508,12 +420,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				phaseTimeoutMs: 500,
-			}),
-		);
-		f.mount(
-			makePhaseAdapter((_payload, reply) => {
-				reply({ abort: true });
+				contextPipeline: makePipeline({ abort: true }),
 			}),
 		);
 		disposes.push(() => f.dispose());

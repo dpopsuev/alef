@@ -1,141 +1,49 @@
-import type { EventHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
+import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextPipeline, ContextPipelineResult } from "@dpopsuev/alef-kernel/context-assembly";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Message, Tool } from "@dpopsuev/alef-ai/types";
-import type { z } from "zod";
 
-/** Outcome of a context-assembly phase: continue with optional overrides, skip with a canned reply, or abort. */
-export type PhaseResult =
-	| { kind: "continue"; messages?: Message[]; tools?: ToolDefinition[] }
-	| { kind: "skip"; reply: string }
-	| { kind: "abort" };
+type NotificationBus = EventHandlerCtx["bus"]["notification"];
 
-type ToolDefinition = { name: string; description: string; inputSchema: z.ZodTypeAny };
-type SenseBus = EventHandlerCtx["bus"]["event"];
-type MotorBus = EventHandlerCtx["bus"]["command"];
-
-const PHASE_PIPELINE_QUIESCENCE_MS = 30;
-
-/** Parse a raw event payload into a typed PhaseResult (continue, skip, or abort). */
-function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
-	const p = payload as {
-		abort?: boolean;
-		skip?: boolean;
-		reply?: string;
-		messages?: Message[];
-		tools?: ToolDefinition[];
-	};
-
-	if (p.abort) {
-		return { kind: "abort" };
-	}
-	if (p.skip) {
-		return { kind: "skip", reply: p.reply ?? "(skipped)" };
-	}
-	return {
-		kind: "continue",
-		messages: Array.isArray(p.messages) ? p.messages : undefined,
-		tools: Array.isArray(p.tools) ? p.tools : undefined,
-	};
-}
-
-/** Merge multiple phase results by priority (abort > skip > continue), taking the last override. */
-function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
-	if (stages.length === 0) return undefined;
-
-	// Prioritize abort > skip > continue
-	for (const stage of stages) {
-		if (stage.kind === "abort") {
-			return { kind: "abort" };
-		}
-	}
-
-	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i]!;
-		if (stage.kind === "skip") {
-			return { kind: "skip", reply: stage.reply };
-		}
-	}
-
-	// Merge all continue results
-	let messages: Message[] | undefined;
-	let tools: ToolDefinition[] | undefined;
-
-	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i]!;
-		if (stage.kind === "continue") {
-			if (messages === undefined && stage.messages !== undefined) {
-				messages = stage.messages;
-			}
-			if (tools === undefined && stage.tools !== undefined) {
-				tools = stage.tools;
-			}
-		}
-	}
-
-	return { kind: "continue", messages, tools };
-}
-
-/** Wait for context.assemble event responses within a timeout, merging results after a quiescence window. */
-function waitForPhaseResult(
-	event: SenseBus,
-	correlationId: string,
-	timeoutMs: number,
-): Promise<PhaseResult | undefined> {
-	return new Promise((resolve) => {
-		const collected: PhaseResult[] = [];
-		let quiescenceTimer: ReturnType<typeof setTimeout> | undefined;
-
-		const finish = () => {
-			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
-			clearTimeout(deadlineTimer);
-			off();
-			resolve(mergePhaseResults(collected));
-		};
-
-		const deadlineTimer = setTimeout(finish, timeoutMs); // lint-ignore: RAWTIMER LLM phase pipeline deadline
-
-		const off = event.subscribe("context.assemble", (event) => {
-			if (event.correlationId !== correlationId) return;
-			collected.push(parsePhaseResult(event.payload));
-			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
-			quiescenceTimer = setTimeout(finish, PHASE_PIPELINE_QUIESCENCE_MS); // lint-ignore: RAWTIMER quiescence window
-		});
-	});
-}
-
-/** Publish a context.assemble command and collect phase results within the given timeout. */
-export async function runPhase(
-	command: MotorBus,
-	event: SenseBus,
+/** Keeps context mutation synchronous with the model call that consumes it. */
+export async function runContextPipeline(
+	pipeline: ContextPipeline,
+	notification: NotificationBus,
 	correlationId: string,
 	messages: Message[],
-	tools: Tool[],
+	tools: ToolDefinition[],
 	turn: number,
-	phaseTimeoutMs: number,
-): Promise<PhaseResult | undefined> {
-	const t0 = Date.now();
-	traceEvent("llm:phase:enter", { turn });
-	const phasePromise = waitForPhaseResult(event, correlationId, phaseTimeoutMs);
-	command.publish({
-		type: "context.assemble",
-		payload: { messages: messages, turn, toolCount: tools.length },
-		correlationId,
+): Promise<ContextPipelineResult> {
+	const startedAt = Date.now();
+	traceEvent("llm:context:enter", { turn });
+	const result = await pipeline.run({ messages, tools, turn });
+	for (const injection of result.injections) {
+		notification.publish({ type: "context.injection", payload: { ...injection }, correlationId });
+	}
+	traceEvent("llm:context:exit", {
+		turn,
+		elapsedMs: Date.now() - startedAt,
+		modified: result.injections.length > 0 || result.tools !== tools,
 	});
-	const phase = await phasePromise;
-	traceEvent("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
-	return phase;
+	return result;
 }
 
-/** Replace the current messages and tools arrays in-place with phase-provided overrides. */
-export function applyPhaseResult(
-	phase: PhaseResult,
+/** Keeps raw definitions and provider schemas aligned after every stage. */
+export function applyContextPipelineResult(
+	result: ContextPipelineResult,
 	messages: Message[],
 	tools: Tool[],
+	toolDefinitions: ToolDefinition[],
 	nameMap: Map<string, string>,
-	buildTools: (defs: readonly ToolDefinition[], nameMap: Map<string, string>) => Tool[],
+	buildTools: (definitions: readonly ToolDefinition[], nameMap: Map<string, string>) => Tool[],
 ): void {
-	if (phase.kind === "continue") {
-		if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
-		if (phase.tools && phase.tools.length > 0) tools.splice(0, tools.length, ...buildTools(phase.tools, nameMap));
+	if (result.messages) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Kernel stages stay AI-package agnostic; the reasoner owns this conversion.
+		const nextMessages = result.messages as Message[];
+		messages.splice(0, messages.length, ...nextMessages);
+	}
+	if (result.tools) {
+		toolDefinitions.splice(0, toolDefinitions.length, ...result.tools);
+		tools.splice(0, tools.length, ...buildTools(toolDefinitions, nameMap));
 	}
 }

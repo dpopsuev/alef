@@ -3,7 +3,6 @@
  *
  * Three-tier context lifecycle:
  *
- *   Turn 1 (boot):    Inject compact catalog as synthetic message via context.assemble.
  *                     LLM knows all tools; calls tools.describe for schemas.
  *   Turns 2–N:        Catalog persists in history. No additional cost.
  *   Turn N+1 (evict): Replace catalog message with slim "used/remaining" summary.
@@ -430,7 +429,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	};
 
 	shell.contributions = {
-		"context.assemble": shell.phaseStage(),
+		"context.stage": shell.phaseStage(),
 		"schema-resolver": (name: string) => {
 			const tools = resolveTools();
 			return tools.find((t) => t.name === name);
@@ -440,10 +439,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	return shell;
 }
 
-/**
- * Compact tool catalog string for system prompt injection.
- * Used as fallback when phaseTimeoutMs is not set (context.assemble seam inactive).
- */
+/** Keeps the prompt usable when progressive disclosure is disabled. */
 export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 	const lines = tools
 		.slice()

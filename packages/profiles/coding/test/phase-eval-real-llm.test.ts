@@ -14,7 +14,7 @@
  */
 
 import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint/materializer";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { buildLlmAdapter } from "../../../cli/src/boot/build-llm-adapter.js";
 import { parseArgs } from "../../../cli/src/boot/args.js";
@@ -30,11 +30,11 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 		const runner = new PhaseEvaluationRunner(harness, {
 			asyncAdapterFactory: async (workspace, signal) => {
 				const domainAdapters = await materializeDefaultAdapters(workspace);
-				const pipeline = createContextAssembler();
 				const toolShell = createToolShellAdapter({
 					tools: domainAdapters.flatMap((o) => o.tools),
 					getTools: () => domainAdapters.flatMap((o) => o.tools),
 				});
+				const pipeline = createContextPipeline([...domainAdapters, toolShell]);
 				const model = getEvalModel();
 				const llm = buildLlmAdapter({
 					model,
@@ -43,9 +43,10 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 					thinkingState: { level: undefined },
 					getModel: () => model,
 					getSignal: () => signal,
-					schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
+					schemaResolver: (name) => pipeline.resolveSchema(name),
+					contextPipeline: pipeline,
 				});
-				return [...domainAdapters, toolShell, pipeline, llm];
+				return [...domainAdapters, toolShell, llm];
 			},
 			scenarioTimeoutMs: 600_000,
 		});

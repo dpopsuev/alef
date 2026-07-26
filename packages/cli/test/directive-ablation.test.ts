@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { createDefaultDirectives } from "@dpopsuev/alef-agent/prompt";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const HAVE_LLM = process.env.ALEF_TEST_LLM === "1";
@@ -56,13 +56,17 @@ async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string
 	let reply = "";
 	const events: NotificationMessage[] = [];
 
-	const llm = createAgentLoop({ model, getApiKey: () => apiKey, timeoutMs: 30_000, systemPrompt });
-
 	for (const adapter of adapters) agent.load(adapter);
 	const toolShell = createToolShellAdapter({ tools: adapters.flatMap((o) => o.tools), getTools: () => agent.tools });
-	const pipeline = createContextAssembler();
+	const pipeline = createContextPipeline([...adapters, toolShell]);
+	const llm = createAgentLoop({
+		model,
+		getApiKey: () => apiKey,
+		timeoutMs: 30_000,
+		systemPrompt,
+		contextPipeline: pipeline,
+	});
 	agent.load(toolShell);
-	agent.load(pipeline);
 	agent.load(llm);
 	agent.observe({
 		onCommand() {},

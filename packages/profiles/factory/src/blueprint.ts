@@ -110,7 +110,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		}
 	}
 
-	const { adapters, contextAssembly, exploreAdapters: explore, generalAdapters: general } = await buildDelegationStack({
+	const { adapters, contextPipeline, exploreAdapters: explore, generalAdapters: general } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
@@ -161,5 +161,5 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 
 	adapters.splice(adapters.length - 2, 0, wireAdapter);
 
-	return { adapters, contextAssembly };
+	return { adapters, contextPipeline };
 }

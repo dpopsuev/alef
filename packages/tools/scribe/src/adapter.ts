@@ -127,7 +127,7 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 			"When referencing Scribe artifacts in your responses, use [[artifact-id]] wikilink syntax — e.g. [[KRN-ptp-holdover-params]]. Scribe automatically resolves these to graph edges when your turn is recorded, linking your output to the domain knowledge it draws from. Use [[id]] for IDs, [[Title]] for title-based resolution.",
 		],
 		contributions: {
-			"context.assemble": contextStage,
+			"context.stage": contextStage,
 		},
 
 		mount(bus: Bus): () => void {
@@ -152,7 +152,6 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 						payload: {
 							name: "scribe",
 							tools: mcpAdapter.tools.map((t) => ({ name: t.name, description: t.description })),
-							contributions: { "context.assemble": contextStage },
 						},
 						isError: false,
 					});

@@ -9,6 +9,7 @@ type ToolDef = { name: string; description: string; inputSchema: z.ZodTypeAny };
 export interface TurnSetup {
 	messages: Message[];
 	tools: Tool[];
+	toolDefinitions: ToolDef[];
 	nameMap: Map<string, string>;
 }
 
@@ -36,11 +37,11 @@ export function prepareTurn(payload: {
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 	const nameMap = new Map<string, string>();
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped bus payload to known tool shape
-	const toolDefs = (payload.tools as readonly ToolDef[] | undefined) ?? [];
-	const tools = buildTools(toolDefs, nameMap);
+	const toolDefinitions = [...((payload.tools as readonly ToolDef[] | undefined) ?? [])];
+	const tools = buildTools(toolDefinitions, nameMap);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped bus payload to Message[]
 	const messages = (rawMessages as Message[]).map(normalizeMessage);
-	return { messages, tools, nameMap };
+	return { messages, tools, toolDefinitions, nameMap };
 }
 
 /** Strip system messages and flatten the conversation history into a plain serializable array. */

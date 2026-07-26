@@ -279,7 +279,7 @@ export async function createLocalSession(
 		writableRoots: loaded.writableRoots,
 		toolDisclosure: cfg.tool_disclosure,
 	});
-	const { contextAssembly } = stack;
+	const { contextPipeline } = stack;
 
 	const systemPrompt = directives.build(directivesBudgetChars);
 	const blockSizes = directives.blockSizes();
@@ -300,7 +300,8 @@ export async function createLocalSession(
 		thinkingState,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => contextAssembly.getSchemaResolver()?.(name),
+		schemaResolver: (name) => contextPipeline.resolveSchema(name),
+		contextPipeline,
 		systemPrompt,
 	});
 
@@ -321,6 +322,7 @@ export async function createLocalSession(
 		],
 		llmAdapter,
 		composeToolShell: false,
+		contextPipeline,
 		directives,
 		session: store,
 		modelId: model.id,

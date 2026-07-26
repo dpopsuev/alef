@@ -53,7 +53,7 @@ describe("loadAdapters registry blueprint selection", { tags: ["unit"] }, () => 
 
 	it("registry name must not return adapters: []", async () => {
 		const name = `test-bp-${Date.now()}`;
-		blueprintRegistry.register(name, async () => ({ adapters: [], contextAssembly: undefined as never }));
+		blueprintRegistry.register(name, async () => ({ adapters: [], contextPipeline: undefined as never }));
 		registered.push(name);
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-adapters-"));
@@ -67,7 +67,7 @@ describe("loadAdapters registry blueprint selection", { tags: ["unit"] }, () => 
 
 	it("registry name still merges cwd agent.yaml overlay (blockedPatterns etc.)", async () => {
 		const name = `test-bp-overlay-${Date.now()}`;
-		blueprintRegistry.register(name, async () => ({ adapters: [], contextAssembly: undefined as never }));
+		blueprintRegistry.register(name, async () => ({ adapters: [], contextPipeline: undefined as never }));
 		registered.push(name);
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-adapters-"));

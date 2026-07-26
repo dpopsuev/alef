@@ -103,8 +103,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 		}
 
 		// Exclude internal seam events from tool path tracking.
-		// context.assemble is ToolShellAdapter's context lifecycle interceptor, not an LLM tool call.
-		const INTERNAL_EVENTS = new Set(["llm.response", "context.assemble"]);
+		const INTERNAL_EVENTS = new Set(["llm.response"]);
 		const toolNames = toolSpans
 			.map((ts) => ts.name.replace("alef.command/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));
@@ -201,7 +200,7 @@ export interface RunMetrics {
 	/**
 	 * Real-time bus event capture: every command and event message observed during the run,
 	 * in chronological order, with truncated payloads. Populated by harness.ts via
-	 * agent.observe(). Skips llm.response (large) and context.assemble (internal).
+	 * Avoids retaining the largest payload while deriving metrics from bus observations.
 	 *
 	 * Unlike OTel spans, this includes in-flight command events that never received an
 	 * event response — exactly what's needed to diagnose timeout scenarios.

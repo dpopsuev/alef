@@ -281,7 +281,7 @@ describe("fs session isolation", { tags: ["unit"] }, () => {
 		unmount();
 	});
 
-	it("context.assemble injects file events for session", async () => {
+	it("context stage injects file events for session", async () => {
 		const bus = new InProcessBus().asBus();
 		const adapter = createFsAdapter({ cwd: tempDir, sessionId: "session-ctx" });
 
@@ -310,14 +310,13 @@ describe("fs session isolation", { tags: ["unit"] }, () => {
 		appendFileSync(testFile, "context change\n");
 		await new Promise((r) => setTimeout(r, 200));
 
-		// Verify context.assemble handler exists and injects events
 		// The handler is registered via contributions during mount
 		const contributions = adapter.contributions;
 		expect(contributions).toBeDefined();
-		expect(contributions?.["context.assemble"]).toBeDefined();
+		expect(contributions?.["context.stage"]).toBeDefined();
 
 		// Call the handler
-		const handler = contributions?.["context.assemble"];
+		const handler = contributions?.["context.stage"];
 		if (handler) {
 			const result = await handler({
 				messages: [{ role: "system", content: "test" }],

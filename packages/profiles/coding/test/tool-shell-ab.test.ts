@@ -15,6 +15,7 @@
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { buildLlmAdapter } from "../../../cli/src/boot/build-llm-adapter.js";
 import { parseArgs } from "../../../cli/src/boot/args.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -66,9 +67,9 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 		const runner = new EvaluationRunner(harness, {
 			// Domain adapters (fs, shell) are loaded by the harness with the correct workspace cwd.
 			// adapterFactory adds only the LLM (and ToolShellAdapter when active).
-			// phaseTimeoutMs=100 activates context.assemble for catalog lifecycle injection.
 			adapterFactory: (signal) => {
 				const model = getEvalModel();
+				const contextPipeline = toolShell ? createContextPipeline([toolShell]) : undefined;
 				const llm = buildLlmAdapter({
 					model,
 					cfg: {},
@@ -76,6 +77,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 					thinkingState: { level: undefined },
 					getModel: () => model,
 					getSignal: () => signal,
+					contextPipeline,
 				});
 				return toolShell ? [toolShell, llm] : [llm];
 			},

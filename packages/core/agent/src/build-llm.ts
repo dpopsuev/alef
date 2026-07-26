@@ -1,9 +1,8 @@
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop, type StreamRule } from "@dpopsuev/alef-reasoner";
 import { ScriptedLlmAdapter } from "./scripted-llm.js";
-
-const PHASE_TIMEOUT_MS = 100;
 
 /**
  *
@@ -16,6 +15,7 @@ export interface LlmBuildOptions {
 	getApiKey?: (provider: string) => string | undefined;
 	systemPrompt?: string;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
+	contextPipeline?: ContextPipeline;
 	trackConcurrentOps?: boolean;
 	llm?: {
 		maxRetries?: number;
@@ -72,7 +72,7 @@ export function buildLlm(opts: LlmBuildOptions): Adapter {
 		timeoutMs: opts.llm?.timeoutMs,
 		trackConcurrentOps: opts.trackConcurrentOps,
 		getSignal: opts.getSignal,
-		phaseTimeoutMs: PHASE_TIMEOUT_MS,
+		contextPipeline: opts.contextPipeline,
 		schemaResolver: opts.schemaResolver,
 		streamRules: opts.streamRules ?? parseStreamRulesEnv(),
 	});

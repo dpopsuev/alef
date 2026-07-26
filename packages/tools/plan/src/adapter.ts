@@ -684,7 +684,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 				});
 			},
 			contributions: {
-				"context.assemble": contextStage,
+				"context.stage": contextStage,
 				ui: {
 					signals: {
 						"plan.intent": (payload, ui) => {

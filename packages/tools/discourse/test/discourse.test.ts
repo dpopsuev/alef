@@ -14,7 +14,7 @@ describe("discourse adapter structure", () => {
 
 	it("declares context delivery and coordination directives", () => {
 		const adapter = createDiscourseAdapter({});
-		expect(adapter.contributions?.["context.assemble"]).toBeDefined();
+		expect(adapter.contributions?.["context.stage"]).toBeDefined();
 		expect(adapter.directives?.length).toBeGreaterThan(0);
 	});
 

@@ -1094,7 +1094,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					"fs.grep": 0.6,
 					"fs.find": 0.6,
 				},
-				...(contextStage ? { "context.assemble": contextStage } : {}),
+				...(contextStage ? { "context.stage": contextStage } : {}),
 			},
 			publishSchemas: {
 				event: {

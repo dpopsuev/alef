@@ -38,7 +38,6 @@ export const DEFAULT_LIFECYCLE_INTERCEPTS = [
 	"budget",
 	"stall",
 	"tool.wake",
-	"context.assemble",
 	"context.overflow-recovery",
 ] as const;
 

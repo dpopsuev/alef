@@ -1,13 +1,13 @@
 # Alef Discourse adapter
 
-This adapter maps Alef command handlers and `context.assemble` onto the shared Discourse application service.
+This adapter maps Alef commands and a direct `context.stage` contribution onto the shared Discourse application service.
 
 | Alef surface | Capability operation |
 |---|---|
 | `discourse.post` | `post` with the tool-call ID as idempotency key and the bus correlation ID |
 | `discourse.read` | bounded `readThread` |
 | `discourse.list` | bounded `listTopics` or `listThreads` |
-| `context.assemble` | sequenced push subscription plus bounded open-question query |
+| `context.stage` | sequenced push subscription plus bounded open-question query |
 | session SQLite | `DiscourseStore` with atomic post, events, cursors, and outbox |
 | Scribe integration | idempotent `DiscourseProjection` with durable checkpoint and observable lag |
 

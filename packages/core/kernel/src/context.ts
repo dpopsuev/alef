@@ -1,8 +1,7 @@
 import type { Adapter, ToolDefinition } from "./adapter/interface.js";
-import type { ContextAssemblyContributions, ContextAssemblyHandler } from "./adapter/contributions.js";
-import type { Bus, CommandMessage, EventMessage } from "./bus/messages.js";
+import type { ContextAssemblyHandler, ContextAssemblyInput, ContextAssemblyOutput } from "./adapter/contributions.js";
 
-/** Metadata describing a context.assemble injection for telemetry and :context. */
+/** Keeps context growth attributable without exposing stage internals. */
 export interface ContextInjectionMeta {
 	source: string;
 	chars: number;
@@ -11,117 +10,66 @@ export interface ContextInjectionMeta {
 
 const PREVIEW_CHARS = 160;
 
-/** Build the context assembly adapter that pipelines ContextAssemblyHandler stages before each LLM call. */
-export function createContextAssembler(): Adapter & {
-	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
-	addStage(name: string, handler: ContextAssemblyHandler): void;
-} {
-	const stages = new Map<string, ContextAssemblyHandler>();
-	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
+/** Carries injection attribution without coupling stages to telemetry. */
+export interface ContextPipelineResult extends ContextAssemblyOutput {
+	readonly injections: readonly ContextInjectionMeta[];
+}
 
-	return {
-		name: "context.assembly",
-		tools: [],
-		subscriptions: { command: ["context.assemble"], event: ["adapter.loaded", "adapter.unloaded"], notification: [] },
-		sources: [],
-		description:
-			"Context assembler — collects ContextAssemblyHandler and schema-resolver contributions from adapters.",
-		contributions: {
-			port: { name: "context_assembly", eventPattern: "command/context.assemble", cardinality: "ordered-pipeline" },
-		},
-		addStage(name: string, handler: ContextAssemblyHandler) {
-			stages.set(name, handler);
-		},
-		getSchemaResolver() {
-			if (schemaResolvers.size === 0) return undefined;
-			return (toolName: string) => {
-				for (const resolver of schemaResolvers.values()) {
-					const def = resolver(toolName);
-					if (def) return def;
-				}
-				return undefined;
-			};
-		},
-		mount(bus: Bus): () => void {
-			const unsubLoaded = bus.event.subscribe("adapter.loaded", (event: EventMessage) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
-				const contributions = event.payload.contributions as ContextAssemblyContributions | undefined;
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
-				const name = event.payload.name as string;
-				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
-				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
-			});
+/** Keeps context control ordered and awaited without routing it through events. */
+export class ContextPipeline {
+	private readonly stages = new Map<string, ContextAssemblyHandler>();
+	private readonly schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
 
-			const unsubUnloaded = bus.event.subscribe("adapter.unloaded", (event: EventMessage) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.unloaded payload shape
-				const name = event.payload.name as string;
-				stages.delete(name);
-				schemaResolvers.delete(name);
-			});
+	constructor(adapters: readonly Adapter[] = []) {
+		this.addAdapters(adapters);
+	}
 
-			const unsubAssemble = bus.command.subscribe("context.assemble", (event: CommandMessage) => {
-				void (async () => {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: context.assemble command payload shape
-					const payload = event.payload as {
-						messages: readonly unknown[];
-						tools?: ToolDefinition[];
-						turn: number;
-					};
-					let messages: readonly unknown[] = payload.messages;
-					let tools: ToolDefinition[] = payload.tools ?? [];
+	addStage(name: string, handler: ContextAssemblyHandler): void {
+		this.stages.set(name, handler);
+	}
 
-					for (const [stageName, stage] of stages.entries()) {
-						const before = messages;
-						const out = await stage({ messages, tools, turn: payload.turn });
-						if (out.abort) {
-							bus.event.publish({
-								type: "context.assemble",
-								correlationId: event.correlationId,
-								payload: { abort: true },
-								isError: false,
-							});
-							return;
-						}
-						if (out.messages) {
-							messages = out.messages;
-							const injection = describeMessageDelta(before, messages, stageName);
-							if (injection.chars > 0) {
-								bus.notification.publish({
-									type: "context.injection",
-									correlationId: event.correlationId,
-									payload: { ...injection },
-								});
-							}
-						}
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- context assembly stage output tools are ToolDefinition[]
-						if (out.tools) tools = out.tools as ToolDefinition[];
-						if (out.skip) {
-							bus.event.publish({
-								type: "context.assemble",
-								correlationId: event.correlationId,
-								payload: { skip: true, reply: out.reply ?? "", messages, tools },
-								isError: false,
-							});
-							return;
-						}
-					}
+	addAdapters(adapters: readonly Adapter[]): void {
+		for (const adapter of adapters) {
+			const stage = adapter.contributions?.["context.stage"];
+			if (stage) this.stages.set(adapter.name, stage);
+			const resolver = adapter.contributions?.["schema-resolver"];
+			if (resolver) this.schemaResolvers.set(adapter.name, resolver);
+		}
+	}
 
-					bus.event.publish({
-						type: "context.assemble",
-						correlationId: event.correlationId,
-						payload: { messages, tools },
-						isError: false,
-					});
-				})();
-			});
+	resolveSchema(toolName: string): ToolDefinition | undefined {
+		for (const resolver of this.schemaResolvers.values()) {
+			const definition = resolver(toolName);
+			if (definition) return definition;
+		}
+		return undefined;
+	}
 
-			return () => {
-				unsubLoaded();
-				unsubUnloaded();
-				unsubAssemble();
-			};
-		},
-	};
+	async run(input: ContextAssemblyInput): Promise<ContextPipelineResult> {
+		let messages = input.messages;
+		let tools = input.tools;
+		const injections: ContextInjectionMeta[] = [];
+		for (const [stageName, stage] of this.stages) {
+			const before = messages;
+			const output = await stage({ messages, tools, turn: input.turn });
+			if (output.messages) {
+				messages = output.messages;
+				const injection = describeMessageDelta(before, messages, stageName);
+				if (injection.chars > 0) injections.push(injection);
+			}
+			if (output.tools) tools = output.tools;
+			if (output.abort) return { abort: true, messages, tools, injections };
+			if (output.skip) {
+				return { skip: true, reply: output.reply ?? "", messages, tools, injections };
+			}
+		}
+		return { messages, tools, injections };
+	}
+}
+
+/** Preserves materialization order independently of bus timing. */
+export function createContextPipeline(adapters: readonly Adapter[] = []): ContextPipeline {
+	return new ContextPipeline(adapters);
 }
 type RawMsg = { role?: string; content?: unknown };
 
@@ -170,11 +118,7 @@ export function describeMessageDelta(
 	};
 }
 
-/**
- * Inject a text block into the message array after the system message.
- * Used by adapters that contribute context via context.assemble (memory, scribe, board).
- * Pass meta.source for caller attribution; the assembler publishes stage name on context.injection.
- */
+/** Keeps injected domain context adjacent to the system prompt. */
 export function injectContextBlock(
 	messages: readonly unknown[],
 	block: string,

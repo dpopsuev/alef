@@ -62,7 +62,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 			name: "tools",
 			tools: [] as never[],
 			directives: ['Call tools.describe(["tool-name"]) before using any tool.'],
-			subscriptions: { command: ["context.assemble"], event: [] as string[], notification: [] as string[] },
+			subscriptions: { command: [] as string[], event: [] as string[], notification: [] as string[] },
 			sources: [],
 			mount: () => () => {},
 		};

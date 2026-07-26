@@ -56,7 +56,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 	const exploreAdapters = exploreSliceFrom(domainAdapters);
 	const generalAdapters = domainAdapters;
 
-	const { adapters, contextAssembly } = await buildDelegationStack({
+	const { adapters, contextPipeline } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
@@ -95,5 +95,5 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		toolDisclosure: opts.toolDisclosure,
 	});
 
-	return { adapters, contextAssembly };
+	return { adapters, contextPipeline };
 }

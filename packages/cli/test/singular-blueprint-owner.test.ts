@@ -196,7 +196,7 @@ describe("singular blueprint owner — stack factory must not invent adapters", 
 			});
 
 			const canonical = new Set(adapterNamesFromYaml(CODING_BLUEPRINT_YAML));
-			const assemblyNames = new Set(["tools", "context.assembly", "compactor"]);
+			const assemblyNames = new Set(["tools", "context.lifecycle", "compactor"]);
 			const parentDomain = stack.adapters.map((a) => a.name).filter((n) => !assemblyNames.has(n));
 
 			for (const name of parentDomain) {

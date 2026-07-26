@@ -5,6 +5,6 @@
  */
 
 export { buildTools, prepareTurn, serializeConversationHistory, type TurnSetup } from "./message-handler.js";
-export { applyPhaseResult, type PhaseResult, runPhase } from "./phase-handler.js";
+export { applyContextPipelineResult, runContextPipeline } from "./phase-handler.js";
 export { publishReply, reportUsage } from "./response-handler.js";
 export { appendToolResults } from "./tool-result-handler.js";

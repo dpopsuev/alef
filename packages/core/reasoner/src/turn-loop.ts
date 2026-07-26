@@ -1,11 +1,12 @@
 import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { DEFAULT_TOOL_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { isContextOverflow } from "@dpopsuev/alef-ai/overflow";
 import type { Api, AssistantMessage, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { QueuedInput } from "./message-queue.js";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
-import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
+import { applyContextPipelineResult, runContextPipeline } from "./handlers/phase-handler.js";
 import { publishReply, reportUsage } from "./handlers/response-handler.js";
 import { appendToolResults } from "./handlers/tool-result-handler.js";
 import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
@@ -24,8 +25,6 @@ import {
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 const ERROR_REASON_MAX_LENGTH = 80;
-/** Minimum assemble window when recovering from overflow (even if phaseTimeoutMs is 0). */
-const OVERFLOW_RECOVERY_PHASE_MS = 500;
 const MAX_WAKE_INSPECTION_ROUNDS = 2;
 const MIN_WAKE_EXTENSION_MS = 30_000;
 const MAX_WAKE_EXTENSION_MS = 300_000;
@@ -45,7 +44,7 @@ export interface TurnLoopOptions {
 	getSignal?: () => AbortSignal | undefined;
 	thinking?: ThinkingLevel;
 	getThinking?: () => ThinkingLevel | undefined;
-	phaseTimeoutMs?: number;
+	contextPipeline?: ContextPipeline;
 
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
@@ -77,7 +76,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 		tools?: readonly { name: string; description: string; inputSchema: unknown }[];
 		text?: string;
 	};
-	const { messages, tools, nameMap } = prepareTurn(payload);
+	const { messages, tools, toolDefinitions, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, bus } = ctx;
@@ -102,26 +101,25 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			injectSteering(messages, effectiveOptions.getSteeringMessages?.() ?? []);
 			const model = effectiveOptions.getModel?.() ?? effectiveOptions.model;
 
-			if (effectiveOptions.phaseTimeoutMs) {
-				const phase = await runPhase(
-					command,
-					event,
+			if (effectiveOptions.contextPipeline) {
+				const context = await runContextPipeline(
+					effectiveOptions.contextPipeline,
+					signal,
 					correlationId,
 					messages,
-					tools,
+					toolDefinitions,
 					turn,
-					effectiveOptions.phaseTimeoutMs,
 				);
-				if (phase?.kind === "abort") break;
-				if (phase?.kind === "skip") {
-					command.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
+				if (context.abort) break;
+				if (context.skip) {
+					command.publish({ type: "llm.response", payload: { text: context.reply ?? "" }, correlationId });
 					break;
 				}
-				if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
+				applyContextPipelineResult(context, messages, tools, toolDefinitions, nameMap, buildTools);
 			}
 
 			if (tools.length === 0 && turn === 1) {
-				traceEvent("llm:zero-tools", { turn, phaseTimeout: effectiveOptions.phaseTimeoutMs });
+				traceEvent("llm:zero-tools", { turn, contextPipeline: Boolean(effectiveOptions.contextPipeline) });
 			}
 
 			const { finalMessage, pendingCalls, abortedByStreamRule } = await callLLM(
@@ -199,14 +197,22 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 							errorMessage: finalMessage.errorMessage?.slice(0, ERROR_REASON_MAX_LENGTH) ?? "overflow",
 						});
 
-						const phaseMs = Math.max(effectiveOptions.phaseTimeoutMs ?? 0, OVERFLOW_RECOVERY_PHASE_MS);
-						const phase = await runPhase(command, event, correlationId, messages, tools, turn, phaseMs);
-						if (phase?.kind === "abort") break;
-						if (phase?.kind === "skip") {
-							command.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
-							break;
+						if (effectiveOptions.contextPipeline) {
+							const context = await runContextPipeline(
+								effectiveOptions.contextPipeline,
+								signal,
+								correlationId,
+								messages,
+								toolDefinitions,
+								turn,
+							);
+							if (context.abort) break;
+							if (context.skip) {
+								command.publish({ type: "llm.response", payload: { text: context.reply ?? "" }, correlationId });
+								break;
+							}
+							applyContextPipelineResult(context, messages, tools, toolDefinitions, nameMap, buildTools);
 						}
-						if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
 					} else {
 						traceEvent("llm:overflow-recovery", {
 							turn,

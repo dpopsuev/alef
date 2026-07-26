@@ -16,7 +16,7 @@ import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpops
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
@@ -72,11 +72,12 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			getTools: () => agent.tools,
 		});
 		agent.load(toolShell);
-		agent.load(createContextAssembler());
+		const contextPipeline = createContextPipeline([delegateAdapter, toolShell]);
 
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel()!,
 			timeoutMs: HTTP_TIMEOUT_MS,
+			contextPipeline,
 			// Full schemas — used by toOuterTimeoutMs to read the 600s default
 			schemaResolver: (name) => agent.tools.find((t) => t.name === name),
 		});
@@ -130,11 +131,12 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			getTools: () => agent.tools,
 		});
 		agent.load(toolShell);
-		agent.load(createContextAssembler());
+		const contextPipeline = createContextPipeline([delegateAdapter, toolShell]);
 
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel()!,
 			timeoutMs: HTTP_TIMEOUT_MS,
+			contextPipeline,
 			// getFullTools intentionally absent — bug path
 		});
 

@@ -125,7 +125,7 @@ describe("multi-agent plan + board coordination", () => {
 		expect(String(jadePost.content)).toContain("instanceof Error");
 	});
 
-	it("board context.assemble injects new posts into LLM context", async () => {
+	it("board context stage injects new posts into LLM context", async () => {
 		const boardAdapter = createDiscourseAdapter({ backend: new InMemoryDiscourseStore() });
 		unmounts.push(boardAdapter.mount(bus.asBus()));
 
@@ -136,7 +136,7 @@ describe("multi-agent plan + board coordination", () => {
 			author: "@jade",
 		});
 
-		const stage = boardAdapter.contributions?.["context.assemble"];
+		const stage = boardAdapter.contributions?.["context.stage"];
 		expect(stage).toBeDefined();
 	});
 });

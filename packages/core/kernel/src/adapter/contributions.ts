@@ -118,9 +118,9 @@ export interface ReasoningContributions {
 	readonly skills?: readonly SkillBook[];
 }
 
-/** Contribution slots for the context assembly pipeline, schema resolution, and event weighting. */
-export interface ContextAssemblyContributions {
-	readonly "context.assemble"?: ContextAssemblyHandler;
+/** Lets materialization compose context behavior without coupling adapters. */
+export interface ContextPipelineContributions {
+	readonly "context.stage"?: ContextAssemblyHandler;
 	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
 	readonly "event.weights"?: Readonly<Record<string, number>>;
 }
@@ -143,6 +143,6 @@ export interface SeamingContributions {
 /** Union of all contribution slot categories an adapter may provide. */
 export interface AdapterContributions
 	extends ReasoningContributions,
-		ContextAssemblyContributions,
+		ContextPipelineContributions,
 		PresentationContributions,
 		SeamingContributions {}

@@ -1,5 +1,5 @@
-import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { createContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCompactionStage } from "../../session/src/context/compaction.js";
@@ -75,25 +75,16 @@ describe("Reasoner — context overflow recovery", { tags: ["unit"] }, () => {
 		let lastTotalTokens = 0;
 		let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
 
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				phaseTimeoutMs: 500,
-				maxRetryDelayMs: 0,
-			}),
-		);
-
+		const contextPipeline = createContextPipeline();
 		if (opts?.realCompactor) {
-			const assembler = createContextAssembler();
-			assembler.addStage("seed-history", async ({ messages }) => ({
+			contextPipeline.addStage("seed-history", async ({ messages }) => ({
 				messages: [
 					{ role: "user", content: [{ type: "text", text: "older prompt" }], timestamp: 1 },
 					fauxAssistantMessage("older answer"),
 					...messages,
 				],
 			}));
-			assembler.addStage(
+			contextPipeline.addStage(
 				"compactor",
 				createCompactionStage({
 					contextWindow: 200_000,
@@ -102,9 +93,7 @@ describe("Reasoner — context overflow recovery", { tags: ["unit"] }, () => {
 					getLastTokenCount: () => lastTotalTokens,
 					summarize: opts.summarize ?? (async () => "SUM: compacted context"),
 					sessionStore: () => store,
-					publishSignal: (type, payload) => {
-						signalPublish?.(type, payload);
-					},
+					publishSignal: (type, payload) => signalPublish?.(type, payload),
 					pullForceCompact: () => {
 						const force = pendingForceCompact;
 						pendingForceCompact = undefined;
@@ -112,76 +101,66 @@ describe("Reasoner — context overflow recovery", { tags: ["unit"] }, () => {
 					},
 				}),
 			);
-			const origMount = assembler.mount.bind(assembler);
-			(assembler as { mount: typeof assembler.mount }).mount = (bus) => {
-				signalPublish = (type, payload) => {
-					bus.notification.publish({ type, payload, correlationId: "" });
-				};
-				bus.notification.subscribe("llm.token-usage", (event) => {
-					const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
-					if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
-				});
-				bus.notification.subscribe("context.compacted", (event) => {
-					const after = (event as { payload?: { estimatedAfter?: number } }).payload?.estimatedAfter;
-					if (typeof after === "number" && after >= 0) lastTotalTokens = after;
-				});
-				bus.notification.subscribe("context.compact.request", (event) => {
-					const payload = event.payload as Record<string, unknown>;
-					compactRequests.push(payload);
-					const strategy = payload.strategy;
-					pendingForceCompact = {
-						instructions: typeof payload.instructions === "string" ? payload.instructions : undefined,
-						strategy: strategy === "shake" || strategy === "summarize" ? strategy : undefined,
-					};
-				});
-				bus.notification.subscribe("context.overflow-recovery", (event) => {
-					overflowSignals.push(event.payload as Record<string, unknown>);
-				});
-				bus.notification.subscribe("context.compacting", (event) => {
-					compactingSignals.push(event.payload as Record<string, unknown>);
-				});
-				bus.notification.subscribe("context.compacted", (event) => {
-					compactedSignals.push(event.payload as Record<string, unknown>);
-				});
-				bus.notification.subscribe("context.injection", (event) => {
-					void event;
-				});
-				bus.event.subscribe("context.assemble", (event) => {
-					const payload = event.payload as { messages?: unknown[] };
-					if (Array.isArray(payload.messages)) assembledMessages.push(payload.messages);
-				});
-				return origMount(bus);
-			};
-			f.mount(assembler);
-		} else {
-			const phaseAdapter = {
-				name: "overflow-phase",
-				description: "immediate assemble reply for overflow recovery tests",
-				labels: [] as const,
-				tools: [] as const,
-				publishSchemas: {} as const,
-				subscriptions: { command: ["context.assemble"] as const, event: [] as const, notification: [] as const },
-				sources: [],
-				mount(nerve: Bus) {
-					nerve.command.subscribe("context.assemble", (event) => {
-						nerve.event.publish({
-							type: "context.assemble",
-							payload: { messages: (event.payload as { messages: unknown[] }).messages },
-							correlationId: event.correlationId,
-							isError: false,
-						});
-					});
-					nerve.notification.subscribe("context.compact.request", (event) => {
-						compactRequests.push(event.payload as Record<string, unknown>);
-					});
-					nerve.notification.subscribe("context.overflow-recovery", (event) => {
-						overflowSignals.push(event.payload as Record<string, unknown>);
-					});
-					return () => {};
-				},
-			};
-			f.mount(phaseAdapter);
 		}
+		contextPipeline.addStage("capture", async ({ messages }) => {
+			assembledMessages.push([...messages]);
+			return {};
+		});
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				contextPipeline,
+				maxRetryDelayMs: 0,
+			}),
+		);
+		const signalAdapter: Adapter = {
+			name: "overflow-signals",
+			tools: [],
+			subscriptions: {
+				command: [],
+				event: [],
+				notification: [
+					"llm.token-usage",
+					"context.compacted",
+					"context.compact.request",
+					"context.overflow-recovery",
+					"context.compacting",
+				],
+			},
+			sources: [],
+			mount(bus) {
+				signalPublish = (type, payload) => bus.notification.publish({ type, payload, correlationId: "" });
+				const subscriptions = [
+					bus.notification.subscribe("llm.token-usage", (event) => {
+						const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
+						if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
+					}),
+					bus.notification.subscribe("context.compacted", (event) => {
+						const after = (event as { payload?: { estimatedAfter?: number } }).payload?.estimatedAfter;
+						if (typeof after === "number" && after >= 0) lastTotalTokens = after;
+						compactedSignals.push(event.payload as Record<string, unknown>);
+					}),
+					bus.notification.subscribe("context.compact.request", (event) => {
+						const payload = event.payload as Record<string, unknown>;
+						compactRequests.push(payload);
+						const strategy = payload.strategy;
+						pendingForceCompact = {
+							instructions: typeof payload.instructions === "string" ? payload.instructions : undefined,
+							strategy: strategy === "shake" || strategy === "summarize" ? strategy : undefined,
+						};
+					}),
+					bus.notification.subscribe("context.overflow-recovery", (event) => {
+						overflowSignals.push(event.payload as Record<string, unknown>);
+					}),
+					bus.notification.subscribe("context.compacting", (event) => {
+						compactingSignals.push(event.payload as Record<string, unknown>);
+					}),
+				];
+				return () => subscriptions.forEach((unsubscribe) => unsubscribe());
+			},
+		};
+		f.mount(signalAdapter);
 		disposes.push(() => f.dispose());
 
 		return {

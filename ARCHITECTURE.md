@@ -29,7 +29,7 @@ Adapters declare capabilities without hard-wiring dependencies:
 
 | Key | Purpose | Example |
 |---|---|---|
-| `context.assemble` | Pre-LLM pipeline stage | ToolShell injects tool catalog |
+| `context.stage` | Pre-LLM pipeline stage | ToolShell injects tool catalog |
 | `schema-resolver` | Resolve tool schemas at runtime | ToolShell returns promoted tools |
 | `skills` | Contribute playbooks | adapter-skills aggregates skill books |
 | `port` | Declare owned seam | adapter-discourse declares context_observer |
@@ -76,16 +76,14 @@ Profile auto-detection: prompts containing write/create/modify use `general` (fu
 
 ## Context Assembly Pipeline
 
-Before each LLM turn, the pipeline fires `context.assemble`:
+Before each LLM turn, the Reasoner awaits the materialized `ContextPipeline`:
 
 ```
-1. Reasoner publishes motor/context.assemble { messages, turn, toolCount }
-2. ToolShell responds with { messages: modified, tools: promotedTools }
-3. Reasoner applies the result: replaces tools array, modifies messages
-4. LLM API call includes the assembled tools + messages
+1. Blueprint materialization collects context.stage contributions in adapter order
+2. ContextPipeline awaits each stage with the current messages and tool definitions
+3. Reasoner applies the final messages and tools
+4. LLM API call receives the assembled context
 ```
-
-Requires `phaseTimeoutMs > 0` on the LLM adapter. Without it, the pipeline is skipped.
 
 ## Binding Chains
 

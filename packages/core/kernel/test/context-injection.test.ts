@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createContextAssembler, describeMessageDelta, injectContextBlock } from "../src/context.js";
-import { InProcessBus } from "../src/bus/in-process-bus.js";
+import { z } from "zod";
+import { createContextPipeline, describeMessageDelta, injectContextBlock } from "../src/context.js";
 
 describe("injectContextBlock", { tags: ["unit"] }, () => {
 	it("inserts after the system message", () => {
@@ -29,43 +29,52 @@ describe("describeMessageDelta", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("createContextAssembler", { tags: ["unit"] }, () => {
-	it("publishes context.injection when a stage adds messages", async () => {
-		const bus = new InProcessBus();
-		const assembler = createContextAssembler();
-		assembler.addStage("plan", async ({ messages }) => ({
-			messages: injectContextBlock(messages, "PLAN SUMMARY", { source: "plan" }),
+describe("ContextPipeline", { tags: ["unit"] }, () => {
+	it("awaits stages in materialization order and reports injections", async () => {
+		const pipeline = createContextPipeline();
+		pipeline.addStage("first", async ({ messages }) => ({
+			messages: injectContextBlock(messages, "FIRST", { source: "first" }),
 		}));
-		const unmount = assembler.mount(bus.asBus());
+		pipeline.addStage("second", async ({ messages }) => ({
+			messages: injectContextBlock(messages, "SECOND", { source: "second" }),
+		}));
 
-		const injection = new Promise<Record<string, unknown>>((resolve) => {
-			const off = bus.asBus().notification.subscribe("context.injection", (event) => {
-				off();
-				resolve(event.payload);
-			});
-		});
-		const assembled = new Promise<void>((resolve) => {
-			const off = bus.asBus().event.subscribe("context.assemble", () => {
-				off();
-				resolve();
-			});
+		const result = await pipeline.run({
+			messages: [{ role: "system", content: "sys" }, { role: "user", content: "go" }],
+			tools: [],
+			turn: 1,
 		});
 
-		bus.asBus().command.publish({
-			type: "context.assemble",
-			correlationId: "c1",
-			payload: {
-				messages: [{ role: "system", content: "sys" }, { role: "user", content: "go" }],
-				turn: 1,
+		expect(result.messages).toEqual([
+			{ role: "system", content: "sys" },
+			{ role: "user", content: "SECOND" },
+			{ role: "user", content: "FIRST" },
+			{ role: "user", content: "go" },
+		]);
+		expect(result.injections.map((injection) => injection.source)).toEqual(["first", "second"]);
+	});
+
+	it("collects stages and schemas directly from materialized adapters", async () => {
+		const tool = { name: "fs.read", description: "Read", inputSchema: z.object({ path: z.string() }) };
+		const pipeline = createContextPipeline([
+			{
+				name: "materialized",
+				tools: [],
+				subscriptions: { command: [], event: [], notification: [] },
+				sources: [],
+				contributions: {
+					"context.stage": async ({ messages }) => ({
+						messages: injectContextBlock(messages, "DIRECT", { source: "materialized" }),
+					}),
+					"schema-resolver": (name: string) => (name === tool.name ? tool : undefined),
+				},
+				mount: () => () => undefined,
 			},
-		});
+		]);
 
-		await assembled;
-		await expect(injection).resolves.toMatchObject({
-			source: "plan",
-			chars: "PLAN SUMMARY".length,
-			preview: "PLAN SUMMARY",
-		});
-		unmount();
+		const result = await pipeline.run({ messages: [], tools: [], turn: 1 });
+
+		expect(result.messages).toEqual([{ role: "user", content: "DIRECT" }]);
+		expect(pipeline.resolveSchema("fs.read")).toBe(tool);
 	});
 });

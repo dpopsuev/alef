@@ -185,7 +185,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 			],
 			sources: [{ name: "in-memory", kind: "process" }],
 			contributions: {
-				"context.assemble": contextStage,
+				"context.stage": contextStage,
 			},
 			...opts,
 		},

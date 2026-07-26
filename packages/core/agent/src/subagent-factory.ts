@@ -1,11 +1,10 @@
-const PHASE_TIMEOUT_MS = 100;
 const RANDOM_ID_RADIX = 36;
 const RANDOM_ID_LENGTH = 10;
 import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
+import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentSession } from "@dpopsuev/alef-session/agent";
 import { resolveSubagentActor } from "./identity/actor.js";
@@ -15,10 +14,14 @@ import { buildModel } from "./model/index.js";
 /**
  *
  */
-export type LlmAdapterFactory = (opts: { model: Model<Api>; systemPrompt?: string }) => Adapter;
+export type LlmAdapterFactory = (opts: {
+	model: Model<Api>;
+	systemPrompt?: string;
+	contextPipeline: ContextPipeline;
+}) => Adapter;
 
 const defaultLlmFactory: LlmAdapterFactory = (opts) =>
-	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, phaseTimeoutMs: PHASE_TIMEOUT_MS });
+	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, contextPipeline: opts.contextPipeline });
 
 /**
  *
@@ -79,10 +82,9 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			[dateContext, opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const resolvedModel = modelOverride ? buildModel(modelOverride) : opts.model;
 
+		const contextPipeline = createContextPipeline(adapters);
 		const llmFactory = opts.llmFactory ?? defaultLlmFactory;
-		const llm = llmFactory({ model: resolvedModel, systemPrompt });
-
-		const contextAssembly = createContextAssembler();
+		const llm = llmFactory({ model: resolvedModel, systemPrompt, contextPipeline });
 
 		let reply = "";
 		let totalInputTokens = 0;
@@ -93,7 +95,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			model: resolvedModel,
 			adapters,
 			llmAdapter: llm,
-			contextAssembly,
+			contextPipeline,
 			toolDisclosure: "full",
 			onReply: (text) => {
 				if (text) reply = text;

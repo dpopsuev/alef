@@ -122,7 +122,7 @@ export function createWeatherAdapter(opts: WeatherAdapterOptions) {
     description: "One sentence.",
     directives: ["Guidance for the LLM."],
     contributions: {
-      "context.assemble": phaseHandler,  // optional: participate in pre-LLM pipeline
+      "context.stage": phaseHandler,  // optional: participate in pre-LLM pipeline
       "agent.run": agentRunHandler,      // optional: extend agent.run behaviour
       "skills": [skillBook],             // optional: contribute skill books
     },
@@ -134,14 +134,14 @@ Action map key prefix determines bus direction: `"command/weather.forecast"` sub
 
 ### Cross-adapter integration (contributions map)
 
-Adapters declare capabilities via `contributions` in `defineAdapter` opts. Aggregator adapters collect them from `event/adapter.loaded`. No optional callbacks, no manual wiring.
+Adapters declare capabilities via `contributions` in `defineAdapter` opts. Blueprint materialization collects context stages directly; runtime events do not control the pipeline.
 
 Current contribution slots:
 - `"agent.run"?: AgentRunContribution` — extend `agent.run({ text, playbook? })` with schema fields and behaviour
-- `"context.assemble"?: ContextAssemblyHandler` — participate in the pre-LLM pipeline (tools + messages transform)
+- `"context.stage"?: ContextAssemblyHandler` — participate in the pre-LLM pipeline (tools + messages transform)
 - `"skills"?: SkillBook[]` — contribute playbooks to the Skills adapter library
 
-Adding a new slot: add the type to `AdapterContributions` in `core/kernel/src/buses.ts`, implement a composite aggregator adapter, wire via `event/adapter.loaded`.
+Adding a new slot: add the type to `AdapterContributions` in `core/kernel/src/buses.ts` and compose it at the owning materialization boundary.
 
 ### Lint rules (enforced by `npm run check:adapters`)
 

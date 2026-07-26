@@ -946,7 +946,7 @@ export function createAgentAdapter(
 				}
 			},
 			contributions: {
-				"context.assemble": taskContextStage,
+				"context.stage": taskContextStage,
 				ui: {
 					signals: {
 						"agent.intent": (payload, ui) => {

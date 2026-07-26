@@ -127,7 +127,6 @@ export class LoopGuard implements Adapter {
 
 		// Command subscriber: buffer call metadata, apply total-count safety net.
 		// Only count events that carry a toolCallId — those are real tool dispatches.
-		// Infrastructure command events (llm.response, context.assemble) are skipped.
 		const offMotor = bus.command.subscribe("*", (event) => {
 			const corr = event.correlationId;
 			resetIfNewTurn(corr);

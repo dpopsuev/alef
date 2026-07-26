@@ -1,7 +1,6 @@
 import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 // eslint-disable-next-line no-restricted-imports -- workflow contracts belong in core; refactor pending
 import { type Contract, createContractTool, createQuestionTool, GoalContract, ImplementContract, IntentContract, type StationDef, type StationResult, type StationRunner } from "@dpopsuev/alef-tool-workflow";
 import type { z } from "zod";
@@ -65,15 +64,11 @@ export class ImplStationRunner implements StationRunner {
 
 		const questionAdapter = createQuestionTool(this.onQuestion ?? defaultOnQuestion, questions);
 
-		const llm = createAgentLoop({
-			model: this.model,
-			systemPrompt: buildStationPrompt(station, contract),
-		});
 		const runtime = await createAgentSession({
 			cwd: process.cwd(),
 			model: this.model,
 			adapters: [contractAdapter, questionAdapter, ...this.domainAdapters],
-			llmAdapter: llm,
+			systemPrompt: buildStationPrompt(station, contract),
 			composeToolShell: false,
 		});
 

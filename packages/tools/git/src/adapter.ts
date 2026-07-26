@@ -1,6 +1,8 @@
+import { LectorGitPort } from "@danypops/alef-lector";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
+import type { GitStatusSummary, WorkspaceGitPort } from "@dpopsuev/alef-workspace/git-port";
 import { z } from "zod";
 
 /**
@@ -9,6 +11,18 @@ import { z } from "zod";
 export interface GitAdapterOptions {
 	cwd: string;
 	actions?: readonly string[];
+	/** Overrides the default real Lector-backed port -- tests inject a fake without a live daemon. */
+	gitPort?: WorkspaceGitPort;
+}
+
+/** Reconstructs `git status --short`'s exact porcelain text from a structured GitStatusSummary. */
+function formatStatusShort(status: GitStatusSummary): string {
+	return status.files
+		.map((file) => {
+			const path = file.renamedFrom ? `${file.renamedFrom} -> ${file.path}` : file.path;
+			return `${file.indexStatus}${file.workingDirStatus} ${path}\n`;
+		})
+		.join("");
 }
 
 const GIT_STATUS = {
@@ -26,8 +40,9 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 		{
 			command: {
 				"git.status": typedAction(GIT_STATUS, async () => {
-					const { execSync } = await import("node:child_process");
-					const output = execSync("git status --short", { cwd: opts.cwd, encoding: "utf-8" });
+					const gitPort = opts.gitPort ?? new LectorGitPort(opts.cwd);
+					const status = await gitPort.status();
+					const output = formatStatusShort(status);
 					return withDisplay({ output }, { text: output || "(clean)", mimeType: "text/plain" });
 				}),
 			},

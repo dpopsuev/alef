@@ -343,7 +343,6 @@
 			"@dpopsuev/alef-tool-git": ["./packages/tools/git/src/index.ts"],
 			"@dpopsuev/alef-workspace": ["./packages/core/workspace/src/index.ts"],
 			"@dpopsuev/alef-workspace/*": ["./packages/core/workspace/src/*.ts"],
-			"@dpopsuev/alef-lector": ["./packages/core/lector/src/index.ts"],
 			"@dpopsuev/alef-factory-agent": [
 				"./packages/profiles/factory/src/index.ts"
 			]
@@ -358,7 +357,6 @@
 	],
 	"exclude": [
 		"packages/ui/web/**/*",
-		"packages/core/lector/**/*",
 		"**/dist/**"
 	]
 }

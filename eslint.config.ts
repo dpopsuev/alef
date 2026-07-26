@@ -12,7 +12,7 @@ export default tseslint.config(
 		plugins: { "import-x": importX },
 		settings: {
 			"import-x/resolver": {
-				typescript: { project: ["./tsconfig.json", "./packages/core/lector/tsconfig.json"] },
+				typescript: { project: "./tsconfig.json" },
 			},
 		},
 		rules: {
@@ -80,9 +80,7 @@ export default tseslint.config(
 		],
 		languageOptions: {
 			parserOptions: {
-				// @danypops/lector ships raw Bun-native TypeScript; packages/core/lector's own
-				// tsconfig.json (not the root one) is what makes checking it possible at all.
-				project: ["./tsconfig.json", "./packages/core/lector/tsconfig.json"],
+				project: "./tsconfig.json",
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},

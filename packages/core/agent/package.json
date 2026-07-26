@@ -20,10 +20,9 @@
     "./identity/routes": "./src/identity/routes.ts",
     "./model": "./src/model/index.ts",
     "./event-log": "./src/event-log-adapter.ts",
-    "./kernel": "./src/agent-kernel.ts",
     "./subagent-factory": "./src/subagent-factory.ts",
     "./build-llm": "./src/build-llm.ts",
-    "./create-agent": "./src/create-agent.ts",
+    "./create-agent-session": "./src/create-agent-session.ts",
     "./otel-setup": "./src/otel-setup.ts",
     "./workflow": "./src/workflow/index.ts"
   },

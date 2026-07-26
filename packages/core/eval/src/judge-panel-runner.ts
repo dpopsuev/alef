@@ -18,17 +18,17 @@
  */
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import { createAgentSession, type AgentSessionRuntime } from "@dpopsuev/alef-agent/create-agent-session";
 import { join } from "node:path";
 // eslint-disable-next-line no-restricted-imports -- judge panel is a composition root; needs concrete adapters
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 // eslint-disable-next-line no-restricted-imports -- judge panel is a composition root; needs concrete adapters
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
 import type { JudgeReport } from "./judging-adapter.js";
 import { createJudgingAdapter } from "./judging-adapter.js";
+
 
 /** Defines a specialist judge agent: its persona, weight, and opening prompt. */
 export interface JudgeSpec {
@@ -106,7 +106,11 @@ export interface JudgePanelRunnerOptions {
 		signal: AbortSignal,
 		extraAdapters: Adapter[],
 	) => Promise<Adapter[]>;
-	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<Agent>;
+	agentFactory?: (
+		workspace: string,
+		signal: AbortSignal,
+		additionalAdapters: readonly Adapter[],
+	) => Promise<AgentSessionRuntime>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */
@@ -200,7 +204,7 @@ export class JudgePanelRunner {
 			},
 		});
 
-		const agent = this.opts.agentFactory ? await this.opts.agentFactory(workspace, new AbortController().signal) : new Agent();
+		const lifecycle = new AbortController();
 
 		// Read-only fs adapter (no write actions).
 		const fsReadOnly = createFsAdapter({
@@ -210,26 +214,39 @@ export class JudgePanelRunner {
 		const shell = createShellAdapter({ cwd: workspace });
 
 		// Domain-specific adapters from the caller's factory.
-		const extraAdapters = await this.opts.agentLoopFactory(workspace, agent.signal, [
+		const extraAdapters = await this.opts.agentLoopFactory(workspace, lifecycle.signal, [
 			fsReadOnly,
 			shell,
 			judgingAdapter,
 		]);
-
-		for (const adapter of extraAdapters) agent.load(adapter);
-
-		const controller = new AgentController(agent);
-		await agent.ready();
+		let runtime: AgentSessionRuntime;
+		if (this.opts.agentFactory) {
+			runtime = await this.opts.agentFactory(workspace, lifecycle.signal, extraAdapters);
+		} else {
+			const reasoner = extraAdapters.find(
+				(adapter) =>
+					adapter.subscriptions.event.includes("llm.input") ||
+					adapter.subscriptions.command.includes("llm.input"),
+			);
+			if (!reasoner) throw new Error("JudgePanelRunner requires one adapter that consumes llm.input");
+			runtime = await createAgentSession({
+				cwd: workspace,
+				adapters: extraAdapters.filter((adapter) => adapter !== reasoner),
+				llmAdapter: reasoner,
+				composeToolShell: false,
+			});
+		}
 
 		try {
 			await Promise.race([
-				controller.send(judge.prompt, "human", timeoutMs),
+				runtime.controller.send(judge.prompt, "human", timeoutMs),
 				new Promise<never>((_, reject) =>
 					setTimeout(() => reject(new Error(`judge ${judge.name} timed out`)), timeoutMs),
 				),
 			]);
 		} finally {
-			void agent.dispose();
+			lifecycle.abort();
+			await runtime.dispose();
 			// Clean up the seeded skill.
 			await rm(skillDir, { recursive: true, force: true }).catch(() => {});
 		}

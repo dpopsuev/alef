@@ -1,8 +1,5 @@
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import type { TaskSnapshot, WorkContext } from "@dpopsuev/alef-kernel/execution";
 import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contracts";
 
@@ -10,30 +7,6 @@ import type { AgentEvent, TokensConsumed } from "@dpopsuev/alef-session/contract
  *
  */
 export type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
-
-/**
- *
- */
-export interface AgentServerOptions {
-	llm: Adapter;
-	adapters: readonly Adapter[];
-	contextAssembly?: Adapter;
-	onReply?: (text: string) => void;
-	extraAdapters?: readonly Adapter[];
-	signalMappers?: ReadonlyMap<string, SignalMapper>;
-	uiSignalTypes?: ReadonlySet<string>;
-	toolDisclosure?: "full" | "progressive";
-	bus?: AgentBus;
-}
-
-/**
- *
- */
-export interface AgentServer {
-	readonly agent: Agent;
-	readonly controller: AgentController;
-	readonly observers: Set<(event: AgentEvent) => void>;
-}
 
 /**
  *
@@ -388,33 +361,4 @@ export function connectObservers(
 			}
 		},
 	});
-}
-
-/**
- *
- */
-export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
-	const agent = new Agent({ bus: opts.bus });
-	const observers = new Set<(event: AgentEvent) => void>();
-
-	agent.load(opts.llm);
-
-	const allAdapters = [...opts.adapters, ...(opts.extraAdapters ?? [])];
-	const toolShell = createToolShellAdapter({
-		tools: allAdapters.flatMap((o) => o.tools),
-		getTools: () => agent.tools,
-		adapterDirectives: buildAdapterDirectives(allAdapters),
-		disclosure: opts.toolDisclosure ?? "full",
-	});
-	agent.load(toolShell);
-	if (opts.contextAssembly) agent.load(opts.contextAssembly);
-	for (const adapter of allAdapters) agent.load(adapter);
-
-	const controller = new AgentController(agent, {
-		onReply: opts.onReply,
-	});
-
-	connectObservers(agent, observers, opts.signalMappers, opts.uiSignalTypes);
-
-	return { agent, controller, observers };
 }

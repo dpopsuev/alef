@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { connectObservers, type SignalMapper } from "@dpopsuev/alef-agent/assemble";
+import { createAgentSession, type SignalMapper } from "@dpopsuev/alef-agent/create-agent-session";
 import { type ActorIdentity, configureSessionActors } from "@dpopsuev/alef-agent/identity/actor";
 import { ActorRouteTable } from "@dpopsuev/alef-agent/identity/routes";
-import { buildAgent } from "@dpopsuev/alef-agent/kernel";
 import { buildModel } from "@dpopsuev/alef-agent/model";
 import { createDefaultDirectives, registerAdapters } from "@dpopsuev/alef-agent/prompt";
 import { createResourceMeter } from "@dpopsuev/alef-agent/resource-meter";
@@ -12,7 +11,6 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { buildBootCatalog } from "@dpopsuev/alef-engine/catalog";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createRoleTenantDataAccessPolicy } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
@@ -242,7 +240,6 @@ export async function createLocalSession(
 	const { humanActor, agentActor, actorRoutes } = identity;
 	const boardId = store.id.slice(0, 12);
 
-	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
 	/** Mutable — SessionHandle.setModel updates this so the LLM adapter sees switches. */
 	let currentModel = model;
@@ -308,9 +305,23 @@ export async function createLocalSession(
 	});
 
 	const summaryStore = storage.summaryStore();
-
-	const agent = buildAgent({
-		llm: llmAdapter,
+	const handleSlot: { current?: SessionHandle } = {};
+	let sessionAdapter!: Session;
+	const runtime = await createAgentSession({
+		cwd: args.cwd,
+		model,
+		adapters: [
+			...stack.adapters,
+			createTokenTelemetry(store.id),
+			createResourceMeter({
+				policy: createRoleTenantDataAccessPolicy(),
+				principal: { id: humanActor.address, tenantId: boardId, roles: ["operator"] },
+				scope: { tenantId: boardId, roles: ["operator"] },
+			}),
+		],
+		llmAdapter,
+		composeToolShell: false,
+		directives,
 		session: store,
 		modelId: model.id,
 		agentIdentity: agentActor,
@@ -319,83 +330,70 @@ export async function createLocalSession(
 			llmController?.abort(new Error(`[loop-detector] ${reason}`));
 		},
 		summaryWriter: (summary) => summaryStore.write(summary),
+		onReply: replySink,
+		signalMappers: adapterSignalMaps,
+		uiSignalTypes: uiSignalHandlerKeys,
+		createAdapters: ({ agent, controller, observers }) => {
+			sessionAdapter = {
+				state: sessionState,
+				getModel: () => handleSlot.current?.getModel() ?? currentModel.id,
+				setModel: (id: string) => handleSlot.current?.setModel(id),
+				getThinking: () => handleSlot.current?.getThinking() ?? "",
+				setThinking: (level: string) => handleSlot.current?.setThinking(level),
+				setTurnController: (turnController: AbortController | undefined) => {
+					llmController = turnController;
+					handleSlot.current?.setTurnController(turnController);
+				},
+				dispose: () => {
+					void handleSlot.current?.dispose();
+				},
+				receive: (content, options?) => {
+					const text =
+						typeof content === "string"
+							? content
+							: content
+									.filter((part): part is { type: "text"; text: string } => part.type === "text")
+									.map((part) => part.text)
+									.join("");
+					if (handleSlot.current) {
+						handleSlot.current.receive(text, options);
+						return;
+					}
+					controller.receive(text, "user", undefined, options?.delivery);
+				},
+				subscribe: (observer: (event: AgentEvent) => void) => {
+					observers.add(observer);
+					return () => observers.delete(observer);
+				},
+			};
+			const alefAdapter = createMetaAdapter({
+				agent: {
+					load: (adapter: Adapter) => agent.load(adapter),
+					unload: (name: string) => agent.unload(name),
+					get adapters() {
+						return agent.adapters;
+					},
+				},
+				loadAdapter: (path: string, cwd: string) => loadAdapterFromPath(path, { cwd }),
+				cwd: args.cwd,
+				dialogEventType: "llm.input",
+				onRebuildRequest: () => {
+					const globalScope = globalThis as Record<string, unknown>;
+					if (typeof globalScope.alefReboot === "function") {
+						Reflect.apply(globalScope.alefReboot, undefined, []);
+					}
+				},
+			});
+			return [{ ...alefAdapter, tools: [] }];
+		},
 	});
-
-	const controller = new AgentController(agent, { onReply: replySink });
+	const { agent, controller, observers } = runtime;
 
 	actorRoutes.register(agentActor.address, async (message, timeout) => {
 		await controller.send(message, "human", timeout);
 	});
 
-	for (const adapter of stack.adapters) agent.load(adapter);
-	agent.load(createTokenTelemetry(store.id));
-	agent.load(
-		createResourceMeter({
-			policy: createRoleTenantDataAccessPolicy(),
-			principal: { id: humanActor.address, tenantId: boardId, roles: ["operator"] },
-			scope: { tenantId: boardId, roles: ["operator"] },
-		}),
-	);
-
-	const handleSlot: { current?: SessionHandle } = {};
-	const sessionAdapter: Session = {
-		state: sessionState,
-		getModel: () => handleSlot.current?.getModel() ?? currentModel.id,
-		setModel: (id: string) => {
-			handleSlot.current?.setModel(id);
-		},
-		getThinking: () => handleSlot.current?.getThinking() ?? "",
-		setThinking: (level: string) => {
-			handleSlot.current?.setThinking(level);
-		},
-		setTurnController: (c: AbortController | undefined) => {
-			llmController = c;
-			handleSlot.current?.setTurnController(c);
-		},
-		dispose: () => {
-			void handleSlot.current?.dispose();
-		},
-		receive: (content, opts?) => {
-			const text =
-				typeof content === "string"
-					? content
-					: content
-							.filter((part): part is { type: "text"; text: string } => part.type === "text")
-							.map((part) => part.text)
-							.join("");
-			if (handleSlot.current) {
-				handleSlot.current.receive(text, opts);
-				return;
-			}
-			controller.receive(text, "user", undefined, opts?.delivery);
-		},
-		subscribe: (obs: (event: AgentEvent) => void) => {
-			observers.add(obs);
-			return () => observers.delete(obs);
-		},
-	};
 	const setupSurface = () => setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
-
-	const alefAdapter = createMetaAdapter({
-		agent: {
-			load: (o: Adapter) => agent.load(o),
-			unload: (n: string) => agent.unload(n),
-			get adapters() {
-				return agent.adapters;
-			},
-		},
-		loadAdapter: (path: string, cwd: string) => loadAdapterFromPath(path, { cwd }),
-		cwd: args.cwd,
-		dialogEventType: "llm.input",
-		onRebuildRequest: () => {
-			const g = globalThis as Record<string, unknown>;
-			if (typeof g.alefReboot === "function") (g.alefReboot as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
-		},
-	});
-	// Meta tools stay on the bus for :meta / prototype paths — hide from LLM tool schemas.
-	agent.load({ ...alefAdapter, tools: [] });
-
-	connectObservers(agent, observers, adapterSignalMaps, uiSignalHandlerKeys);
 
 	agent.observe({
 		onCommand() {},
@@ -428,9 +426,6 @@ export async function createLocalSession(
 		enabled: true,
 		tags: ["adapter", "dynamic"],
 	});
-
-	agent.validate();
-	await agent.ready();
 
 	const handle = new SessionHandle({
 		state: sessionState,

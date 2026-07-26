@@ -1,4 +1,5 @@
-import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { AgentSessionRuntime } from "@dpopsuev/alef-agent/create-agent-session";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "./evaluation.js";
 import type { EvaluationResult } from "./evaluation-runner.js";
@@ -13,7 +14,11 @@ import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from
 export interface EvalSuiteOptions {
 	name: string;
 	evals: Evaluation[];
-	agentFactory: (workspace: string, signal: AbortSignal) => Promise<Agent>;
+	agentFactory: (
+		workspace: string,
+		signal: AbortSignal,
+		additionalAdapters: readonly Adapter[],
+	) => Promise<AgentSessionRuntime>;
 	/** Blueprint / stack name for HarnessCard disclosure (e.g. coding). */
 	blueprint?: string;
 	benchmarkPath?: string;

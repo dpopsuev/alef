@@ -1,6 +1,5 @@
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 // eslint-disable-next-line no-restricted-imports -- workflow contracts belong in core; refactor pending
@@ -66,23 +65,27 @@ export class ImplStationRunner implements StationRunner {
 
 		const questionAdapter = createQuestionTool(this.onQuestion ?? defaultOnQuestion, questions);
 
-		const agent = new Agent();
 		const llm = createAgentLoop({
 			model: this.model,
 			systemPrompt: buildStationPrompt(station, contract),
 		});
-
-		agent.load(llm).load(contractAdapter).load(questionAdapter);
-		for (const a of this.domainAdapters) agent.load(a);
-
-		const controller = new AgentController(agent);
-		await agent.ready();
+		const runtime = await createAgentSession({
+			cwd: process.cwd(),
+			model: this.model,
+			adapters: [contractAdapter, questionAdapter, ...this.domainAdapters],
+			llmAdapter: llm,
+			composeToolShell: false,
+		});
 
 		const artifactText = artifact !== undefined ? `\n\nIncoming artifact:\n${JSON.stringify(artifact, null, 2)}` : "";
 
-		await controller.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? STATION_TIMEOUT_MS);
+		await runtime.controller.send(
+			`Begin station "${station.name}".${artifactText}`,
+			"human",
+			station.timeoutMs ?? STATION_TIMEOUT_MS,
+		);
 
-		void agent.dispose();
+		await runtime.dispose();
 
 		if (submittedOutput !== undefined) {
 			return { status: "fulfilled", output: submittedOutput, questions };

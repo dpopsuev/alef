@@ -1,5 +1,4 @@
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import { createReplayAdapters } from "@dpopsuev/alef-session/replay";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { extractTrace } from "@dpopsuev/alef-session/tracing";
@@ -32,11 +31,11 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 	console.log();
 
 	const { reasoner, tools } = createReplayAdapters(trace);
-	const agent = new Agent();
-	agent.load(reasoner);
-	agent.load(tools);
-
-	const controller = new AgentController(agent, {
+	const runtime = await createAgentSession({
+		cwd,
+		adapters: [tools],
+		llmAdapter: reasoner,
+		composeToolShell: false,
 		onReply: (text) => {
 			if (text) {
 				const preview =
@@ -45,6 +44,7 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 			}
 		},
 	});
+	const { agent, controller } = runtime;
 
 	agent.observe({
 		onCommand() {},
@@ -77,5 +77,5 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 
 	console.log();
 	console.log("Replay complete.");
-	void agent.dispose();
+	await runtime.dispose();
 }

@@ -19,7 +19,7 @@ import * as toolUseEvals from "../../../core/eval/src/evaluations/tool-use-regre
 import * as writeEvals from "../../../core/eval/src/evaluations/write.js";
 import { defineEvalSuite, stubSessionFactory } from "../../../core/eval/src/index.js";
 import { getEvalModel } from "../../../core/eval/src/model.js";
-import { createAgent } from "@dpopsuev/alef-agent/create-agent";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import { createCodingAgentStack } from "../src/index.js";
 
 defineEvalSuite({
@@ -46,7 +46,7 @@ defineEvalSuite({
 		toolUseEvals.complexMultiTool,
 		toolUseEvals.writeFile,
 	],
-	agentFactory: async (workspace, signal) => {
+	agentFactory: async (workspace, signal, additionalAdapters) => {
 		const model = getEvalModel();
 		const sessionStore = new InMemorySessionStore();
 		const stack = await createCodingAgentStack({
@@ -56,13 +56,13 @@ defineEvalSuite({
 			sessionStore,
 			subagentFactory: stubSessionFactory(model.id, model.contextWindow),
 		});
-		const { agent } = await createAgent({
+		return createAgentSession({
 			cwd: workspace,
 			model,
-			adapters: stack.adapters,
+			adapters: [...stack.adapters, ...additionalAdapters],
+			composeToolShell: false,
 			getSignal: () => signal,
 		});
-		return agent;
 	},
 	benchmarkPath: resolve(__dirname, "../../../core/eval/benchmark.jsonl"),
 	scoreboardPath: resolve(__dirname, "../../../core/eval/SCOREBOARD.md"),

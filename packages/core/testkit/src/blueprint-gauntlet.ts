@@ -17,15 +17,18 @@
  */
 
 import { mkdir, rm } from "node:fs/promises";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Adapter, gimpedAdapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import { type ScriptStep, step } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
+
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Configuration for creating a BlueprintGauntlet test harness. */
 export interface GauntletOptions {
@@ -64,6 +67,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	private readonly agent: Agent;
 	private readonly controller: AgentController;
 	private readonly recorder: BusEventRecorder;
+	private readonly disposeRuntime: () => Promise<void>;
 	readonly scriptedLlm: ScriptedReasoner;
 	private readonly timeoutMs: number;
 
@@ -74,6 +78,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		recorder: BusEventRecorder,
 		scriptedLlm: ScriptedReasoner,
 		timeoutMs: number,
+		disposeRuntime: () => Promise<void>,
 	) {
 		this.workspace = workspace;
 		this.agent = agent;
@@ -81,6 +86,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		this.recorder = recorder;
 		this.scriptedLlm = scriptedLlm;
 		this.timeoutMs = timeoutMs;
+		this.disposeRuntime = disposeRuntime;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -95,15 +101,23 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		const scriptedLlm = new ScriptedReasoner(script);
 		const recorder = new BusEventRecorder();
 
-		const agent = new Agent();
-		for (const adapter of [...opts.adapters, scriptedLlm]) {
-			agent.load(adapter);
-		}
-		agent.observe(recorder);
+		const runtime = await createAgentSession({
+			cwd: workspace,
+			adapters: opts.adapters,
+			llmAdapter: scriptedLlm,
+			composeToolShell: false,
+		});
+		runtime.agent.observe(recorder);
 
-		const controller = new AgentController(agent);
-		// eslint-disable-next-line no-magic-numbers
-		return new BlueprintGauntlet(workspace, agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
+		return new BlueprintGauntlet(
+			workspace,
+			runtime.agent,
+			runtime.controller,
+			recorder,
+			scriptedLlm,
+			opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+			() => runtime.dispose(),
+		);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -215,7 +229,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Unmount the agent and clean up the temp workspace. */
 	async dispose(): Promise<void> {
-		await this.agent.dispose();
+		await this.disposeRuntime();
 		await rm(this.workspace, { recursive: true, force: true });
 	}
 }

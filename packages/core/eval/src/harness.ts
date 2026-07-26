@@ -16,12 +16,13 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { createAgentSession, type AgentSessionRuntime } from "@dpopsuev/alef-agent/create-agent-session";
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { Agent } from "@dpopsuev/alef-engine/agent";
-import { AgentController } from "@dpopsuev/alef-engine/controller";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalAdapters } from "./default-adapters.js";
 import { EvaluatorAdapter } from "./evaluator-adapter.js";
@@ -34,6 +35,10 @@ import { globalSpanExporter } from "./otel-setup.js";
 import { TraceRecorder } from "./trace-recorder.js";
 
 const tracer = trace.getTracer("alef.eval", "0.0.1");
+/** Identifies the adapter that owns llm.input before assembly. */
+function isReasoner(adapter: Adapter): boolean {
+	return adapter.subscriptions.event.includes("llm.input") || adapter.subscriptions.command.includes("llm.input");
+}
 
 /** Resolve model fields for HarnessCard without failing unit boots that lack credentials. */
 function resolveEvalModelForCard(): Pick<CollectHarnessCardInput, "model" | "provider" | "contextWindow"> {
@@ -129,15 +134,11 @@ export interface HarnessOptions {
 	asyncAdapterFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
 	/** Directory to write a JSONL execution trace file. */
 	traceDir?: string;
-	/**
-	 * Factory for the Agent instance. When provided, the harness uses this
-	 * instead of `new Agent()`. The caller is responsible for loading all
-	 * adapters (including LLM, ToolShell, LoopGuard, etc.) onto the returned
-	 * agent. The evaluator adapter is still loaded by the harness.
-	 *
-	 * Use this to match the production agent assembly exactly.
-	 */
-	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<Agent>;
+	agentFactory?: (
+		workspace: string,
+		signal: AbortSignal,
+		additionalAdapters: readonly Adapter[],
+	) => Promise<AgentSessionRuntime>;
 	/** Blueprint / stack name for HarnessCard disclosure (e.g. coding). */
 	blueprint?: string;
 	/** Partial HarnessCard overrides (adapters/tools usually inferred from the Agent). */
@@ -165,6 +166,7 @@ export class AgentHandle {
 	private readonly _transcript: Array<Record<string, unknown>> = [];
 	private readonly _busEvents: BusEvent[] = [];
 	private readonly _harnessCard: HarnessCard;
+	private readonly _disposeRuntime: () => Promise<void>;
 
 	private readonly _sendTimingsMs: number[] = [];
 
@@ -191,6 +193,7 @@ export class AgentHandle {
 		busEvents: BusEvent[];
 		motorTimes: Map<string, number>;
 		harnessCard: HarnessCard;
+		disposeRuntime: () => Promise<void>;
 	}) {
 		this.path = params.path;
 		this._agent = params.agent;
@@ -206,6 +209,7 @@ export class AgentHandle {
 		this._transcript = params.transcript;
 		this._busEvents = params.busEvents;
 		this._harnessCard = params.harnessCard;
+		this._disposeRuntime = params.disposeRuntime;
 		void params.motorTimes; // captured by closure in boot(), not needed as a field
 	}
 
@@ -306,7 +310,7 @@ export class AgentHandle {
 			this._unobserve?.();
 			await this._busTracer.close();
 		}
-		void this._agent.dispose();
+		await this._disposeRuntime();
 
 		if (!this._keepWorkspace) {
 			await rm(this.path, { recursive: true, force: true });
@@ -403,25 +407,29 @@ export class EvalHarness {
 		}
 
 		const evaluator = new EvaluatorAdapter({ loopThreshold: opts.loopThreshold });
-
-		let agent: Agent;
+		const lifecycle = new AbortController();
+		let runtime: AgentSessionRuntime;
 		if (opts.agentFactory) {
-			agent = await opts.agentFactory(workspace, new AbortController().signal);
-			agent.load(evaluator);
+			runtime = await opts.agentFactory(workspace, lifecycle.signal, [evaluator]);
 		} else {
-			agent = new Agent();
 			const baseAdapters = (opts.baseAdaptersFactory ?? defaultEvalAdapters)(workspace);
-			for (const adapter of baseAdapters) agent.load(adapter);
-			agent.load(evaluator);
-			for (const adapter of opts.extraAdapters ?? []) agent.load(adapter);
-
 			const asyncFactory = opts.asyncAdapterFactory;
 			const syncFactory = opts.adapterFactory;
-			const asyncAdapters = asyncFactory
-				? await asyncFactory(workspace, agent.signal)
-				: (syncFactory?.(agent.signal) ?? []);
-			for (const adapter of asyncAdapters) agent.load(adapter);
+			const createdAdapters = asyncFactory
+				? await asyncFactory(workspace, lifecycle.signal)
+				: (syncFactory?.(lifecycle.signal) ?? []);
+			const allAdapters = [...baseAdapters, ...(opts.extraAdapters ?? []), ...createdAdapters];
+			const reasoner = allAdapters.find(isReasoner);
+			if (!reasoner) throw new Error("EvalHarness requires one adapter that consumes llm.input");
+			runtime = await createAgentSession({
+				cwd: workspace,
+				adapters: [...allAdapters.filter((adapter) => adapter !== reasoner), evaluator],
+				llmAdapter: reasoner,
+				composeToolShell: false,
+				loopThreshold: opts.loopThreshold,
+			});
 		}
+		const { agent, controller } = runtime;
 
 		const transcript: Array<Record<string, unknown>> = [];
 		const busEvents: BusEvent[] = [];
@@ -495,7 +503,6 @@ export class EvalHarness {
 			unobserve = agent.observe(busTracer);
 		}
 
-		const controller = new AgentController(agent);
 		const harnessCard = collectHarnessCardFromAgent(agent, opts, workspace);
 
 		return new AgentHandle({
@@ -514,6 +521,10 @@ export class EvalHarness {
 			busEvents,
 			motorTimes,
 			harnessCard,
+			disposeRuntime: async () => {
+				lifecycle.abort();
+				await runtime.dispose();
+			},
 		});
 	}
 

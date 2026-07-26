@@ -1,15 +1,3 @@
-/**
- * Shared OTel bootstrap for CLI and headless sessions.
- *
- * Env:
- *   ALEF_OTEL=1 — enable setup from createAgent / headless (CLI always enables)
- *   OTEL_EXPORTER_OTLP_ENDPOINT — when set, also export traces via OTLP/HTTP
- *   TRACEPARENT / TRACESTATE — W3C Trace Context inherited from parent process
- *
- * The global TracerProvider can only be registered once per process. Upgrades
- * therefore append SpanProcessors to a mutable fan-out instead of re-registering.
- */
-
 import {
 	context,
 	propagation,
@@ -207,7 +195,7 @@ export function injectTraceContextIntoEnv(
 	return next;
 }
 
-/** True when headless/createAgent should mount OTel (CLI always does). */
+/** Enables child tracing when a parent trace or explicit opt-in exists. */
 export function shouldEnableOTelForAgent(): boolean {
 	return process.env.ALEF_OTEL === "1" || Boolean(process.env.TRACEPARENT?.trim());
 }

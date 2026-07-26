@@ -89,17 +89,11 @@
 			"@dpopsuev/alef-agent/event-log": [
 				"./packages/core/agent/src/event-log-adapter.ts"
 			],
-			"@dpopsuev/alef-agent/kernel": [
-				"./packages/core/agent/src/agent-kernel.ts"
-			],
 			"@dpopsuev/alef-agent/subagent-factory": [
 				"./packages/core/agent/src/subagent-factory.ts"
 			],
 			"@dpopsuev/alef-agent/build-llm": [
 				"./packages/core/agent/src/build-llm.ts"
-			],
-			"@dpopsuev/alef-agent/create-agent": [
-				"./packages/core/agent/src/create-agent.ts"
 			],
 			"@dpopsuev/alef-agent/meta-agent": [
 				"./packages/core/agent/src/meta-agent.ts"

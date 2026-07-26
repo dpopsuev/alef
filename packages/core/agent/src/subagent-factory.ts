@@ -1,7 +1,7 @@
 const PHASE_TIMEOUT_MS = 100;
 const RANDOM_ID_RADIX = 36;
 const RANDOM_ID_LENGTH = 10;
-import { assembleAgentServer } from "@dpopsuev/alef-agent/assemble";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-engine/subagent-port";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
@@ -88,16 +88,18 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
 
-		const server = assembleAgentServer({
-			llm,
+		const runtime = createAgentSession({
+			cwd: process.cwd(),
+			model: resolvedModel,
 			adapters,
+			llmAdapter: llm,
 			contextAssembly,
+			toolDisclosure: "full",
 			onReply: (text) => {
 				if (text) reply = text;
 			},
 		});
-
-		const { agent, controller, observers } = server;
+		const sessionObservers = new Set<Parameters<AgentSession["subscribe"]>[0]>();
 		const tokenBudget = callOpts.tokenBudget;
 		let budgetExceeded = false;
 
@@ -107,43 +109,47 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			modelId: resolvedModel.id,
 		});
 
-		observers.add((event) => {
-			if (event.type === "token-usage") {
-				const usage = event.usage;
-				totalInputTokens += usage.input;
-				totalOutputTokens += usage.output;
-				if (tokenBudget && !budgetExceeded && totalInputTokens + totalOutputTokens >= tokenBudget) {
-					budgetExceeded = true;
-					controller.receive(
-						"[system] Token budget reached. Wrap up now — summarize your findings and return your final answer. Do not start new tool calls.",
-						"system",
-					);
-				}
-				onInnerEvent?.(subSessionId, "subagent-token-usage", {
-					callId: subSessionId,
-					input: totalInputTokens,
-					output: totalOutputTokens,
+		void runtime.then(
+			({ controller, observers }) => {
+				observers.add((event) => {
+					for (const observer of sessionObservers) observer(event);
+					if (event.type === "token-usage") {
+						const usage = event.usage;
+						totalInputTokens += usage.input;
+						totalOutputTokens += usage.output;
+						if (tokenBudget && !budgetExceeded && totalInputTokens + totalOutputTokens >= tokenBudget) {
+							budgetExceeded = true;
+							controller.receive(
+								"[system] Token budget reached. Wrap up now — summarize your findings and return your final answer. Do not start new tool calls.",
+								"system",
+							);
+						}
+						onInnerEvent?.(subSessionId, "subagent-token-usage", {
+							callId: subSessionId,
+							input: totalInputTokens,
+							output: totalOutputTokens,
+						});
+					}
+					if (onChunk) {
+						if (event.type === "chunk") onChunk(event.text);
+						else if (opts.forwardToolChunks && event.type === "tool-chunk") onChunk(event.text);
+					}
+					if (onInnerEvent && "callId" in event) {
+						const payload: Record<string, unknown> = {};
+						for (const [key, value] of Object.entries(event)) {
+							if (key !== "type") payload[key] = value;
+						}
+						onInnerEvent(subSessionId, event.type, payload);
+					}
 				});
-			}
-			if (onChunk) {
-				if (event.type === "chunk") onChunk(event.text);
-				else if (opts.forwardToolChunks && event.type === "tool-chunk") onChunk(event.text);
-			}
-			if (onInnerEvent && "callId" in event) {
-				const payload: Record<string, unknown> = {};
-				for (const [k, v] of Object.entries(event)) {
-					if (k !== "type") payload[k] = v;
-				}
-				onInnerEvent(subSessionId, event.type, payload);
-			}
-		});
+			},
+			() => undefined,
+		);
 
 		opts.actorRoutes?.register(subActor.address, async (message, timeout) => {
-			await agent.ready();
+			const { controller } = await runtime;
 			await controller.send(message, "human", timeout);
 		});
-
-		agent.validate();
 
 		const session = new AgentSession({
 			state: {
@@ -153,16 +159,18 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 				discussion,
 			},
 			send: async (text, _sender, timeoutMs) => {
-				await agent.ready();
+				const { controller } = await runtime;
 				await controller.send(text, "human", timeoutMs);
 				return reply;
 			},
-			receive: (text) => controller.receive(text, "human"),
+			receive: (text) => {
+				void runtime.then(({ controller }) => controller.receive(text, "human"), () => undefined);
+			},
 			dispose: () => {
 				opts.actorRoutes?.unregister(subActor.address);
-					void agent.dispose();
+				void runtime.then((sessionRuntime) => sessionRuntime.dispose(), () => undefined);
 			},
-			observers,
+			observers: sessionObservers,
 		});
 
 		Object.defineProperty(session, "identity", {

@@ -1,29 +1,4 @@
-/**
- * BlueprintHarness — deterministic blueprint test harness.
- *
- * Loads a blueprint (file or inline adapters), wires ScriptedReasoner via
- * createAgent (same composition root as production), provides send() +
- * assertion API. No real LLM call. No API key needed.
- *
- * Two factory methods:
- * BlueprintHarness.fromBlueprint(path, opts) — loads agent.yaml
- * BlueprintHarness.create(opts) — inline adapter list
- *
- * Example:
- * const h = await BlueprintHarness.fromBlueprint("agent.yaml", {
- * cwd: workspace,
- * script: [
- * step.toolCall("fs.read", { path: "src/auth.ts" }, "Found the bug."),
- * ],
- * });
- * const reply = await h.send("What does login() do?");
- * h.assertToolCalled("fs.read");
- * h.assertToolCalledWith("fs.read", { path: "src/auth.ts" });
- * h.dispose();
- *
- */
-
-import { createAgent } from "@dpopsuev/alef-agent/create-agent";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
 import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
@@ -137,7 +112,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const adapters = opts.adapters ?? [];
 
-		const { agent, controller } = await createAgent({
+		const { agent, controller } = await createAgentSession({
 			cwd: opts.cwd,
 			model: SCRIPTED_PLACEHOLDER_MODEL,
 			adapters,

@@ -1,16 +1,4 @@
-/**
- * createHeadlessSession — production-like headless Alef for real-LLM tests.
- *
- * Same assembly as createAgent plus env model resolution (resolveEnvModel).
- * Does not import @dpopsuev/alef-eval.
- *
- * Usage:
- *   const session = await createHeadlessSession([adapter], { systemPrompt, timeoutMs });
- *   const { reply, events } = await session.send("…");
- *   await session.dispose();
- */
-
-import { createAgent } from "@dpopsuev/alef-agent/create-agent";
+import { createAgentSession } from "@dpopsuev/alef-agent/create-agent-session";
 import { hasCredentials, resolveEnvModel } from "@dpopsuev/alef-agent/model";
 import { getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
@@ -50,10 +38,6 @@ export interface HeadlessSessionOptions {
 	modelId?: string;
 	/** Per-turn controller timeout in ms. Default 60_000. */
 	timeoutMs?: number;
-	/**
-	 * When set: lean system prompt via createAgent (no coding-agent persona).
-	 * When omitted: full createAgent default directives.
-	 */
 	systemPrompt?: string;
 	/** Desired state for ErrorTensor / ProgressTelemetry (published as plan.dss). */
 	desiredState?: DesiredStateSpec;
@@ -73,7 +57,7 @@ export async function createHeadlessSession(
 	const model = resolveEnvModel({ modelId: opts.modelId, onMissing: "throw" });
 
 	const events: NotificationMessage[] = [];
-	const { agent, controller } = await createAgent({
+	const { agent, controller } = await createAgentSession({
 		cwd,
 		model,
 		adapters,

@@ -2,10 +2,35 @@
  * Production-readiness: ProgressTelemetry always-on + headless bus contract.
  */
 
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { newCorrelationId, type NotificationMessage } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
-import { buildAgent } from "../src/agent-kernel.js";
+import { createAgentSession } from "../src/create-agent-session.js";
+
+const MODEL: Model<Api> = {
+	id: "progress-test",
+	name: "progress-test",
+	api: "anthropic-messages",
+	provider: "anthropic",
+	baseUrl: "",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 1_000,
+	maxTokens: 100,
+};
+
+async function createRuntime(getGap?: () => { totalMagnitude: number; converged: boolean }) {
+	return createAgentSession({
+		cwd: process.cwd(),
+		model: MODEL,
+		adapters: [],
+		llmAdapter: stubLlm(),
+		composeToolShell: false,
+		getGap,
+	});
+}
 
 /** Minimal LLM stub — no tools, no API. */
 function stubLlm(): Adapter {
@@ -21,18 +46,17 @@ function stubLlm(): Adapter {
 }
 
 describe("ProgressTelemetry always-on", { tags: ["unit"] }, () => {
-	it("buildAgent mounts progress-telemetry without opt-in", () => {
-		const agent = buildAgent({ llm: stubLlm() });
-		expect(agent.adapters.some((a) => a.name === "progress-telemetry")).toBe(true);
-		expect(agent.adapters.some((a) => a.name === "loop-detector")).toBe(true);
+	it("createAgentSession mounts progress-telemetry without opt-in", async () => {
+		const runtime = await createRuntime();
+		expect(runtime.agent.adapters.some((adapter) => adapter.name === "progress-telemetry")).toBe(true);
+		expect(runtime.agent.adapters.some((adapter) => adapter.name === "loop-detector")).toBe(true);
+		await runtime.dispose();
 	});
 
 	it("emits telemetry.progress.step with tok/P when gap shrinks", async () => {
 		let gap = 10;
-		const agent = buildAgent({
-			llm: stubLlm(),
-			getGap: () => ({ totalMagnitude: gap, converged: gap === 0 }),
-		});
+		const runtime = await createRuntime(() => ({ totalMagnitude: gap, converged: gap === 0 }));
+		const { agent } = runtime;
 		const steps: Array<Record<string, unknown>> = [];
 		agent.asBus().notification.subscribe("telemetry.progress.step", (event: NotificationMessage) => {
 			steps.push(event.payload);
@@ -61,15 +85,13 @@ describe("ProgressTelemetry always-on", { tags: ["unit"] }, () => {
 		expect(steps).toHaveLength(1);
 		expect(steps[0]!.progress).toBe(6);
 		expect(steps[0]!.tok_per_progress).toBe(5);
-		await agent.dispose();
+		await runtime.dispose();
 	});
 
 	it("headless composition root emits progress on bus without /metrics", async () => {
 		let gap = 8;
-		const agent = buildAgent({
-			llm: stubLlm(),
-			getGap: () => ({ totalMagnitude: gap, converged: false }),
-		});
+		const runtime = await createRuntime(() => ({ totalMagnitude: gap, converged: false }));
+		const { agent } = runtime;
 		const steps: Array<Record<string, unknown>> = [];
 		agent.asBus().notification.subscribe("telemetry.progress.step", (event) => {
 			steps.push(event.payload);
@@ -97,6 +119,6 @@ describe("ProgressTelemetry always-on", { tags: ["unit"] }, () => {
 
 		expect(steps).toHaveLength(1);
 		expect(steps[0]!.tok_per_progress).toBe(2);
-		await agent.dispose();
+		await runtime.dispose();
 	});
 });

@@ -9,7 +9,10 @@
     ".": "./src/index.ts",
     "./runtime": "./src/runtime.ts",
     "./types": "./src/types.ts",
-    "./adapter-service": "./src/adapter-service.ts"
+    "./adapter-service": "./src/adapter-service.ts",
+    "./lifecycle": "./src/lifecycle.ts",
+    "./supervisor": "./src/supervisor.ts",
+    "./environment": "./src/environment.ts"
   },
   "files": [
     "dist"
@@ -23,8 +26,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-blueprint": "workspace:*",
-    "@dpopsuev/alef-kernel": "workspace:*",
-    "@dpopsuev/alef-supervisor": "workspace:*"
+    "@dpopsuev/alef-kernel": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

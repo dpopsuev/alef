@@ -145,9 +145,6 @@ importers:
       '@dpopsuev/alef-storage':
         specifier: workspace:*
         version: link:../core/storage
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../core/supervisor
       '@dpopsuev/alef-tool-agent':
         specifier: workspace:*
         version: link:../tools/agent
@@ -507,9 +504,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../supervisor
     devDependencies:
       '@types/node':
         specifier: ^24.3.0
@@ -604,9 +598,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../supervisor
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -632,22 +623,6 @@ importers:
       vitest:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  packages/core/supervisor:
-    dependencies:
-      '@dpopsuev/alef-kernel':
-        specifier: workspace:*
-        version: link:../kernel
-    devDependencies:
-      '@types/node':
-        specifier: ^24.3.0
-        version: 24.13.2
-      shx:
-        specifier: ^0.4.0
-        version: 0.4.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
 
   packages/core/testkit:
     dependencies:
@@ -746,9 +721,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-agent':
         specifier: workspace:*
         version: link:../../tools/agent
@@ -822,9 +794,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-agent':
         specifier: workspace:*
         version: link:../../tools/agent
@@ -852,9 +821,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-mcp-registry':
         specifier: workspace:*
         version: link:../../tools/mcp-registry
@@ -880,9 +846,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -917,9 +880,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       better-sqlite3:
         specifier: ^12.11.1
         version: 12.11.1
@@ -981,9 +941,6 @@ importers:
       '@dpopsuev/alef-storage':
         specifier: workspace:*
         version: link:../../core/storage
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -1034,9 +991,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       testcontainers:
         specifier: ^11.14.0
         version: 11.14.0
@@ -1068,9 +1022,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1096,9 +1047,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -1143,9 +1091,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       diff:
         specifier: ^5.2.0
         version: 5.2.2
@@ -1196,9 +1141,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-mcp-registry':
         specifier: workspace:*
         version: link:../mcp-registry
@@ -1221,9 +1163,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -1249,9 +1188,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1277,9 +1213,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1311,9 +1244,6 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
     devDependencies:
       vitest:
         specifier: ^4.1.6
@@ -1327,9 +1257,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-mcp-registry':
         specifier: workspace:*
         version: link:../mcp-registry
@@ -1352,9 +1279,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       pty-manager:
         specifier: ^1.11.1
         version: 1.11.1
@@ -1383,9 +1307,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -1414,9 +1335,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       '@dpopsuev/web-spider':
         specifier: ^0.10.5
         version: 0.10.5(canvas@3.2.3)
@@ -1448,9 +1366,6 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
-      '@dpopsuev/alef-supervisor':
-        specifier: workspace:*
-        version: link:../../core/supervisor
       zod:
         specifier: ^4.4.3
         version: 4.4.3

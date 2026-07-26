@@ -1,5 +1,5 @@
 import { defineAdapterService, type FoundryServiceHost, type FoundryStartOptions } from "@dpopsuev/alef-foundry";
-import type { ServiceCreateOpts, ServiceRegistry } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceCreateOpts, ServiceRegistry } from "@dpopsuev/alef-foundry/lifecycle";
 import { createAgentAdapter } from "./adapter.js";
 
 /**

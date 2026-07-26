@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { defineManagedService } from "@dpopsuev/alef-foundry";
+import type { ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import type { ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import { type AlefConfig, resolveDaemonConfig } from "./config.js";
 import { removeDaemonCredential, writeDaemonCredential } from "./daemon-credential.js";

@@ -1,8 +1,8 @@
 import { materializeBlueprint as materializeCompiledBlueprint, type AdapterFactoryOptions } from "@dpopsuev/alef-blueprint/materializer";
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-blueprint/types";
-import { Supervisor, isServiceDescriptor } from "@dpopsuev/alef-supervisor/supervisor";
+import { Supervisor, isServiceDescriptor } from "./supervisor.js";
 import type { MaterializerOptions, MaterializerResult } from "@dpopsuev/alef-blueprint/materializer";
-import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 import type { FoundryMaterializeOptions, FoundryRuntime, FoundryRuntimeOptions, FoundryStartOptions } from "./types.js";
 
 /** Merge runtime defaults with per-call service startup overrides. */

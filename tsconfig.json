@@ -155,9 +155,6 @@
 			"@dpopsuev/alef-engine/*": [
 				"./packages/core/engine/src/*.ts"
 			],
-			"@dpopsuev/alef-supervisor/*": [
-				"./packages/core/supervisor/src/*.ts"
-			],
 			"@dpopsuev/alef-testkit": [
 				"./packages/core/testkit/src/index.ts"
 			],

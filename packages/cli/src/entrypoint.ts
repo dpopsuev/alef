@@ -14,7 +14,7 @@ import "@dpopsuev/alef-factory-agent";
 import { dirname } from "node:path";
 import { resolveStartupModel, setModelConfigProvider } from "@dpopsuev/alef-agent/model";
 import { discoverDaemons } from "@dpopsuev/alef-foundry";
-import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
+import { detectEnvironment } from "@dpopsuev/alef-foundry/environment";
 import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
 import { loadAdapters } from "./boot/adapters.js";

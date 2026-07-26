@@ -1,6 +1,6 @@
 import { defineManagedService } from "@dpopsuev/alef-foundry";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
 import { ServeViewMode, selectViewMode } from "./views.js";

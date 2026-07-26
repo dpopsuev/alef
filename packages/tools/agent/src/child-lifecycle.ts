@@ -6,7 +6,7 @@ import { defineManagedService, type FoundryServiceHost } from "@dpopsuev/alef-fo
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { RemoteStrategy } from "@dpopsuev/alef-engine/remote";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService } from "@dpopsuev/alef-foundry/lifecycle";
 import type { ChildEntry } from "./child-process.js";
 import { healthCheck, resolvePath, spawnChild } from "./child-process.js";
 import { DEFAULT_ASK_MAX_MS, DEFAULT_ASK_STALL_MS, MIN_REMAINING_MS, SIGKILL_GRACE_MS } from "./constants.js";

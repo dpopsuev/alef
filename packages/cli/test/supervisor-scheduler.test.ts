@@ -4,8 +4,8 @@
 
 import type { Scheduler } from "@dpopsuev/alef-foundry";
 import { createSchedulerDescriptor } from "@dpopsuev/alef-foundry";
-import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ManagedService } from "@dpopsuev/alef-foundry/lifecycle";
+import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import { afterEach, describe, expect, it } from "vitest";
 
 describe("Scheduler service", { tags: ["unit"] }, () => {

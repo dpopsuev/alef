@@ -42,7 +42,6 @@
     "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "@dpopsuev/alef-storage": "workspace:*",
-    "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-tool-agent": "workspace:*",
     "@dpopsuev/alef-tool-code-intel": "workspace:*",
     "@dpopsuev/alef-tool-discourse": "workspace:*",

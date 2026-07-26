@@ -1,5 +1,5 @@
 import { defineManagedService } from "@dpopsuev/alef-foundry";
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import type { StorageFactory } from "./interfaces.js";
 
 /**

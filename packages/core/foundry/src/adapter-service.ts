@@ -1,6 +1,6 @@
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
-import type { ManagedService, RestartPolicy, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, RestartPolicy, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 
 /** Adapter instance plus service creation context used by Foundry helpers. */
 export interface AdapterServiceContext<TAdapter extends Adapter = Adapter> {

@@ -1,3 +1,15 @@
+export { detectEnvironment } from "./environment.js";
+export type { RuntimeEnvironment } from "./environment.js";
+export type {
+	ManagedLifecycle,
+	ManagedService,
+	RestartPolicy,
+	ServiceCreateOpts,
+	ServiceDescriptor,
+	ServiceRegistry,
+} from "./lifecycle.js";
+export { createServiceResolver, isServiceDescriptor, Supervisor } from "./supervisor.js";
+export type { ServiceResolverOpts } from "./supervisor.js";
 export {
 	createDaemonServiceDescriptor,
 	discoverDaemons,

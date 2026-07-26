@@ -9,10 +9,10 @@
 
 import { dirname } from "node:path";
 import { resolveStartupModel } from "@dpopsuev/alef-agent/model";
+import { detectEnvironment } from "@dpopsuev/alef-foundry/environment";
 import { initSessionSink, traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AdapterManagementSession } from "@dpopsuev/alef-session/contracts";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import { detectEnvironment } from "@dpopsuev/alef-supervisor/environment";
 import { isTermDark } from "is-term-dark";
 import type { Logger } from "pino";
 import { pickBlueprintInTui } from "../client/blueprint-picker-app.js";

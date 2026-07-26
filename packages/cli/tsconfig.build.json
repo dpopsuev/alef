@@ -77,9 +77,6 @@
 			"path": "../core/session/tsconfig.build.json"
 		},
 		{
-			"path": "../core/supervisor/tsconfig.build.json"
-		},
-		{
 			"path": "../core/storage/tsconfig.build.json"
 		},
 		{

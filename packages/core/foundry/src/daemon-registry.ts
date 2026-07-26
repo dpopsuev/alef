@@ -1,4 +1,4 @@
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, ServiceDescriptor } from "./lifecycle.js";
 import type { FoundryStartOptions } from "./types.js";
 
 /**

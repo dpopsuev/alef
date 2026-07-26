@@ -8,9 +8,9 @@
  */
 
 import { createPackageManagerDescriptor, type DiscoveredService } from "@dpopsuev/alef-foundry";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
+import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { afterEach, describe, expect, it } from "vitest";
 
 describe("Package Manager discover", { tags: ["unit"] }, () => {

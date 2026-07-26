@@ -1,5 +1,5 @@
 import { exec, type ExecOptions } from "node:child_process";
-import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 import { defineManagedService } from "./managed-service.js";
 
 /** Promisified exec that closes stdin on the child to prevent TUI stdin conflicts. */

@@ -22,7 +22,7 @@ vi.mock("@dpopsuev/alef-kernel/log", () => ({
 	initSessionSink: () => {},
 	traceEvent: () => {},
 }));
-vi.mock("@dpopsuev/alef-supervisor/environment", () => ({
+vi.mock("@dpopsuev/alef-foundry/environment", () => ({
 	detectEnvironment: () => ({ mode: "local", canWarmReboot: false, buildCommand: undefined }),
 }));
 vi.mock("is-term-dark", () => ({ isTermDark: async () => true }));

@@ -5,8 +5,8 @@ import { createCodingAgentStack } from "@dpopsuev/alef-coding-agent";
 import { createFoundryRuntime, defineAdapterService } from "@dpopsuev/alef-foundry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { McpAdapter } from "@dpopsuev/alef-tool-mcp-registry";
-import type { ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import type { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
+import type { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 

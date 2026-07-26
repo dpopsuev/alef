@@ -3,8 +3,8 @@ import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kern
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import type { AdapterFactoryOptions, MaterializerOptions, MaterializerResult } from "@dpopsuev/alef-blueprint/materializer";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import type { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
+import type { Supervisor } from "./supervisor.js";
 
 /** Shared defaults for a Foundry runtime instance. */
 export interface FoundryRuntimeOptions {

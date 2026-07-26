@@ -1,4 +1,4 @@
-import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService } from "../src/lifecycle.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	createDaemonServiceDescriptor,

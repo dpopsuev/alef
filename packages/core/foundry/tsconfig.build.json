@@ -24,9 +24,6 @@
 		},
 		{
 			"path": "../kernel/tsconfig.build.json"
-		},
-		{
-			"path": "../supervisor/tsconfig.build.json"
 		}
 	]
 }

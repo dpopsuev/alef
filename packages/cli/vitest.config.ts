@@ -6,9 +6,16 @@ export default mergeConfig(
 	sharedConfig,
 	defineProject({
 		resolve: {
-			alias: {
-				"@dpopsuev/alef-foundry": resolve(import.meta.dirname, "../core/foundry/src/index.ts"),
-			},
+			// Exact-match only (^...$): a plain string key here would prefix-match
+			// subpath imports too (e.g. @dpopsuev/alef-foundry/lifecycle), mangling
+			// them into "<index.ts path>/lifecycle" instead of leaving them for
+			// tsconfig-paths to resolve.
+			alias: [
+				{
+					find: /^@dpopsuev\/alef-foundry$/,
+					replacement: resolve(import.meta.dirname, "../core/foundry/src/index.ts"),
+				},
+			],
 		},
 		test: {
 			name: "runner",

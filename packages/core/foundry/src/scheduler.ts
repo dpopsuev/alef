@@ -1,4 +1,4 @@
-import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 import { defineManagedService } from "./managed-service.js";
 
 /** Runtime task recorded by the scheduler service. */

@@ -7,8 +7,8 @@
  *   3. TUI survives session swap (observers preserved)
  */
 
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
+import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import { afterEach, describe, expect, it } from "vitest";
 
 describe("Supervisor swap and stop", { tags: ["unit"] }, () => {

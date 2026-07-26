@@ -31,6 +31,9 @@
 			"@dpopsuev/alef-engine/*": [
 				"../core/engine/src/*.ts"
 			],
+			"@dpopsuev/alef-foundry/*": [
+				"../core/foundry/src/*.ts"
+			],
 			"@dpopsuev/alef-kernel": [
 				"../kernel/src/index.ts"
 			],

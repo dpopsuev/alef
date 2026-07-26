@@ -1,11 +1,11 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { RouterAdapter } from "@dpopsuev/alef-engine/http";
 import { defineManagedService } from "@dpopsuev/alef-foundry";
+import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Logger } from "pino";
 import type { AdapterLoadResult } from "./adapters.js";
 import type { Args } from "./args.js";

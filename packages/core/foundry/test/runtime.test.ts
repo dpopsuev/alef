@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compileAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, ServiceDescriptor } from "../src/lifecycle.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFoundryRuntime } from "../src/runtime.js";
 

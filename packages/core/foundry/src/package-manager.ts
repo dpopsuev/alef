@@ -1,4 +1,4 @@
-import type { ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 import { defineManagedService } from "./managed-service.js";
 
 /** Service discovered from the runtime package manager surface. */

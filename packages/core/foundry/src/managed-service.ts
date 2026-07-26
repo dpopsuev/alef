@@ -1,6 +1,6 @@
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
-import type { ManagedService, RestartPolicy, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { ManagedService, RestartPolicy, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
 
 /** Optional managed-service fields that Foundry can default when omitted. */
 export interface ManagedServiceBody {

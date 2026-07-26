@@ -1,5 +1,5 @@
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
+import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import { describe, expect, it } from "vitest";
 
 function stubServiceDescriptor(name: string, dependsOn?: string[]): ServiceDescriptor {
@@ -22,7 +22,7 @@ function stubServiceDescriptor(name: string, dependsOn?: string[]): ServiceDescr
 	};
 }
 
-describe("research agent fleet config", { tags: ["unit"] }, () => {
+describe("research agent service dependencies", { tags: ["unit"] }, () => {
 	it("services are not running before startAll", () => {
 		const supervisor = new Supervisor();
 		supervisor.register(stubServiceDescriptor("scribe"));

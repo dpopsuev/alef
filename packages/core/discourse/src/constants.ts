@@ -22,3 +22,5 @@ export const PROJECTION_MAX_ATTEMPTS = 3;
 export const EVENT_RETENTION_DEFAULT = 1_024;
 /** Default in-memory post count ceiling. */
 export const POST_CAPACITY_DEFAULT = 10_000;
+/** Default bounded participant listing size. */
+export const PARTICIPANT_LIMIT_DEFAULT = 100;

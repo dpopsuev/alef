@@ -8,6 +8,7 @@ const appendPostCommand = z
 	.object({
 		schemaVersion: z.literal("discourse.command.v1"),
 		operationId: identifier,
+		boardId: identifier,
 		forumId: identifier,
 		topicId: identifier,
 		threadId: identifier,

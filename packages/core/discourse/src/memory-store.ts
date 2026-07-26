@@ -12,16 +12,26 @@ import type {
 } from "./ports.js";
 import type {
 	AppendPostCommand,
+	BoardAddress,
+	BoardState,
 	DiscourseEvent,
 	DiscourseEventType,
+	ForumAddress,
+	ForumState,
 	JsonValue,
 	OpenQuestion,
 	Page,
+	Participant,
+	ParticipationMode,
 	Post,
 	ProjectionRecord,
 	SubscriptionBatch,
 	SubscriptionHandle,
+	ThreadAddress,
+	ThreadState,
 	ThreadSummary,
+	TopicAddress,
+	TopicState,
 	TopicSummary,
 } from "./types.js";
 
@@ -73,8 +83,29 @@ function questionMetadata(content: JsonValue): QuestionMetadata | undefined {
 	return { type, responseId, ...(typeof targetId === "string" ? { targetId } : {}) };
 }
 /** Compare an existing post with one thread identity. */
-function sameAddress(left: Post, right: { forumId: string; topicId: string; threadId: string }): boolean {
-	return left.forumId === right.forumId && left.topicId === right.topicId && left.threadId === right.threadId;
+function sameAddress(left: Post, right: ThreadAddress): boolean {
+	return (
+		left.boardId === right.boardId &&
+		left.forumId === right.forumId &&
+		left.topicId === right.topicId &&
+		left.threadId === right.threadId
+	);
+}
+/** Stable map key for one board address. */
+function boardKey(address: BoardAddress): string {
+	return address.boardId;
+}
+/** Stable map key for one forum address. */
+function forumKey(address: ForumAddress): string {
+	return `${address.boardId}/${address.forumId}`;
+}
+/** Stable map key for one topic address. */
+function topicKey(address: TopicAddress): string {
+	return `${address.boardId}/${address.forumId}/${address.topicId}`;
+}
+/** Stable map key for one thread address. */
+function threadKey(address: ThreadAddress): string {
+	return `${address.boardId}/${address.forumId}/${address.topicId}/${address.threadId}`;
 }
 
 /** Bounded standalone store and reference implementation for persistence adapters. */
@@ -87,6 +118,11 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 	private readonly eventRetention: number;
 	private readonly postCapacity: number;
 	private nextSequence = 1;
+	private readonly boardStates = new Map<string, BoardState>();
+	private readonly forumStates = new Map<string, ForumState>();
+	private readonly topicStates = new Map<string, TopicState>();
+	private readonly threadStates = new Map<string, ThreadState>();
+	private readonly participants = new Map<string, Map<string, Participant>>();
 
 	constructor(options: InMemoryDiscourseStoreOptions = {}) {
 		this.eventRetention = options.eventRetention ?? EVENT_RETENTION_DEFAULT;
@@ -106,6 +142,8 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 			return Promise.resolve({ post: prior.result.post, replayed: true, events: [] });
 		}
 		if (this.posts.length >= this.postCapacity) throw new Error("post capacity reached");
+		const threadState = this.threadStates.get(threadKey(command)) ?? "open";
+		if (threadState !== "open") throw new Error(`thread is ${threadState}: cannot post`);
 		if (command.replyToPostId) {
 			const parent = this.posts.find((post) => post.id === command.replyToPostId);
 			if (!parent) throw new Error(`reply target not found: ${command.replyToPostId}`);
@@ -114,6 +152,7 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 		const sequence = this.nextSequence;
 		const post: Post = {
 			id: postId,
+			boardId: command.boardId,
 			forumId: command.forumId,
 			topicId: command.topicId,
 			threadId: command.threadId,
@@ -143,6 +182,7 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 				type: metadata.type,
 				sequence: sequence + index,
 				timestamp,
+				boardId: command.boardId,
 				forumId: command.forumId,
 				topicId: command.topicId,
 				threadId: command.threadId,
@@ -171,7 +211,9 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 
 	listTopics(query: ListTopicsQuery): Promise<Page<TopicSummary>> {
 		const grouped = new Map<string, Post[]>();
-		for (const post of this.posts.filter((entry) => entry.forumId === query.forumId)) {
+		for (const post of this.posts.filter(
+			(entry) => entry.boardId === query.boardId && entry.forumId === query.forumId,
+		)) {
 			const posts = grouped.get(post.topicId) ?? [];
 			posts.push(post);
 			grouped.set(post.topicId, posts);
@@ -179,8 +221,11 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 		const summaries = [...grouped.entries()]
 			.map(
 				([topicId, posts]): TopicSummary => ({
+					boardId: query.boardId,
 					forumId: query.forumId,
 					topicId,
+					state:
+						this.topicStates.get(topicKey({ boardId: query.boardId, forumId: query.forumId, topicId })) ?? "open",
 					threadCount: new Set(posts.map((post) => post.threadId)).size,
 					postCount: posts.length,
 					lastActivity: Math.max(...posts.map((post) => post.timestamp)),
@@ -193,7 +238,8 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 	listThreads(query: ListThreadsQuery): Promise<Page<ThreadSummary>> {
 		const grouped = new Map<string, Post[]>();
 		for (const post of this.posts.filter(
-			(entry) => entry.forumId === query.forumId && entry.topicId === query.topicId,
+			(entry) =>
+				entry.boardId === query.boardId && entry.forumId === query.forumId && entry.topicId === query.topicId,
 		)) {
 			const posts = grouped.get(post.threadId) ?? [];
 			posts.push(post);
@@ -202,9 +248,14 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 		const summaries = [...grouped.entries()]
 			.map(
 				([threadId, posts]): ThreadSummary => ({
+					boardId: query.boardId,
 					forumId: query.forumId,
 					topicId: query.topicId,
 					threadId,
+					state:
+						this.threadStates.get(
+							threadKey({ boardId: query.boardId, forumId: query.forumId, topicId: query.topicId, threadId }),
+						) ?? "open",
 					postCount: posts.length,
 					participantIds: [...new Set(posts.map((post) => post.authorId))],
 					lastActivity: Math.max(...posts.map((post) => post.timestamp)),
@@ -298,6 +349,62 @@ export class InMemoryDiscourseStore implements DiscourseStore {
 	}
 	latestPostSequence(): Promise<number> {
 		return Promise.resolve(this.posts.at(-1)?.sequence ?? 0);
+	}
+
+	getBoardState(address: BoardAddress): Promise<BoardState> {
+		return Promise.resolve(this.boardStates.get(boardKey(address)) ?? "active");
+	}
+	setBoardState(address: BoardAddress, state: BoardState): Promise<void> {
+		this.boardStates.set(boardKey(address), state);
+		return Promise.resolve();
+	}
+	getForumState(address: ForumAddress): Promise<ForumState> {
+		return Promise.resolve(this.forumStates.get(forumKey(address)) ?? "open");
+	}
+	setForumState(address: ForumAddress, state: ForumState): Promise<void> {
+		this.forumStates.set(forumKey(address), state);
+		return Promise.resolve();
+	}
+	getTopicState(address: TopicAddress): Promise<TopicState> {
+		return Promise.resolve(this.topicStates.get(topicKey(address)) ?? "open");
+	}
+	setTopicState(address: TopicAddress, state: TopicState): Promise<void> {
+		this.topicStates.set(topicKey(address), state);
+		return Promise.resolve();
+	}
+	getThreadState(address: ThreadAddress): Promise<ThreadState> {
+		return Promise.resolve(this.threadStates.get(threadKey(address)) ?? "open");
+	}
+	setThreadState(address: ThreadAddress, state: ThreadState): Promise<void> {
+		this.threadStates.set(threadKey(address), state);
+		return Promise.resolve();
+	}
+	setParticipation(
+		address: ThreadAddress,
+		actorId: string,
+		mode: ParticipationMode,
+		timestamp: number,
+	): Promise<Participant> {
+		const key = threadKey(address);
+		const byActor = this.participants.get(key) ?? new Map<string, Participant>();
+		const existing = byActor.get(actorId);
+		const participant: Participant = {
+			actorId,
+			mode,
+			joinedAt: existing?.joinedAt ?? timestamp,
+			updatedAt: timestamp,
+		};
+		byActor.set(actorId, participant);
+		this.participants.set(key, byActor);
+		return Promise.resolve(participant);
+	}
+	getParticipant(address: ThreadAddress, actorId: string): Promise<Participant | undefined> {
+		return Promise.resolve(this.participants.get(threadKey(address))?.get(actorId));
+	}
+	listParticipants(address: ThreadAddress, limit: number): Promise<readonly Participant[]> {
+		const byActor = this.participants.get(threadKey(address));
+		const all = byActor ? [...byActor.values()].sort((left, right) => left.actorId.localeCompare(right.actorId)) : [];
+		return Promise.resolve(all.slice(0, limit));
 	}
 }
 

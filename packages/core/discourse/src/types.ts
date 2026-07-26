@@ -7,11 +7,38 @@ export interface ArtifactReference {
 	readonly kind: string;
 	readonly id: string;
 }
-/** Stable forum, topic, and thread identity. */
-export interface ThreadAddress {
+/** Stable board identity: a communication space belonging to a project, collective, or entity. */
+export interface BoardAddress {
+	readonly boardId: string;
+}
+/** Stable forum identity: a category and access scope within a Board. */
+export interface ForumAddress extends BoardAddress {
 	readonly forumId: string;
+}
+/** Stable topic identity: one bounded subject, question, decision, or collaboration objective. */
+export interface TopicAddress extends ForumAddress {
 	readonly topicId: string;
+}
+/** Stable board, forum, topic, and thread identity. */
+export interface ThreadAddress extends TopicAddress {
 	readonly threadId: string;
+}
+/** Board lifecycle: a Board never reopens once archived. */
+export type BoardState = "active" | "archived";
+/** Forum lifecycle: access narrows monotonically toward archived. */
+export type ForumState = "open" | "read-only" | "archived";
+/** Topic lifecycle: a resolved Topic may reopen; an archived one is terminal. */
+export type TopicState = "open" | "resolved" | "archived";
+/** Thread lifecycle: a closed Thread may reopen; an archived one is terminal. */
+export type ThreadState = "open" | "closed" | "archived";
+/** Actor-to-thread participation: independent of authorship or delivery cursors. */
+export type ParticipationMode = "invited" | "subscribed" | "muted" | "left";
+/** One actor's participation record for one thread. */
+export interface Participant {
+	readonly actorId: string;
+	readonly mode: ParticipationMode;
+	readonly joinedAt: number;
+	readonly updatedAt: number;
 }
 /** Immutable append-only forum post. */
 export interface Post extends ThreadAddress {
@@ -70,15 +97,15 @@ export interface Page<T> {
 	readonly completeness: "complete" | "truncated";
 }
 /** Bounded topic projection. */
-export interface TopicSummary {
-	readonly forumId: string;
-	readonly topicId: string;
+export interface TopicSummary extends TopicAddress {
+	readonly state: TopicState;
 	readonly threadCount: number;
 	readonly postCount: number;
 	readonly lastActivity: number;
 }
 /** Bounded thread projection. */
 export interface ThreadSummary extends ThreadAddress {
+	readonly state: ThreadState;
 	readonly postCount: number;
 	readonly participantIds: readonly string[];
 	readonly lastActivity: number;

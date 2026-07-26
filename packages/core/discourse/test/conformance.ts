@@ -13,6 +13,12 @@ export type DiscourseConformanceService = Pick<
 	| "acknowledge"
 	| "snapshot"
 	| "project"
+	| "closeThread"
+	| "reopenThread"
+	| "resolveTopic"
+	| "join"
+	| "leave"
+	| "listParticipants"
 >;
 export interface DiscourseConformanceHarness {
 	readonly service: DiscourseConformanceService;
@@ -25,6 +31,7 @@ function command(overrides: Partial<AppendPostCommand> = {}): AppendPostCommand 
 	return {
 		schemaVersion: "discourse.command.v1",
 		operationId: `operation-${++operationCounter}`,
+		boardId: "acme",
 		forumId: "engineering",
 		topicId: "reviews",
 		threadId: "nesting",
@@ -57,6 +64,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			const { service } = await createHarness();
 			for (let index = 0; index < 4; index += 1) await service.post(command({ content: `post-${index}` }));
 			const first = await service.readThread({
+				boardId: "acme",
 				forumId: "engineering",
 				topicId: "reviews",
 				threadId: "nesting",
@@ -65,6 +73,7 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			expect(first.items.map((post) => post.content)).toEqual(["post-0", "post-1"]);
 			expect(first).toMatchObject({ truncated: true, completeness: "truncated" });
 			const second = await service.readThread({
+				boardId: "acme",
 				forumId: "engineering",
 				topicId: "reviews",
 				threadId: "nesting",
@@ -72,9 +81,9 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 				limit: 2,
 			});
 			expect(second.items.map((post) => post.content)).toEqual(["post-2", "post-3"]);
-			expect((await service.listTopics({ forumId: "engineering", limit: 1 })).items[0]).toMatchObject({
-				postCount: 4,
-			});
+			expect(
+				(await service.listTopics({ boardId: "acme", forumId: "engineering", limit: 1 })).items[0],
+			).toMatchObject({ postCount: 4 });
 			expect((await service.snapshot({ forumId: "engineering", limit: 2 })).posts.truncated).toBe(true);
 		});
 		it("matches open questions with answers and optional targets", async () => {
@@ -130,7 +139,29 @@ export function discourseConformanceSuite(createHarness: DiscourseConformanceFac
 			await expect(service.post(command({ references: [{ kind: "task", id: "unknown" }] }))).rejects.toThrow(
 				"not verified",
 			);
-			expect(() => service.readThread({ forumId: "f", topicId: "t", threadId: "h", limit: 101 })).toThrow("limit");
+			expect(() =>
+				service.readThread({ boardId: "b", forumId: "f", topicId: "t", threadId: "h", limit: 101 }),
+			).toThrow("limit");
+		});
+		it("gates posting on thread lifecycle and reopens a closed thread", async () => {
+			const { service } = await createHarness();
+			const address = { boardId: "acme", forumId: "engineering", topicId: "reviews", threadId: "nesting" };
+			await service.post(command());
+			await service.closeThread(address);
+			await expect(service.post(command())).rejects.toThrow("closed");
+			await service.reopenThread(address);
+			await expect(service.post(command())).resolves.toBeDefined();
+		});
+		it("rejects a resolve-topic transition from resolved and tracks thread participation", async () => {
+			const { service } = await createHarness();
+			const topic = { boardId: "acme", forumId: "engineering", topicId: "reviews" };
+			const thread = { ...topic, threadId: "nesting" };
+			await service.resolveTopic(topic);
+			await expect(service.resolveTopic(topic)).rejects.toThrow("cannot transition");
+			await service.join(thread, "alice", "subscribed");
+			await service.leave(thread, "alice");
+			const participants = await service.listParticipants(thread);
+			expect(participants).toEqual([expect.objectContaining({ actorId: "alice", mode: "left" })]);
 		});
 		it("checkpoints projection progress and exposes bounded failure", async () => {
 			const { service } = await createHarness();

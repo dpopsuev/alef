@@ -20,15 +20,21 @@ import type {
 } from "./ports.js";
 import type {
 	AppendPostResult,
+	BoardAddress,
 	DiscourseEvent,
+	ForumAddress,
 	OpenQuestion,
 	Page,
+	Participant,
+	ParticipationMode,
 	Post,
 	ProjectionStatus,
 	Snapshot,
 	SubscriptionBatch,
 	SubscriptionHandle,
+	ThreadAddress,
 	ThreadSummary,
+	TopicAddress,
 	TopicSummary,
 } from "./types.js";
 import { parseAppendPostCommand } from "./validation.js";
@@ -79,10 +85,15 @@ function contentByteLength(content: Post["content"]): number {
 	return new TextEncoder().encode(JSON.stringify(content)).byteLength;
 }
 /** Validate one thread identity at the application boundary. */
-function requireAddress(value: { forumId: string; topicId: string; threadId: string }): void {
+function requireAddress(value: ThreadAddress): void {
+	requireIdentifier("boardId", value.boardId);
 	requireIdentifier("forumId", value.forumId);
 	requireIdentifier("topicId", value.topicId);
 	requireIdentifier("threadId", value.threadId);
+}
+/** Reject a lifecycle transition not permitted from the current state. */
+function requireTransition<State extends string>(current: State, next: State, allowed: Record<State, State[]>): void {
+	if (!allowed[current].includes(next)) throw new Error(`cannot transition from ${current} to ${next}`);
 }
 
 /** Host-neutral forum application service. */
@@ -142,6 +153,7 @@ export class DiscourseService {
 				type: "subscription-resync-required",
 				sequence: replay.latestSequence,
 				timestamp: this.options.now(),
+				boardId: "*",
 				forumId: "*",
 				topicId: "*",
 				threadId: "*",
@@ -165,6 +177,94 @@ export class DiscourseService {
 		if (query.afterSequence !== undefined) requireSequence("afterSequence", query.afterSequence);
 		const result = await this.options.store.snapshot({ ...query, limit: boundedLimit(query.limit) });
 		return { throughSequence: result.throughSequence, posts: result.posts };
+	}
+
+	async closeThread(address: ThreadAddress): Promise<void> {
+		requireAddress(address);
+		const current = await this.options.store.getThreadState(address);
+		requireTransition(current, "closed", { open: ["closed"], closed: [], archived: [] });
+		await this.options.store.setThreadState(address, "closed", this.options.now());
+	}
+
+	async reopenThread(address: ThreadAddress): Promise<void> {
+		requireAddress(address);
+		const current = await this.options.store.getThreadState(address);
+		requireTransition(current, "open", { open: [], closed: ["open"], archived: [] });
+		await this.options.store.setThreadState(address, "open", this.options.now());
+	}
+
+	async archiveThread(address: ThreadAddress): Promise<void> {
+		requireAddress(address);
+		const current = await this.options.store.getThreadState(address);
+		requireTransition(current, "archived", { open: [], closed: ["archived"], archived: [] });
+		await this.options.store.setThreadState(address, "archived", this.options.now());
+	}
+
+	async resolveTopic(address: TopicAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		requireIdentifier("forumId", address.forumId);
+		requireIdentifier("topicId", address.topicId);
+		const current = await this.options.store.getTopicState(address);
+		requireTransition(current, "resolved", { open: ["resolved"], resolved: [], archived: [] });
+		await this.options.store.setTopicState(address, "resolved", this.options.now());
+	}
+
+	async reopenTopic(address: TopicAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		requireIdentifier("forumId", address.forumId);
+		requireIdentifier("topicId", address.topicId);
+		const current = await this.options.store.getTopicState(address);
+		requireTransition(current, "open", { open: [], resolved: ["open"], archived: [] });
+		await this.options.store.setTopicState(address, "open", this.options.now());
+	}
+
+	async archiveTopic(address: TopicAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		requireIdentifier("forumId", address.forumId);
+		requireIdentifier("topicId", address.topicId);
+		const current = await this.options.store.getTopicState(address);
+		requireTransition(current, "archived", { open: [], resolved: ["archived"], archived: [] });
+		await this.options.store.setTopicState(address, "archived", this.options.now());
+	}
+
+	async restrictForum(address: ForumAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		requireIdentifier("forumId", address.forumId);
+		const current = await this.options.store.getForumState(address);
+		requireTransition(current, "read-only", { open: ["read-only"], "read-only": [], archived: [] });
+		await this.options.store.setForumState(address, "read-only", this.options.now());
+	}
+
+	async archiveForum(address: ForumAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		requireIdentifier("forumId", address.forumId);
+		const current = await this.options.store.getForumState(address);
+		requireTransition(current, "archived", { open: [], "read-only": ["archived"], archived: [] });
+		await this.options.store.setForumState(address, "archived", this.options.now());
+	}
+
+	async archiveBoard(address: BoardAddress): Promise<void> {
+		requireIdentifier("boardId", address.boardId);
+		const current = await this.options.store.getBoardState(address);
+		requireTransition(current, "archived", { active: ["archived"], archived: [] });
+		await this.options.store.setBoardState(address, "archived", this.options.now());
+	}
+
+	join(address: ThreadAddress, actorId: string, mode: ParticipationMode = "subscribed"): Promise<Participant> {
+		requireAddress(address);
+		requireIdentifier("actorId", actorId);
+		return this.options.store.setParticipation(address, actorId, mode, this.options.now());
+	}
+
+	leave(address: ThreadAddress, actorId: string): Promise<Participant> {
+		requireAddress(address);
+		requireIdentifier("actorId", actorId);
+		return this.options.store.setParticipation(address, actorId, "left", this.options.now());
+	}
+
+	listParticipants(address: ThreadAddress, limit?: number): Promise<readonly Participant[]> {
+		requireAddress(address);
+		return this.options.store.listParticipants(address, boundedLimit(limit));
 	}
 
 	async project(projection: DiscourseProjection, limit = PROJECTION_MAX_BATCH): Promise<ProjectionStatus> {

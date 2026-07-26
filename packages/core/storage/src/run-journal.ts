@@ -26,6 +26,19 @@ export interface RunBudgetSnapshot {
 	readonly startedAt: number;
 }
 
+/**
+ * Binds a Run to the Discourse conversation that triggered it, independent of SessionStore.
+ * A Run does not own the Thread; this identifies context and the destination for a
+ * communicative result.
+ */
+export interface ConversationTrigger {
+	readonly boardId: string;
+	readonly forumId: string;
+	readonly topicId: string;
+	readonly threadId: string;
+	readonly triggeringPostId?: string;
+}
+
 /** External-effect states that prevent ambiguous replay. */
 export type EffectProposalStatus = "pending" | "approved" | "rejected" | "expired" | "executing" | "completed" | "failed";
 
@@ -52,6 +65,7 @@ export interface RunSnapshot {
 	readonly budget: RunBudgetSnapshot;
 	readonly activeTools: number;
 	readonly pendingEffectId?: string;
+	readonly conversationTrigger?: ConversationTrigger;
 	readonly createdAt: number;
 	readonly updatedAt: number;
 	readonly failure?: string;
@@ -104,6 +118,7 @@ export interface CreateRunInput {
 	readonly runId: string;
 	readonly sessionId: string;
 	readonly policy: RunPolicyDefinition;
+	readonly conversationTrigger?: ConversationTrigger;
 	readonly timestamp?: number;
 }
 

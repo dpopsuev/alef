@@ -60,4 +60,27 @@ describe("SqliteRunJournal", { tags: ["unit"] }, () => {
 			input: { path: "a.txt", content: "first" },
 		});
 	});
+
+	it("binds a run to its triggering conversation independent of the session", async () => {
+		const database = await makeTestDatabase();
+		cleanups.push(database.cleanup);
+		const journal = new SqliteRunJournal(database.client);
+		const conversationTrigger = {
+			boardId: "acme",
+			forumId: "sessions",
+			topicId: "topic-1",
+			threadId: "topic-1",
+			triggeringPostId: "post-1",
+		};
+		const created = await journal.create({
+			runId: "run-3",
+			sessionId: "session-1",
+			policy: { budget: {}, externalEffects: "allow" },
+			conversationTrigger,
+		});
+		expect(created.conversationTrigger).toEqual(conversationTrigger);
+
+		const reopened = new SqliteRunJournal(database.client);
+		expect((await reopened.get("run-3"))?.conversationTrigger).toEqual(conversationTrigger);
+	});
 });

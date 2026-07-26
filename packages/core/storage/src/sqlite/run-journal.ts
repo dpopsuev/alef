@@ -180,6 +180,7 @@ export class SqliteRunJournal implements RunJournal {
 			policy: input.policy,
 			budget: { toolCalls: 0, startedAt: timestamp },
 			activeTools: 0,
+			...(input.conversationTrigger ? { conversationTrigger: input.conversationTrigger } : {}),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		};

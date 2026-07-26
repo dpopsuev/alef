@@ -19,7 +19,7 @@ import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kern
 import type { DesiredStateSpec } from "@dpopsuev/alef-kernel/reconciliation";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import type { RunJournal, RunPolicyDefinition } from "@dpopsuev/alef-storage/run-journal";
+import type { ConversationTrigger, RunJournal, RunPolicyDefinition } from "@dpopsuev/alef-storage/run-journal";
 import { ToolChunked, ToolCompleted, ToolProgressed, ToolStarted } from "@dpopsuev/alef-reasoner/events";
 import { connectObservers, type SignalMapper } from "./assemble.js";
 export type { SignalMapper } from "./assemble.js";
@@ -61,6 +61,8 @@ export interface CreateAgentSessionOptions {
 	eventHub?: EventHub;
 	runJournal?: RunJournal;
 	runPolicy?: RunPolicyDefinition;
+	/** Binds Runs created in this session to their triggering Discourse conversation. */
+	conversationTrigger?: ConversationTrigger;
 	sessionId?: string;
 	composeToolShell?: boolean;
 	toolDisclosure?: "full" | "progressive";
@@ -252,7 +254,10 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 		runLifecycle:
 			durableRunPolicy && runSessionId && opts.runPolicy
 				? {
-						start: (runId) => durableRunPolicy.start(runId, runSessionId, opts.runPolicy!).then(() => undefined),
+						start: (runId) =>
+							durableRunPolicy
+								.start(runId, runSessionId, opts.runPolicy!, opts.conversationTrigger)
+								.then(() => undefined),
 						complete: (runId) => durableRunPolicy.complete(runId).then(() => undefined),
 						fail: (runId, reason) => durableRunPolicy.fail(runId, reason).then(() => undefined),
 						cancel: (runId) => durableRunPolicy.cancel(runId).then(() => undefined),

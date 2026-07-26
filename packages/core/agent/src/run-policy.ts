@@ -7,6 +7,7 @@ import {
 import { defineEvent, type EventHub } from "@dpopsuev/alef-kernel/events";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import {
+	type ConversationTrigger,
 	type EffectProposal,
 	type RunAppendResult,
 	type RunEvent,
@@ -51,10 +52,15 @@ export class DurableRunPolicy implements CapabilityExecutionPolicy {
 		private readonly eventHub?: EventHub,
 	) {}
 
-	async start(runId: string, sessionId: string, policy: RunPolicyDefinition): Promise<RunSnapshot> {
+	async start(
+		runId: string,
+		sessionId: string,
+		policy: RunPolicyDefinition,
+		conversationTrigger?: ConversationTrigger,
+	): Promise<RunSnapshot> {
 		const existing = await this.journal.get(runId);
 		if (existing) return existing;
-		const created = await this.journal.create({ runId, sessionId, policy });
+		const created = await this.journal.create({ runId, sessionId, policy, conversationTrigger });
 		const createdEvent = (await this.journal.events(runId, 0, 1))[0];
 		if (createdEvent) await this.publish(createdEvent, created);
 		return (await this.commit(runId, { type: "run.started", payload: {} })).snapshot;

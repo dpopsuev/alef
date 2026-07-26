@@ -48,6 +48,38 @@ describe("createAgentSession", () => {
 		expect(await journal.get(runId!)).toMatchObject({ state: "completed", policy: { budget: { maxToolCalls: 2 } } });
 	});
 
+	it("binds a persisted run to its triggering conversation without SessionStore", async () => {
+		const faux = registerFauxProvider({ models: [{ id: "agent-session-conversation-test" }] });
+		faux.setResponses([fauxAssistantMessage("durable reply")]);
+		cleanups.push(() => faux.unregister());
+		const journal = new InMemoryRunJournal();
+		const conversationTrigger = {
+			boardId: "acme",
+			forumId: "sessions",
+			topicId: "topic-1",
+			threadId: "topic-1",
+		};
+		const runtime = await createAgentSession({
+			cwd: process.cwd(),
+			model: faux.getModel(),
+			adapters: [],
+			llmAdapter: createAgentLoop({ model: faux.getModel() }),
+			runJournal: journal,
+			sessionId: "session-1",
+			runPolicy: { budget: {}, externalEffects: "allow" },
+			conversationTrigger,
+		});
+		cleanups.push(() => runtime.dispose());
+		const runIds: string[] = [];
+		runtime.eventHub.subscribe(RunCommitted, (event) => {
+			if (event.scope.runId) runIds.push(event.scope.runId);
+		});
+
+		await runtime.controller.send("test request", "human", 5_000);
+		const runId = runIds[0]!;
+		expect(await journal.get(runId)).toMatchObject({ sessionId: "session-1", conversationTrigger });
+	});
+
 	it("owns agent assembly, host control, adapters, and observer projection", async () => {
 		const faux = registerFauxProvider({ models: [{ id: "agent-session-test" }] });
 		faux.setResponses([fauxAssistantMessage("session reply")]);

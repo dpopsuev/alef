@@ -30,6 +30,7 @@ export class InMemoryRunJournal implements RunJournal {
 			policy: structuredClone(input.policy),
 			budget: { toolCalls: 0, startedAt: timestamp },
 			activeTools: 0,
+			...(input.conversationTrigger ? { conversationTrigger: structuredClone(input.conversationTrigger) } : {}),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		};

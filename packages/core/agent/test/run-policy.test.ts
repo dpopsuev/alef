@@ -81,6 +81,27 @@ describe("DurableRunPolicy", { tags: ["unit"] }, () => {
 		eventHub.close();
 	});
 
+	it("binds a run to its triggering conversation, durably, independent of the session", async () => {
+		const database = await makeTestDatabase();
+		cleanups.push(database.cleanup);
+		const journal = new SqliteRunJournal(database.client);
+		const policy = new DurableRunPolicy(journal);
+		const conversationTrigger = {
+			boardId: "acme",
+			forumId: "sessions",
+			topicId: "topic-1",
+			threadId: "topic-1",
+			triggeringPostId: "post-1",
+		};
+		await policy.start("run-conversation", "session-1", { budget: {}, externalEffects: "allow" }, conversationTrigger);
+		expect((await journal.get("run-conversation"))?.conversationTrigger).toEqual(conversationTrigger);
+
+		const restarted = new DurableRunPolicy(new SqliteRunJournal(database.client));
+		expect((await restarted.start("run-conversation", "session-1", { budget: {}, externalEffects: "allow" })).conversationTrigger).toEqual(
+			conversationTrigger,
+		);
+	});
+
 	it("persists budget use and fails closed after restart", async () => {
 		const database = await makeTestDatabase();
 		cleanups.push(database.cleanup);

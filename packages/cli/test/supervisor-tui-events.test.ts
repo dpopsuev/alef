@@ -11,8 +11,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import pino from "pino";
@@ -23,7 +21,7 @@ import "@dpopsuev/alef-coding-agent";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
+import { assembleSession } from "../src/boot/assemble-session.js";
 import { HeadlessViewMode } from "../src/boot/views.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
@@ -40,29 +38,8 @@ const EMPTY_LOADED = {
 	writableRoots: undefined,
 };
 
-function makeStorageDescriptor(): ServiceDescriptor {
-	return {
-		name: "storage",
-		restart: "permanent",
-		shareable: true,
-		create(_opts: ServiceCreateOpts): Promise<ManagedService> {
-			return Promise.resolve({
-				name: "storage",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
-				factory: STUB_STORAGE,
-				start: () => Promise.resolve(),
-				stop: () => Promise.resolve(),
-				health: () => Promise.resolve(true),
-			});
-		},
-	};
-}
-
 describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 	const tmpDirs: string[] = [];
-	const supervisors: Supervisor[] = [];
 
 	beforeEach(() => {
 		FAUX_PROVIDER.setResponses([
@@ -76,8 +53,7 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 		FAUX_PROVIDER.unregister();
 	});
 
-	afterEach(async () => {
-		for (const s of supervisors.splice(0)) await s.stopAll().catch(() => {});
+	afterEach(() => {
 		for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 	});
 
@@ -95,29 +71,21 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 
-		const supervisor = new Supervisor();
-		supervisors.push(supervisor);
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(
-			createSessionServiceDescriptor({
-				args,
-				cfg: {},
-				log: SILENT_LOGGER,
-				store,
-				loaded: EMPTY_LOADED,
-				model,
-				storage: STUB_STORAGE,
-			}),
-		);
-
-		await supervisor.startAll({ cwd });
-		const sessionSvc = supervisor.get("session") as SessionService;
-		return { supervisor, sessionSvc, faux, store };
+		const assembled = await assembleSession({
+			args,
+			cfg: {},
+			log: SILENT_LOGGER,
+			store,
+			loaded: EMPTY_LOADED,
+			model,
+			storage: STUB_STORAGE,
+		});
+		return { assembled, faux, store };
 	}
 
 	it("session.subscribe receives LLM response events after send", async () => {
-		const { sessionSvc } = await bootWithSession();
-		const session = sessionSvc.session;
+		const { assembled } = await bootWithSession();
+		const session = assembled.session;
 
 		const events: AgentEvent[] = [];
 		session.subscribe((e) => events.push(e));
@@ -132,10 +100,10 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 	}, 15_000);
 
 	it("HeadlessViewMode receives events through session mediator", async () => {
-		const { sessionSvc } = await bootWithSession();
+		const { assembled } = await bootWithSession();
 
 		const viewer = new HeadlessViewMode();
-		const running = viewer.run(sessionSvc.session);
+		const running = viewer.run(assembled.session);
 
 		const reply = await viewer.send("test message", 10_000);
 		expect(reply).toContain("event-test-reply");
@@ -148,11 +116,11 @@ describe("TUI event flow through Session mediator", { tags: ["unit"] }, () => {
 	}, 15_000);
 
 	it("session mediator exposes humanAddress and agentAddress", async () => {
-		const { sessionSvc } = await bootWithSession();
+		const { assembled } = await bootWithSession();
 
-		expect(typeof sessionSvc.humanAddress).toBe("string");
-		expect(typeof sessionSvc.agentAddress).toBe("string");
-		expect(sessionSvc.humanAddress.length).toBeGreaterThan(0);
-		expect(sessionSvc.agentAddress.length).toBeGreaterThan(0);
+		expect(typeof assembled.humanAddress).toBe("string");
+		expect(typeof assembled.agentAddress).toBe("string");
+		expect(assembled.humanAddress.length).toBeGreaterThan(0);
+		expect(assembled.agentAddress.length).toBeGreaterThan(0);
 	}, 15_000);
 });

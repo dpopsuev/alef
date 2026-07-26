@@ -1,17 +1,6 @@
-import { defineManagedService } from "@dpopsuev/alef-foundry";
-import type { ManagedService, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import type { StorageFactory } from "./interfaces.js";
 
-/**
- *
- */
-export interface StorageService extends ManagedService {
-	readonly factory: StorageFactory;
-}
-
-/**
- *
- */
+/** Storage backend configuration. */
 export interface StorageServiceConfig {
 	backend?: "local" | "turso";
 	tursoUrl?: string;
@@ -19,32 +8,21 @@ export interface StorageServiceConfig {
 	syncInterval?: number;
 }
 
-/**
- *
- */
-export function createStorageDescriptor(config?: StorageServiceConfig): ServiceDescriptor {
-	return defineManagedService({
-		name: "storage",
-		restart: "permanent",
-		shareable: true,
-		async create() {
-			if (config) {
-				const { configureStorage } = await import("./sqlite/database.js");
-				configureStorage(config);
-			}
-			const { getDatabase } = await import("./sqlite/database.js");
-			const { SqliteStorageFactory } = await import("./factory.js");
-			const db = await getDatabase();
-			const factory = new SqliteStorageFactory(db);
+/** Opened storage: the factory plus its own close boundary. Not an independent restart target. */
+export interface StorageHandle {
+	readonly factory: StorageFactory;
+	close(): void;
+}
 
-			return {
-				factory,
-				stop() {
-					factory.close();
-					return Promise.resolve();
-				},
-				health: () => Promise.resolve(true),
-			};
-		},
-	});
+/** Open the SQLite-backed storage factory directly. Storage has no restart-in-place behavior of its own. */
+export async function openStorage(config?: StorageServiceConfig): Promise<StorageHandle> {
+	if (config) {
+		const { configureStorage } = await import("./sqlite/database.js");
+		configureStorage(config);
+	}
+	const { getDatabase } = await import("./sqlite/database.js");
+	const { SqliteStorageFactory } = await import("./factory.js");
+	const db = await getDatabase();
+	const factory = new SqliteStorageFactory(db);
+	return { factory, close: () => factory.close() };
 }

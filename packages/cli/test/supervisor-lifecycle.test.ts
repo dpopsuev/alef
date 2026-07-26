@@ -1,18 +1,16 @@
 /**
- * Supervisor full lifecycle E2E test — boot → interact → exit.
+ * Full lifecycle E2E test — boot → interact → exit.
  *
- * Catches a real bug: createTuiServiceDescriptor fires viewer.run()
- * as fire-and-forget with no completion signal. The entrypoint has
- * no way to detect the viewer finished, so it blocks on
- * `await new Promise(() => {})` forever.
+ * Guards a real regression: a fire-and-forget viewer.run() with no completion
+ * signal leaves the entrypoint with no way to detect the viewer finished, so
+ * it blocks on `await new Promise(() => {})` forever. runTui()'s `done`
+ * promise is the fix, verified end-to-end here.
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
-import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import pino from "pino";
@@ -22,8 +20,8 @@ import "@dpopsuev/alef-coding-agent";
 
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { parseArgs } from "../src/boot/args.js";
-import { createSessionServiceDescriptor } from "../src/boot/session-service.js";
-import { createTuiServiceDescriptor } from "../src/boot/tui-service.js";
+import { assembleSession } from "../src/boot/assemble-session.js";
+import { runTui } from "../src/boot/run-tui.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 
@@ -38,32 +36,10 @@ const EMPTY_LOADED = {
 	writableRoots: undefined,
 };
 
-function makeStorageDescriptor(): ServiceDescriptor {
-	return {
-		name: "storage",
-		restart: "permanent",
-		shareable: true,
-		create(_opts: ServiceCreateOpts): Promise<ManagedService> {
-			return Promise.resolve({
-				name: "storage",
-				restart: "permanent" as const,
-				adapters: [],
-				tools: [],
-				factory: STUB_STORAGE,
-				start: () => Promise.resolve(),
-				stop: () => Promise.resolve(),
-				health: () => Promise.resolve(true),
-			});
-		},
-	};
-}
-
-describe("Supervisor full lifecycle", { tags: ["unit"] }, () => {
+describe("Full lifecycle", { tags: ["unit"] }, () => {
 	const tmpDirs: string[] = [];
-	const supervisors: Supervisor[] = [];
 
-	afterEach(async () => {
-		for (const s of supervisors.splice(0)) await s.stopAll().catch(() => {});
+	afterEach(() => {
 		for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 	});
 
@@ -73,7 +49,7 @@ describe("Supervisor full lifecycle", { tags: ["unit"] }, () => {
 		return d;
 	}
 
-	it("TUI service exposes done promise that resolves when viewer exits", async () => {
+	it("runTui exposes a done promise that resolves when the viewer exits", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("lifecycle test")]);
 
@@ -82,38 +58,22 @@ describe("Supervisor full lifecycle", { tags: ["unit"] }, () => {
 		const args = { ...parseArgs(["-p", "hello"]), cwd };
 		const model = faux.getModel();
 
-		const supervisor = new Supervisor();
-		supervisors.push(supervisor);
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(
-			createSessionServiceDescriptor({
-				args,
-				cfg: {},
-				log: SILENT_LOGGER,
-				store,
-				loaded: EMPTY_LOADED,
-				model,
-				storage: STUB_STORAGE,
-			}),
-		);
-		supervisor.register(createTuiServiceDescriptor({ args, store }));
+		const assembled = await assembleSession({
+			args,
+			cfg: {},
+			log: SILENT_LOGGER,
+			store,
+			loaded: EMPTY_LOADED,
+			model,
+			storage: STUB_STORAGE,
+		});
 
-		await supervisor.startAll({ cwd });
+		const tui = runTui({ args, store, session: assembled });
 
-		const tuiSvc = supervisor.get("tui");
-		expect(tuiSvc).toBeDefined();
-
-		// THE BUG: the TUI service has no `done` promise.
-		// The entrypoint needs to know when the viewer finishes so it can exit.
-		// This assertion catches the missing API:
-		expect("done" in tuiSvc!).toBe(true);
-
-		// Wait for done to resolve (viewer should complete since json mode
-		// reads stdin which is empty in tests)
+		// Wait for done to resolve (print mode completes immediately after
+		// delivering its one reply).
 		const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 5_000));
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: checking the done field exists
-		const donePromise = (tuiSvc as ManagedService & { done: Promise<void> }).done;
-		const result = await Promise.race([donePromise.then(() => "done" as const), timeout]);
+		const result = await Promise.race([tui.done.then(() => "done" as const), timeout]);
 		expect(result).toBe("done");
 	}, 15_000);
 });

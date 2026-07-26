@@ -22,6 +22,7 @@ import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "../client/theme
 import { bootTuiShell, wireSession } from "../client/tui-shell.js";
 import { loadAdapters } from "./adapters.js";
 import type { Args } from "./args.js";
+import { assembleSession } from "./assemble-session.js";
 import { discoverBlueprints } from "./blueprints.js";
 import { createBootstrapper } from "./bootstrapper.js";
 import { BUILD_INFO } from "./build-info.js";
@@ -30,7 +31,6 @@ import { deriveDiscussionRef } from "./discussion.js";
 import type { CliFoundryRuntime } from "./foundry-runtime.js";
 import { getRebootPort, getRestartStrategy, setRebootPort } from "./reboot-port.js";
 import { buildIdentityContext, getUiSignalHandlers, isCompacted } from "./session.js";
-import type { SessionService } from "./session-service.js";
 
 /** Dependencies for the TUI boot path. */
 export interface TuiBootDeps {
@@ -84,18 +84,11 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 		restartSupervisor,
 		buildInfo: BUILD_INFO,
 		getConfig,
-		reloadAdapters: async (_names: string[]) => {
-			if (!sessionHandleRef) return;
-			for (const name of _names) {
-				sessionHandleRef.unloadAdapter?.(name);
+		reloadAdapters: (_names: string[]) => {
+			if (sessionHandleRef) {
+				for (const name of _names) sessionHandleRef.unloadAdapter?.(name);
 			}
-			// Full adapter reload via the runtime's registered reload callback
-			const { foundry } = runtime;
-			const sessionSvc = foundry.get("session");
-			if (sessionSvc && "reboot" in sessionSvc) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'reboot' in check
-				await (sessionSvc as unknown as { reboot(): Promise<void> }).reboot();
-			}
+			return Promise.resolve();
 		},
 	});
 
@@ -234,33 +227,10 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 				});
 			}
 
-			// Register application services. registerTui: false -- this Bootstrapper
-			// already owns TUI presentation directly (createShell/wireSession below),
-			// so the Foundry-managed "tui" service (views.ts's TuiViewMode) would
-			// only be redundant here.
-			runtime.registerApplicationServices({
-				args,
-				cfg,
-				log,
-				store,
-				loaded,
-				model,
-				storage,
-				identity,
-				registerTui: false,
-				reloadAdapters: () => {
-					const reloadArgs = {
-						...args,
-						blueprint: loaded.blueprintName ?? loaded.blueprintPath ?? args.blueprint,
-					};
-					return loadAdapters(reloadArgs, cfg, log, sessionDir, {
-						resolveService: runtime.resolveService,
-						actorAddress: identity.agentActor.address,
-						sessionId: store.id,
-						discussion,
-					});
-				},
-			});
+			// This Bootstrapper already owns TUI presentation directly
+			// (createShell/wireSession below), so no "tui" service is registered here.
+			const assembled = await assembleSession({ args, cfg, log, store, loaded, model, storage, identity });
+			runtime.registerAgentService({ args, cfg, storage, session: assembled });
 
 			// Theme
 			const [isDark, terminalPalette] = await Promise.all([
@@ -275,35 +245,25 @@ export async function bootWithBootstrapper(deps: TuiBootDeps): Promise<void> {
 				terminalPalette,
 			);
 
-			// Start Foundry services -- this is what actually assembles the session
-			// (agent, adapters, LLM), via the "session" service registered above.
-			// Pull the result from Foundry rather than assembling it again directly,
-			// so createLocalSession() runs exactly once per boot.
+			// Start Foundry services registered so far (scheduler, build, agent daemon).
 			await runtime.start();
 
-			const sessionSvc = runtime.get("session");
-			if (!sessionSvc || !("session" in sessionSvc)) {
-				throw new Error("Session service failed to start");
-			}
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
-			const result = sessionSvc as unknown as SessionService;
-
-			sessionHandleRef = result.session;
+			sessionHandleRef = assembled.session;
 
 			return {
-				session: result.session,
+				session: assembled.session,
 				store,
 				sessionId: store.id,
-				modelId: result.resolvedModelDisplay,
+				modelId: assembled.resolvedModelDisplay,
 				contextWindow: model.contextWindow,
 				isNew: selection.isNew,
-				getModel: () => result.session.getModel(),
-				setModel: (id: string) => result.session.setModel(id),
-				getThinking: () => result.session.getThinking(),
-				setThinking: (level: string) => result.session.setThinking(level),
-				humanAddress: result.humanAddress,
-				agentAddress: result.agentAddress,
-				blueprintName: result.blueprintName,
+				getModel: () => assembled.session.getModel(),
+				setModel: (id: string) => assembled.session.setModel(id),
+				getThinking: () => assembled.session.getThinking(),
+				setThinking: (level: string) => assembled.session.setThinking(level),
+				humanAddress: assembled.humanAddress,
+				agentAddress: assembled.agentAddress,
+				blueprintName: assembled.blueprintName,
 			};
 		},
 

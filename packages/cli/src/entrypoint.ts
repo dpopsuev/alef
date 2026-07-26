@@ -19,6 +19,7 @@ import { isTermDark } from "is-term-dark";
 import updateNotifier from "update-notifier";
 import { loadAdapters } from "./boot/adapters.js";
 import { parseArgs } from "./boot/args.js";
+import { assembleSession } from "./boot/assemble-session.js";
 import { BUILD_INFO } from "./boot/build-info.js";
 import { loadConfig, resolveDaemonConfig } from "./boot/config.js";
 import { deriveDiscussionRef } from "./boot/discussion.js";
@@ -29,7 +30,6 @@ import { preferIpv4IfUnreachable } from "./boot/network.js";
 import { setupOTel } from "./boot/otel.js";
 import type { SessionHandle } from "./boot/session.js";
 import { buildIdentityContext, loadSession } from "./boot/session.js";
-import type { SessionService } from "./boot/session-service.js";
 import { setupSupervisorIpc } from "./boot/supervisor-ipc.js";
 import { ensureDirectories } from "./boot/xdg-paths.js";
 import { loadTheme, queryPalette, TERMINAL_PALETTE_SLOTS } from "./client/theme.js";
@@ -330,25 +330,8 @@ if (env.canWarmReboot && process.env.ALEF_SUPERVISOR !== "1") {
 	});
 }
 
-runtime.registerApplicationServices({
-	args,
-	cfg,
-	log,
-	store: session,
-	loaded,
-	model,
-	storage,
-	identity,
-	reloadAdapters: () => {
-		const reloadArgs = { ...args, blueprint: loaded.blueprintName ?? loaded.blueprintPath ?? args.blueprint };
-		return loadAdapters(reloadArgs, cfg, log, sessionDir, {
-			resolveService: runtime.resolveService,
-			actorAddress: identity.agentActor.address,
-			sessionId: session.id,
-			discussion,
-		});
-	},
-});
+const assembled = await assembleSession({ args, cfg, log, store: session, loaded, model, storage, identity });
+runtime.registerAgentService({ args, cfg, storage, session: assembled });
 
 // Theme
 const [isDark, terminalPalette] = await Promise.all([
@@ -363,14 +346,11 @@ loadTheme(
 	terminalPalette,
 );
 
-// Start agent + TUI (topo-sorted: storage already running, agent first, TUI after)
+// Start Foundry services registered so far (scheduler, build, agent daemon).
 await runtime.start();
 
-const sessionRaw = runtime.get("session");
-if (sessionRaw && "session" in sessionRaw) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check; SessionService.session is SessionHandle at runtime
-	dispatchCliOp(args, (sessionRaw as SessionService).session as SessionHandle);
-}
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assembleSession() always returns the concrete SessionHandle at runtime
+dispatchCliOp(args, assembled.session as SessionHandle);
 
 // Signal handlers — consolidated shutdown with drain
 import { shutdownOTel } from "./boot/otel.js";
@@ -407,15 +387,12 @@ process.on("SIGINT", () => {
 });
 
 const { awaitProcessLifetime } = await import("./boot/process-lifetime.js");
-const tuiRaw = runtime.get("tui");
+const { runTui } = await import("./boot/run-tui.js");
+const tui = runTui({ args, store: session, session: assembled });
 await awaitProcessLifetime({
 	daemon: args.daemon,
 	serve: args.serve !== undefined && !args.print,
-	done:
-		tuiRaw && "done" in tuiRaw
-			? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'done' in check
-				(tuiRaw as unknown as { done: Promise<void> }).done
-			: undefined,
+	done: tui.done,
 });
 
 await runtime.stop();

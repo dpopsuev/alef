@@ -2,8 +2,8 @@
  * Regression tests for boot-tui.ts's two Tier-1 fixes:
  *   1. WireSessionDeps is built once (buildWireSessionDeps) and is complete
  *      on every wire -- the initial cold boot AND every warm restartTui().
- *   2. The session is assembled exactly once, via the Foundry "session"
- *      service, not duplicated by a second direct call.
+ *   2. The session is assembled exactly once, via assembleSession(), not
+ *      duplicated by a second direct call.
  *
  * The whole module graph boot-tui.ts touches is mocked; this is an
  * integration test of bootWithBootstrapper's calling convention, not of
@@ -65,6 +65,32 @@ vi.mock("../src/boot/session.js", () => ({
 	isCompacted: () => false,
 }));
 
+const FAKE_SESSION = {
+	getModel: () => "test-model",
+	setModel: vi.fn(),
+	getThinking: () => "off",
+	setThinking: vi.fn(),
+	unloadAdapter: vi.fn(() => true),
+} as const;
+
+/** The AssembledSession shape assembleSession() resolves to. */
+function fakeAssembledSession() {
+	return {
+		session: FAKE_SESSION,
+		resolvedModelDisplay: "test-model",
+		humanAddress: "@you",
+		agentAddress: "@alef",
+		blueprintName: "test-blueprint",
+		blueprintPath: undefined,
+		setupSurface: async () => undefined,
+		dispose: async () => {},
+	};
+}
+
+vi.mock("../src/boot/assemble-session.js", () => ({
+	assembleSession: vi.fn(async () => fakeAssembledSession()),
+}));
+
 const shells: ReturnType<typeof stubShell>[] = [];
 
 vi.mock("../src/client/tui-shell.js", () => ({
@@ -75,29 +101,6 @@ vi.mock("../src/client/tui-shell.js", () => ({
 	}),
 	wireSession: vi.fn(),
 }));
-
-const FAKE_SESSION = {
-	getModel: () => "test-model",
-	setModel: vi.fn(),
-	getThinking: () => "off",
-	setThinking: vi.fn(),
-	unloadAdapter: vi.fn(() => true),
-} as const;
-
-/** Minimal SessionService-shaped object the fake runtime hands back from get("session"). */
-function fakeSessionService() {
-	return {
-		session: FAKE_SESSION,
-		resolvedModelDisplay: "test-model",
-		humanAddress: "@you",
-		agentAddress: "@alef",
-		blueprintName: "test-blueprint",
-		blueprintPath: undefined,
-		setupSurface: async () => undefined,
-		stop: async () => {},
-		health: async () => true,
-	};
-}
 
 function stubShell(): TuiShell & { resolveStop(): void } {
 	let resolveStop: () => void = () => {};
@@ -133,25 +136,19 @@ function fakeStorage() {
 	};
 }
 
-/** Build a fake CliFoundryRuntime that only starts serving get("session") after start() runs. */
+/** Build a fake CliFoundryRuntime. Session assembly no longer flows through it. */
 function fakeRuntime() {
-	let started = false;
-	const get = vi.fn((name: string) => (name === "session" && started ? fakeSessionService() : undefined));
 	return {
-		foundry: { get } as unknown as CliFoundryRuntime["foundry"],
+		foundry: {} as unknown as CliFoundryRuntime["foundry"],
 		resolveService: vi.fn(),
-		get,
-		start: vi.fn(async () => {
-			started = true;
-		}),
-		stop: vi.fn(async () => {
-			started = false;
-		}),
+		get: vi.fn(),
+		start: vi.fn(async () => {}),
+		stop: vi.fn(async () => {}),
 		swap: vi.fn(),
 		getStorage: vi.fn(),
 		registerBuildService: vi.fn(),
-		registerApplicationServices: vi.fn(),
-	} as unknown as CliFoundryRuntime & { registerApplicationServices: ReturnType<typeof vi.fn> };
+		registerAgentService: vi.fn(),
+	} as unknown as CliFoundryRuntime & { registerAgentService: ReturnType<typeof vi.fn> };
 }
 
 function expectCompleteDeps(deps: WireSessionDeps): void {
@@ -166,11 +163,13 @@ function expectCompleteDeps(deps: WireSessionDeps): void {
 }
 
 describe("bootWithBootstrapper", { tags: ["unit"] }, () => {
-	it("assembles the session exactly once, via the Foundry session service, with complete deps on every wire", async () => {
+	it("assembles the session exactly once, directly, with complete deps on every wire", async () => {
 		shells.length = 0;
 		const { bootTuiShell, wireSession } = await import("../src/client/tui-shell.js");
+		const { assembleSession } = await import("../src/boot/assemble-session.js");
 		vi.mocked(bootTuiShell).mockClear();
 		vi.mocked(wireSession).mockClear();
+		vi.mocked(assembleSession).mockClear();
 
 		const runtime = fakeRuntime();
 		const deps: TuiBootDeps = {
@@ -185,12 +184,13 @@ describe("bootWithBootstrapper", { tags: ["unit"] }, () => {
 
 		await vi.waitFor(() => expect(wireSession).toHaveBeenCalledTimes(1));
 
-		// registerApplicationServices must ask Foundry to skip its own "tui" service --
-		// this Bootstrapper already owns TUI presentation directly.
-		expect(runtime.registerApplicationServices).toHaveBeenCalledWith(expect.objectContaining({ registerTui: false }));
-		// The session must come from Foundry (get("session")), only reachable after start().
+		// Session assembly happens exactly once, directly -- no service registry.
+		expect(assembleSession).toHaveBeenCalledTimes(1);
+		// The agent daemon service registers with the already-assembled session.
+		expect(runtime.registerAgentService).toHaveBeenCalledWith(
+			expect.objectContaining({ session: expect.objectContaining({ session: FAKE_SESSION }) }),
+		);
 		expect(runtime.start).toHaveBeenCalled();
-		expect(runtime.get).toHaveBeenCalledWith("session");
 
 		const [, firstResolved, firstDeps] = vi.mocked(wireSession).mock.calls[0] as [
 			unknown,
@@ -207,6 +207,8 @@ describe("bootWithBootstrapper", { tags: ["unit"] }, () => {
 		await firstDeps.restartTui!();
 		expect(bootTuiShell).toHaveBeenCalledTimes(2);
 		expect(wireSession).toHaveBeenCalledTimes(2);
+		// A TUI-only restart never reassembles the session.
+		expect(assembleSession).toHaveBeenCalledTimes(1);
 
 		const [, secondResolved, secondDeps] = vi.mocked(wireSession).mock.calls[1] as [
 			unknown,

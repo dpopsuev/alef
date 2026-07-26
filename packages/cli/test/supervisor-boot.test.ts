@@ -1,19 +1,17 @@
 /**
- * Supervisor service boot tests — verify the Supervisor-as-entrypoint pattern.
+ * Direct session assembly and agent daemon service boot tests.
  *
  * Tests:
- *   1. Session service boots via Supervisor, exposes Session interface
- *   2. Session service stop disposes Session (health → false)
- *   3. Storage starts before session (dependency order)
- *   4. Daemon mode registers in daemon registry
- *   5. Multi-UI: two observers subscribe to same Session, both receive events
+ *   1. assembleSession exposes the Session interface directly (no registry)
+ *   2. assembleSession's dispose() tears down the underlying Agent
+ *   3. Daemon mode registers in daemon registry
+ *   4. Multi-UI: two observers subscribe to same Session, both receive events
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-foundry/lifecycle";
 import { Supervisor } from "@dpopsuev/alef-foundry/supervisor";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
@@ -27,10 +25,10 @@ import { service as agentToolService } from "@dpopsuev/alef-tool-agent";
 import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
+import { assembleSession } from "../src/boot/assemble-session.js";
 import { readDaemonCredential } from "../src/boot/daemon-credential.js";
 import { deriveDiscussionRef } from "../src/boot/discussion.js";
 import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
-import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 const ORIGINAL_XDG_STATE_HOME = process.env.XDG_STATE_HOME;
@@ -46,7 +44,7 @@ const EMPTY_LOADED = {
 	writableRoots: undefined,
 };
 
-describe("Supervisor service boot", { tags: ["unit"] }, () => {
+describe("Direct session assembly and agent daemon boot", { tags: ["unit"] }, () => {
 	const tmpDirs: string[] = [];
 	const supervisors: Supervisor[] = [];
 
@@ -69,26 +67,6 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		return s;
 	}
 
-	function makeStorageDescriptor(): ServiceDescriptor {
-		return {
-			name: "storage",
-			restart: "permanent",
-			shareable: true,
-			create(_opts: ServiceCreateOpts): Promise<ManagedService> {
-				return Promise.resolve({
-					name: "storage",
-					restart: "permanent" as const,
-					adapters: [],
-					tools: [],
-					factory: STUB_STORAGE,
-					start: () => Promise.resolve(),
-					stop: () => Promise.resolve(),
-					health: () => Promise.resolve(true),
-				});
-			},
-		};
-	}
-
 	function makeSessionOpts(cwd: string, store: JsonlSessionStore) {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
@@ -106,81 +84,25 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		};
 	}
 
-	it("session service boots via Supervisor and exposes Session interface", async () => {
+	it("assembleSession exposes the Session interface directly", async () => {
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
+		const result = await assembleSession(opts);
 
-		await supervisor.startAll({ cwd });
-
-		const svc = supervisor.get("session");
-		expect(svc).toBeDefined();
-		expect("session" in svc!).toBe(true);
-
-		const sessionSvc = svc as SessionService;
-		expect(sessionSvc.session.state.id).toBe(store.id);
-		expect(typeof sessionSvc.session.subscribe).toBe("function");
-		expect(typeof sessionSvc.session.getModel).toBe("function");
+		expect(result.session.state.id).toBe(store.id);
+		expect(typeof result.session.subscribe).toBe("function");
+		expect(typeof result.session.getModel).toBe("function");
 	}, 15_000);
 
-	it("session service stop disposes Session (health → false)", async () => {
+	it("assembleSession's dispose() tears down the underlying Agent", async () => {
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-
-		await supervisor.startAll({ cwd });
-		const svc = supervisor.get("session") as SessionService;
-		expect(svc).toBeDefined();
-
-		await supervisor.stopAll();
-
-		const health = await svc.health();
-		expect(health).toBe(false);
-	}, 15_000);
-
-	it("storage service starts before session (dependency order)", async () => {
-		const bootOrder: string[] = [];
-
-		const trackingStorage: ServiceDescriptor = {
-			name: "storage",
-			restart: "permanent",
-			shareable: true,
-			create(_opts: ServiceCreateOpts): Promise<ManagedService> {
-				bootOrder.push("storage");
-				return Promise.resolve({
-					name: "storage",
-					restart: "permanent" as const,
-					adapters: [],
-					tools: [],
-					factory: STUB_STORAGE,
-					start: () => Promise.resolve(),
-					stop: () => Promise.resolve(),
-					health: () => Promise.resolve(true),
-				});
-			},
-		};
-
-		const cwd = makeTmp();
-		const store = await JsonlSessionStore.create(cwd);
-		const { opts } = makeSessionOpts(cwd, store);
-
-		const supervisor = trackSupervisor(new Supervisor());
-		// Register session FIRST to verify topo-sort puts storage before it
-		supervisor.register(createSessionServiceDescriptor(opts));
-		supervisor.register(trackingStorage);
-
-		await supervisor.startAll({ cwd });
-		bootOrder.push("session");
-
-		expect(bootOrder[0]).toBe("storage");
+		const result = await assembleSession(opts);
+		await expect(result.dispose()).resolves.toBeUndefined();
 	}, 15_000);
 
 	it("daemon mode registers in daemon registry", async () => {
@@ -208,10 +130,11 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			}),
 		};
 
+		const assembled = await assembleSession(opts);
 		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-		supervisor.register(createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage }));
+		supervisor.register(
+			createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage, session: assembled }),
+		);
 
 		await supervisor.startAll({ cwd });
 
@@ -228,10 +151,9 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		// Reproduces the boot order in entrypoint.ts / boot-tui.ts: loadAdapters()
 		// resolves the blueprint's "agent" tool adapter through Foundry (which
 		// registers-and-starts tools/agent's transient "agent" ServiceDescriptor)
-		// BEFORE registerApplicationServices() registers the CLI's own permanent
-		// "agent" ServiceDescriptor (daemon registration + heartbeat). Both
-		// descriptors share the literal name "agent" in Supervisor's single flat
-		// namespace.
+		// BEFORE the CLI registers its own permanent "agent" ServiceDescriptor
+		// (daemon registration + heartbeat). Both descriptors share the literal
+		// name "agent" in Supervisor's single flat namespace.
 		const cwd = makeTmp();
 		process.env.XDG_STATE_HOME = cwd;
 		const store = await JsonlSessionStore.create(cwd);
@@ -255,15 +177,16 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			}),
 		};
 
+		const assembled = await assembleSession(opts);
 		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
 
 		// Simulate loadAdapters() claiming "agent" first, exactly as it does today.
 		await supervisor.getOrStart(agentToolService, { cwd });
 
 		// The platform's own permanent "agent" service registers second.
-		supervisor.register(createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage }));
+		supervisor.register(
+			createAgentServiceDescriptor({ args: opts.args, cfg: {}, storage: daemonStorage, session: assembled }),
+		);
 
 		await supervisor.startAll({ cwd });
 
@@ -287,14 +210,8 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			storage: STUB_STORAGE,
 		};
 
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-
-		await supervisor.startAll({ cwd });
-
-		const sessionSvc = supervisor.get("session") as SessionService;
-		const session = sessionSvc.session;
+		const assembled = await assembleSession(opts);
+		const session = assembled.session;
 
 		// Two independent observers — simulates two UI surfaces
 		const eventsA: string[] = [];
@@ -349,13 +266,8 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(createSessionServiceDescriptor(opts));
-
-		await supervisor.startAll({ cwd });
-		const sessionSvc = supervisor.get("session") as SessionService;
-		const session = sessionSvc.session;
+		const assembled = await assembleSession(opts);
+		const session = assembled.session;
 		const initial = session.getDiscussionState?.();
 
 		expect(initial?.home.topicId).toBe(store.id);

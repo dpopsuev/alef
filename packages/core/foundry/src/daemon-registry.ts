@@ -3,11 +3,10 @@ import type { FoundryStartOptions } from "./types.js";
 
 /**
  * Structural duck-type of @dpopsuev/alef-storage's DaemonEntry. Not imported
- * directly: core/storage already depends on core/foundry (for the
- * ManagedService lifecycle contract its own storage service uses), so a
- * foundry -> storage import would create a circular package dependency.
- * Any object with these fields (the real DaemonEntry included) satisfies
- * this structurally.
+ * directly — a foundry -> storage import would create a circular package
+ * dependency, since storage's own daemon registry is what discoverDaemons
+ * calls through DaemonRegistrySource. Any object with these fields (the real
+ * DaemonEntry included) satisfies this structurally.
  */
 export interface DiscoverableDaemon {
 	readonly sessionId: string;

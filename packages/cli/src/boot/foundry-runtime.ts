@@ -1,4 +1,3 @@
-import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import {
 	type BuildServiceOpts,
 	createBuildServiceDescriptor,
@@ -6,21 +5,12 @@ import {
 	createSchedulerDescriptor,
 	type FoundryRuntime,
 } from "@dpopsuev/alef-foundry";
-import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
-import {
-	createStorageDescriptor,
-	type StorageService,
-	type StorageServiceConfig,
-} from "@dpopsuev/alef-storage/service";
-import type { Logger } from "pino";
-import type { AdapterLoadResult } from "./adapters.js";
+import { openStorage, type StorageHandle, type StorageServiceConfig } from "@dpopsuev/alef-storage/service";
 import { createAgentServiceDescriptor } from "./agent-service.js";
 import type { Args } from "./args.js";
+import type { AssembledSession } from "./assemble-session.js";
 import type { AlefConfig } from "./config.js";
-import type { IdentityContext } from "./session.js";
-import { createSessionServiceDescriptor } from "./session-service.js";
-import { createTuiServiceDescriptor } from "./tui-service.js";
 
 /** Options for the CLI-local Foundry bootstrap. */
 export interface CliFoundryRuntimeOptions {
@@ -28,24 +18,12 @@ export interface CliFoundryRuntimeOptions {
 	storage?: StorageServiceConfig;
 }
 
-/** Inputs needed to register session/agent/TUI services on the CLI runtime. */
-export interface CliApplicationServicesOptions {
+/** Inputs needed to register the agent daemon service against an already-assembled session. */
+export interface RegisterAgentServiceOptions {
 	args: Args;
 	cfg: AlefConfig;
-	log: Logger;
-	store: SessionStore;
-	loaded: AdapterLoadResult;
-	model: Model<Api>;
 	storage: StorageFactory;
-	identity?: IdentityContext;
-	reloadAdapters?: () => Promise<AdapterLoadResult>;
-	/**
-	 * Whether to also register the Foundry-managed "tui" service (views.ts's
-	 * selectViewMode/TuiViewMode). Callers that already own TUI presentation
-	 * directly (the interactive Bootstrapper path) should pass false to avoid
-	 * a redundant second view-mode registration. Default: true.
-	 */
-	registerTui?: boolean;
+	session: AssembledSession;
 }
 
 /** CLI-specific Foundry facade above raw register/start/stop orchestration. */
@@ -58,14 +36,20 @@ export interface CliFoundryRuntime {
 	swap: FoundryRuntime["swap"];
 	getStorage(): Promise<StorageFactory>;
 	registerBuildService(opts: BuildServiceOpts): void;
-	registerApplicationServices(opts: CliApplicationServicesOptions): void;
+	/** Register the agent daemon service -- Foundry's one independent restart boundary the CLI owns. */
+	registerAgentService(opts: RegisterAgentServiceOptions): void;
 }
 
-/** Create the CLI-local Foundry runtime with base storage and scheduler services. */
+/** Create the CLI-local Foundry runtime. Storage is opened directly, not registered as a service. */
 export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliFoundryRuntime {
 	const foundry = createFoundryRuntime({ cwd: options.cwd });
-	foundry.register(createStorageDescriptor(options.storage));
 	foundry.register(createSchedulerDescriptor());
+
+	let storageHandle: Promise<StorageHandle> | undefined;
+	const ensureStorage = (): Promise<StorageHandle> => {
+		storageHandle ??= openStorage(options.storage);
+		return storageHandle;
+	};
 
 	return {
 		foundry,
@@ -76,40 +60,28 @@ export function createCliFoundryRuntime(options: CliFoundryRuntimeOptions): CliF
 		start() {
 			return foundry.start({ cwd: options.cwd });
 		},
-		stop() {
-			return foundry.stop();
+		async stop() {
+			await foundry.stop();
+			(await storageHandle)?.close();
 		},
 		swap(name, opts) {
 			return foundry.swap(name, opts);
 		},
 		async getStorage() {
-			await foundry.start({ cwd: options.cwd });
-			const svc = foundry.get("storage");
-			if (!svc) throw new Error("Storage service failed to start");
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageService extends ManagedService with factory field
-			return (svc as StorageService).factory;
+			return (await ensureStorage()).factory;
 		},
 		registerBuildService(opts: BuildServiceOpts) {
 			foundry.register(createBuildServiceDescriptor(opts));
 		},
-		registerApplicationServices(opts: CliApplicationServicesOptions) {
+		registerAgentService(opts: RegisterAgentServiceOptions) {
 			foundry.register(
-				createSessionServiceDescriptor({
+				createAgentServiceDescriptor({
 					args: opts.args,
 					cfg: opts.cfg,
-					log: opts.log,
-					store: opts.store,
-					loaded: opts.loaded,
-					reloadAdapters: opts.reloadAdapters,
-					model: opts.model,
 					storage: opts.storage,
-					identity: opts.identity,
+					session: opts.session,
 				}),
 			);
-			foundry.register(createAgentServiceDescriptor({ args: opts.args, cfg: opts.cfg, storage: opts.storage }));
-			if (opts.registerTui ?? true) {
-				foundry.register(createTuiServiceDescriptor({ args: opts.args, store: opts.store }));
-			}
 		},
 	};
 }

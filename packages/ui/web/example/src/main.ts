@@ -13,7 +13,7 @@
  */
 
 import "@mariozechner/mini-lit/dist/ThemeToggle.js";
-import { ChatPanel } from "@dpopsuev/alef-web-ui";
+import { ChatPanel, composeResourceTile, TileDesk, type TileInstance } from "@dpopsuev/alef-web-ui";
 import { icon } from "@mariozechner/mini-lit";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";
 import { html, render } from "lit";
@@ -41,24 +41,39 @@ function setRunnerUrl(url: string): void {
 
 let client: HttpAgentClient = new HttpAgentClient(getRunnerUrl());
 let chatPanel: ChatPanel = new ChatPanel();
+const tileDesk = new TileDesk();
+let latestMeterSnapshot: unknown;
+let meterSnapshotUnsubscribe: (() => void) | undefined;
+let activeView: "chat" | "alignment" = "chat";
 let showUrlEditor = false;
 
 // ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 
+const bindMeterSnapshots = () => {
+	meterSnapshotUnsubscribe?.();
+	meterSnapshotUnsubscribe = client.subscribeMeterSnapshots((snapshot) => {
+		latestMeterSnapshot = snapshot;
+		if (activeView === "alignment") renderApp();
+	});
+};
+
 const initChatPanel = async () => {
 	await chatPanel.setAgent(client, {
 		onApiKeyRequired: undefined,
 		toolsFactory: undefined,
 	});
+	bindMeterSnapshots();
 };
 
 const reconnect = async (url: string) => {
 	setRunnerUrl(url);
+	meterSnapshotUnsubscribe?.();
 	client.dispose();
 	client = new HttpAgentClient(url);
 	chatPanel = new ChatPanel();
+	latestMeterSnapshot = undefined;
 	await initChatPanel();
 	renderApp();
 };
@@ -68,6 +83,13 @@ const renderApp = () => {
 	if (!app) return;
 
 	const runnerUrl = getRunnerUrl();
+	if (latestMeterSnapshot !== undefined) {
+		const tiles: TileInstance[] = [
+			{ definition: composeResourceTile("product"), data: latestMeterSnapshot },
+			{ definition: composeResourceTile("engineering"), data: latestMeterSnapshot },
+		];
+		tileDesk.tiles = tiles;
+	}
 
 	render(
 		html`
@@ -120,6 +142,24 @@ const renderApp = () => {
 					</div>
 					<div class="flex items-center gap-1">
 						${Button({
+							variant: activeView === "chat" ? "secondary" : "ghost",
+							size: "sm",
+							children: "Chat",
+							onClick: () => {
+								activeView = "chat";
+								renderApp();
+							},
+						})}
+						${Button({
+							variant: activeView === "alignment" ? "secondary" : "ghost",
+							size: "sm",
+							children: "Alignment",
+							onClick: () => {
+								activeView = "alignment";
+								renderApp();
+							},
+						})}
+						${Button({
 							variant: "ghost",
 							size: "sm",
 							children: icon(Settings, "sm"),
@@ -133,8 +173,17 @@ const renderApp = () => {
 					</div>
 				</div>
 
-				<!-- Chat -->
-				${chatPanel}
+				<div class="min-h-0 flex-1">
+					${
+						activeView === "chat"
+							? chatPanel
+							: latestMeterSnapshot === undefined
+								? html`<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
+									Run an agent turn to populate the alignment desk.
+								</div>`
+								: tileDesk
+					}
+				</div>
 			</div>
 		`,
 		app,

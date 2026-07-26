@@ -1520,6 +1520,9 @@ importers:
       '@lmstudio/sdk':
         specifier: ^1.5.0
         version: 1.5.0
+      dockview:
+        specifier: 7.0.2
+        version: 7.0.2
       docx-preview:
         specifier: ^0.3.7
         version: 0.3.7
@@ -4250,6 +4253,12 @@ packages:
   dockerode@4.0.12:
     resolution: {integrity: sha512-/bCZd6KlGcjZO8Buqmi/vXuqEGVEZ0PNjx/biBNqJD3MhK9DmdiAuKxqfNhflgDESDIiBz3qF+0e55+CpnrUcw==}
     engines: {node: '>= 8.0'}
+
+  dockview-core@7.0.4:
+    resolution: {integrity: sha512-AiIzD6ov153L/VuhqVBg5KD5oSAgJGH7L1xvzV/X+ghIEOTFfEQYEBGNd/ys+ZjQfdGRogHSeQ0v9JF/L6JrPg==}
+
+  dockview@7.0.2:
+    resolution: {integrity: sha512-QhgbJ7RTFsWvrs1lQZKPGCLTGjKU7kI5ZWX5lwU03arM9lIoQlbfv1b/uQ7V5zTkRw7JDndEqjKMgEFw2I8Kow==}
 
   docx-preview@0.3.7:
     resolution: {integrity: sha512-Lav69CTA/IYZPJTsKH7oYeoZjyg96N0wEJMNslGJnZJ+dMUZK85Lt5ASC79yUlD48ecWjuv+rkcmFt6EVPV0Xg==}
@@ -9430,6 +9439,12 @@ snapshots:
       uuid: 14.0.1
     transitivePeerDependencies:
       - supports-color
+
+  dockview-core@7.0.4: {}
+
+  dockview@7.0.2:
+    dependencies:
+      dockview-core: 7.0.4
 
   docx-preview@0.3.7:
     dependencies:

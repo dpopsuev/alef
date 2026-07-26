@@ -19,9 +19,48 @@ const PERCENT = 100;
 const COST_PRECISION = 10000;
 const MS_PER_SECOND = 1000;
 
-/**
- *
- */
+export const METER_SNAPSHOT_CONTRACT_ID = "meter.snapshot.v1";
+
+export const METER_SNAPSHOT_SCHEMA = z.object({
+	contractId: z.literal(METER_SNAPSHOT_CONTRACT_ID),
+	schemaVersion: z.literal(1),
+	timestamp: z.number().int().nonnegative(),
+	session: z.object({
+		elapsedMs: z.number().nonnegative(),
+		turns: z.number().int().nonnegative(),
+		tokensIn: z.number().nonnegative(),
+		tokensOut: z.number().nonnegative(),
+		tokensCacheRead: z.number().nonnegative(),
+		tokensTotal: z.number().nonnegative(),
+		estimatedCostUsd: z.number().nonnegative(),
+	}),
+	tools: z.object({
+		totalCalls: z.number().int().nonnegative(),
+		totalErrors: z.number().int().nonnegative(),
+		errorRate: z.string(),
+		errorRatePercent: z.number().min(0).max(PERCENT),
+		successRatePercent: z.number().min(0).max(PERCENT),
+		p50Ms: z.number().nonnegative(),
+		p95Ms: z.number().nonnegative(),
+		p99Ms: z.number().nonnegative(),
+	}),
+	topTools: z.array(
+		z.object({
+			name: z.string().min(1),
+			calls: z.number().int().nonnegative(),
+			errors: z.number().int().nonnegative(),
+			avgMs: z.number().nonnegative(),
+			maxMs: z.number().nonnegative(),
+			successRate: z.string(),
+			successRatePercent: z.number().min(0).max(PERCENT),
+		}),
+	).max(TOP_TOOLS_COUNT),
+});
+
+/** Stable resource snapshot shared by agent-side producers and presentation consumers. */
+export type MeterSnapshot = z.infer<typeof METER_SNAPSHOT_SCHEMA>;
+
+/** Create a resource meter with a versioned snapshot contract for presentation consumers. */
 export function createResourceMeter(): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
 	const cost = 0;
@@ -55,24 +94,33 @@ export function createResourceMeter(): Adapter {
 	/**
 	 *
 	 */
-	function summary() {
-		const elapsed = Date.now() - startedAt;
+	function summary(): MeterSnapshot {
+		const timestamp = Date.now();
+		const elapsed = timestamp - startedAt;
 		const sortedLatencies = [...latencies].sort((a, b) => a - b);
-		const totalCalls = [...toolStats.values()].reduce((n, s) => n + s.calls, 0);
-		const totalErrors = [...toolStats.values()].reduce((n, s) => n + s.errors, 0);
+		const totalCalls = [...toolStats.values()].reduce((count, stats) => count + stats.calls, 0);
+		const totalErrors = [...toolStats.values()].reduce((count, stats) => count + stats.errors, 0);
+		const errorRatePercent = totalCalls > 0 ? (totalErrors / totalCalls) * PERCENT : 0;
 		const topTools = [...toolStats.entries()]
-			.sort(([, a], [, b]) => b.calls - a.calls)
+			.sort(([, left], [, right]) => right.calls - left.calls)
 			.slice(0, TOP_TOOLS_COUNT)
-			.map(([name, s]) => ({
-				name,
-				calls: s.calls,
-				errors: s.errors,
-				avgMs: Math.round(s.totalMs / s.calls),
-				maxMs: s.maxMs,
-				successRate: s.calls > 0 ? (((s.calls - s.errors) / s.calls) * PERCENT).toFixed(1) : "N/A",
-			}));
+			.map(([name, stats]) => {
+				const successRatePercent = stats.calls > 0 ? ((stats.calls - stats.errors) / stats.calls) * PERCENT : 0;
+				return {
+					name,
+					calls: stats.calls,
+					errors: stats.errors,
+					avgMs: Math.round(stats.totalMs / stats.calls),
+					maxMs: stats.maxMs,
+					successRate: successRatePercent.toFixed(1),
+					successRatePercent,
+				};
+			});
 
 		return {
+			contractId: METER_SNAPSHOT_CONTRACT_ID,
+			schemaVersion: 1,
+			timestamp,
 			session: {
 				elapsedMs: elapsed,
 				turns,
@@ -85,7 +133,9 @@ export function createResourceMeter(): Adapter {
 			tools: {
 				totalCalls,
 				totalErrors,
-				errorRate: totalCalls > 0 ? `${((totalErrors / totalCalls) * PERCENT).toFixed(1)}%` : "0%",
+				errorRate: `${errorRatePercent.toFixed(1)}%`,
+				errorRatePercent,
+				successRatePercent: PERCENT - errorRatePercent,
 				p50Ms: percentile(sortedLatencies, P50),
 				p95Ms: percentile(sortedLatencies, P95),
 				p99Ms: percentile(sortedLatencies, P99),
@@ -133,27 +183,38 @@ export function createResourceMeter(): Adapter {
 		},
 		{
 			description: "Resource meter — tracks tokens, cost, latency, tool success rates across the session.",
+			publishSchemas: { notification: { "meter.snapshot": METER_SNAPSHOT_SCHEMA } },
 			directives: ["Use meter.summary to check resource usage, token consumption, and tool performance."],
 			sources: [{ name: "signal-bus", kind: "memory" }],
 			onMount(bus: Bus) {
 				startedAt = Date.now();
 				bus.notification.subscribe("*", (event: NotificationMessage) => {
-					const p = event.payload;
+					const payload = event.payload;
+					let changed = false;
 					if (event.type === "llm.token-usage") {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: llm.token-usage payload shape is known
-						const usage = p.usage as { input?: number; output?: number; cacheRead?: number } | undefined;
+						const usage = payload.usage as { input?: number; output?: number; cacheRead?: number } | undefined;
 						if (usage) {
 							tokens.input += usage.input ?? 0;
 							tokens.output += usage.output ?? 0;
 							tokens.cacheRead += usage.cacheRead ?? 0;
 						}
 						turns++;
+						changed = true;
 					}
 					if (event.type === "llm.tool-end") {
-						const name = typeof p.name === "string" ? p.name : "unknown";
-						const elapsedMs = typeof p.elapsedMs === "number" ? p.elapsedMs : 0;
-						const ok = p.ok !== false;
+						const name = typeof payload.name === "string" ? payload.name : "unknown";
+						const elapsedMs = typeof payload.elapsedMs === "number" ? payload.elapsedMs : 0;
+						const ok = payload.ok !== false;
 						recordToolEnd(name, elapsedMs, ok);
+						changed = true;
+					}
+					if (changed) {
+						bus.notification.publish({
+							type: "meter.snapshot",
+							payload: summary(),
+							correlationId: event.correlationId,
+						});
 					}
 				});
 			},

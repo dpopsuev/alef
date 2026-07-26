@@ -13,6 +13,12 @@
 
 import type { Agent, AgentEvent, AgentMessage, AgentState, ThinkingLevel } from "@dpopsuev/alef-web-ui";
 
+type MeterSnapshotListener = (snapshot: unknown) => void;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 class MutableAgentState implements AgentState {
 	systemPrompt = "";
 	model: any = { provider: "runner", id: "runner", name: "Alef Runner", reasoning: false, contextWindow: 200_000 };
@@ -48,6 +54,7 @@ export class HttpAgentClient implements Agent {
 
 	private readonly baseUrl: string;
 	private readonly listeners = new Set<(event: AgentEvent) => void | Promise<void>>();
+	private readonly meterSnapshotListeners = new Set<MeterSnapshotListener>();
 	private eventSource: EventSource | null = null;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -79,6 +86,12 @@ export class HttpAgentClient implements Agent {
 			this.emit({ type: "agent_end", messages: this.state.messages });
 		});
 
+		source.addEventListener("notification/meter.snapshot", (event: Event) => {
+			const raw: unknown = JSON.parse((event as MessageEvent).data);
+			if (!isRecord(raw) || !("payload" in raw)) return;
+			for (const listener of this.meterSnapshotListeners) listener(raw.payload);
+		});
+
 		source.onerror = () => {
 			source.close();
 			if (this.reconnectTimer) return;
@@ -94,6 +107,11 @@ export class HttpAgentClient implements Agent {
 	subscribe(listener: (event: AgentEvent) => void | Promise<void>): () => void {
 		this.listeners.add(listener);
 		return () => void this.listeners.delete(listener);
+	}
+
+	subscribeMeterSnapshots(listener: MeterSnapshotListener): () => void {
+		this.meterSnapshotListeners.add(listener);
+		return () => void this.meterSnapshotListeners.delete(listener);
 	}
 
 	async prompt(input: string | AgentMessage): Promise<void> {

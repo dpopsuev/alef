@@ -90,6 +90,19 @@ export type {
 	StorageTransaction,
 	StoreConfig,
 } from "./storage/types.js";
+export {
+	composeResourceTile,
+	type MetricBinding,
+	MetricTile,
+	parseTileDefinition,
+	type ResolvedMetric,
+	type ResourceTilePersona,
+	resolveTileMetrics,
+	type TileDefinition,
+	TileDefinitionSchema,
+	TileDesk,
+	type TileInstance,
+} from "./tiles/index.js";
 // Artifacts
 export { ArtifactElement } from "./tools/artifacts/ArtifactElement.js";
 export { ArtifactPill } from "./tools/artifacts/ArtifactPill.js";

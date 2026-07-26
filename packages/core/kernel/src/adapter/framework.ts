@@ -2,10 +2,14 @@ import { type ZodTypeAny, z } from "zod";
 import { createMapCache, makeCacheKey } from "./cache.js";
 import { dispatchCommandAction, dispatchEventAction } from "./dispatch.js";
 import type { ActionMap, AdapterLogger, AdapterOptions, CommandActionMap, EventActionMap } from "./types.js";
-import { startElapsedTimer, withLimits } from "../bus/budget.js";
 import type { Adapter, ToolDefinition } from "./interface.js";
 import type { Bus } from "../bus/messages.js";
-import { CommandRouter, type CommandBinding, defineCommand } from "../capabilities.js";
+import {
+	type CapabilityExecutionPolicy,
+	CommandRouter,
+	type CommandBinding,
+	defineCommand,
+} from "../capabilities.js";
 
 export type {
 	ActionMap,
@@ -93,6 +97,7 @@ function buildCommandBindings(
 			input: inputSchemas[name] ?? RECORD_SCHEMA,
 			output: action.tool?.outputSchema ?? RECORD_SCHEMA,
 			permissions: action.tool?.permissions ?? [],
+			effect: action.tool?.effect ?? "none",
 		}),
 		bind() {
 			const cache = createMapCache();
@@ -124,8 +129,11 @@ function buildCommandBindings(
 }
 
 /** Materializes command ownership before an AgentSession can execute tools. */
-export function createAdapterCommandRouter(adapters: readonly Adapter[]): CommandRouter {
-	const router = new CommandRouter();
+export function createAdapterCommandRouter(
+	adapters: readonly Adapter[],
+	executionPolicy?: CapabilityExecutionPolicy,
+): CommandRouter {
+	const router = new CommandRouter(executionPolicy);
 	for (const adapter of adapters) {
 		for (const binding of adapter.commands ?? []) router.registerBinding(adapter.name, binding);
 	}
@@ -177,10 +185,8 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 		ready: opts.ready,
 		mount(bus: Bus): () => void {
 			let b = bus;
-			if (opts.limits) b = withLimits(opts.limits)(b);
 			for (const mw of opts.middlewares ?? []) b = mw(b);
 			opts.onMount?.(b);
-			const stopElapsedTimer = opts.limits ? startElapsedTimer(opts.limits, b) : undefined;
 			const cache = createMapCache();
 			const commandInputSchemas = buildCommandSchemas(actions, opts.inputSchemas?.command);
 
@@ -200,7 +206,6 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 
 			return () => {
 				for (const off of unsubs) off();
-				stopElapsedTimer?.();
 				cache.clear();
 				opts.onUnmount?.();
 			};

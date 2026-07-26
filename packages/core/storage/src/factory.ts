@@ -8,8 +8,10 @@ import {
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
+import type { RunJournal } from "./run-journal.js";
 import { parseEventPayload, PREVIEW_EVENT_SQL_FILTER, previewEventLimit } from "./sqlite/event-load.js";
 import { SqliteSessionStore } from "./sqlite/session.js";
+import { SqliteRunJournal } from "./sqlite/run-journal.js";
 import { SqliteSummaryStore } from "./sqlite/summary.js";
 
 /**
@@ -100,6 +102,10 @@ export class SqliteStorageFactory implements StorageFactory {
 
 	summaryStore(): SummaryStore {
 		return new SqliteSummaryStore(this.client);
+	}
+
+	runJournal(): RunJournal {
+		return new SqliteRunJournal(this.client);
 	}
 
 	authStore(): AuthStore {

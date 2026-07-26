@@ -1,5 +1,8 @@
 import type { ZodTypeAny, z } from "zod";
 
+/** Classifies whether a command crosses the runtime's external-effect boundary. */
+export type CapabilityEffect = "none" | "external";
+
 /** Keeps command failures machine-actionable across transports. */
 export type CapabilityCommandErrorCode =
 	| "duplicate-owner"
@@ -30,6 +33,7 @@ export interface CapabilityCommand<TInputSchema extends ZodTypeAny, TOutputSchem
 	readonly input: TInputSchema;
 	readonly output: TOutputSchema;
 	readonly permissions: readonly string[];
+	readonly effect: CapabilityEffect;
 }
 
 /** Freezes command identity before materialization checks ownership. */
@@ -39,12 +43,17 @@ export function defineCommand<TInputSchema extends ZodTypeAny, TOutputSchema ext
 	input: TInputSchema;
 	output: TOutputSchema;
 	permissions?: readonly string[];
+	effect?: CapabilityEffect;
 }): CapabilityCommand<TInputSchema, TOutputSchema> {
 	if (!definition.name.trim()) throw new Error("command name must not be empty");
 	if (!Number.isInteger(definition.version) || definition.version < 1) {
 		throw new Error("command version must be a positive integer");
 	}
-	return Object.freeze({ ...definition, permissions: Object.freeze([...(definition.permissions ?? [])]) });
+	return Object.freeze({
+		...definition,
+		permissions: Object.freeze([...(definition.permissions ?? [])]),
+		effect: definition.effect ?? "none",
+	});
 }
 
 /** Carries caller authority and lifetime across the command boundary. */
@@ -55,6 +64,7 @@ export interface CommandExecutionOptions {
 	readonly correlationId?: string;
 	readonly runId?: string;
 	readonly toolCallId?: string;
+	readonly effectProposalId?: string;
 	readonly onProgress?: (progress: Record<string, unknown>) => void;
 }
 
@@ -71,6 +81,26 @@ export interface CommandHandlerContext<TInput> {
 
 /** Keeps command execution independent from its in-process or RPC transport. */
 export type CommandHandler<TInput, TOutput> = (context: CommandHandlerContext<TInput>) => Promise<TOutput>;
+
+/** Gives policy the validated command request and caller authority. */
+export interface CapabilityExecutionRequest {
+	readonly command: AnyCapabilityCommand;
+	readonly input: unknown;
+	readonly options: CommandExecutionOptions;
+}
+
+/** Governs validated command execution without wrapping transport channels. */
+export interface CapabilityExecutionPolicy {
+	execute(request: CapabilityExecutionRequest, invoke: (input: unknown) => Promise<unknown>): Promise<unknown>;
+}
+
+/** Preserves machine-actionable policy failures across command transports. */
+export class CapabilityExecutionPolicyError extends Error {
+	constructor(readonly code: string, message: string) {
+		super(message);
+		this.name = "CapabilityExecutionPolicyError";
+	}
+}
 
 /** Erases schema generics only after contracts retain their runtime validators. */
 export type AnyCapabilityCommand = CapabilityCommand<ZodTypeAny, ZodTypeAny>;
@@ -113,6 +143,13 @@ async function awaitWithSignal<T>(operation: Promise<T>, signal: AbortSignal, de
 /** Enforces one validated owner for every command name and version. */
 export class CommandRouter {
 	private readonly registrations = new Map<string, Registration>();
+
+	constructor(private executionPolicy?: CapabilityExecutionPolicy) {}
+
+	setExecutionPolicy(policy: CapabilityExecutionPolicy): void {
+		if (this.executionPolicy) throw new Error("command execution policy is already configured");
+		this.executionPolicy = policy;
+	}
 
 	register<TInputSchema extends ZodTypeAny, TOutputSchema extends ZodTypeAny>(
 		owner: string,
@@ -207,14 +244,21 @@ export class CommandRouter {
 			reportProgress: (progress) => options.onProgress?.(progress),
 		};
 
-		let output: unknown;
-		try {
-			output = await awaitWithSignal(registration.invoke(parsedInput.data, context), signal, options.deadline);
-		} catch (error) {
-			if (error instanceof CapabilityCommandError) throw error;
-			if (signal.aborted) throw abortFailure(signal, options.deadline);
-			throw new CapabilityCommandError("handler-failed", `${key} handler failed`, { cause: error });
-		}
+		const invoke = async (candidate: unknown): Promise<unknown> => {
+			const effectiveInput = registration.command.input.safeParse(candidate);
+			if (!effectiveInput.success) throw new CapabilityCommandError("invalid-input", `${key} received invalid effective input`);
+			try {
+				return await registration.invoke(effectiveInput.data, context);
+			} catch (error) {
+				if (error instanceof CapabilityCommandError || error instanceof CapabilityExecutionPolicyError) throw error;
+				if (signal.aborted) throw abortFailure(signal, options.deadline);
+				throw new CapabilityCommandError("handler-failed", `${key} handler failed`, { cause: error });
+			}
+		};
+		const operation = this.executionPolicy
+			? this.executionPolicy.execute({ command: registration.command, input: parsedInput.data, options }, invoke)
+			: invoke(parsedInput.data);
+		const output = await awaitWithSignal(operation, signal, options.deadline);
 		const parsedOutput = registration.command.output.safeParse(output);
 		if (!parsedOutput.success) throw new CapabilityCommandError("invalid-output", `${key} returned invalid output`);
 		return parsedOutput.data;

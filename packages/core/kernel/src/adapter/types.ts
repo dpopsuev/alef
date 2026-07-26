@@ -1,5 +1,4 @@
 import type { ZodTypeAny, z } from "zod";
-import type { Budget } from "../bus/budget.js";
 import type { Bus, BusMiddleware } from "../bus/messages.js";
 import type { ToolDefinition } from "./interface.js";
 
@@ -107,6 +106,5 @@ export interface AdapterOptions {
 	ready?: () => Promise<void>;
 	onMount?: (bus: Bus) => void;
 	onUnmount?: () => void;
-	limits?: Budget;
 	middlewares?: BusMiddleware[];
 }

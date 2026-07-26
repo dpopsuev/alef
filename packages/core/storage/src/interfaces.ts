@@ -1,6 +1,7 @@
 import type { Client } from "@libsql/client";
 import type { DisplayBlock } from "@dpopsuev/alef-session/context";
 import type { SessionNameSource, SessionStore } from "@dpopsuev/alef-session/storage";
+import type { RunJournal } from "./run-journal.js";
 
 /**
  *
@@ -105,6 +106,7 @@ export interface SessionPreviewProvider {
 export interface StorageFactory {
 	daemonRegistry(): DaemonRegistry;
 	summaryStore(): SummaryStore;
+	runJournal(): RunJournal;
 	authStore(): AuthStore;
 	sessionPreview(): SessionPreviewProvider;
 	readonly sessions: SessionStoreFactory;

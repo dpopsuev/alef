@@ -23,6 +23,7 @@
     "./subagent-factory": "./src/subagent-factory.ts",
     "./build-llm": "./src/build-llm.ts",
     "./create-agent-session": "./src/create-agent-session.ts",
+    "./run-policy": "./src/run-policy.ts",
     "./otel-setup": "./src/otel-setup.ts",
     "./workflow": "./src/workflow/index.ts"
   },

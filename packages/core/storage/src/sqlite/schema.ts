@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -49,6 +49,22 @@ const DDL_STATEMENTS = [
 	`CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_spans_parent ON spans(parent_span_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_spans_session ON spans(session_id)`,
+	`CREATE TABLE IF NOT EXISTS runs (
+		id TEXT PRIMARY KEY, session_id TEXT NOT NULL, state TEXT NOT NULL,
+		sequence INTEGER NOT NULL, snapshot_json TEXT NOT NULL,
+		created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+	`CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, updated_at)`,
+	`CREATE TABLE IF NOT EXISTS run_events (
+		run_id TEXT NOT NULL REFERENCES runs(id), sequence INTEGER NOT NULL,
+		type TEXT NOT NULL, payload_json TEXT NOT NULL, correlation_id TEXT,
+		timestamp INTEGER NOT NULL, PRIMARY KEY (run_id, sequence))`,
+	`CREATE INDEX IF NOT EXISTS idx_run_events_type ON run_events(run_id, type, sequence)`,
+	`CREATE TABLE IF NOT EXISTS effect_proposals (
+		id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+		command_name TEXT NOT NULL, command_version INTEGER NOT NULL,
+		input_json TEXT NOT NULL, status TEXT NOT NULL, reviewer TEXT,
+		created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+	`CREATE INDEX IF NOT EXISTS idx_effect_proposals_run ON effect_proposals(run_id, status, updated_at)`,
 ];
 
 const MIGRATIONS: Record<number, string[]> = {
@@ -95,6 +111,24 @@ const MIGRATIONS: Record<number, string[]> = {
 	],
 	9: [`ALTER TABLE sessions ADD COLUMN tags_source TEXT`],
 	10: [`ALTER TABLE daemon DROP COLUMN token`],
+	11: [
+		`CREATE TABLE IF NOT EXISTS runs (
+			id TEXT PRIMARY KEY, session_id TEXT NOT NULL, state TEXT NOT NULL,
+			sequence INTEGER NOT NULL, snapshot_json TEXT NOT NULL,
+			created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+		`CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, updated_at)`,
+		`CREATE TABLE IF NOT EXISTS run_events (
+			run_id TEXT NOT NULL REFERENCES runs(id), sequence INTEGER NOT NULL,
+			type TEXT NOT NULL, payload_json TEXT NOT NULL, correlation_id TEXT,
+			timestamp INTEGER NOT NULL, PRIMARY KEY (run_id, sequence))`,
+		`CREATE INDEX IF NOT EXISTS idx_run_events_type ON run_events(run_id, type, sequence)`,
+		`CREATE TABLE IF NOT EXISTS effect_proposals (
+			id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+			command_name TEXT NOT NULL, command_version INTEGER NOT NULL,
+			input_json TEXT NOT NULL, status TEXT NOT NULL, reviewer TEXT,
+			created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+		`CREATE INDEX IF NOT EXISTS idx_effect_proposals_run ON effect_proposals(run_id, status, updated_at)`,
+	],
 };
 
 /**

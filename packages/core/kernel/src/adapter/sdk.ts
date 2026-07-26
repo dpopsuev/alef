@@ -52,8 +52,9 @@ export function tool<TSchema extends ZodTypeAny>(
 	name: string,
 	description: string,
 	schema: TSchema,
+	options: Pick<ToolDefinition, "effect" | "permissions" | "version" | "outputSchema"> = {},
 ): AdapterTool<TSchema> {
-	const definition: ToolDefinition & { inputSchema: TSchema } = { name, description, inputSchema: schema };
+	const definition: ToolDefinition & { inputSchema: TSchema } = { name, description, inputSchema: schema, ...options };
 	return {
 		...definition,
 		action(handle) {

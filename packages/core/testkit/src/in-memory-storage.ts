@@ -11,6 +11,7 @@ import type {
 	StorageFactory,
 	SummaryStore,
 } from "@dpopsuev/alef-storage";
+import { InMemoryRunJournal } from "@dpopsuev/alef-storage/memory/run-journal";
 import { InMemorySessionStore } from "./in-memory-session-store.js";
 
 /**
@@ -200,12 +201,14 @@ export function createInMemoryStorage(): StorageFactory {
 	const daemon = new InMemoryDaemonRegistry();
 	const summary = new InMemorySummaryStore();
 	const auth = new InMemoryAuthStore();
+	const runs = new InMemoryRunJournal();
 	const sessions = new InMemorySessionStoreFactory();
 	const preview = emptyPreview();
 
 	return {
 		daemonRegistry: () => daemon,
 		summaryStore: () => summary,
+		runJournal: () => runs,
 		authStore: () => auth,
 		sessionPreview: () => preview,
 		sessions,

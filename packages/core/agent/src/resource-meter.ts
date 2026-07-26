@@ -227,14 +227,20 @@ export function createResourceMeter(options: ResourceMeterOptions): Adapter {
 						turns++;
 						changed = true;
 					}
-					if (event.type === "llm.tool-end") {
-						const name = typeof payload.name === "string" ? payload.name : "unknown";
-						const elapsedMs = typeof payload.elapsedMs === "number" ? payload.elapsedMs : 0;
-						const ok = payload.ok !== false;
-						recordToolEnd(name, elapsedMs, ok);
-						changed = true;
-					}
 					if (changed && checkDataAccess(options.policy, accessRequest).allowed) {
+						bus.notification.publish({
+							type: "meter.snapshot",
+							payload: summary(),
+							correlationId: event.correlationId,
+						});
+					}
+				});
+				bus.event.subscribe("tool.completed", (event) => {
+					const payload = event.payload;
+					const name = typeof payload.name === "string" ? payload.name : "unknown";
+					const elapsedMs = typeof payload.elapsedMs === "number" ? payload.elapsedMs : 0;
+					recordToolEnd(name, elapsedMs, payload.ok !== false);
+					if (checkDataAccess(options.policy, accessRequest).allowed) {
 						bus.notification.publish({
 							type: "meter.snapshot",
 							payload: summary(),

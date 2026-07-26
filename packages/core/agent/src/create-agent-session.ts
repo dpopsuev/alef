@@ -19,7 +19,7 @@ import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kern
 import type { DesiredStateSpec } from "@dpopsuev/alef-kernel/reconciliation";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
-import { ToolCompleted, ToolProgressed, ToolStarted } from "@dpopsuev/alef-reasoner/events";
+import { ToolChunked, ToolCompleted, ToolProgressed, ToolStarted } from "@dpopsuev/alef-reasoner/events";
 import { connectObservers, type SignalMapper } from "./assemble.js";
 export type { SignalMapper } from "./assemble.js";
 import { buildLlm, type LlmBuildOptions } from "./build-llm.js";
@@ -206,6 +206,7 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	};
 	const eventHubUnsubscribers = [
 		eventHub.subscribe(ToolStarted, projectToolEvent),
+		eventHub.subscribe(ToolChunked, projectToolEvent),
 		eventHub.subscribe(ToolProgressed, projectToolEvent),
 		eventHub.subscribe(ToolCompleted, projectToolEvent),
 	];

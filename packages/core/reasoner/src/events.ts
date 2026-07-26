@@ -13,6 +13,14 @@ export const ToolStarted = defineEvent({
 	overflow: "reject",
 });
 
+/** Drops stale chunks because the final command result remains authoritative. */
+export const ToolChunked = defineEvent({
+	type: "tool.chunked",
+	version: 1,
+	payload: z.object({ callId: z.string(), name: z.string(), text: z.string() }),
+	overflow: "drop",
+});
+
 /** Coalesces transient progress because only the latest state is actionable. */
 export const ToolProgressed = defineEvent({
 	type: "tool.progressed",

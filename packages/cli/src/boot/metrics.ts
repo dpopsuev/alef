@@ -97,14 +97,14 @@ export function setupMetrics(bus: Bus): void {
 		}
 	});
 
-	bus.notification.subscribe("llm.tool-start", (event) => {
+	bus.event.subscribe("tool.started", (event) => {
 		const p = event.payload;
 		const name = typeof p.name === "string" ? p.name : "unknown";
 		toolCallsTotal.inc({ tool: name, status: "started" });
 		activeToolCalls.inc();
 	});
 
-	bus.notification.subscribe("llm.tool-end", (event) => {
+	bus.event.subscribe("tool.completed", (event) => {
 		const p = event.payload;
 		const name = typeof p.name === "string" ? p.name : "unknown";
 		const ok = p.ok !== false;

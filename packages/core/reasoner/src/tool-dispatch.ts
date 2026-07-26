@@ -5,7 +5,7 @@ import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
-import { ToolCompleted, ToolProgressed, ToolStarted } from "./events.js";
+import { ToolChunked, ToolCompleted, ToolProgressed, ToolStarted } from "./events.js";
 import { classifyToolError, formatToolErrorObservation } from "./tool-error-observation.js";
 
 /** Best-effort text extraction for tool-result display pills. */
@@ -450,7 +450,6 @@ interface DispatchToolsOptions {
 export async function dispatchToolCommands(
 	router: CommandRouter,
 	eventHub: EventHub | undefined,
-	signal: NotificationBus,
 	correlationId: string,
 	toolCalls: ToolCall[],
 	toCommandName: (llmName: string) => string,
@@ -468,11 +467,6 @@ export async function dispatchToolCommands(
 			options.callAbortControllers?.set(toolCall.id, controller);
 			const startedPayload = { callId: toolCall.id, name: commandName, args: toolCall.args };
 			await eventHub?.publish(ToolStarted, startedPayload, { correlationId });
-			signal.publish({
-				type: "llm.tool-start",
-				payload: startedPayload,
-				correlationId,
-			});
 			const toolDefinition = options.schemaResolver?.(commandName) ?? options.toolDefs?.get(commandName);
 			const supervision = resolveToolSupervisionPolicy(commandName, toolCall.args, timeoutMs, toolDefinition);
 			try {
@@ -485,10 +479,12 @@ export async function dispatchToolCommands(
 					onProgress: (progress) => {
 						const text = extractPartialText(progress);
 						if (text) {
-							signal.publish({
-								type: "llm.tool-chunk",
-								payload: { callId: toolCall.id, text },
-								correlationId,
+							void eventHub?.publish(
+								ToolChunked,
+								{ callId: toolCall.id, name: commandName, text },
+								{ correlationId },
+							).catch((error: unknown) => {
+								traceEvent("event-hub:publish-error", { type: ToolChunked.type, error: String(error) });
 							});
 						}
 						const progressPayload = {
@@ -500,7 +496,6 @@ export async function dispatchToolCommands(
 						void eventHub?.publish(ToolProgressed, progressPayload, { correlationId }).catch((error: unknown) => {
 							traceEvent("event-hub:publish-error", { type: ToolProgressed.type, error: String(error) });
 						});
-						signal.publish({ type: "llm.tool-progress", payload: progressPayload, correlationId });
 					},
 				});
 				if (!hasTruthyRecord(output)) throw new Error(`${commandName} returned a non-object result`);
@@ -518,7 +513,6 @@ export async function dispatchToolCommands(
 					estimatedTokens: Math.ceil(resultText.length / CHARS_PER_TOKEN),
 				};
 				await eventHub?.publish(ToolCompleted, completedPayload, { correlationId });
-				signal.publish({ type: "llm.tool-end", payload: completedPayload, correlationId });
 				return {
 					type: commandName,
 					correlationId,
@@ -541,7 +535,6 @@ export async function dispatchToolCommands(
 					displayKind: "text/plain",
 				};
 				await eventHub?.publish(ToolCompleted, completedPayload, { correlationId });
-				signal.publish({ type: "llm.tool-end", payload: completedPayload, correlationId });
 				return buildErrorSenseEvent(commandName, correlationId, toolCall.id, error, elapsedMs);
 			} finally {
 				options.callAbortControllers?.delete(toolCall.id);

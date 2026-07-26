@@ -292,7 +292,6 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				? await dispatchToolCommands(
 						effectiveOptions.commandRouter,
 						effectiveOptions.eventHub,
-						signal,
 						correlationId,
 						toolCalls,
 						toMotorName,

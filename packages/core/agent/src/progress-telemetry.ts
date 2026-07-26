@@ -88,12 +88,12 @@ export class ProgressTelemetry implements Adapter {
 			this.onTokenUsage(event);
 		});
 
-		const offToolStart = bus.notification.subscribe("llm.tool-start", (event: NotificationMessage) => {
+		const offToolStart = bus.event.subscribe("tool.started", (event: EventMessage) => {
 			if (!this.step || event.correlationId !== this.step.correlationId) return;
 			this.step.toolStartedAt = Date.now();
 		});
 
-		const offToolEnd = bus.notification.subscribe("llm.tool-end", (event: NotificationMessage) => {
+		const offToolEnd = bus.event.subscribe("tool.completed", (event: EventMessage) => {
 			if (!this.step || event.correlationId !== this.step.correlationId) return;
 			const elapsed = typeof event.payload.elapsedMs === "number" ? event.payload.elapsedMs : 0;
 			const name = typeof event.payload.name === "string" ? event.payload.name : "";

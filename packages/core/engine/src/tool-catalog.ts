@@ -377,15 +377,16 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 				tracker.promote(event.type);
 			}
 		});
-		const offStart = bus.notification.subscribe("llm.tool-start", (event) => {
+		const offStart = bus.event.subscribe("tool.started", (event) => {
 			const p = event.payload as { callId?: string; name?: string };
 			if (p.callId && p.name) {
 				inflightCalls.set(p.callId, { callId: p.callId, name: p.name, startedAt: Date.now() });
 			}
 		});
-		const offEnd = bus.notification.subscribe("llm.tool-end", (event) => {
-			const p = event.payload as { callId?: string };
+		const offEnd = bus.event.subscribe("tool.completed", (event) => {
+			const p = event.payload as { callId?: string; name?: string };
 			if (p.callId) inflightCalls.delete(p.callId);
+			if (p.name) tracker.promote(p.name);
 		});
 		cancelCall = (callId: string) => {
 			bus.notification.publish({ type: "tools.cancel-request", payload: { callId }, correlationId: "" });

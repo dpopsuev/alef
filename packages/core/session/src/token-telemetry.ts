@@ -134,14 +134,12 @@ export function createTokenTelemetry(sessionId: string): Adapter {
 			directives: [],
 			sources: [{ name: "notification-bus", kind: "memory" }],
 			onMount(bus: Bus) {
+				bus.event.subscribe("tool.started", (event) => {
+					const toolName = typeof event.payload.name === "string" ? event.payload.name : "unknown";
+					context.onToolCall(event.correlationId, toolName);
+				});
 				bus.notification.subscribe("*", async (event: NotificationMessage) => {
 					const { type, payload, correlationId } = event;
-
-					// Track tool calls for attribution
-					if (type === "llm.tool-start") {
-						const toolName = typeof payload.name === "string" ? payload.name : "unknown";
-						context.onToolCall(correlationId, toolName);
-					}
 
 					// Track turn boundaries
 					if (type === "llm.turn-start") {

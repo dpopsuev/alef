@@ -143,6 +143,7 @@ export function signalToAgentEvent(
 		case "llm.thinking":
 			return { type: "thinking", text: typeof p.text === "string" ? p.text : "" };
 		case "llm.tool-start":
+		case "tool.started":
 			return {
 				type: "tool-start",
 				callId: String(p.callId),
@@ -150,6 +151,7 @@ export function signalToAgentEvent(
 				args: isRecord(p.args) ? p.args : {},
 			};
 		case "llm.tool-end":
+		case "tool.completed":
 			return {
 				type: "tool-end",
 				callId: String(p.callId),
@@ -159,6 +161,7 @@ export function signalToAgentEvent(
 				displayKind: typeof p.displayKind === "string" ? p.displayKind : undefined,
 			};
 		case "llm.tool-chunk":
+		case "tool.chunked":
 			return { type: "tool-chunk", callId: String(p.callId), text: typeof p.text === "string" ? p.text : "" };
 		case "llm.tool-stall":
 			return {
@@ -353,7 +356,12 @@ export function connectObservers(
 				for (const obs of observers) obs({ type: "turn-complete", reply: text });
 			}
 		},
-		onEvent() {},
+		onEvent(event) {
+			const agentEvent = signalToAgentEvent(event, signalMappers, uiSignalTypes);
+			if (agentEvent) {
+				for (const obs of observers) obs(agentEvent);
+			}
+		},
 		onNotification(event) {
 			const agentEvent = signalToAgentEvent(event, signalMappers, uiSignalTypes);
 			if (agentEvent) {

@@ -29,9 +29,10 @@ describe("resource meter contract", { tags: ["unit"] }, () => {
 			correlationId: "turn-1",
 			payload: { usage: { input: 120, output: 30, cacheRead: 80 } },
 		});
-		bus.notification.publish({
-			type: "llm.tool-end",
+		bus.event.publish({
+			type: "tool.completed",
 			correlationId: "turn-1",
+			isError: false,
 			payload: { name: "fs.read", elapsedMs: 40, ok: true },
 		});
 

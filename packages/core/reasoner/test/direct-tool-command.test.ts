@@ -55,6 +55,7 @@ describe("direct tool commands", { tags: ["unit"] }, () => {
 		expect(execute).toHaveBeenCalledWith("hello");
 		expect(recorder.command.some((event) => event.type === "echo.run")).toBe(false);
 		expect(recorder.event.some((event) => event.type === "echo.run")).toBe(false);
+		expect(recorder.notification.some((event) => event.type.startsWith("llm.tool-"))).toBe(false);
 		expect(facts).toEqual(["tool.started", "tool.completed"]);
 	});
 });

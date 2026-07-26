@@ -19,6 +19,7 @@ import { createContextPipeline, type ContextPipeline } from "@dpopsuev/alef-kern
 import type { DesiredStateSpec } from "@dpopsuev/alef-kernel/reconciliation";
 import type { AgentEvent } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
+import type { RunJournal, RunPolicyDefinition } from "@dpopsuev/alef-storage/run-journal";
 import { ToolChunked, ToolCompleted, ToolProgressed, ToolStarted } from "@dpopsuev/alef-reasoner/events";
 import { connectObservers, type SignalMapper } from "./assemble.js";
 export type { SignalMapper } from "./assemble.js";
@@ -28,6 +29,7 @@ import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
 import { createDefaultDirectives, registerAdapters } from "./prompt.js";
 import { type GapSnapshot, ProgressTelemetry } from "./progress-telemetry.js";
+import { DurableRunPolicy, RunCommitted } from "./run-policy.js";
 
 /** Delays model-adapter construction until session capabilities are materialized. */
 export type AgentLlmFactory = (runtime: {
@@ -57,6 +59,9 @@ export interface CreateAgentSessionOptions {
 	commandRouter?: CommandRouter;
 	commandPermissions?: readonly string[];
 	eventHub?: EventHub;
+	runJournal?: RunJournal;
+	runPolicy?: RunPolicyDefinition;
+	sessionId?: string;
 	composeToolShell?: boolean;
 	toolDisclosure?: "full" | "progressive";
 	session?: SessionStore;
@@ -83,6 +88,7 @@ export interface AgentSessionRuntime {
 	readonly controller: AgentController;
 	readonly observers: Set<(event: AgentEvent) => void>;
 	readonly eventHub: EventHub;
+	readonly runPolicy?: DurableRunPolicy;
 	readonly systemPrompt: string;
 	dispose(): Promise<void>;
 }
@@ -145,9 +151,12 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	const runtimeAdapters = toolShell ? [...opts.adapters, toolShell] : opts.adapters;
 	const contextPipeline = opts.contextPipeline ?? createContextPipeline();
 	contextPipeline.addAdapters(runtimeAdapters);
-	const commandRouter = opts.commandRouter ?? createAdapterCommandRouter(runtimeAdapters);
 	const eventHub = opts.eventHub ?? new EventHub({ capacity: EVENT_HUB_CAPACITY, concurrency: EVENT_HUB_CONCURRENCY });
 	const ownsEventHub = opts.eventHub === undefined;
+	if (opts.runJournal && !opts.runPolicy) throw new Error("createAgentSession requires runPolicy with runJournal");
+	const durableRunPolicy = opts.runJournal ? new DurableRunPolicy(opts.runJournal, eventHub) : undefined;
+	const commandRouter = opts.commandRouter ?? createAdapterCommandRouter(runtimeAdapters, durableRunPolicy);
+	if (opts.commandRouter && durableRunPolicy) commandRouter.setExecutionPolicy(durableRunPolicy);
 	const directives = opts.systemPrompt !== undefined
 		? createLeanDirectives({ systemPrompt: opts.systemPrompt, adapters: opts.adapters, cwd: opts.cwd })
 		: opts.directives ?? (() => {
@@ -205,6 +214,22 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 		});
 	};
 	const eventHubUnsubscribers = [
+		eventHub.subscribe(RunCommitted, (event) => {
+			agent.asBus().event.publish({
+				type: event.payload.type,
+				correlationId: event.correlationId ?? event.id,
+				payload: {
+					...event.payload.event.payload,
+					sequence: event.payload.sequence,
+					state: event.payload.snapshot.state,
+					runId: event.scope.runId,
+					eventId: event.id,
+					version: event.version,
+					scope: event.scope,
+				},
+				isError: false,
+			});
+		}),
 		eventHub.subscribe(ToolStarted, projectToolEvent),
 		eventHub.subscribe(ToolChunked, projectToolEvent),
 		eventHub.subscribe(ToolProgressed, projectToolEvent),
@@ -220,7 +245,20 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 	if (toolShell) agent.load(toolShell);
 
 	const observers = new Set<(event: AgentEvent) => void>();
-	const controller = new AgentController(agent, { onReply: opts.onReply });
+	const runSessionId = opts.sessionId ?? opts.session?.id;
+	if (durableRunPolicy && !runSessionId) throw new Error("createAgentSession requires sessionId with runJournal");
+	const controller = new AgentController(agent, {
+		onReply: opts.onReply,
+		runLifecycle:
+			durableRunPolicy && runSessionId && opts.runPolicy
+				? {
+						start: (runId) => durableRunPolicy.start(runId, runSessionId, opts.runPolicy!).then(() => undefined),
+						complete: (runId) => durableRunPolicy.complete(runId).then(() => undefined),
+						fail: (runId, reason) => durableRunPolicy.fail(runId, reason).then(() => undefined),
+						cancel: (runId) => durableRunPolicy.cancel(runId).then(() => undefined),
+					}
+				: undefined,
+	});
 	connectObservers(agent, observers, opts.signalMappers, opts.uiSignalTypes);
 	for (const adapter of opts.createAdapters?.({ agent, controller, observers }) ?? []) agent.load(adapter);
 	agent.validate();
@@ -239,6 +277,7 @@ export async function createAgentSession(opts: CreateAgentSessionOptions): Promi
 		controller,
 		observers,
 		eventHub,
+		runPolicy: durableRunPolicy,
 		systemPrompt,
 		async dispose() {
 			controller.dispose();

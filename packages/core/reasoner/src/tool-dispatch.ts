@@ -475,6 +475,7 @@ export async function dispatchToolCommands(
 					deadline: Date.now() + supervision.expectedRuntimeMs,
 					permissions: options.permissions,
 					correlationId,
+					runId: correlationId,
 					toolCallId: toolCall.id,
 					onProgress: (progress) => {
 						const text = extractPartialText(progress);

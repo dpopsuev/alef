@@ -183,6 +183,15 @@ export function signalToAgentEvent(
 			return { type: "token-usage", usage: p.usage as TokensConsumed };
 		case "llm.turn-error":
 			return { type: "turn-error", message: String(p.message) };
+		case "run.waiting-human":
+			return {
+				type: "adapter-signal",
+				signalType: "run.waiting-human",
+				payload: {
+					runId: typeof p.runId === "string" ? p.runId : event.correlationId,
+					proposalId: typeof p.proposalId === "string" ? p.proposalId : "",
+				},
+			};
 		case "agent.run.inner": {
 			const innerCallId = typeof p.callId === "string" ? p.callId : undefined;
 			const innerType = typeof p.innerType === "string" ? p.innerType : undefined;

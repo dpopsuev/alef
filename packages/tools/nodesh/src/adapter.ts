@@ -30,6 +30,7 @@ import { z } from "zod";
 
 const NODESH_EVAL_TOOL = {
 	name: "nodesh.eval",
+	effect: "external" as const,
 	description:
 		"Evaluate a JavaScript expression or statement block. Returns a structured result object. " +
 		"Prefer this over shell.exec for data processing, JSON manipulation, math, and Alef API calls. " +

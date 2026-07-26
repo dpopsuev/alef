@@ -334,6 +334,12 @@ export async function createLocalSession(
 		composeToolShell: false,
 		contextPipeline,
 		commandRouter,
+		runJournal: storage.runJournal(),
+		runPolicy: {
+			budget: {},
+			externalEffects: args.yolo ? "allow" : "require-approval",
+		},
+		sessionId: store.id,
 		directives,
 		session: store,
 		modelId: model.id,
@@ -372,7 +378,7 @@ export async function createLocalSession(
 						handleSlot.current.receive(text, options);
 						return;
 					}
-					controller.receive(text, "user", undefined, options?.delivery);
+					void controller.receive(text, "user", undefined, options?.delivery);
 				},
 				subscribe: (observer: (event: AgentEvent) => void) => {
 					observers.add(observer);
@@ -421,13 +427,13 @@ export async function createLocalSession(
 			const s = (key: string): string => (typeof p[key] === "string" ? p[key] : "");
 			if (event.type === "task.completed") {
 				const label = profile ? `[${profile}] ` : "";
-				controller.receive(`${label}Background task ${taskId} completed:\n${s("reply")}`, "system");
+				void controller.receive(`${label}Background task ${taskId} completed:\n${s("reply")}`, "system");
 			}
 			if (event.type === "task.failed") {
-				controller.receive(`Background task ${taskId} failed: ${s("error") || "unknown error"}`, "system");
+				void controller.receive(`Background task ${taskId} failed: ${s("error") || "unknown error"}`, "system");
 			}
 			if (event.type === "task.cancelled") {
-				controller.receive(`Background task ${taskId} cancelled`, "system");
+				void controller.receive(`Background task ${taskId} cancelled`, "system");
 			}
 		},
 	});

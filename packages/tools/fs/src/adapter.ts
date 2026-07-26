@@ -96,6 +96,7 @@ const FS_FIND_TOOL = {
 
 const FS_PATCH_TOOL = {
 	name: "fs.patch",
+	effect: "external" as const,
 	description:
 		"Apply a multi-file patch atomically. Can add, update, move, and delete files in one call. " +
 		"Validation runs before any file is touched — if any operation fails, nothing is modified. " +
@@ -107,6 +108,7 @@ const FS_PATCH_TOOL = {
 
 const FS_WRITE_TOOL = {
 	name: "fs.write",
+	effect: "external" as const,
 	description:
 		"Write full content to a file, creating or overwriting it. For targeted in-place replacements, use fs.edit instead.",
 	inputSchema: z.object({
@@ -137,6 +139,7 @@ const editsField = z
 
 const FS_EDIT_TOOL = {
 	name: "fs.edit",
+	effect: "external" as const,
 	description:
 		"Apply exact-text replacements to a file atomically. Requires reading the file first with fs.read. " +
 		"Each oldText must be unique; overlapping edits are rejected. " +
@@ -157,6 +160,7 @@ const FS_EDIT_TOOL = {
 
 const FS_HASHLINE_EDIT_TOOL = {
 	name: "fs.hashline-edit",
+	effect: "external" as const,
 	description:
 		"Apply line-anchored edits from a hashline script (SWAP/DEL/INS.PRE/INS.POST). " +
 		"Read with fs.read(..., format='hashline') first. Optional line hashes (SWAP 2:AB12) reject stale lines. " +
@@ -194,6 +198,7 @@ function emitEditFailure(
 
 const FS_UNDO_TOOL = {
 	name: "fs.undo",
+	effect: "external" as const,
 	description: "Revert a file to its content before the last write/edit in this session.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("Path to the file to revert"),

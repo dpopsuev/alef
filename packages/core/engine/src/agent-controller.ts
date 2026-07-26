@@ -1,16 +1,26 @@
 import { randomUUID } from "node:crypto";
 import type { ImageContent, TextContent } from "@dpopsuev/alef-kernel/content";
 import type { CommandMessage } from "@dpopsuev/alef-kernel/bus";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Agent } from "./agent.js";
 
 /** Callback invoked when the agent emits a reply event. */
 export type ReplySink = (text: string, sender: string) => void;
 
-/** Options for configuring how AgentController routes messages and receives replies. */
+/** Persists Run transitions around host request/reply control. */
+export interface RunLifecycle {
+	start(runId: string): Promise<void>;
+	complete(runId: string): Promise<void>;
+	fail(runId: string, reason: string): Promise<void>;
+	cancel(runId: string): Promise<void>;
+}
+
+/** Options for configuring host callbacks and durable Run ownership. */
 export interface AgentControllerOptions {
 	onReply?: ReplySink;
 	triggerEvent?: string;
 	replyEvent?: string;
+	runLifecycle?: RunLifecycle;
 }
 
 type PendingRequest = {
@@ -19,12 +29,13 @@ type PendingRequest = {
 	timer: ReturnType<typeof setTimeout>;
 };
 
-/** Correlates request/reply pairs over the agent bus with timeout tracking. */
+/** Correlates request/reply pairs while committing their Run lifecycle. */
 export class AgentController {
 	private readonly agent: Agent;
 	private readonly triggerEvent: string;
 	private readonly onReply: ReplySink;
 	private readonly pending = new Map<string, PendingRequest>();
+	private readonly runLifecycle: RunLifecycle | undefined;
 	private readonly unsubscribe: () => void;
 	private disposed = false;
 
@@ -32,6 +43,7 @@ export class AgentController {
 		this.agent = agent;
 		this.triggerEvent = opts?.triggerEvent ?? "llm.input";
 		this.onReply = opts?.onReply ?? (() => {});
+		this.runLifecycle = opts?.runLifecycle;
 		const replyEvent = opts?.replyEvent ?? "llm.response";
 		this.unsubscribe = agent.subscribeCommand(replyEvent, (event) => this.handleReply(event));
 		agent.signal.addEventListener("abort", () => this.dispose(), { once: true });
@@ -41,13 +53,19 @@ export class AgentController {
 		if (this.disposed) return Promise.reject(new Error("AgentController: disposed"));
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
-			// lint-ignore: RAWTIMER AgentController send deadline — fires once when the agent does not reply within the caller's budget
+			// lint-ignore: RAWTIMER AgentController send deadline — fails the host wait but never approves policy.
 			const timer = setTimeout(() => {
 				this.pending.delete(correlationId);
-				reject(new Error(`AgentController.send timed out after ${timeoutMs}ms`));
+				const message = `AgentController.send timed out after ${timeoutMs}ms`;
+				void this.runLifecycle?.fail(correlationId, message);
+				reject(new Error(message));
 			}, timeoutMs);
 			this.pending.set(correlationId, { resolve, reject, timer });
-			this.receive(content, sender, correlationId);
+			void this.startAndPublish(content, sender, correlationId).catch((error: unknown) => {
+				clearTimeout(timer);
+				this.pending.delete(correlationId);
+				reject(error instanceof Error ? error : new Error(String(error)));
+			});
 		});
 	}
 
@@ -58,21 +76,8 @@ export class AgentController {
 		delivery?: "steer" | "followUp" | "nextTurn",
 	): void {
 		if (this.disposed) return;
-		const contentArray: (TextContent | ImageContent)[] =
-			typeof content === "string" ? [{ type: "text", text: content }] : content;
-
-		const text = contentArray.find((c): c is TextContent => c.type === "text")?.text ?? "";
-
-		this.agent.publishEvent({
-			type: this.triggerEvent,
-			payload: {
-				text,
-				sender,
-				content: contentArray,
-				...(delivery ? { delivery } : {}),
-			},
-			correlationId,
-			isError: false,
+		void this.startAndPublish(content, sender, correlationId, delivery).catch((error: unknown) => {
+			traceEvent("run:start-failed", { correlationId, error: error instanceof Error ? error.message : String(error) });
 		});
 	}
 
@@ -80,7 +85,7 @@ export class AgentController {
 		return {
 			send: (text: string) => {
 				const correlationId = randomUUID();
-				this.receive(text, sender, correlationId);
+				void this.receive(text, sender, correlationId);
 				return correlationId;
 			},
 		};
@@ -90,23 +95,51 @@ export class AgentController {
 		if (this.disposed) return;
 		this.disposed = true;
 		this.unsubscribe();
-		for (const [, p] of this.pending) {
-			clearTimeout(p.timer);
-			p.reject(new Error("AgentController: disposed"));
+		for (const [runId, pending] of this.pending) {
+			clearTimeout(pending.timer);
+			void this.runLifecycle?.cancel(runId);
+			pending.reject(new Error("AgentController: disposed"));
 		}
 		this.pending.clear();
+	}
+
+	private async startAndPublish(
+		content: string | (TextContent | ImageContent)[],
+		sender: string,
+		correlationId: string,
+		delivery?: "steer" | "followUp" | "nextTurn",
+	): Promise<void> {
+		await this.runLifecycle?.start(correlationId);
+		const contentArray: (TextContent | ImageContent)[] =
+			typeof content === "string" ? [{ type: "text", text: content }] : content;
+		const text = contentArray.find((part): part is TextContent => part.type === "text")?.text ?? "";
+		this.agent.publishEvent({
+			type: this.triggerEvent,
+			payload: { text, sender, content: contentArray, ...(delivery ? { delivery } : {}) },
+			correlationId,
+			isError: false,
+		});
 	}
 
 	private handleReply(event: CommandMessage): void {
 		const text = typeof event.payload.text === "string" ? event.payload.text : "";
 		const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
-		this.onReply(text, sender);
-
 		const pending = this.pending.get(event.correlationId);
-		if (pending) {
-			clearTimeout(pending.timer);
-			this.pending.delete(event.correlationId);
-			pending.resolve(text);
-		}
+		const complete = this.runLifecycle?.complete(event.correlationId) ?? Promise.resolve();
+		void complete.then(
+			() => {
+				this.onReply(text, sender);
+				if (!pending) return;
+				clearTimeout(pending.timer);
+				this.pending.delete(event.correlationId);
+				pending.resolve(text);
+			},
+			(error: unknown) => {
+				if (!pending) return;
+				clearTimeout(pending.timer);
+				this.pending.delete(event.correlationId);
+				pending.reject(error instanceof Error ? error : new Error(String(error)));
+			},
+		);
 	}
 }

@@ -56,6 +56,7 @@ export class TileDesk extends LitElement {
 		const container = this.querySelector<HTMLElement>("[data-tile-desk]");
 		if (!container) throw new Error("tile desk container missing");
 		this.dockview = new DockviewComponent(container, {
+			keyboardNavigation: true,
 			createComponent: ({ name }) => {
 				if (name === "metric-grid") return new MetricTilePanel();
 				throw new Error(`unknown tile component: ${name}`);

@@ -60,7 +60,7 @@ describe("legacy discourse_posts schema (no id column)", { tags: ["unit"] }, () 
 		clients.push(client);
 		await seedLegacyDiscourseDb(client);
 
-		const backend = await openDiscourseBackend({ client, sessionId: "sess-legacy" });
+		const backend = await openDiscourseBackend({ client, boardId: "sess-legacy" });
 		const adapter = createDiscourseAdapter({ backend, actorAddress: "@agent" });
 		const stage = adapter.contributions?.["context.stage"];
 		expect(stage).toBeTypeOf("function");

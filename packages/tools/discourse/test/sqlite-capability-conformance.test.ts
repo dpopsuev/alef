@@ -27,7 +27,7 @@ discourseConformanceSuite(async (options) => {
 	await ensureDiscourseSchema(client);
 	return {
 		service: new DiscourseService({
-			store: new SqliteCapabilityDiscourseStore(client, `session-${identifier}`, options?.eventRetention),
+			store: new SqliteCapabilityDiscourseStore(client, "acme", options?.eventRetention),
 			subscriptions: new InMemoryDiscourseSubscriptions(),
 			createId: () => `sqlite-post-${++identifier}`,
 			now: () => ++timestamp,

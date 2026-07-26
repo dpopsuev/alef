@@ -19,15 +19,15 @@ describe("discourse session-store persistence", { tags: ["unit"] }, () => {
 		const client = createClient({ url: `file:${join(directory, "session.db")}` });
 		clients.push(client);
 		const cwd = process.cwd();
-		const backend = await openDiscourseBackend({ client, sessionId: "sess-1" });
+		const backend = await openDiscourseBackend({ client, boardId: "board-1" });
 		await backend.append("forum", "thread-a", "@alice", "hello store");
 		const rows = await client.execute({
-			sql: "SELECT session_id, topic_id, thread_id, author_id, content_json FROM discourse_capability_posts WHERE session_id = ?",
-			args: ["sess-1"],
+			sql: "SELECT board_id, topic_id, thread_id, author_id, content_json FROM discourse_capability_posts WHERE board_id = ?",
+			args: ["board-1"],
 		});
 		expect(rows.rows).toHaveLength(1);
 		expect(rows.rows[0]).toMatchObject({
-			session_id: "sess-1",
+			board_id: "board-1",
 			topic_id: "forum",
 			thread_id: "thread-a",
 			author_id: "@alice",

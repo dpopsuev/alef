@@ -1,4 +1,4 @@
-import { EVENT_RETENTION_DEFAULT } from "@danypops/discourse/constants";
+import { EVENT_RETENTION_DEFAULT, PARTICIPANT_LIMIT_DEFAULT } from "@danypops/discourse/constants";
 import type {
 	DiscourseStore,
 	EventReplay,
@@ -11,14 +11,24 @@ import type {
 } from "@danypops/discourse/ports";
 import type {
 	AppendPostCommand,
+	BoardAddress,
+	BoardState,
 	DiscourseEvent,
 	DiscourseEventType,
+	ForumAddress,
+	ForumState,
 	JsonValue,
 	OpenQuestion,
 	Page,
+	Participant,
+	ParticipationMode,
 	Post,
 	ProjectionRecord,
+	ThreadAddress,
+	ThreadState,
 	ThreadSummary,
+	TopicAddress,
+	TopicState,
 	TopicSummary,
 } from "@danypops/discourse/types";
 import type { Client, Row, Transaction } from "@libsql/client";
@@ -26,7 +36,6 @@ import { z } from "zod";
 
 const persistedIdentifier = z.string().min(1);
 const referencesSchema = z.array(z.object({ kind: persistedIdentifier, id: persistedIdentifier }).strict());
-const PARTICIPANT_LIMIT = 100;
 const SQLITE_WRITE_QUEUE_MAX = 256;
 const eventSchema = z
 	.object({
@@ -40,6 +49,7 @@ const eventSchema = z
 		]),
 		sequence: z.number(),
 		timestamp: z.number(),
+		boardId: persistedIdentifier,
 		forumId: persistedIdentifier,
 		topicId: persistedIdentifier,
 		threadId: persistedIdentifier,
@@ -51,6 +61,11 @@ const eventSchema = z
 		retainedFromSequence: z.number().optional(),
 	})
 	.strict();
+const boardStateSchema = z.enum(["active", "archived"]);
+const forumStateSchema = z.enum(["open", "read-only", "archived"]);
+const topicStateSchema = z.enum(["open", "resolved", "archived"]);
+const threadStateSchema = z.enum(["open", "closed", "archived"]);
+const participationModeSchema = z.enum(["invited", "subscribed", "muted", "left"]);
 
 /** Structured question columns stored for bounded matching queries. */
 interface QuestionColumns {
@@ -86,6 +101,7 @@ function postFromRow(row: Row): Post {
 		id: requiredString(row, "id"),
 		sequence: requiredNumber(row, "sequence"),
 		operationId: requiredString(row, "operation_id"),
+		boardId: requiredString(row, "board_id"),
 		forumId: requiredString(row, "forum_id"),
 		topicId: requiredString(row, "topic_id"),
 		threadId: requiredString(row, "thread_id"),
@@ -102,6 +118,15 @@ function postFromRow(row: Row): Post {
 		...(optionalString(row, "reply_to_post_id") === undefined
 			? {}
 			: { replyToPostId: optionalString(row, "reply_to_post_id") }),
+	};
+}
+/** Decode one persisted participant. */
+function participantFromRow(row: Row): Participant {
+	return {
+		actorId: requiredString(row, "actor_id"),
+		mode: participationModeSchema.parse(requiredString(row, "mode")),
+		joinedAt: requiredNumber(row, "joined_at"),
+		updatedAt: requiredNumber(row, "updated_at"),
 	};
 }
 /** Build one bounded page from a limit-plus-one query. */
@@ -148,6 +173,7 @@ function eventsFor(
 		type: metadata.type,
 		sequence: firstSequence + index,
 		timestamp,
+		boardId: command.boardId,
 		forumId: command.forumId,
 		topicId: command.topicId,
 		threadId: command.threadId,
@@ -167,18 +193,26 @@ function closeTransaction(transaction: Transaction): void {
 	}
 }
 
-/** Durable session-scoped persistence adapter with atomic events and outbox records. */
+/**
+ * Durable board-scoped persistence adapter with atomic events and outbox records.
+ * Partitioned by the Post's own boardId, not by any process/session identity, so a
+ * conversation's data outlives the session that wrote it.
+ */
 export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 	private writeQueue: Promise<void> = Promise.resolve();
 	private pendingWrites = 0;
 
 	constructor(
 		private readonly client: Client,
-		private readonly sessionId: string,
+		private readonly boardId: string,
 		private readonly eventRetention = EVENT_RETENTION_DEFAULT,
 	) {}
 
 	append(command: AppendPostCommand, postId: string, timestamp: number): Promise<StoredAppendResult> {
+		if (command.boardId !== this.boardId)
+			return Promise.reject(
+				new Error(`board mismatch: store scoped to ${this.boardId}, command targets ${command.boardId}`),
+			);
 		if (this.pendingWrites >= SQLITE_WRITE_QUEUE_MAX)
 			return Promise.reject(new Error("discourse write queue capacity reached"));
 		this.pendingWrites += 1;
@@ -201,8 +235,8 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 		const transaction = await this.client.transaction("write");
 		try {
 			const prior = await transaction.execute({
-				sql: "SELECT * FROM discourse_capability_posts WHERE session_id = ? AND operation_id = ?",
-				args: [this.sessionId, command.operationId],
+				sql: "SELECT * FROM discourse_capability_posts WHERE board_id = ? AND operation_id = ?",
+				args: [this.boardId, command.operationId],
 			});
 			if (prior.rows[0]) {
 				if (requiredString(prior.rows[0], "command_json") !== commandJson)
@@ -210,10 +244,12 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 				await transaction.commit();
 				return { post: postFromRow(prior.rows[0]), replayed: true, events: [] };
 			}
+			const threadState = await this.threadStateIn(transaction, command);
+			if (threadState !== "open") throw new Error(`thread is ${threadState}: cannot post`);
 			if (command.replyToPostId) {
 				const parent = await transaction.execute({
-					sql: "SELECT forum_id, topic_id, thread_id FROM discourse_capability_posts WHERE session_id = ? AND id = ?",
-					args: [this.sessionId, command.replyToPostId],
+					sql: "SELECT forum_id, topic_id, thread_id FROM discourse_capability_posts WHERE board_id = ? AND id = ?",
+					args: [this.boardId, command.replyToPostId],
 				});
 				const row = parent.rows[0];
 				if (!row) throw new Error(`reply target not found: ${command.replyToPostId}`);
@@ -225,16 +261,16 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 					throw new Error("reply target must belong to the same thread");
 			}
 			const maximum = await transaction.execute({
-				sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_events WHERE session_id = ?",
-				args: [this.sessionId],
+				sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_events WHERE board_id = ?",
+				args: [this.boardId],
 			});
 			const firstSequence = requiredNumber(maximum.rows[0] ?? { value: 0 }, "value") + 1;
 			const events = eventsFor(command, postId, timestamp, firstSequence);
 			const question = questionColumns(command.content);
 			await transaction.execute({
-				sql: "INSERT INTO discourse_capability_posts (session_id, sequence, id, operation_id, command_json, forum_id, topic_id, thread_id, author_id, content_json, timestamp, correlation_id, causation_id, reply_to_post_id, references_json, question_type, response_id, target_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				sql: "INSERT INTO discourse_capability_posts (board_id, sequence, id, operation_id, command_json, forum_id, topic_id, thread_id, author_id, content_json, timestamp, correlation_id, causation_id, reply_to_post_id, references_json, question_type, response_id, target_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 				args: [
-					this.sessionId,
+					this.boardId,
 					firstSequence,
 					postId,
 					command.operationId,
@@ -256,21 +292,22 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 			});
 			for (const event of events)
 				await transaction.execute({
-					sql: "INSERT INTO discourse_capability_events (session_id, sequence, event_json) VALUES (?, ?, ?)",
-					args: [this.sessionId, event.sequence, JSON.stringify(event)],
+					sql: "INSERT INTO discourse_capability_events (board_id, sequence, event_json) VALUES (?, ?, ?)",
+					args: [this.boardId, event.sequence, JSON.stringify(event)],
 				});
 			const lastEvent = events.at(-1);
 			if (!lastEvent) throw new Error("append produced no events");
 			const retentionFloor = lastEvent.sequence - this.eventRetention;
 			await transaction.execute({
-				sql: "DELETE FROM discourse_capability_events WHERE session_id = ? AND sequence <= ?",
-				args: [this.sessionId, retentionFloor],
+				sql: "DELETE FROM discourse_capability_events WHERE board_id = ? AND sequence <= ?",
+				args: [this.boardId, retentionFloor],
 			});
 			await transaction.commit();
 			const post: Post = {
 				id: postId,
 				sequence: firstSequence,
 				operationId: command.operationId,
+				boardId: command.boardId,
 				forumId: command.forumId,
 				topicId: command.topicId,
 				threadId: command.threadId,
@@ -291,60 +328,61 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 		}
 	}
 
+	private async threadStateIn(transaction: Transaction, address: ThreadAddress): Promise<ThreadState> {
+		const result = await transaction.execute({
+			sql: "SELECT state FROM discourse_capability_thread_lifecycle WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ?",
+			args: [address.boardId, address.forumId, address.topicId, address.threadId],
+		});
+		return result.rows[0] ? threadStateSchema.parse(requiredString(result.rows[0], "state")) : "open";
+	}
+
 	async readThread(query: ReadThreadQuery): Promise<Page<Post>> {
 		const result = await this.client.execute({
-			sql: "SELECT * FROM discourse_capability_posts WHERE session_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
-			args: [
-				this.sessionId,
-				query.forumId,
-				query.topicId,
-				query.threadId,
-				query.afterSequence ?? 0,
-				query.limit + 1,
-			],
+			sql: "SELECT * FROM discourse_capability_posts WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
+			args: [this.boardId, query.forumId, query.topicId, query.threadId, query.afterSequence ?? 0, query.limit + 1],
 		});
 		return page(result.rows.map(postFromRow), query.limit, (post) => post.sequence);
 	}
 	async listTopics(query: ListTopicsQuery): Promise<Page<TopicSummary>> {
 		const result = await this.client.execute({
-			sql: "SELECT forum_id, topic_id, COUNT(DISTINCT thread_id) AS thread_count, COUNT(*) AS post_count, MAX(timestamp) AS last_activity FROM discourse_capability_posts WHERE session_id = ? AND forum_id = ? GROUP BY forum_id, topic_id ORDER BY topic_id LIMIT ?",
-			args: [this.sessionId, query.forumId, query.limit + 1],
+			sql: "SELECT forum_id, topic_id, COUNT(DISTINCT thread_id) AS thread_count, COUNT(*) AS post_count, MAX(timestamp) AS last_activity FROM discourse_capability_posts WHERE board_id = ? AND forum_id = ? GROUP BY forum_id, topic_id ORDER BY topic_id LIMIT ?",
+			args: [this.boardId, query.forumId, query.limit + 1],
 		});
-		return page(
-			result.rows.map((row) => ({
-				forumId: requiredString(row, "forum_id"),
-				topicId: requiredString(row, "topic_id"),
-				threadCount: requiredNumber(row, "thread_count"),
-				postCount: requiredNumber(row, "post_count"),
-				lastActivity: requiredNumber(row, "last_activity"),
-			})),
-			query.limit,
+		const summaries = await Promise.all(
+			result.rows.map(async (row): Promise<TopicSummary> => {
+				const topicId = requiredString(row, "topic_id");
+				return {
+					boardId: this.boardId,
+					forumId: requiredString(row, "forum_id"),
+					topicId,
+					state: await this.getTopicState({ boardId: this.boardId, forumId: query.forumId, topicId }),
+					threadCount: requiredNumber(row, "thread_count"),
+					postCount: requiredNumber(row, "post_count"),
+					lastActivity: requiredNumber(row, "last_activity"),
+				};
+			}),
 		);
+		return page(summaries, query.limit);
 	}
 	async listThreads(query: ListThreadsQuery): Promise<Page<ThreadSummary>> {
 		const result = await this.client.execute({
-			sql: "SELECT forum_id, topic_id, thread_id, COUNT(*) AS post_count, MAX(timestamp) AS last_activity FROM discourse_capability_posts WHERE session_id = ? AND forum_id = ? AND topic_id = ? GROUP BY forum_id, topic_id, thread_id ORDER BY thread_id LIMIT ?",
-			args: [this.sessionId, query.forumId, query.topicId, query.limit + 1],
+			sql: "SELECT forum_id, topic_id, thread_id, COUNT(*) AS post_count, MAX(timestamp) AS last_activity FROM discourse_capability_posts WHERE board_id = ? AND forum_id = ? AND topic_id = ? GROUP BY forum_id, topic_id, thread_id ORDER BY thread_id LIMIT ?",
+			args: [this.boardId, query.forumId, query.topicId, query.limit + 1],
 		});
 		const summaries = await Promise.all(
 			result.rows.map(async (row): Promise<ThreadSummary> => {
+				const threadId = requiredString(row, "thread_id");
+				const address = { boardId: this.boardId, forumId: query.forumId, topicId: query.topicId, threadId };
 				const participants = await this.client.execute({
-					sql: "SELECT DISTINCT author_id FROM discourse_capability_posts WHERE session_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? ORDER BY author_id LIMIT ?",
-					args: [
-						this.sessionId,
-						query.forumId,
-						query.topicId,
-						requiredString(row, "thread_id"),
-						PARTICIPANT_LIMIT + 1,
-					],
+					sql: "SELECT DISTINCT author_id FROM discourse_capability_posts WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? ORDER BY author_id LIMIT ?",
+					args: [this.boardId, query.forumId, query.topicId, threadId, PARTICIPANT_LIMIT_DEFAULT + 1],
 				});
 				return {
-					forumId: requiredString(row, "forum_id"),
-					topicId: requiredString(row, "topic_id"),
-					threadId: requiredString(row, "thread_id"),
+					...address,
+					state: await this.getThreadState(address),
 					postCount: requiredNumber(row, "post_count"),
 					participantIds: participants.rows
-						.slice(0, PARTICIPANT_LIMIT)
+						.slice(0, PARTICIPANT_LIMIT_DEFAULT)
 						.map((entry) => requiredString(entry, "author_id")),
 					lastActivity: requiredNumber(row, "last_activity"),
 				};
@@ -354,9 +392,9 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 	}
 	async findOpenQuestions(query: OpenQuestionsQuery): Promise<Page<OpenQuestion>> {
 		const result = await this.client.execute({
-			sql: "SELECT p.* FROM discourse_capability_posts p WHERE p.session_id = ? AND p.question_type = 'question' AND (? IS NULL OR p.forum_id = ?) AND (? IS NULL OR p.target_id IS NULL OR p.target_id = ?) AND NOT EXISTS (SELECT 1 FROM discourse_capability_posts a WHERE a.session_id = p.session_id AND a.question_type = 'answer' AND a.response_id = p.response_id) ORDER BY p.sequence LIMIT ?",
+			sql: "SELECT p.* FROM discourse_capability_posts p WHERE p.board_id = ? AND p.question_type = 'question' AND (? IS NULL OR p.forum_id = ?) AND (? IS NULL OR p.target_id IS NULL OR p.target_id = ?) AND NOT EXISTS (SELECT 1 FROM discourse_capability_posts a WHERE a.board_id = p.board_id AND a.question_type = 'answer' AND a.response_id = p.response_id) ORDER BY p.sequence LIMIT ?",
 			args: [
-				this.sessionId,
+				this.boardId,
 				query.forumId ?? null,
 				query.forumId ?? null,
 				query.targetId ?? null,
@@ -372,8 +410,8 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 	}
 	async replay(afterSequence: number, limit: number): Promise<EventReplay> {
 		const bounds = await this.client.execute({
-			sql: "SELECT COALESCE(MIN(sequence), 0) AS minimum, COALESCE(MAX(sequence), 0) AS maximum FROM discourse_capability_events WHERE session_id = ?",
-			args: [this.sessionId],
+			sql: "SELECT COALESCE(MIN(sequence), 0) AS minimum, COALESCE(MAX(sequence), 0) AS maximum FROM discourse_capability_events WHERE board_id = ?",
+			args: [this.boardId],
 		});
 		const retainedFromSequence = requiredNumber(bounds.rows[0] ?? { minimum: 0 }, "minimum");
 		const latestSequence = requiredNumber(bounds.rows[0] ?? { maximum: 0 }, "maximum");
@@ -381,8 +419,8 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 		const result = expired
 			? undefined
 			: await this.client.execute({
-					sql: "SELECT event_json FROM discourse_capability_events WHERE session_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
-					args: [this.sessionId, afterSequence, limit + 1],
+					sql: "SELECT event_json FROM discourse_capability_events WHERE board_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
+					args: [this.boardId, afterSequence, limit + 1],
 				});
 		const events = result?.rows.map((row) => eventSchema.parse(parsedJson(requiredString(row, "event_json")))) ?? [];
 		return {
@@ -395,18 +433,12 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 	}
 	async snapshot(query: SnapshotQuery): Promise<{ posts: Page<Post>; throughSequence: number }> {
 		const result = await this.client.execute({
-			sql: "SELECT * FROM discourse_capability_posts WHERE session_id = ? AND sequence > ? AND (? IS NULL OR forum_id = ?) ORDER BY sequence LIMIT ?",
-			args: [
-				this.sessionId,
-				query.afterSequence ?? 0,
-				query.forumId ?? null,
-				query.forumId ?? null,
-				query.limit + 1,
-			],
+			sql: "SELECT * FROM discourse_capability_posts WHERE board_id = ? AND sequence > ? AND (? IS NULL OR forum_id = ?) ORDER BY sequence LIMIT ?",
+			args: [this.boardId, query.afterSequence ?? 0, query.forumId ?? null, query.forumId ?? null, query.limit + 1],
 		});
 		const latest = await this.client.execute({
-			sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_events WHERE session_id = ?",
-			args: [this.sessionId],
+			sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_events WHERE board_id = ?",
+			args: [this.boardId],
 		});
 		return {
 			posts: page(result.rows.map(postFromRow), query.limit, (post) => post.sequence),
@@ -417,23 +449,23 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 		const latest = (await this.replay(sequence, 1)).latestSequence;
 		if (sequence > latest) throw new Error(`cannot acknowledge future sequence ${sequence}`);
 		await this.client.execute({
-			sql: "INSERT INTO discourse_capability_cursors (session_id, consumer_id, sequence) VALUES (?, ?, ?) ON CONFLICT(session_id, consumer_id) DO UPDATE SET sequence = MAX(sequence, excluded.sequence)",
-			args: [this.sessionId, consumerId, sequence],
+			sql: "INSERT INTO discourse_capability_cursors (board_id, consumer_id, sequence) VALUES (?, ?, ?) ON CONFLICT(board_id, consumer_id) DO UPDATE SET sequence = MAX(sequence, excluded.sequence)",
+			args: [this.boardId, consumerId, sequence],
 		});
 		return this.consumerCursor(consumerId);
 	}
 	async consumerCursor(consumerId: string): Promise<number> {
 		const result = await this.client.execute({
-			sql: "SELECT sequence FROM discourse_capability_cursors WHERE session_id = ? AND consumer_id = ?",
-			args: [this.sessionId, consumerId],
+			sql: "SELECT sequence FROM discourse_capability_cursors WHERE board_id = ? AND consumer_id = ?",
+			args: [this.boardId, consumerId],
 		});
 		return result.rows[0] ? requiredNumber(result.rows[0], "sequence") : 0;
 	}
 	async readProjectionOutbox(projectionId: string, limit: number): Promise<readonly ProjectionRecord[]> {
 		const checkpoint = await this.projectionCheckpoint(projectionId);
 		const result = await this.client.execute({
-			sql: "SELECT * FROM discourse_capability_posts WHERE session_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
-			args: [this.sessionId, checkpoint, limit],
+			sql: "SELECT * FROM discourse_capability_posts WHERE board_id = ? AND sequence > ? ORDER BY sequence LIMIT ?",
+			args: [this.boardId, checkpoint, limit],
 		});
 		return result.rows.map((row) => {
 			const post = postFromRow(row);
@@ -442,30 +474,120 @@ export class SqliteCapabilityDiscourseStore implements DiscourseStore {
 	}
 	async acknowledgeProjection(projectionId: string, sequence: number): Promise<void> {
 		await this.client.execute({
-			sql: "INSERT INTO discourse_capability_projection_cursors (session_id, projection_id, sequence) VALUES (?, ?, ?) ON CONFLICT(session_id, projection_id) DO UPDATE SET sequence = MAX(sequence, excluded.sequence)",
-			args: [this.sessionId, projectionId, sequence],
+			sql: "INSERT INTO discourse_capability_projection_cursors (board_id, projection_id, sequence) VALUES (?, ?, ?) ON CONFLICT(board_id, projection_id) DO UPDATE SET sequence = MAX(sequence, excluded.sequence)",
+			args: [this.boardId, projectionId, sequence],
 		});
 	}
 	async projectionCheckpoint(projectionId: string): Promise<number> {
 		const result = await this.client.execute({
-			sql: "SELECT sequence FROM discourse_capability_projection_cursors WHERE session_id = ? AND projection_id = ?",
-			args: [this.sessionId, projectionId],
+			sql: "SELECT sequence FROM discourse_capability_projection_cursors WHERE board_id = ? AND projection_id = ?",
+			args: [this.boardId, projectionId],
 		});
 		return result.rows[0] ? requiredNumber(result.rows[0], "sequence") : 0;
 	}
 	async projectionPending(projectionId: string): Promise<number> {
 		const checkpoint = await this.projectionCheckpoint(projectionId);
 		const result = await this.client.execute({
-			sql: "SELECT COUNT(*) AS value FROM discourse_capability_posts WHERE session_id = ? AND sequence > ?",
-			args: [this.sessionId, checkpoint],
+			sql: "SELECT COUNT(*) AS value FROM discourse_capability_posts WHERE board_id = ? AND sequence > ?",
+			args: [this.boardId, checkpoint],
 		});
 		return requiredNumber(result.rows[0] ?? { value: 0 }, "value");
 	}
 	async latestPostSequence(): Promise<number> {
 		const result = await this.client.execute({
-			sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_posts WHERE session_id = ?",
-			args: [this.sessionId],
+			sql: "SELECT COALESCE(MAX(sequence), 0) AS value FROM discourse_capability_posts WHERE board_id = ?",
+			args: [this.boardId],
 		});
 		return requiredNumber(result.rows[0] ?? { value: 0 }, "value");
+	}
+
+	async getBoardState(address: BoardAddress): Promise<BoardState> {
+		const result = await this.client.execute({
+			sql: "SELECT state FROM discourse_capability_board_lifecycle WHERE board_id = ?",
+			args: [address.boardId],
+		});
+		return result.rows[0] ? boardStateSchema.parse(requiredString(result.rows[0], "state")) : "active";
+	}
+	async setBoardState(address: BoardAddress, state: BoardState, timestamp: number): Promise<void> {
+		await this.client.execute({
+			sql: "INSERT INTO discourse_capability_board_lifecycle (board_id, state, updated_at) VALUES (?, ?, ?) ON CONFLICT(board_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
+			args: [address.boardId, state, timestamp],
+		});
+	}
+	async getForumState(address: ForumAddress): Promise<ForumState> {
+		const result = await this.client.execute({
+			sql: "SELECT state FROM discourse_capability_forum_lifecycle WHERE board_id = ? AND forum_id = ?",
+			args: [address.boardId, address.forumId],
+		});
+		return result.rows[0] ? forumStateSchema.parse(requiredString(result.rows[0], "state")) : "open";
+	}
+	async setForumState(address: ForumAddress, state: ForumState, timestamp: number): Promise<void> {
+		await this.client.execute({
+			sql: "INSERT INTO discourse_capability_forum_lifecycle (board_id, forum_id, state, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(board_id, forum_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
+			args: [address.boardId, address.forumId, state, timestamp],
+		});
+	}
+	async getTopicState(address: TopicAddress): Promise<TopicState> {
+		const result = await this.client.execute({
+			sql: "SELECT state FROM discourse_capability_topic_lifecycle WHERE board_id = ? AND forum_id = ? AND topic_id = ?",
+			args: [address.boardId, address.forumId, address.topicId],
+		});
+		return result.rows[0] ? topicStateSchema.parse(requiredString(result.rows[0], "state")) : "open";
+	}
+	async setTopicState(address: TopicAddress, state: TopicState, timestamp: number): Promise<void> {
+		await this.client.execute({
+			sql: "INSERT INTO discourse_capability_topic_lifecycle (board_id, forum_id, topic_id, state, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(board_id, forum_id, topic_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
+			args: [address.boardId, address.forumId, address.topicId, state, timestamp],
+		});
+	}
+	async getThreadState(address: ThreadAddress): Promise<ThreadState> {
+		const result = await this.client.execute({
+			sql: "SELECT state FROM discourse_capability_thread_lifecycle WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ?",
+			args: [address.boardId, address.forumId, address.topicId, address.threadId],
+		});
+		return result.rows[0] ? threadStateSchema.parse(requiredString(result.rows[0], "state")) : "open";
+	}
+	async setThreadState(address: ThreadAddress, state: ThreadState, timestamp: number): Promise<void> {
+		await this.client.execute({
+			sql: "INSERT INTO discourse_capability_thread_lifecycle (board_id, forum_id, topic_id, thread_id, state, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(board_id, forum_id, topic_id, thread_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
+			args: [address.boardId, address.forumId, address.topicId, address.threadId, state, timestamp],
+		});
+	}
+	async setParticipation(
+		address: ThreadAddress,
+		actorId: string,
+		mode: ParticipationMode,
+		timestamp: number,
+	): Promise<Participant> {
+		await this.client.execute({
+			sql: "INSERT INTO discourse_capability_participants (board_id, forum_id, topic_id, thread_id, actor_id, mode, joined_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(board_id, forum_id, topic_id, thread_id, actor_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at",
+			args: [
+				address.boardId,
+				address.forumId,
+				address.topicId,
+				address.threadId,
+				actorId,
+				mode,
+				timestamp,
+				timestamp,
+			],
+		});
+		const participant = await this.getParticipant(address, actorId);
+		if (!participant) throw new Error("participation write did not persist");
+		return participant;
+	}
+	async getParticipant(address: ThreadAddress, actorId: string): Promise<Participant | undefined> {
+		const result = await this.client.execute({
+			sql: "SELECT * FROM discourse_capability_participants WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? AND actor_id = ?",
+			args: [address.boardId, address.forumId, address.topicId, address.threadId, actorId],
+		});
+		return result.rows[0] ? participantFromRow(result.rows[0]) : undefined;
+	}
+	async listParticipants(address: ThreadAddress, limit: number): Promise<readonly Participant[]> {
+		const result = await this.client.execute({
+			sql: "SELECT * FROM discourse_capability_participants WHERE board_id = ? AND forum_id = ? AND topic_id = ? AND thread_id = ? ORDER BY actor_id LIMIT ?",
+			args: [address.boardId, address.forumId, address.topicId, address.threadId, limit],
+		});
+		return result.rows.map(participantFromRow);
 	}
 }

@@ -1,3 +1,5 @@
+/** Standalone board identity. */
+export const DEFAULT_BOARD_ID = "default";
 /** Standalone forum identity. */
 export const DEFAULT_FORUM_ID = "default";
 /** Standalone actor identity when a tool call omits one. */

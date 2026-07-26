@@ -12,11 +12,21 @@ import type {
 import type {
 	AppendPostCommand,
 	ArtifactReference,
+	BoardAddress,
+	BoardState,
+	ForumAddress,
+	ForumState,
 	OpenQuestion,
 	Page,
+	Participant,
+	ParticipationMode,
 	Post,
 	ProjectionRecord,
+	ThreadAddress,
+	ThreadState,
 	ThreadSummary,
+	TopicAddress,
+	TopicState,
 	TopicSummary,
 } from "@danypops/discourse/types";
 
@@ -105,6 +115,45 @@ export class PapyrusDiscourseStore implements DiscourseStore {
 
 	latestPostSequence(): Promise<number> {
 		return this.call("latest_post_sequence");
+	}
+
+	getBoardState(address: BoardAddress): Promise<BoardState> {
+		return this.call("get_board_state", { ...address });
+	}
+	setBoardState(address: BoardAddress, state: BoardState, timestamp: number): Promise<void> {
+		return this.call("set_board_state", { ...address, state, timestamp });
+	}
+	getForumState(address: ForumAddress): Promise<ForumState> {
+		return this.call("get_forum_state", { ...address });
+	}
+	setForumState(address: ForumAddress, state: ForumState, timestamp: number): Promise<void> {
+		return this.call("set_forum_state", { ...address, state, timestamp });
+	}
+	getTopicState(address: TopicAddress): Promise<TopicState> {
+		return this.call("get_topic_state", { ...address });
+	}
+	setTopicState(address: TopicAddress, state: TopicState, timestamp: number): Promise<void> {
+		return this.call("set_topic_state", { ...address, state, timestamp });
+	}
+	getThreadState(address: ThreadAddress): Promise<ThreadState> {
+		return this.call("get_thread_state", { ...address });
+	}
+	setThreadState(address: ThreadAddress, state: ThreadState, timestamp: number): Promise<void> {
+		return this.call("set_thread_state", { ...address, state, timestamp });
+	}
+	setParticipation(
+		address: ThreadAddress,
+		actorId: string,
+		mode: ParticipationMode,
+		timestamp: number,
+	): Promise<Participant> {
+		return this.call("set_participation", { ...address, actor_id: actorId, mode, timestamp });
+	}
+	getParticipant(address: ThreadAddress, actorId: string): Promise<Participant | undefined> {
+		return this.call("get_participant", { ...address, actor_id: actorId });
+	}
+	listParticipants(address: ThreadAddress, limit: number): Promise<readonly Participant[]> {
+		return this.call("list_participants", { ...address, limit });
 	}
 }
 

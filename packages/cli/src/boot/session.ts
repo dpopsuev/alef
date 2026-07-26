@@ -226,7 +226,9 @@ export async function createLocalSession(
 		(storage.database
 			? await openDiscourseBackend({
 					client: storage.database(),
-					sessionId: store.id,
+					// Board identity is workspace-derived (stable across every session run in this
+					// cwd), never the ephemeral session id — a conversation outlives the session.
+					boardId: discussion.active.forumId,
 					scribeCall: scribeCallFromEnv(),
 					logger: log,
 				})
@@ -338,6 +340,14 @@ export async function createLocalSession(
 		runPolicy: {
 			budget: {},
 			externalEffects: args.yolo ? "allow" : "require-approval",
+		},
+		// One primary Thread per session Topic today; a future multi-thread CLI surface
+		// would bind this to whichever Thread actually triggered the run instead.
+		conversationTrigger: {
+			boardId: discussion.active.forumId,
+			forumId: "sessions",
+			topicId: discussion.active.topicId,
+			threadId: discussion.active.topicId,
 		},
 		sessionId: store.id,
 		directives,

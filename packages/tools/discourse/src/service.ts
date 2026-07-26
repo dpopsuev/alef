@@ -9,11 +9,14 @@ export const service = defineAdapterService({
 	shareable: true,
 	dependsOn: ["storage"],
 	async createAdapter(opts) {
-		const sessionId = opts.sessionId ?? opts.discussion?.topicId;
+		// The Board is the durable, workspace-scoped conversation space; falling back to the
+		// process sessionId only keeps headless/no-discussion callers working, and still leaves
+		// that data isolated to its own process rather than bleeding into an unrelated board.
+		const boardId = opts.discussion?.forumId ?? opts.sessionId;
 		const ignoredThread = opts.discussion
 			? { topic: opts.discussion.forumId, thread: opts.discussion.topicId }
 			: undefined;
-		if (!sessionId) {
+		if (!boardId) {
 			return createDiscourseAdapter({
 				backend: openInMemoryDiscourseBackend({ logger: opts.logger }),
 				logger: opts.logger,
@@ -24,7 +27,7 @@ export const service = defineAdapterService({
 		const client = await getDatabase();
 		const backend = await openDiscourseBackend({
 			client,
-			sessionId,
+			boardId,
 			logger: opts.logger,
 		});
 		return createDiscourseAdapter({

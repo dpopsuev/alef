@@ -3,7 +3,13 @@ import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypop
 import { DiscourseService } from "@danypops/discourse/service";
 import type { DiscourseEvent, Post } from "@danypops/discourse/types";
 import { Type } from "typebox";
-import { DEFAULT_AUTHOR_ID, DEFAULT_FORUM_ID, NATIVE_EVENT_LIMIT, NATIVE_QUERY_LIMIT } from "./constants.js";
+import {
+	DEFAULT_AUTHOR_ID,
+	DEFAULT_BOARD_ID,
+	DEFAULT_FORUM_ID,
+	NATIVE_EVENT_LIMIT,
+	NATIVE_QUERY_LIMIT,
+} from "./constants.js";
 import type { NativeExtensionApi, NativeToolResult } from "./contracts.js";
 
 const CONSUMER_ID = "pi-adapter";
@@ -59,6 +65,7 @@ export default function registerDiscourse(pi: NativeExtensionApi): void {
 			const posted = await service.post({
 				schemaVersion: "discourse.command.v1",
 				operationId: callId,
+				boardId: DEFAULT_BOARD_ID,
 				forumId: DEFAULT_FORUM_ID,
 				topicId: stringParameter(params, "topic"),
 				threadId: stringParameter(params, "thread"),
@@ -82,6 +89,7 @@ export default function registerDiscourse(pi: NativeExtensionApi): void {
 		}),
 		async execute(_callId, params) {
 			const page = await service.readThread({
+				boardId: DEFAULT_BOARD_ID,
 				forumId: DEFAULT_FORUM_ID,
 				topicId: stringParameter(params, "topic"),
 				threadId: stringParameter(params, "thread"),
@@ -100,6 +108,7 @@ export default function registerDiscourse(pi: NativeExtensionApi): void {
 		async execute(_callId, params) {
 			if (typeof params.topic === "string") {
 				const page = await service.listThreads({
+					boardId: DEFAULT_BOARD_ID,
 					forumId: DEFAULT_FORUM_ID,
 					topicId: params.topic,
 					limit: NATIVE_QUERY_LIMIT,
@@ -110,7 +119,11 @@ export default function registerDiscourse(pi: NativeExtensionApi): void {
 					{ page },
 				);
 			}
-			const page = await service.listTopics({ forumId: DEFAULT_FORUM_ID, limit: NATIVE_QUERY_LIMIT });
+			const page = await service.listTopics({
+				boardId: DEFAULT_BOARD_ID,
+				forumId: DEFAULT_FORUM_ID,
+				limit: NATIVE_QUERY_LIMIT,
+			});
 			return result(
 				page.items.map((topic) => `${topic.topicId}/ (${topic.threadCount})`).join("\n") || "(empty forum)",
 				{ page },
@@ -130,6 +143,7 @@ export default function registerDiscourse(pi: NativeExtensionApi): void {
 				await Promise.all(
 					events.map(async (item) => {
 						const page = await service.readThread({
+							boardId: item.boardId,
 							forumId: item.forumId,
 							topicId: item.topicId,
 							threadId: item.threadId,

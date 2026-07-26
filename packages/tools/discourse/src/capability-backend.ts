@@ -6,6 +6,7 @@ import type { Post as CapabilityPost, DiscourseEvent, ProjectionStatus } from "@
 import type { DiscourseBackend } from "./backend.js";
 import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
+const DEFAULT_BOARD_ID = "default";
 const DEFAULT_FORUM_ID = "default";
 const INTERNAL_QUERY_LIMIT = 100;
 
@@ -15,6 +16,8 @@ export interface CapabilityDiscourseBackendOptions {
 	readonly subscriptions?: DiscourseSubscription;
 	readonly projections?: readonly DiscourseProjection[];
 	readonly observeProjection?: (status: ProjectionStatus) => void;
+	/** Durable conversation-space identity stamped on every command; defaults for standalone use. */
+	readonly boardId?: string;
 }
 
 /** Convert the capability DTO to the established adapter DTO. */
@@ -34,12 +37,14 @@ function legacyPost(post: CapabilityPost): Post {
 /** Thin compatibility facade over the shared forum application service. */
 export class CapabilityDiscourseBackend implements DiscourseBackend {
 	readonly capability: DiscourseService;
+	private readonly boardId: string;
 	private readonly pendingEvents: DiscourseEvent[] = [];
 	private readonly projections: readonly DiscourseProjection[];
 	private readonly observeProjection: ((status: ProjectionStatus) => void) | undefined;
 	private subscription: Promise<void> | undefined;
 
 	constructor(options: CapabilityDiscourseBackendOptions = {}) {
+		this.boardId = options.boardId ?? DEFAULT_BOARD_ID;
 		this.projections = options.projections ?? [];
 		this.observeProjection = options.observeProjection;
 		this.capability = new DiscourseService({
@@ -61,6 +66,7 @@ export class CapabilityDiscourseBackend implements DiscourseBackend {
 		const result = await this.capability.post({
 			schemaVersion: "discourse.command.v1",
 			operationId: opts.operationId ?? randomUUID(),
+			boardId: this.boardId,
 			forumId: DEFAULT_FORUM_ID,
 			topicId: topic,
 			threadId: thread,
@@ -79,6 +85,7 @@ export class CapabilityDiscourseBackend implements DiscourseBackend {
 
 	async readThread(topic: string, thread: string, since?: number): Promise<Post[]> {
 		const result = await this.capability.readThread({
+			boardId: this.boardId,
 			forumId: DEFAULT_FORUM_ID,
 			topicId: topic,
 			threadId: thread,
@@ -88,20 +95,34 @@ export class CapabilityDiscourseBackend implements DiscourseBackend {
 	}
 
 	async listTopics(): Promise<string[]> {
-		return (await this.capability.listTopics({ forumId: DEFAULT_FORUM_ID, limit: INTERNAL_QUERY_LIMIT })).items.map(
-			(topic) => topic.topicId,
-		);
+		return (
+			await this.capability.listTopics({
+				boardId: this.boardId,
+				forumId: DEFAULT_FORUM_ID,
+				limit: INTERNAL_QUERY_LIMIT,
+			})
+		).items.map((topic) => topic.topicId);
 	}
 
 	async listThreads(topic: string): Promise<string[]> {
 		return (
-			await this.capability.listThreads({ forumId: DEFAULT_FORUM_ID, topicId: topic, limit: INTERNAL_QUERY_LIMIT })
+			await this.capability.listThreads({
+				boardId: this.boardId,
+				forumId: DEFAULT_FORUM_ID,
+				topicId: topic,
+				limit: INTERNAL_QUERY_LIMIT,
+			})
 		).items.map((thread) => thread.threadId);
 	}
 
 	async threadInfo(topic: string, thread: string): Promise<ThreadInfo> {
 		const summary = (
-			await this.capability.listThreads({ forumId: DEFAULT_FORUM_ID, topicId: topic, limit: INTERNAL_QUERY_LIMIT })
+			await this.capability.listThreads({
+				boardId: this.boardId,
+				forumId: DEFAULT_FORUM_ID,
+				topicId: topic,
+				limit: INTERNAL_QUERY_LIMIT,
+			})
 		).items.find((item) => item.threadId === thread);
 		return summary
 			? {
@@ -121,7 +142,7 @@ export class CapabilityDiscourseBackend implements DiscourseBackend {
 	async readNewPosts(since: number): Promise<Post[]> {
 		if (since === 0) {
 			const snapshot = await this.capability.snapshot({ forumId: DEFAULT_FORUM_ID, limit: INTERNAL_QUERY_LIMIT });
-			return snapshot.posts.items.map(legacyPost);
+			return snapshot.posts.items.filter((post) => post.boardId === this.boardId).map(legacyPost);
 		}
 		return this.readPendingPosts();
 	}
@@ -133,6 +154,7 @@ export class CapabilityDiscourseBackend implements DiscourseBackend {
 		const posts = await Promise.all(
 			events.map(async (event) => {
 				const page = await this.capability.readThread({
+					boardId: event.boardId,
 					forumId: event.forumId,
 					topicId: event.topicId,
 					threadId: event.threadId,

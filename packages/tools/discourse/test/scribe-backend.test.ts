@@ -16,6 +16,7 @@ describe("ScribeDiscourseProjection", () => {
 				id: "post-1",
 				sequence: 7,
 				operationId: "write-1",
+				boardId: "default",
 				forumId: "default",
 				topicId: "qa",
 				threadId: "nesting",

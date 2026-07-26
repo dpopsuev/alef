@@ -7,7 +7,14 @@ import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypop
 import { DiscourseService } from "@danypops/discourse/service";
 import type { DiscourseEvent, Post } from "@danypops/discourse/types";
 import { z } from "zod";
-import { CONSUMER_ID, DEFAULT_AUTHOR_ID, DEFAULT_FORUM_ID, NATIVE_EVENT_LIMIT, NATIVE_QUERY_LIMIT } from "./constants.js";
+import {
+	CONSUMER_ID,
+	DEFAULT_AUTHOR_ID,
+	DEFAULT_BOARD_ID,
+	DEFAULT_FORUM_ID,
+	NATIVE_EVENT_LIMIT,
+	NATIVE_QUERY_LIMIT,
+} from "./constants.js";
 
 /** Adapter construction options; the forum backend is always the shared bounded in-memory store. */
 export type DiscourseAdapterOptions = BaseAdapterOptions;
@@ -75,6 +82,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 		const posted = await service.post({
 			schemaVersion: "discourse.command.v1",
 			operationId: ctx.toolCallId ?? ctx.correlationId,
+			boardId: DEFAULT_BOARD_ID,
 			forumId: DEFAULT_FORUM_ID,
 			topicId: topic,
 			threadId: thread,
@@ -94,6 +102,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 	): Promise<Record<string, unknown>> {
 		const { topic, thread, afterSequence } = ctx.payload;
 		const page = await service.readThread({
+			boardId: DEFAULT_BOARD_ID,
 			forumId: DEFAULT_FORUM_ID,
 			topicId: topic,
 			threadId: thread,
@@ -112,7 +121,12 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 	): Promise<Record<string, unknown>> {
 		const { topic } = ctx.payload;
 		if (topic !== undefined) {
-			const page = await service.listThreads({ forumId: DEFAULT_FORUM_ID, topicId: topic, limit: NATIVE_QUERY_LIMIT });
+			const page = await service.listThreads({
+				boardId: DEFAULT_BOARD_ID,
+				forumId: DEFAULT_FORUM_ID,
+				topicId: topic,
+				limit: NATIVE_QUERY_LIMIT,
+			});
 			return withDisplay(
 				{ threads: page.items, truncated: page.truncated },
 				{
@@ -123,7 +137,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 				},
 			);
 		}
-		const page = await service.listTopics({ forumId: DEFAULT_FORUM_ID, limit: NATIVE_QUERY_LIMIT });
+		const page = await service.listTopics({ boardId: DEFAULT_BOARD_ID, forumId: DEFAULT_FORUM_ID, limit: NATIVE_QUERY_LIMIT });
 		return withDisplay(
 			{ topics: page.items, truncated: page.truncated },
 			{
@@ -145,6 +159,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 				await Promise.all(
 					events.map(async (event) => {
 						const page = await service.readThread({
+							boardId: event.boardId,
 							forumId: event.forumId,
 							topicId: event.topicId,
 							threadId: event.threadId,

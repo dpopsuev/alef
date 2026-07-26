@@ -35,6 +35,7 @@ describe("Scribe outbox projection", () => {
 		const statuses: ProjectionStatus[] = [];
 		const store = new SqliteCapabilityDiscourseStore(client, "session-1");
 		const backend = new CapabilityDiscourseBackend({
+			boardId: "session-1",
 			store,
 			subscriptions: new InMemoryDiscourseSubscriptions(),
 			projections: [new ScribeDiscourseProjection(call, "mesh")],

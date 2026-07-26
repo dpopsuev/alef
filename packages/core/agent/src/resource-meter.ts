@@ -1,5 +1,16 @@
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import type {
+	Adapter,
+	DataAccessPolicy,
+	DataAccessRequest,
+	DataPrincipal,
+	DataScope,
+} from "@dpopsuev/alef-kernel/adapter";
+import {
+	checkDataAccess,
+	defineAdapter,
+	resolveAuthorizedData,
+	typedAction,
+} from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, NotificationMessage } from "@dpopsuev/alef-kernel/bus";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
@@ -60,8 +71,15 @@ export const METER_SNAPSHOT_SCHEMA = z.object({
 /** Stable resource snapshot shared by agent-side producers and presentation consumers. */
 export type MeterSnapshot = z.infer<typeof METER_SNAPSHOT_SCHEMA>;
 
-/** Create a resource meter with a versioned snapshot contract for presentation consumers. */
-export function createResourceMeter(): Adapter {
+/** Host-owned identity and scope used to authorize resource projections. */
+export interface ResourceMeterOptions {
+	policy?: DataAccessPolicy;
+	principal: DataPrincipal;
+	scope: DataScope;
+}
+
+/** Create a resource meter with a versioned, access-controlled snapshot contract. */
+export function createResourceMeter(options: ResourceMeterOptions): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
 	const cost = 0;
 	let turns = 0;
@@ -144,6 +162,13 @@ export function createResourceMeter(): Adapter {
 		};
 	}
 
+	const accessRequest: DataAccessRequest = {
+		contractId: METER_SNAPSHOT_CONTRACT_ID,
+		principal: options.principal,
+		scope: options.scope,
+	};
+	const resolveSnapshot = () => resolveAuthorizedData(options.policy, accessRequest, summary);
+
 	return defineAdapter(
 		"meter",
 		{
@@ -156,7 +181,7 @@ export function createResourceMeter(): Adapter {
 					},
 					async () => {
 						await Promise.resolve();
-						const s = summary();
+						const s = resolveSnapshot();
 						const lines = [
 							`Session: ${s.session.turns} turns, ${(s.session.elapsedMs / MS_PER_SECOND).toFixed(0)}s`,
 							`Tokens: ${s.session.tokensIn} in + ${s.session.tokensOut} out = ${s.session.tokensTotal} (cache read: ${s.session.tokensCacheRead})`,
@@ -209,7 +234,7 @@ export function createResourceMeter(): Adapter {
 						recordToolEnd(name, elapsedMs, ok);
 						changed = true;
 					}
-					if (changed) {
+					if (changed && checkDataAccess(options.policy, accessRequest).allowed) {
 						bus.notification.publish({
 							type: "meter.snapshot",
 							payload: summary(),

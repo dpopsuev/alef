@@ -1,4 +1,15 @@
 export {
+	checkDataAccess,
+	createRoleTenantDataAccessPolicy,
+	type DataAccessDecision,
+	DataAccessDeniedError,
+	type DataAccessPolicy,
+	type DataAccessRequest,
+	type DataPrincipal,
+	type DataScope,
+	resolveAuthorizedData,
+} from "./data-access.js";
+export {
 	type AccessDecision,
 	type AccessPolicy,
 	type AccessPolicyRules,

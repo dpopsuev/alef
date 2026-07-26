@@ -14,6 +14,7 @@ import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { buildBootCatalog } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { createRoleTenantDataAccessPolicy } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { AgentEvent, Session, SessionState } from "@dpopsuev/alef-session/contracts";
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
@@ -328,7 +329,13 @@ export async function createLocalSession(
 
 	for (const adapter of stack.adapters) agent.load(adapter);
 	agent.load(createTokenTelemetry(store.id));
-	agent.load(createResourceMeter());
+	agent.load(
+		createResourceMeter({
+			policy: createRoleTenantDataAccessPolicy(),
+			principal: { id: humanActor.address, tenantId: boardId, roles: ["operator"] },
+			scope: { tenantId: boardId, roles: ["operator"] },
+		}),
+	);
 
 	const handleSlot: { current?: SessionHandle } = {};
 	const sessionAdapter: Session = {

@@ -256,6 +256,22 @@ export interface AgentDefinitionSupervisorPolicyConfig {
 /**
  *
  */
+export interface AgentDefinitionBudgetInput {
+	maxToolCalls?: number;
+	maxElapsedMs?: number;
+}
+
+/**
+ *
+ */
+export interface AgentDefinitionBudgetConfig {
+	maxToolCalls?: number;
+	maxElapsedMs?: number;
+}
+
+/**
+ *
+ */
 export interface AgentDefinitionCapabilities {
 	tools: string[];
 	orchestration: boolean;
@@ -341,6 +357,12 @@ export interface AgentDefinitionSurfaceInput {
 	 * Omit or set to [] to forward all events (open broadcast).
 	 */
 	events?: string[];
+	/**
+	 * Preferred port for this surface. Only takes effect when the CLI has already
+	 * been told to serve (--serve/--daemon) without pinning its own port; the CLI
+	 * flag always wins. A blueprint alone can never turn serving on.
+	 */
+	port?: number;
 }
 
 /**
@@ -381,6 +403,7 @@ export interface AgentDefinitionInput {
 		mode?: AgentDelegationMode;
 	};
 	supervisor?: AgentDefinitionSupervisorPolicyInput;
+	budget?: AgentDefinitionBudgetInput;
 	hooks?: {
 		extensions?: string[];
 	};
@@ -414,6 +437,7 @@ export interface CompiledAgentDefinition {
 	loop?: AgentDefinitionLoopConfig;
 	delegation?: AgentDefinitionDelegationConfig;
 	supervisor?: AgentDefinitionSupervisorPolicyConfig;
+	budget?: AgentDefinitionBudgetConfig;
 	hooks: AgentDefinitionHooks;
 	dependencies?: AgentDefinitionDependenciesConfig;
 	resource?: AgentResourceConfig;

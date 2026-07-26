@@ -5,6 +5,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
+    "./artifact": "./src/artifact.ts",
     "./blueprints": "./src/blueprints.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./materializer": "./src/materializer.ts",

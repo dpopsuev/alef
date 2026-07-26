@@ -26,6 +26,7 @@ import type { DiscussionRef } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
+import { compileBlueprintArtifact, type CompiledBlueprintArtifact, type ResolvedPackageIdentity } from "./artifact.js";
 import { loadAgentDefinition } from "./blueprints.js";
 import type { CompiledAgentDefinition } from "./types.js";
 
@@ -188,6 +189,81 @@ export interface MaterializerOptions {
 export interface MaterializerResult {
 	adapters: Adapter[];
 	modelId: string | undefined;
+	/** Exact resolved package identity for every adapter entry that actually mounted. */
+	packages: ResolvedPackageIdentity[];
+	/** Fully-qualified command/tool name -> owning adapter name, read off the mounted adapters. */
+	commandOwnership: Record<string, string>;
+}
+
+/** Parse a package.json file, tolerating a missing name/version. */
+function parsePackageJson(pkgJsonPath: string): { name: string; version: string } | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json shape is read-only metadata, not trusted input
+	const raw = JSON.parse(readFileSync(pkgJsonPath, "utf8")) as { name?: string; version?: string };
+	if (typeof raw.name === "string" && typeof raw.version === "string") {
+		return { name: raw.name, version: raw.version };
+	}
+	return undefined;
+}
+
+/**
+ * Read a resolvable package's name/version off its own package.json.
+ * Falls back to the monorepo source tree (mirrors importAdapterPackage's own fallback) when
+ * pnpm's isolation hides a workspace tool package from this package's own resolve graph.
+ */
+function readPackageIdentity(pkg: string): { name: string; version: string } | undefined {
+	try {
+		const require = createRequire(import.meta.url);
+		return parsePackageJson(require.resolve(`${pkg}/package.json`));
+	} catch {
+		const monorepoEntry = resolveMonorepoToolEntry(pkg);
+		if (!monorepoEntry) return undefined;
+		try {
+			return parsePackageJson(join(dirname(dirname(monorepoEntry)), "package.json"));
+		} catch {
+			return undefined;
+		}
+	}
+}
+
+/** npm scope without the leading "@" (e.g. "dpopsuev" for "@dpopsuev/alef-tool-fs"), else "unscoped". */
+function vendorFromPackageName(name: string): string {
+	if (!name.startsWith("@")) return "unscoped";
+	const slash = name.indexOf("/");
+	return slash > 1 ? name.slice(1, slash) : "unscoped";
+}
+
+/**
+ * Resolve exactly what an adapter entry is: which package, at which version, from which
+ * vendor. Path-loaded adapters have no npm identity -- they resolve to "local".
+ */
+export function resolvePackageIdentity(
+	adapterDef: CompiledAgentDefinition["adapters"][number],
+): ResolvedPackageIdentity {
+	if (adapterDef.path) {
+		return { adapter: adapterDef.name, package: "_external", version: "local", vendor: "local" };
+	}
+	const pkg = resolveAdapterPackage(adapterDef.name);
+	const identity = readPackageIdentity(pkg);
+	if (!identity) {
+		return { adapter: adapterDef.name, package: pkg, version: "unknown", vendor: vendorFromPackageName(pkg) };
+	}
+	return {
+		adapter: adapterDef.name,
+		package: identity.name,
+		version: identity.version,
+		vendor: vendorFromPackageName(identity.name),
+	};
+}
+
+/** Fully-qualified command/tool name -> owning adapter name, read off mounted adapters. */
+function buildCommandOwnership(adapters: readonly Adapter[]): Record<string, string> {
+	const ownership: Record<string, string> = {};
+	for (const adapter of adapters) {
+		for (const tool of adapter.tools) {
+			ownership[tool.name] = adapter.name;
+		}
+	}
+	return ownership;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +496,7 @@ export async function materializeBlueprint(
 	opts: MaterializerOptions,
 ): Promise<MaterializerResult> {
 	const adapters: Adapter[] = [];
+	const packages: ResolvedPackageIdentity[] = [];
 
 	for (const adapterDef of definition.adapters) {
 		if (["ai", "symbols"].includes(adapterDef.name)) continue;
@@ -443,6 +520,7 @@ export async function materializeBlueprint(
 			for (const adapter of resolved) {
 				adapters.push(applyPermissionGate(adapter, opts.allowedTools));
 			}
+			packages.push(resolvePackageIdentity(adapterDef));
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes("does not export createAdapter")) {
@@ -454,6 +532,25 @@ export async function materializeBlueprint(
 	}
 
 	const modelId = definition.model ? `${definition.model.provider}/${definition.model.id}` : undefined;
+	const commandOwnership = buildCommandOwnership(adapters);
 
-	return { adapters, modelId };
+	return { adapters, modelId, packages, commandOwnership };
+}
+
+/**
+ * Materialize a blueprint and immediately compile its immutable runtime artifact --
+ * exact resolved package versions, vendor identity, permissions, budgets, command
+ * ownership, model, and prompt, hashed as one reproducible unit.
+ */
+export async function materializeBlueprintArtifact(
+	definition: CompiledAgentDefinition,
+	opts: MaterializerOptions,
+): Promise<{ result: MaterializerResult; artifact: CompiledBlueprintArtifact }> {
+	const result = await materializeBlueprint(definition, opts);
+	const artifact = compileBlueprintArtifact(definition, {
+		packages: result.packages,
+		commandOwnership: result.commandOwnership,
+		writableRoots: opts.writableRoots,
+	});
+	return { result, artifact };
 }

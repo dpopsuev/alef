@@ -109,6 +109,7 @@ const AgentDefinitionSchema = Type.Object({
 			Type.Object({
 				type: Type.Literal("sse"),
 				events: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+				port: Type.Optional(Type.Integer({ minimum: 1, maximum: 65_535 })),
 			}),
 		),
 	),
@@ -166,6 +167,12 @@ const AgentDefinitionSchema = Type.Object({
 			upgradePolicy: Type.Optional(
 				Type.Union([Type.Literal("rebuild_only"), Type.Literal("packages"), Type.Literal("self")]),
 			),
+		}),
+	),
+	budget: Type.Optional(
+		Type.Object({
+			maxToolCalls: Type.Optional(Type.Integer({ minimum: 1 })),
+			maxElapsedMs: Type.Optional(Type.Integer({ minimum: 1 })),
 		}),
 	),
 	hooks: Type.Optional(
@@ -424,6 +431,22 @@ function normalizeDelegationConfig(
 	};
 }
 
+/**
+ *
+ */
+function normalizeBudget(budget: AgentDefinitionSchemaType["budget"]): CompiledAgentDefinition["budget"] | undefined {
+	if (!budget) {
+		return undefined;
+	}
+	if (budget.maxToolCalls === undefined && budget.maxElapsedMs === undefined) {
+		return undefined;
+	}
+	return {
+		maxToolCalls: budget.maxToolCalls,
+		maxElapsedMs: budget.maxElapsedMs,
+	};
+}
+
 const DEFAULT_SUPERVISOR_POLICY: AgentDefinitionSupervisorPolicyConfig = {
 	heartbeatIntervalMs: 30_000,
 	heartbeatTimeoutMs: 10_000,
@@ -528,6 +551,7 @@ export function compileAgentDefinition(
 		loop: normalizeLoopConfig(input.loop),
 		delegation: normalizeDelegationConfig(input.delegation),
 		supervisor: normalizeSupervisorPolicy(input.supervisor),
+		budget: normalizeBudget(input.budget),
 		hooks: {
 			extensions: normalizeStringArray(input.hooks?.extensions),
 		},
@@ -743,6 +767,7 @@ export function mergeAgentDefinitions(
 		loop: overlay.loop ?? base.loop,
 		delegation: overlay.delegation ?? base.delegation,
 		supervisor: overlay.supervisor ?? base.supervisor,
+		budget: overlay.budget ?? base.budget,
 		hooks: {
 			extensions: overlay.hooks.extensions.length > 0 ? overlay.hooks.extensions : base.hooks.extensions,
 		},

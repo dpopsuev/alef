@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -28,7 +28,7 @@ const DDL_STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS daemon (
 		session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
 		cwd TEXT, started_at INTEGER, host TEXT DEFAULT '127.0.0.1',
-		last_heartbeat INTEGER, token TEXT)`,
+		last_heartbeat INTEGER)`,
 	`CREATE TABLE IF NOT EXISTS session_summaries (
 		session_id TEXT PRIMARY KEY REFERENCES sessions(id), model TEXT NOT NULL,
 		started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL,
@@ -94,6 +94,7 @@ const MIGRATIONS: Record<number, string[]> = {
 		`ALTER TABLE sessions ADD COLUMN search_blob TEXT`,
 	],
 	9: [`ALTER TABLE sessions ADD COLUMN tags_source TEXT`],
+	10: [`ALTER TABLE daemon DROP COLUMN token`],
 };
 
 /**

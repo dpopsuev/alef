@@ -18,7 +18,7 @@ import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpop
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { createInMemoryStorage } from "@dpopsuev/alef-testkit";
 import pino from "pino";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "@dpopsuev/alef-coding-agent";
 
@@ -27,11 +27,13 @@ import { service as agentToolService } from "@dpopsuev/alef-tool-agent";
 import { InMemoryDiscourseStore } from "@dpopsuev/alef-tool-discourse";
 import { createAgentServiceDescriptor } from "../src/boot/agent-service.js";
 import { parseArgs } from "../src/boot/args.js";
+import { readDaemonCredential } from "../src/boot/daemon-credential.js";
 import { deriveDiscussionRef } from "../src/boot/discussion.js";
 import { buildIdentityContext, createLocalSession } from "../src/boot/session.js";
 import { createSessionServiceDescriptor, type SessionService } from "../src/boot/session-service.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
+const ORIGINAL_XDG_STATE_HOME = process.env.XDG_STATE_HOME;
 
 const STUB_STORAGE: StorageFactory = createInMemoryStorage();
 const EMPTY_LOADED = {
@@ -51,6 +53,9 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 	afterEach(async () => {
 		for (const s of supervisors.splice(0)) await s.stopAll().catch(() => {});
 		for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+		if (ORIGINAL_XDG_STATE_HOME === undefined) delete process.env.XDG_STATE_HOME;
+		else process.env.XDG_STATE_HOME = ORIGINAL_XDG_STATE_HOME;
+		vi.restoreAllMocks();
 	});
 
 	function makeTmp(): string {
@@ -180,16 +185,18 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 
 	it("daemon mode registers in daemon registry", async () => {
 		const cwd = makeTmp();
+		process.env.XDG_STATE_HOME = cwd;
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 		opts.args = { ...opts.args, daemon: true, serve: 0 };
 
-		let registered = false;
+		let registeredEntry: Record<string, unknown> | undefined;
+		const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const daemonStorage: StorageFactory = {
 			...STUB_STORAGE,
 			daemonRegistry: () => ({
-				register: async () => {
-					registered = true;
+				register: async (entry) => {
+					registeredEntry = entry as unknown as Record<string, unknown>;
 				},
 				unregister: async () => {},
 				heartbeat: async () => {},
@@ -208,7 +215,13 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 
 		await supervisor.startAll({ cwd });
 
-		expect(registered).toBe(true);
+		expect(registeredEntry).toBeDefined();
+		expect(registeredEntry).not.toHaveProperty("token");
+		expect(readDaemonCredential(store.id)).toHaveLength(36);
+		expect(stderrWrite.mock.calls.flat().join(" ")).not.toContain("daemon token");
+
+		await supervisor.stopAll();
+		expect(readDaemonCredential(store.id)).toBeUndefined();
 	}, 15_000);
 
 	it("the CLI's permanent 'agent' service still starts when tools/agent's delegation service resolves first", async () => {
@@ -220,6 +233,7 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		// descriptors share the literal name "agent" in Supervisor's single flat
 		// namespace.
 		const cwd = makeTmp();
+		process.env.XDG_STATE_HOME = cwd;
 		const store = await JsonlSessionStore.create(cwd);
 		const { opts } = makeSessionOpts(cwd, store);
 		opts.args = { ...opts.args, daemon: true, serve: 0 };

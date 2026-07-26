@@ -9,7 +9,6 @@ export interface DaemonEntry {
 	sessionId: string;
 	cwd: string;
 	startedAt: number;
-	token?: string;
 }
 
 /** SSE-backed Session proxy that connects to a running daemon over HTTP. */
@@ -29,11 +28,11 @@ export class RemoteSession implements Session {
 	private _stateReady: Promise<void>;
 	private _historyReady: Promise<void>;
 
-	constructor(entry: DaemonEntry) {
+	constructor(entry: DaemonEntry, token?: string) {
 		this._sessionId = entry.sessionId;
 		this.host = entry.host;
 		this.port = entry.port;
-		this.token = entry.token;
+		this.token = token;
 		this._stateReady = this.fetchState();
 		this._historyReady = this.fetchHistory();
 		this.connectSse();

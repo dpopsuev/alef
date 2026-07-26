@@ -144,6 +144,8 @@ if (args.killDaemon !== undefined) {
 	// every other service's lifecycle), so this can no longer distinguish
 	// "signal sent" from "was already dead" — both converge on "stopped".
 	await runtime.foundry.stopService(entry.sessionId);
+	const { removeDaemonCredential } = await import("./boot/daemon-credential.js");
+	removeDaemonCredential(entry.sessionId);
 	console.log(`Stopped daemon ${entry.sessionId} (pid ${entry.pid})`);
 	await runtime.stop();
 	process.exit(0);
@@ -161,9 +163,15 @@ if (args.attach !== undefined) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);
 	}
+	const { readDaemonCredential } = await import("./boot/daemon-credential.js");
+	const token = readDaemonCredential(entry.sessionId);
+	if (!token) {
+		console.error("Daemon credential unavailable. Restart the daemon and try again.");
+		process.exit(1);
+	}
 	const { RemoteSession } = await import("./boot/remote.js");
 	const { runAgent } = await import("./boot/runner.js");
-	const remoteSession = new RemoteSession(entry);
+	const remoteSession = new RemoteSession(entry, token);
 	await remoteSession.ready();
 	loadTheme(undefined, cfg.theme?.name, cfg.theme?.colors, (await isTermDark()) ?? true, []);
 	await runAgent({

@@ -13,7 +13,6 @@ export interface DaemonEntry {
 	cwd: string;
 	startedAt: number;
 	lastHeartbeat?: number;
-	token?: string;
 }
 
 /**

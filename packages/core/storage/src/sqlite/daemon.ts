@@ -15,12 +15,12 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 
 	async register(entry: DaemonEntry): Promise<void> {
 		await this.client.execute({
-			sql: `INSERT INTO daemon (port, host, pid, session_id, cwd, started_at, last_heartbeat, token)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			sql: `INSERT INTO daemon (port, host, pid, session_id, cwd, started_at, last_heartbeat)
+				 VALUES (?, ?, ?, ?, ?, ?, ?)
 				 ON CONFLICT(session_id) DO UPDATE SET port = excluded.port, host = excluded.host,
 				   pid = excluded.pid, cwd = excluded.cwd, started_at = excluded.started_at,
-				   last_heartbeat = excluded.last_heartbeat, token = excluded.token`,
-			args: [entry.port, entry.host, entry.pid, entry.sessionId, entry.cwd, entry.startedAt, Date.now(), entry.token ?? null],
+				   last_heartbeat = excluded.last_heartbeat`,
+			args: [entry.port, entry.host, entry.pid, entry.sessionId, entry.cwd, entry.startedAt, Date.now()],
 		});
 	}
 
@@ -40,7 +40,7 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 
 	async get(sessionId: string): Promise<DaemonEntry | undefined> {
 		const result = await this.client.execute({
-			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat, token FROM daemon WHERE session_id = ?",
+			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat FROM daemon WHERE session_id = ?",
 			args: [sessionId],
 		});
 		return this.rowToEntry(result.rows[0]);
@@ -48,7 +48,7 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 
 	async list(): Promise<DaemonEntry[]> {
 		const result = await this.client.execute({
-			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat, token FROM daemon ORDER BY started_at DESC",
+			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat FROM daemon ORDER BY started_at DESC",
 			args: [],
 		});
 		return result.rows.map((row) => this.rowToEntry(row)).filter((e): e is DaemonEntry => e !== undefined);
@@ -56,7 +56,7 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 
 	async findByCwd(cwd: string): Promise<DaemonEntry | undefined> {
 		const result = await this.client.execute({
-			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat, token FROM daemon WHERE cwd = ? ORDER BY started_at DESC LIMIT 1",
+			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat FROM daemon WHERE cwd = ? ORDER BY started_at DESC LIMIT 1",
 			args: [cwd],
 		});
 		return this.rowToEntry(result.rows[0]);
@@ -64,7 +64,7 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 
 	async findLatest(): Promise<DaemonEntry | undefined> {
 		const result = await this.client.execute({
-			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat, token FROM daemon ORDER BY started_at DESC LIMIT 1",
+			sql: "SELECT port, host, pid, session_id, cwd, started_at, last_heartbeat FROM daemon ORDER BY started_at DESC LIMIT 1",
 			args: [],
 		});
 		return this.rowToEntry(result.rows[0]);
@@ -96,7 +96,6 @@ export class SqliteDaemonRegistry implements DaemonRegistry {
 			cwd: typeof row.cwd === "string" ? row.cwd : "",
 			startedAt: Number(row.started_at ?? 0),
 			lastHeartbeat: row.last_heartbeat != null ? Number(row.last_heartbeat) : undefined,
-			token: typeof row.token === "string" ? row.token : undefined,
 		};
 	}
 }

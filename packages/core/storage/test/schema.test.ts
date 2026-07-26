@@ -144,6 +144,34 @@ describe("schema", { tags: ["unit"] }, () => {
 		expect(all.rows).toHaveLength(2);
 	});
 
+	it("removes legacy daemon bearer tokens during migration", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await client.batch(
+			[
+				{ sql: "CREATE TABLE schema_version (version INTEGER NOT NULL)", args: [] },
+				{ sql: "INSERT INTO schema_version (version) VALUES (9)", args: [] },
+				{
+					sql: `CREATE TABLE daemon (
+						session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
+						cwd TEXT, started_at INTEGER, host TEXT DEFAULT '127.0.0.1',
+						last_heartbeat INTEGER, token TEXT)`,
+					args: [],
+				},
+				{
+					sql: "INSERT INTO daemon (session_id, port, pid, token) VALUES ('session-1', 3000, 123, 'secret-token')",
+					args: [],
+				},
+			],
+			"write",
+		);
+
+		await applySchema(client);
+
+		const columns = await client.execute("PRAGMA table_info(daemon)");
+		expect(columns.rows.map((column) => String(column.name))).not.toContain("token");
+	});
+
 	it("can insert and query a session + event", async () => {
 		const client = await makeClient();
 		clients.push(client);

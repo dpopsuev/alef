@@ -4,6 +4,7 @@ import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
 import type { Args } from "./args.js";
 import { type AlefConfig, resolveDaemonConfig } from "./config.js";
+import { removeDaemonCredential, writeDaemonCredential } from "./daemon-credential.js";
 import type { SessionService } from "./session-service.js";
 
 /** Options needed to create the agent supervisor service. */
@@ -28,22 +29,27 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 
 			const surface = await sessionSvc.setupSurface();
 			const listenPort = surface?.port;
-			if (opts.args.daemon && surface && listenPort !== undefined) {
+			const daemonRegistry = opts.args.daemon ? opts.storage.daemonRegistry() : undefined;
+			const daemonSessionId = sessionSvc.session.state.id;
+			if (daemonRegistry && surface && listenPort !== undefined) {
 				const token = randomUUID();
 				surface.router.setAuthToken(token);
+				writeDaemonCredential(daemonSessionId, token);
 
-				const daemonRegistry = opts.storage.daemonRegistry();
 				const addr = surface.router.address();
-				await daemonRegistry.register({
-					port: listenPort,
-					host: addr?.host ?? opts.args.host ?? "127.0.0.1",
-					pid: process.pid,
-					sessionId: sessionSvc.session.state.id,
-					cwd: opts.args.cwd,
-					startedAt: Date.now(),
-					token,
-				});
-				process.stderr.write(`[alef] daemon token: ${token}\n`);
+				try {
+					await daemonRegistry.register({
+						port: listenPort,
+						host: addr?.host ?? opts.args.host ?? "127.0.0.1",
+						pid: process.pid,
+						sessionId: daemonSessionId,
+						cwd: opts.args.cwd,
+						startedAt: Date.now(),
+					});
+				} catch (error) {
+					removeDaemonCredential(daemonSessionId);
+					throw error;
+				}
 			}
 
 			surface?.router.setReady();
@@ -61,11 +67,14 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 
 			let stopped = false;
 			return {
-				stop() {
+				async stop() {
 					stopped = true;
 					if (heartbeatTimer) clearInterval(heartbeatTimer);
 					surface?.router.setDraining();
-					return Promise.resolve();
+					if (daemonRegistry) {
+						await daemonRegistry.unregister(daemonSessionId);
+						removeDaemonCredential(daemonSessionId);
+					}
 				},
 				health: () => Promise.resolve(!stopped),
 			};

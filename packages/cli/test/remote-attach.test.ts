@@ -73,6 +73,26 @@ describe("RemoteSession ↔ RouterAdapter", { tags: ["integration"] }, () => {
 		expect((event as Extract<AgentEvent, { type: "turn-complete" }>).reply).toContain("pong");
 	}, 10_000);
 
+	it("uses the supplied daemon credential for protected commands", async () => {
+		const agent = new Agent();
+		agent.load(new ScriptedReasoner([step.reply("authenticated")]));
+
+		const harness = await createRemoteHarness({ agent });
+		harness.router.setAuthToken("secret-token");
+		cleanups.push(() => harness.dispose());
+
+		const remote = new RemoteSession(makeEntry(harness.host, harness.port), "secret-token");
+		cleanups.push(() => remote.dispose());
+		await remote.ready();
+		await new Promise((resolve) => setTimeout(resolve, 150));
+
+		const done = waitForEvent(remote, "turn-complete");
+		remote.receive("ping");
+
+		const event = await done;
+		expect((event as Extract<AgentEvent, { type: "turn-complete" }>).reply).toContain("authenticated");
+	}, 10_000);
+
 	it("GET /state returns model and context window", async () => {
 		const agent = new Agent();
 		agent.load(new ScriptedReasoner([step.reply("ok")]));

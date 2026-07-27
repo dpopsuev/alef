@@ -679,25 +679,6 @@ importers:
         specifier: ^4.1.6
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  packages/hosts/alef-discourse:
-    dependencies:
-      '@danypops/discourse':
-        specifier: workspace:*
-        version: link:../../core/discourse
-      '@dpopsuev/alef-kernel':
-        specifier: workspace:*
-        version: link:../../core/kernel
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@dpopsuev/alef-testkit':
-        specifier: workspace:*
-        version: link:../../core/testkit
-      vitest:
-        specifier: ^4.1.6
-        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
   packages/profiles/coding:
     dependencies:
       '@dpopsuev/alef-ai':

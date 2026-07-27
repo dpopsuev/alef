@@ -20,13 +20,6 @@ export {
 	type IntentOutput,
 } from "./contract.js";
 export {
-	createHitlAdapter,
-	type HitlAdapterOptions,
-	type HitlEvaluateInput,
-	type HitlEvaluateResult,
-	type OnEvaluate,
-} from "./hitl.js";
-export {
 	type EdgeDef,
 	EdgeDefSchema,
 	type StationDef,

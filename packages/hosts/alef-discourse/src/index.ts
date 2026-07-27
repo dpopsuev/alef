@@ -1,11 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { Adapter, BaseAdapterOptions, CommandHandlerCtx, ContextAssemblyHandler } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
-import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
-import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
 import { DiscourseService } from "@danypops/discourse/service";
 import type { DiscourseEvent, Post } from "@danypops/discourse/types";
+import type {
+	Adapter,
+	BaseAdapterOptions,
+	CommandHandlerCtx,
+	ContextAssemblyHandler,
+} from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import {
 	CONSUMER_ID,
@@ -137,7 +142,11 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions = {}): Adap
 				},
 			);
 		}
-		const page = await service.listTopics({ boardId: DEFAULT_BOARD_ID, forumId: DEFAULT_FORUM_ID, limit: NATIVE_QUERY_LIMIT });
+		const page = await service.listTopics({
+			boardId: DEFAULT_BOARD_ID,
+			forumId: DEFAULT_FORUM_ID,
+			limit: NATIVE_QUERY_LIMIT,
+		});
 		return withDisplay(
 			{ topics: page.items, truncated: page.truncated },
 			{

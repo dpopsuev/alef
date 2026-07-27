@@ -17,7 +17,7 @@ describe("alef-discourse adapter structure", () => {
 		expect(adapter.directives?.length).toBeGreaterThan(0);
 	});
 
-	it("declares an in-memory, process-local source, matching the pi-discourse default composition", () => {
+	it("declares an in-memory, process-local source", () => {
 		const adapter = createDiscourseAdapter();
 		expect(adapter.sources).toEqual([{ name: "in-memory", kind: "process" }]);
 	});

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DiscourseService } from "../src/service.js";
-import type { AppendPostCommand, SubscriptionBatch } from "../src/types.js";
+import type { DiscourseService } from "../../src/domain/service.js";
+import type { AppendPostCommand, SubscriptionBatch } from "../../src/domain/types.js";
 
 export type DiscourseConformanceService = Pick<
 	DiscourseService,

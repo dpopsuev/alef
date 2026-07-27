@@ -1,13 +1,13 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discourseConformanceSuite } from "@danypops/discourse/conformance";
-import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
-import { DiscourseService } from "@danypops/discourse/service";
 import { createClient } from "@libsql/client";
 import { afterAll } from "vitest";
+import { InMemoryDiscourseSubscriptions } from "../src/domain/memory-store.js";
+import { DiscourseService } from "../src/domain/service.js";
 import { ensureDiscourseSchema } from "../src/ensure-schema.js";
 import { SqliteCapabilityDiscourseStore } from "../src/sqlite-capability-store.js";
+import { discourseConformanceSuite } from "./domain/conformance.js";
 
 const clients: Array<ReturnType<typeof createClient>> = [];
 const directories: string[] = [];

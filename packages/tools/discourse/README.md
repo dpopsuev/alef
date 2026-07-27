@@ -1,6 +1,8 @@
 # Alef Discourse adapter
 
-This adapter maps Alef commands and a direct `context.stage` contribution onto the shared Discourse application service.
+This adapter maps Alef commands and a direct `context.stage` contribution onto the Discourse application service.
+
+`src/domain/` is the Board/Forum/Topic/Thread/Post capability itself -- types, `DiscourseStore` port, `DiscourseService`, and an in-memory reference implementation. It has no Alef-specific import (no kernel, no adapter framework) and is the boundary that would move first if Discourse ever gets a second real consumer beyond this adapter. Everything else in `src/` is Alef-specific wiring: the adapter, SQLite/Papyrus/Scribe store backends, and command handlers.
 
 | Alef surface | Capability operation |
 |---|---|

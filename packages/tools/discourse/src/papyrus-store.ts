@@ -8,7 +8,7 @@ import type {
 	ReadThreadQuery,
 	SnapshotQuery,
 	StoredAppendResult,
-} from "@danypops/discourse/ports";
+} from "./domain/ports.js";
 import type {
 	AppendPostCommand,
 	ArtifactReference,
@@ -28,7 +28,7 @@ import type {
 	TopicAddress,
 	TopicState,
 	TopicSummary,
-} from "@danypops/discourse/types";
+} from "./domain/types.js";
 
 /** Authenticated operation boundary exposed by the durable Context Mesh service. */
 export interface PapyrusOperationCall {

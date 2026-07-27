@@ -1,4 +1,6 @@
-import { EVENT_RETENTION_DEFAULT, PARTICIPANT_LIMIT_DEFAULT } from "@danypops/discourse/constants";
+import type { Client, Row, Transaction } from "@libsql/client";
+import { z } from "zod";
+import { EVENT_RETENTION_DEFAULT, PARTICIPANT_LIMIT_DEFAULT } from "./domain/constants.js";
 import type {
 	DiscourseStore,
 	EventReplay,
@@ -8,7 +10,7 @@ import type {
 	ReadThreadQuery,
 	SnapshotQuery,
 	StoredAppendResult,
-} from "@danypops/discourse/ports";
+} from "./domain/ports.js";
 import type {
 	AppendPostCommand,
 	BoardAddress,
@@ -30,9 +32,7 @@ import type {
 	TopicAddress,
 	TopicState,
 	TopicSummary,
-} from "@danypops/discourse/types";
-import type { Client, Row, Transaction } from "@libsql/client";
-import { z } from "zod";
+} from "./domain/types.js";
 
 const persistedIdentifier = z.string().min(1);
 const referencesSchema = z.array(z.object({ kind: persistedIdentifier, id: persistedIdentifier }).strict());

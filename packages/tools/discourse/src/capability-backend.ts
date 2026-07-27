@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
-import type { DiscourseProjection, DiscourseStore, DiscourseSubscription } from "@danypops/discourse/ports";
-import { DiscourseService } from "@danypops/discourse/service";
-import type { Post as CapabilityPost, DiscourseEvent, ProjectionStatus } from "@danypops/discourse/types";
 import type { DiscourseBackend } from "./backend.js";
+import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "./domain/memory-store.js";
+import type { DiscourseProjection, DiscourseStore, DiscourseSubscription } from "./domain/ports.js";
+import { DiscourseService } from "./domain/service.js";
+import type { Post as CapabilityPost, DiscourseEvent, ProjectionStatus } from "./domain/types.js";
 import type { Post, PostWriteOptions, ThreadInfo, TopicSummary } from "./types.js";
 
 const DEFAULT_BOARD_ID = "default";

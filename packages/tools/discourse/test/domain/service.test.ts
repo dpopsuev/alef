@@ -1,5 +1,5 @@
-import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "../src/memory-store.js";
-import { DiscourseService } from "../src/service.js";
+import { InMemoryDiscourseStore, InMemoryDiscourseSubscriptions } from "../../src/domain/memory-store.js";
+import { DiscourseService } from "../../src/domain/service.js";
 import { discourseConformanceSuite } from "./conformance.js";
 
 let identifier = 0;

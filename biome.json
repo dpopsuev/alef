@@ -27,8 +27,6 @@
 		"includes": [
 			"packages/*/src/**/*.ts",
 			"packages/*/test/**/*.ts",
-			"packages/core/discourse/src/**/*.ts",
-			"packages/core/discourse/test/**/*.ts",
 			"packages/tools/discourse/src/**/*.ts",
 			"packages/tools/discourse/test/**/*.ts",
 			"packages/coding-agent/examples/**/*.ts",
@@ -58,7 +56,6 @@
 				}
 			},
 			"includes": [
-				"packages/core/discourse/src/**/*.ts",
 				"packages/tools/discourse/src/**/*.ts",
 				"packages/kernel/src/**/*.ts",
 				"packages/runtime/src/**/*.ts",

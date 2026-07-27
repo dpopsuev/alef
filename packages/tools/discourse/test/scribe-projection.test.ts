@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
-import type { ProjectionStatus } from "@danypops/discourse/types";
 import { createClient } from "@libsql/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CapabilityDiscourseBackend } from "../src/capability-backend.js";
+import { InMemoryDiscourseSubscriptions } from "../src/domain/memory-store.js";
+import type { ProjectionStatus } from "../src/domain/types.js";
 import { ensureDiscourseSchema } from "../src/ensure-schema.js";
 import { ScribeDiscourseProjection } from "../src/scribe-projection.js";
 import { SqliteCapabilityDiscourseStore } from "../src/sqlite-capability-store.js";

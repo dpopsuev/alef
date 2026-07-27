@@ -1,9 +1,9 @@
-import { InMemoryDiscourseSubscriptions } from "@danypops/discourse/memory-store";
-import type { DiscourseProjection } from "@danypops/discourse/ports";
-import type { ProjectionStatus } from "@danypops/discourse/types";
 import type { AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import type { Client } from "@libsql/client";
 import { CapabilityDiscourseBackend } from "./capability-backend.js";
+import { InMemoryDiscourseSubscriptions } from "./domain/memory-store.js";
+import type { DiscourseProjection } from "./domain/ports.js";
+import type { ProjectionStatus } from "./domain/types.js";
 import { ensureDiscourseSchema } from "./ensure-schema.js";
 import { scribeCallFromEnv } from "./http-scribe-call.js";
 import { type ScribeArtifactCall, ScribeDiscourseProjection } from "./scribe-projection.js";

@@ -1,17 +1,15 @@
-import { LectorGitPort } from "@danypops/alef-lector";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { GitStatusSummary, WorkspaceGitPort } from "@dpopsuev/alef-workspace/git-port";
 import { z } from "zod";
+import { SimpleGitPort } from "./simple-git-port.js";
 
-/**
- *
- */
+/** Options for the git adapter's working-tree tools. */
 export interface GitAdapterOptions {
 	cwd: string;
 	actions?: readonly string[];
-	/** Overrides the default real Lector-backed port -- tests inject a fake without a live daemon. */
+	/** Overrides the default real simple-git-backed port -- tests inject a fake without touching a real repo. */
 	gitPort?: WorkspaceGitPort;
 }
 
@@ -40,7 +38,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 		{
 			command: {
 				"git.status": typedAction(GIT_STATUS, async () => {
-					const gitPort = opts.gitPort ?? new LectorGitPort(opts.cwd);
+					const gitPort = opts.gitPort ?? new SimpleGitPort(opts.cwd);
 					const status = await gitPort.status();
 					const output = formatStatusShort(status);
 					return withDisplay({ output }, { text: output || "(clean)", mimeType: "text/plain" });
@@ -61,9 +59,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 	);
 }
 
-/**
- *
- */
+/** Constructs the git adapter for the blueprint materializer's adapter-by-name lookup. */
 export function createAdapter(opts: { cwd: string; actions?: string[] }): Adapter {
 	return createGitAdapter({
 		cwd: opts.cwd,

@@ -14,9 +14,9 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@danypops/alef-lector": "file:/home/dpopsuev/Projects/lector/packages/alef-lector",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-workspace": "workspace:*",
+    "simple-git": "^3.36.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

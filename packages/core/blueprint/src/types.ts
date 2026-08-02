@@ -55,6 +55,31 @@ export interface AgentModelSelector {
  */
 export type AgentAdapterName = string;
 
+/** A Workspace-local Vehicle binding name, resolved by the host at materialization. */
+export type VehicleName = string & { readonly __brand: "VehicleName" };
+
+/** The only constructor for a compiled Vehicle binding name. */
+export function vehicleName(value: string): VehicleName {
+	const normalized = value.trim();
+	if (!normalized) throw new Error("Vehicle name must not be empty");
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- This constructor is the VehicleName branding boundary.
+	return normalized as VehicleName;
+}
+
+/** Static Vehicle selection and Workspace grants; connection and credentials stay host-owned. */
+export interface AgentDefinitionVehicleInput {
+	name: string;
+	maxOperations: number;
+	permissions?: string[];
+}
+
+/** Compiled bounded Vehicle declaration passed to the host resolver. */
+export interface CompiledAgentVehicleDefinition {
+	name: VehicleName;
+	maxOperations: number;
+	permissions: string[];
+}
+
 /**
  *
  */
@@ -373,6 +398,7 @@ export interface AgentDefinitionInput {
 	model?: string | AgentModelSelector;
 	systemPrompt?: string;
 	adapters?: AgentDefinitionAdapterInput[];
+	vehicles?: AgentDefinitionVehicleInput[];
 	/** Event surface declarations — controls what the RouterAdapter broadcasts. */
 	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {
@@ -429,6 +455,7 @@ export interface CompiledAgentDefinition {
 	model?: AgentModelSelector;
 	systemPrompt?: string;
 	adapters: CompiledAgentAdapterDefinition[];
+	vehicles: CompiledAgentVehicleDefinition[];
 	/** Compiled surface declarations. Empty array = broadcast all events. */
 	surfaces: AgentDefinitionSurfaceInput[];
 	capabilities: AgentDefinitionCapabilities;

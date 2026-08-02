@@ -61,6 +61,16 @@ const ConfigSchema = z.object({
 		})
 		.optional(),
 
+	vehicles: z
+		.record(
+			z.string().min(1),
+			z.object({
+				base_url: z.url(),
+				token_env: z.string().min(1),
+			}),
+		)
+		.optional(),
+
 	/**
 	 * Filesystem security — OCAP grants injected into adapters via DI.
 	 *

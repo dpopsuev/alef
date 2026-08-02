@@ -424,6 +424,25 @@ describe("shipped bootstrap blueprints", { tags: ["unit"] }, () => {
 	});
 });
 
+describe("vehicles", { tags: ["unit"] }, () => {
+	it("parses bounded Workspace Vehicle declarations", () => {
+		const def = parseAgentDefinitionYaml(`
+name: test-agent
+vehicles:
+  - name: tasks
+    maxOperations: 100
+    permissions: [tasks:read, tasks:write]
+`);
+		expect(def.vehicles).toEqual([
+			{ name: "tasks", maxOperations: 100, permissions: ["tasks:read", "tasks:write"] },
+		]);
+	});
+
+	it("rejects an unbounded Vehicle declaration", () => {
+		expect(() => parseAgentDefinitionYaml("name: test-agent\nvehicles:\n  - name: tasks\n")).toThrow();
+	});
+});
+
 describe("surfaces", { tags: ["unit"] }, () => {
 	it("parses surfaces from YAML", () => {
 		const def = parseAgentDefinitionYaml(`
@@ -446,6 +465,14 @@ surfaces:
 });
 
 describe("mergeAgentDefinitions", { tags: ["unit"] }, () => {
+	it("overlay Vehicles replace base Vehicles when non-empty", () => {
+		const base = parseAgentDefinitionYaml("name: base\nvehicles:\n  - name: tasks\n    maxOperations: 10\n");
+		const overlay = parseAgentDefinitionYaml("name: base\nvehicles:\n  - name: docs\n    maxOperations: 20\n");
+		expect(mergeAgentDefinitions(base, overlay).vehicles).toEqual([
+			{ name: "docs", maxOperations: 20, permissions: [] },
+		]);
+	});
+
 	it("overlay surfaces replace base surfaces when non-empty", () => {
 		const base = parseAgentDefinitionYaml(`
 name: base

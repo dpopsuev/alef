@@ -16,13 +16,16 @@ export type CapabilityCommandErrorCode =
 
 /** Preserves a stable failure code without leaking handler exceptions. */
 export class CapabilityCommandError extends Error {
+	readonly details: unknown;
+
 	constructor(
 		readonly code: CapabilityCommandErrorCode,
 		message: string,
-		options?: { cause?: unknown },
+		options?: { cause?: unknown; details?: unknown },
 	) {
 		super(message, options);
 		this.name = "CapabilityCommandError";
+		this.details = options?.details;
 	}
 }
 

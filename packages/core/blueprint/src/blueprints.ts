@@ -14,6 +14,7 @@ import type {
 	CompiledAgentDefinition,
 	ResolvedAgentDefinitionChild,
 } from "./types.js";
+import { vehicleName } from "./types.js";
 
 export const AGENT_RESOURCE_API_VERSION = "alef.dpopsuev.io/v1alpha1";
 export const AGENT_RESOURCE_KIND = "AgentRuntime";
@@ -88,6 +89,12 @@ const AgentDefinitionAdapterSchema = Type.Object({
 	),
 });
 
+const AgentDefinitionVehicleSchema = Type.Object({
+	name: Type.String({ minLength: 1 }),
+	maxOperations: Type.Integer({ minimum: 1 }),
+	permissions: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+});
+
 const AgentDefinitionPackageSourceSchema = Type.Union([
 	Type.String({ minLength: 1 }),
 	Type.Object({
@@ -104,6 +111,7 @@ const AgentDefinitionSchema = Type.Object({
 	model: Type.Optional(Type.Union([Type.String({ minLength: 1 }), AgentModelSchema])),
 	systemPrompt: Type.Optional(Type.String()),
 	adapters: Type.Optional(Type.Array(AgentDefinitionAdapterSchema)),
+	vehicles: Type.Optional(Type.Array(AgentDefinitionVehicleSchema)),
 	surfaces: Type.Optional(
 		Type.Array(
 			Type.Object({
@@ -484,9 +492,24 @@ function normalizeSupervisorPolicy(
 	};
 }
 
-/**
- *
- */
+/** Compiles unique, bounded Workspace Vehicle declarations. */
+function compileVehicleDefinitions(
+	vehicles: AgentDefinitionInput["vehicles"],
+): CompiledAgentDefinition["vehicles"] {
+	const names = new Set<string>();
+	return (vehicles ?? []).map((vehicle) => {
+		const name = vehicle.name.trim();
+		if (names.has(name)) throw new Error(`Duplicate Vehicle declaration: ${name}`);
+		names.add(name);
+		return {
+			name: vehicleName(name),
+			maxOperations: vehicle.maxOperations,
+			permissions: normalizeStringArray(vehicle.permissions),
+		};
+	});
+}
+
+/** Keeps the orchestration capability and its adapter declaration aligned. */
 function validateOrchestrationConsistency(
 	hasAdapter: boolean,
 	orchestrationFlag: boolean | undefined,
@@ -537,6 +560,7 @@ export function compileAgentDefinition(
 		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must collapse to undefined
 		systemPrompt: input.systemPrompt?.trim() || undefined,
 		adapters: adapters,
+		vehicles: compileVehicleDefinitions(input.vehicles),
 		capabilities: {
 			tools: toolNames,
 			orchestration: input.capabilities?.orchestration ?? false,
@@ -746,6 +770,7 @@ export function mergeAgentDefinitions(
 		// Adapters: merge by name. Overlay adapter config wins per-adapter field.
 		// Base adapters not in overlay are kept. Overlay adapters not in base are added.
 		adapters: mergeAdapterLists(base.adapters, overlay.adapters),
+		vehicles: overlay.vehicles.length > 0 ? overlay.vehicles : base.vehicles,
 		surfaces: overlay.surfaces.length > 0 ? overlay.surfaces : base.surfaces,
 		children: overlay.children.length > 0 ? overlay.children : base.children,
 

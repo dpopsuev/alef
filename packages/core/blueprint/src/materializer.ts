@@ -28,7 +28,7 @@ import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
 import { compileBlueprintArtifact, type CompiledBlueprintArtifact, type ResolvedPackageIdentity } from "./artifact.js";
 import { loadAgentDefinition } from "./blueprints.js";
-import type { CompiledAgentDefinition } from "./types.js";
+import type { CompiledAgentDefinition, CompiledAgentVehicleDefinition } from "./types.js";
 
 /**
  * Short alias → npm package for adapters shipped with Alef.
@@ -181,6 +181,11 @@ export interface MaterializerOptions {
 	 * through to createAdapter().
 	 */
 	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
+	/** Resolve a Workspace Vehicle binding without putting connection or credential state in the Blueprint. */
+	resolveVehicle?: (
+		vehicle: CompiledAgentVehicleDefinition,
+		opts: AdapterFactoryOptions,
+	) => Promise<readonly Adapter[]>;
 }
 
 /**
@@ -497,6 +502,25 @@ export async function materializeBlueprint(
 ): Promise<MaterializerResult> {
 	const adapters: Adapter[] = [];
 	const packages: ResolvedPackageIdentity[] = [];
+
+	const resolveVehicle = opts.resolveVehicle;
+	if (!resolveVehicle && definition.vehicles.length > 0) {
+		throw new Error("Vehicle resolver is required when the Blueprint declares Vehicles");
+	}
+	if (resolveVehicle) {
+		for (const vehicle of definition.vehicles) {
+			const resolved = await resolveVehicle(vehicle, {
+				cwd: opts.cwd,
+				sessionDir: opts.sessionDir,
+				actorAddress: opts.actorAddress,
+				discussion: opts.discussion,
+				sessionId: opts.sessionId ?? opts.discussion?.topicId,
+				logger: opts.loggerFor?.(`vehicle:${vehicle.name}`),
+				writableRoots: opts.writableRoots,
+			});
+			for (const adapter of resolved) adapters.push(applyPermissionGate(adapter, opts.allowedTools));
+		}
+	}
 
 	for (const adapterDef of definition.adapters) {
 		if (["ai", "symbols"].includes(adapterDef.name)) continue;

@@ -28,6 +28,7 @@ function toMaterializerOptions(
 		loggerFor: overrides?.loggerFor ?? base.loggerFor,
 		allowedTools: overrides?.allowedTools ?? base.allowedTools,
 		resolveExternalPath: overrides?.resolveExternalPath ?? base.resolveExternalPath,
+		resolveVehicle: overrides?.resolveVehicle ?? base.resolveVehicle,
 		writableRoots: overrides?.writableRoots ?? base.writableRoots,
 		sessionDir: overrides?.sessionDir ?? base.sessionDir,
 		actorAddress: overrides?.actorAddress ?? base.actorAddress,

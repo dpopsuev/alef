@@ -14,6 +14,7 @@ export interface FoundryRuntimeOptions {
 	loggerFor?: MaterializerOptions["loggerFor"];
 	allowedTools?: MaterializerOptions["allowedTools"];
 	resolveExternalPath?: MaterializerOptions["resolveExternalPath"];
+	resolveVehicle?: MaterializerOptions["resolveVehicle"];
 	writableRoots?: MaterializerOptions["writableRoots"];
 	sessionDir?: MaterializerOptions["sessionDir"];
 	actorAddress?: string;
@@ -37,6 +38,7 @@ export interface FoundryMaterializeOptions {
 	loggerFor?: MaterializerOptions["loggerFor"];
 	allowedTools?: MaterializerOptions["allowedTools"];
 	resolveExternalPath?: MaterializerOptions["resolveExternalPath"];
+	resolveVehicle?: MaterializerOptions["resolveVehicle"];
 	writableRoots?: MaterializerOptions["writableRoots"];
 	sessionDir?: MaterializerOptions["sessionDir"];
 	actorAddress?: string;

@@ -1,5 +1,5 @@
-import { createAdapterCommandRouter } from "@dpopsuev/alef-kernel/adapter";
-import type { VehicleClient, VehicleInvocationOptions, VehicleManifest } from "@danypops/vehicle-core";
+import { createAdapterCommandRouter, toolInputToJsonSchema } from "@dpopsuev/alef-kernel/adapter";
+import { VehicleError, type VehicleClient, type VehicleInvocationOptions, type VehicleManifest } from "@danypops/vehicle-core";
 import { describe, expect, it, vi } from "vitest";
 import { createVehicleAdapter } from "../src/index.js";
 
@@ -55,6 +55,7 @@ const manifest: VehicleManifest = {
 describe("createVehicleAdapter", () => {
 	it("projects available granted operations and preserves invocation context", async () => {
 		let invocationOptions: VehicleInvocationOptions | undefined;
+		const close = vi.fn(async () => {});
 		const invoke = vi.fn(async (_name, _version, _input, options?: VehicleInvocationOptions) => {
 			invocationOptions = options;
 			options?.onProgress?.({ content: "working" });
@@ -71,7 +72,7 @@ describe("createVehicleAdapter", () => {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- The fake returns the output this test requests.
 				return (await invoke(_name, _version, _input, options)) as Output;
 			},
-			close: async () => {},
+			close,
 		};
 		const adapter = await createVehicleAdapter({ client, permissions: ["tasks:write"], maxOperations: 10 });
 		const router = createAdapterCommandRouter([adapter]);
@@ -90,6 +91,14 @@ describe("createVehicleAdapter", () => {
 			}),
 		).resolves.toMatchObject({ output: { taskId: "task-1" } });
 		expect(adapter.tools.map((tool) => tool.name)).toEqual(["tasks.create"]);
+		expect(toolInputToJsonSchema(adapter.tools[0]!.inputSchema)).toEqual(manifest.operations[0]!.inputSchema);
+		expect(toolInputToJsonSchema(adapter.tools[0]!.outputSchema!)).toEqual(manifest.operations[0]!.outputSchema);
+		expect(adapter.tools[0]).toMatchObject({
+			permissions: ["tasks:write"],
+			effect: "external",
+			streaming: true,
+			version: 1,
+		});
 		expect(invoke).toHaveBeenCalledWith("tasks.create", 1, { title: "Ship" }, expect.any(Object));
 		expect(invocationOptions).toMatchObject({
 			signal,
@@ -99,6 +108,12 @@ describe("createVehicleAdapter", () => {
 			operationId: "call-1",
 		});
 		expect(progress).toHaveBeenCalledWith({ content: "working" });
+		const startedAt = Date.now();
+		await router.executeByName("tasks.create", 1, { title: "Default deadline" }, { permissions: ["tasks:write"] });
+		expect(invocationOptions?.deadline).toBeGreaterThanOrEqual(startedAt + 1_000);
+		expect(invocationOptions?.deadline).toBeLessThanOrEqual(Date.now() + 1_000);
+		await adapter.close?.();
+		expect(close).toHaveBeenCalledOnce();
 	});
 
 	it("hides operations when the Workspace grant is insufficient", async () => {
@@ -112,5 +127,29 @@ describe("createVehicleAdapter", () => {
 		};
 		const adapter = await createVehicleAdapter({ client, permissions: [], maxOperations: 10 });
 		expect(adapter.tools).toEqual([]);
+	});
+
+	it("preserves structured Vehicle failures through Alef command errors", async () => {
+		const failure = new VehicleError("capacity-exhausted", "Capacity exhausted", {
+			category: "capacity",
+			retryable: true,
+			retryAfterMs: 250,
+		});
+		const client: VehicleClient = {
+			manifest: async () => manifest,
+			invoke: async () => {
+				throw failure;
+			},
+			close: async () => {},
+		};
+		const adapter = await createVehicleAdapter({ client, permissions: ["tasks:write"], maxOperations: 10 });
+		const router = createAdapterCommandRouter([adapter]);
+		try {
+			await router.executeByName("tasks.create", 1, { title: "Ship" }, { permissions: ["tasks:write"] });
+			expect.unreachable("Vehicle failure should reject the command");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "handler-failed", cause: failure, details: failure.toFailure() });
+			expect(error).toHaveProperty("message", "Capacity exhausted");
+		}
 	});
 });

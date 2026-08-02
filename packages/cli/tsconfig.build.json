@@ -68,6 +68,9 @@
 			"path": "../tools/meta/tsconfig.build.json"
 		},
 		{
+			"path": "../tools/packed/tsconfig.build.json"
+		},
+		{
 			"path": "../core/reasoner/tsconfig.build.json"
 		},
 		{

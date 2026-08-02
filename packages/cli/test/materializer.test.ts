@@ -7,7 +7,7 @@ import {
 	loadUserAdaptersConfig,
 	materializeBlueprint,
 } from "@dpopsuev/alef-blueprint/materializer";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const CWD = "/tmp/test-workspace";
 
@@ -38,6 +38,30 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.adapters).toHaveLength(0);
 		expect(result.modelId).toBeUndefined();
+	});
+
+	it("materializes declared Vehicles through the host resolver", async () => {
+		const def = compileAgentDefinition({
+			name: "vehicle-agent",
+			vehicles: [{ name: "tasks", maxOperations: 100, permissions: ["tasks:read"] }],
+		});
+		const resolveVehicle = vi.fn(async () => [
+			{
+				name: "vehicle:tasks",
+				tools: [],
+				sources: [],
+				subscriptions: { command: [], event: [], notification: [] },
+				mount: () => () => {},
+			},
+		]);
+		const result = await materializeBlueprint(def, { cwd: CWD, resolveVehicle });
+		expect(resolveVehicle).toHaveBeenCalledWith(def.vehicles[0], expect.objectContaining({ cwd: CWD }));
+		expect(result.adapters.map((adapter) => adapter.name)).toEqual(["vehicle:tasks"]);
+	});
+
+	it("fails closed when a declared Vehicle has no host resolver", async () => {
+		const def = compileAgentDefinition({ name: "vehicle-agent", vehicles: [{ name: "tasks", maxOperations: 100 }] });
+		await expect(materializeBlueprint(def, { cwd: CWD })).rejects.toThrow("Vehicle resolver");
 	});
 
 	it("instantiates FsAdapter for fs adapter", async () => {

@@ -21,6 +21,7 @@ import { resolveAdapterPath } from "../pkg/alef-pm.js";
 import type { Args } from "./args.js";
 import { resolveBlueprint } from "./blueprints.js";
 import type { AlefConfig } from "./config.js";
+import { createVehicleResolver } from "./vehicles.js";
 
 const require = createRequire(import.meta.url);
 
@@ -102,7 +103,9 @@ async function materializeResult(
 	log: Logger,
 	sessionDir: string | undefined,
 	writableRoots: readonly string[] | undefined,
-	extra: Pick<MaterializerOptions, "resolveService" | "discussion" | "sessionId"> & { actorAddress?: string },
+	extra: Pick<MaterializerOptions, "resolveService" | "resolveVehicle" | "discussion" | "sessionId"> & {
+		actorAddress?: string;
+	},
 ): Promise<AdapterLoadResult> {
 	const { result, artifact } = await materializeBlueprintArtifact(definition, {
 		cwd: args.cwd,
@@ -112,6 +115,7 @@ async function materializeResult(
 		writableRoots,
 		resolveExternalPath: resolveAdapterPath,
 		resolveService: extra.resolveService,
+		resolveVehicle: extra.resolveVehicle ?? createVehicleResolver(cfg),
 		actorAddress: extra.actorAddress,
 		discussion: extra.discussion,
 		sessionId: extra.sessionId,
@@ -135,7 +139,9 @@ export async function loadAdapters(
 	cfg: AlefConfig,
 	log: Logger,
 	sessionDir?: string,
-	extra: Pick<MaterializerOptions, "resolveService" | "discussion" | "sessionId"> & { actorAddress?: string } = {},
+	extra: Pick<MaterializerOptions, "resolveService" | "resolveVehicle" | "discussion" | "sessionId"> & {
+		actorAddress?: string;
+	} = {},
 ): Promise<AdapterLoadResult> {
 	const writableRoots = args.debug ? undefined : resolveWritableRoots(args.cwd, cfg);
 	let blueprintPath: string | undefined;

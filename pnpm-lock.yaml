@@ -109,6 +109,12 @@ importers:
 
   packages/cli:
     dependencies:
+      '@danypops/alef-packed':
+        specifier: workspace:*
+        version: link:../tools/packed
+      '@danypops/vehicle-client':
+        specifier: 0.5.0
+        version: 0.5.0
       '@dpopsuev/alef-agent':
         specifier: workspace:*
         version: link:../core/agent
@@ -1685,8 +1691,14 @@ packages:
   '@danypops/packed@0.6.0':
     resolution: {integrity: sha512-cQsUn5q1+MeLNWpNZ39G2TdCYupvoBPLYSPJQMjnaKwtn24LeUKKTUiDyRMqE0jza8jlFMocqYY8vL/kggKW0g==}
 
+  '@danypops/vehicle-client@0.5.0':
+    resolution: {integrity: sha512-z1r8+8AsMXW/KTLAQDPF2kCt5Bc23Bi4KFBOmUX4/xIRBsqcpUpyE7GYOUu5jfSqe46hcBWWmR4+cLNx9mVJIg==}
+
   '@danypops/vehicle-core@0.10.0':
     resolution: {integrity: sha512-nYvJ6pfVlSvylCG8V0JCbdm636G8FERGtaLwe7ByY9onxYXVUu7ANYHxk3yRgxnzTr2syrkfDWDOTIpYO3RM4g==}
+
+  '@danypops/vehicle-server@0.11.0':
+    resolution: {integrity: sha512-queeW7oAG+YW4ktB+Sm1xAd+NsGmbhQzoJNbDalBxJX+gRATOUTWZqnFFkSc75H0YLQfBUHNLAZv0traYoni2A==}
 
   '@dpopsuev/web-spider@0.10.5':
     resolution: {integrity: sha512-iOXjzFrIPWejvhOajiwyQFGvU2koeb95Hft/i03U9XJbRsWNoXDn46NIYSYZnUNDY+8lub/FTsqiuynoF4I0wA==}
@@ -6820,7 +6832,17 @@ snapshots:
 
   '@danypops/packed@0.6.0': {}
 
+  '@danypops/vehicle-client@0.5.0':
+    dependencies:
+      '@danypops/vehicle-core': 0.10.0
+      '@danypops/vehicle-server': 0.11.0
+
   '@danypops/vehicle-core@0.10.0': {}
+
+  '@danypops/vehicle-server@0.11.0':
+    dependencies:
+      '@danypops/vehicle-core': 0.10.0
+      pino: 10.3.1
 
   '@dpopsuev/web-spider@0.10.5(canvas@3.2.3)':
     dependencies:

@@ -16,10 +16,7 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			"import-x/no-cycle": ["error", {
-				maxDepth: 3,
-				ignoreExternal: true,
-			}],
+			"import-x/no-cycle": ["error", { ignoreExternal: true }],
 		},
 	},
 

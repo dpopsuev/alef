@@ -86,6 +86,9 @@
 			"path": "packages/tools/plan/tsconfig.build.json"
 		},
 		{
+			"path": "packages/tools/packed/tsconfig.build.json"
+		},
+		{
 			"path": "packages/tools/scribe/tsconfig.build.json"
 		},
 		{

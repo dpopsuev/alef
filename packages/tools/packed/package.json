@@ -1,0 +1,38 @@
+{
+  "name": "@danypops/alef-packed",
+  "version": "0.1.0",
+  "description": "Alef host projection for Packed Agent Tools locks",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "npx tsc -b tsconfig.build.json",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@danypops/packed": "0.6.0",
+    "@danypops/vehicle-core": "0.10.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": "^22.0.0"
+  }
+}

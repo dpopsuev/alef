@@ -363,11 +363,11 @@ function checkToolModuleExport(dir: string, name: string): void {
 // Main scan
 // ---------------------------------------------------------------------------
 
-const ORGAN_LINTER_EXCLUDE = new Set<string>();
+const ORGAN_LINTER_EXCLUDE = new Set(["packed"]);
 
 const adapterDirs = readdirSync(ADAPTERS_DIR, { withFileTypes: true })
-	.filter((e) => e.isDirectory() && true || ["fs","shell","git","web","code-intel","agent","workflow","plan","skills","discourse","enclosure","eval","factory","nodesh","locus","scribe","mcp-registry"].includes(e.name) && !ORGAN_LINTER_EXCLUDE.has(e.name))
-	.map((e) => ({ name: e.name, dir: join(ADAPTERS_DIR, e.name) }));
+	.filter((entry) => entry.isDirectory() && !ORGAN_LINTER_EXCLUDE.has(entry.name))
+	.map((entry) => ({ name: entry.name, dir: join(ADAPTERS_DIR, entry.name) }));
 
 console.log(`Scanning ${adapterDirs.length} adapter packages...\n`);
 

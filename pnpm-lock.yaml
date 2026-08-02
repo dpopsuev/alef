@@ -1209,6 +1209,9 @@ importers:
       '@danypops/vehicle-core':
         specifier: 0.10.0
         version: 0.10.0
+      '@dpopsuev/alef-kernel':
+        specifier: workspace:*
+        version: link:../../core/kernel
     devDependencies:
       vitest:
         specifier: ^4.1.6

@@ -101,13 +101,16 @@ function buildCommandBindings(
 		}),
 		bind() {
 			const cache = createMapCache();
-			return async ({ input, correlationId, toolCallId, reportProgress }) => {
+			return async ({ input, signal, deadline, correlationId, toolCallId, reportProgress }) => {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Command input schemas for adapter actions produce object payloads.
 				const payload = input as Record<string, unknown>;
 				const context = {
 					correlationId: correlationId ?? "",
 					toolCallId,
 					payload,
+					signal,
+					deadline,
+					reportProgress,
 					log: log.child({ ...(correlationId ? { correlationId } : {}), ...(toolCallId ? { toolCallId } : {}) }),
 				};
 				const cacheKey = makeCacheKey(name, payload);

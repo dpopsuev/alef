@@ -10,5 +10,10 @@
     "sourceMap": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "test/**"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "test/**"],
+  "references": [
+    {
+      "path": "../../core/kernel/tsconfig.build.json"
+    }
+  ]
 }

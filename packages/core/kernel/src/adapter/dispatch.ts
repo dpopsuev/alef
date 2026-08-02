@@ -79,6 +79,9 @@ function buildHandlerCtx(
 		correlationId: command.correlationId,
 		toolCallId,
 		payload,
+		signal: new AbortController().signal,
+		deadline: undefined,
+		reportProgress: () => {},
 		log: log.child({ correlationId: command.correlationId, ...(toolCallId ? { toolCallId } : {}) }),
 	};
 }

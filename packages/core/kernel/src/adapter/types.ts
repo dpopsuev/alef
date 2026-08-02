@@ -16,6 +16,9 @@ export interface CommandHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly correlationId: string;
 	readonly toolCallId: string | undefined;
 	readonly payload: TPayload;
+	readonly signal: AbortSignal;
+	readonly deadline: number | undefined;
+	readonly reportProgress: (progress: Record<string, unknown>) => void;
 	readonly log: AdapterLogger;
 }
 

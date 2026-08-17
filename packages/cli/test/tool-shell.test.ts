@@ -2,7 +2,7 @@
  * ToolShellAdapter unit tests — no PTY, no LLM, no filesystem.
  *
  * Pattern: Agent + BusEventRecorder. Publish command events, assert sense results.
- * Mirrors runtime/test/walking-skeleton.test.ts.
+ * Mirrors packages/core/engine/test/command-event-round-trip.test.ts.
  *
  * Covers:
  * createToolShellAdapter — construction, metaTools shape

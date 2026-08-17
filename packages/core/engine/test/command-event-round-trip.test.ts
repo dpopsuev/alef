@@ -1,5 +1,7 @@
 /**
- * Walking Skeleton — end-to-end proof of the bus / event architecture.
+ * End-to-end proof of the bus / event architecture: a command published all
+ * the way through to its resulting event, round-tripped through real and mock
+ * adapters together.
  *
  * Real adapters: TextMessageAdapter (adapter).
  * Mock adapters: MockReasoner (LlmAdapter, canned reply).
@@ -51,7 +53,7 @@ function make(canned?: string): Harness {
 // The proof
 // ---------------------------------------------------------------------------
 
-describe("Walking Skeleton", { tags: ["integration"] }, () => {
+describe("command/event round trip", { tags: ["integration"] }, () => {
 	it("controller.send() resolves with MockReasoner canned text", async () => {
 		const { agent: _agent, controller } = make("pong");
 		expect(await controller.send("ping")).toBe("pong");
